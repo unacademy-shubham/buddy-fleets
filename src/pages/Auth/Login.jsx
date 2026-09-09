@@ -1,17 +1,81 @@
 import React, { useState } from 'react';
+
 import {
   Link,
   useNavigate,
 } from 'react-router-dom';
+
 import { motion } from 'framer-motion';
+
 import { supabase } from '../../supabaseClient';
 
 /* =========================================================
-   COMMON INPUT
+   BUDDY FLEETS
+   LOGIN PAGE
+
+   Navbar + Footer:
+   AuthLayout.jsx handles them.
+
+   Login Security:
+
+   Company Code
+        +
+   Registered Email
+        +
+   Password
+        ↓
+   Supabase Auth
+        ↓
+   Platform Admin
+        OR
+   Company + Membership Verification
+        ↓
+   Authorized Dashboard Context
 ========================================================= */
 
-const inputBase =
-  'w-full rounded-xl border border-white/10 bg-[#101a2c]/85 px-3.5 py-2.5 text-xs text-white placeholder-slate-500 outline-none transition-all duration-300 focus:border-cyan-400/60 focus:bg-[#142139] focus:ring-4 focus:ring-cyan-400/10 disabled:cursor-not-allowed disabled:opacity-60 sm:rounded-2xl sm:px-4 sm:py-3 sm:text-sm';
+/* =========================================================
+   INPUT STYLES
+
+   Dedicated padding prevents:
+   # / @ / SHOW button overlap.
+========================================================= */
+
+const inputBase = `
+  w-full
+  rounded-xl
+  border
+  border-white/10
+  bg-[#101a2c]/85
+  py-2.5
+  text-xs
+  text-white
+  outline-none
+  transition-all
+  duration-300
+
+  placeholder:text-slate-600
+
+  focus:border-cyan-400/60
+  focus:bg-[#142139]
+  focus:ring-4
+  focus:ring-cyan-400/10
+
+  disabled:cursor-not-allowed
+  disabled:opacity-60
+
+  sm:rounded-2xl
+  sm:py-3
+  sm:text-sm
+`;
+
+const companyCodeInput =
+  `${inputBase} pl-11 pr-4 uppercase`;
+
+const emailInput =
+  `${inputBase} pl-11 pr-4`;
+
+const passwordInput =
+  `${inputBase} pl-4 pr-20`;
 
 /* =========================================================
    AMBIENT ORB
@@ -23,15 +87,30 @@ function AmbientOrb({
   return (
     <motion.div
       animate={{
-        scale: [1, 1.12, 1],
-        opacity: [0.2, 0.42, 0.2],
+        scale: [
+          1,
+          1.12,
+          1,
+        ],
+
+        opacity: [
+          0.2,
+          0.42,
+          0.2,
+        ],
       }}
       transition={{
         duration: 7,
         repeat: Infinity,
         ease: 'easeInOut',
       }}
-      className={`pointer-events-none absolute rounded-full blur-[110px] ${className}`}
+      className={`
+        pointer-events-none
+        absolute
+        rounded-full
+        blur-[110px]
+        ${className}
+      `}
     />
   );
 }
@@ -54,7 +133,13 @@ function LightTrail({
       }}
       animate={{
         x: '130vw',
-        opacity: [0, 0.35, 0.65, 0],
+
+        opacity: [
+          0,
+          0.35,
+          0.65,
+          0,
+        ],
       }}
       transition={{
         duration,
@@ -62,7 +147,18 @@ function LightTrail({
         repeat: Infinity,
         ease: 'linear',
       }}
-      className={`pointer-events-none absolute left-0 ${bottom} h-px ${width} bg-gradient-to-r from-transparent via-cyan-300/50 to-transparent`}
+      className={`
+        pointer-events-none
+        absolute
+        left-0
+        ${bottom}
+        h-px
+        ${width}
+        bg-gradient-to-r
+        from-transparent
+        via-cyan-300/50
+        to-transparent
+      `}
     />
   );
 }
@@ -136,7 +232,13 @@ function AnimatedTruck() {
       }}
       animate={{
         x: '120vw',
-        opacity: [0, 1, 1, 0],
+
+        opacity: [
+          0,
+          1,
+          1,
+          0,
+        ],
       }}
       transition={{
         duration: 22,
@@ -179,8 +281,15 @@ function RadarPulse() {
 
       <motion.div
         animate={{
-          scale: [0.7, 1.4],
-          opacity: [0.45, 0],
+          scale: [
+            0.7,
+            1.4,
+          ],
+
+          opacity: [
+            0.45,
+            0,
+          ],
         }}
         transition={{
           duration: 3,
@@ -192,8 +301,15 @@ function RadarPulse() {
 
       <motion.div
         animate={{
-          scale: [0.7, 1.4],
-          opacity: [0.3, 0],
+          scale: [
+            0.7,
+            1.4,
+          ],
+
+          opacity: [
+            0.3,
+            0,
+          ],
         }}
         transition={{
           duration: 3,
@@ -236,14 +352,20 @@ export default function Login({
   const navigate =
     useNavigate();
 
-  const [companyCode, setCompanyCode] =
-    useState('');
+  const [
+    companyCode,
+    setCompanyCode,
+  ] = useState('');
 
-  const [email, setEmail] =
-    useState('');
+  const [
+    email,
+    setEmail,
+  ] = useState('');
 
-  const [password, setPassword] =
-    useState('');
+  const [
+    password,
+    setPassword,
+  ] = useState('');
 
   const [
     showPassword,
@@ -263,8 +385,9 @@ export default function Login({
   /* =========================================================
      SAFE LOCAL SIGNOUT
 
-     Agar email/password correct ho lekin Company Code wrong
-     ho, authenticated Supabase session browser me nahi chhodni.
+     Email/password valid but company verification fail ho
+     jaye to Supabase authenticated session browser me
+     leave nahi karenge.
   ========================================================= */
 
   const clearAuthSession =
@@ -272,9 +395,12 @@ export default function Login({
 
       try {
 
-        await supabase.auth.signOut({
-          scope: 'local',
-        });
+        await supabase
+          .auth
+          .signOut({
+            scope:
+              'local',
+          });
 
       } catch (err) {
 
@@ -288,15 +414,19 @@ export default function Login({
     };
 
   /* =========================================================
-     LOGIN
+     LOGIN SUBMIT
   ========================================================= */
 
   const handleSubmit =
-    async (e) => {
+    async (
+      event
+    ) => {
 
-      e.preventDefault();
+      event.preventDefault();
 
-      if (isLoading) return;
+      if (isLoading) {
+        return;
+      }
 
       setErrorMessage('');
 
@@ -312,10 +442,11 @@ export default function Login({
 
       /*
         IMPORTANT:
-        Password ko trim nahi karenge.
 
-        Leading/trailing spaces actual password ka
-        valid part ho sakte hain.
+        Password ko trim NAHI karna.
+
+        Leading/trailing spaces password ka actual part
+        ho sakte hain.
       */
 
       const cleanPassword =
@@ -323,14 +454,15 @@ export default function Login({
 
       /* COMPANY CODE */
 
-      if (!cleanCompanyCode) {
+      if (
+        !cleanCompanyCode
+      ) {
 
         setErrorMessage(
           'Please enter your Company Code.'
         );
 
         return;
-
       }
 
       /* EMAIL */
@@ -349,22 +481,24 @@ export default function Login({
         );
 
         return;
-
       }
 
       /* PASSWORD */
 
-      if (!cleanPassword) {
+      if (
+        !cleanPassword
+      ) {
 
         setErrorMessage(
           'Please enter your password.'
         );
 
         return;
-
       }
 
-      setIsLoading(true);
+      setIsLoading(
+        true
+      );
 
       try {
 
@@ -372,21 +506,24 @@ export default function Login({
            STEP 1
            SUPABASE AUTH
 
-           Password validation ONLY Supabase Auth karega.
-           Custom DB table me password/hash read nahi hoga.
+           Password authentication ONLY Supabase Auth.
         ===================================================== */
 
         const {
-          data: authData,
-          error: authError,
+          data:
+            authData,
+          error:
+            authError,
         } =
-          await supabase.auth.signInWithPassword({
-            email:
-              cleanEmail,
+          await supabase
+            .auth
+            .signInWithPassword({
+              email:
+                cleanEmail,
 
-            password:
-              cleanPassword,
-          });
+              password:
+                cleanPassword,
+            });
 
         if (
           authError ||
@@ -404,16 +541,37 @@ export default function Login({
           authData.user;
 
         /* =====================================================
+           EMAIL MUST BE CONFIRMED
+        ===================================================== */
+
+        if (
+          !authUser
+            .email_confirmed_at
+        ) {
+
+          await clearAuthSession();
+
+          throw new Error(
+            'EMAIL_CONFIRMATION_REQUIRED'
+          );
+
+        }
+
+        /* =====================================================
            STEP 2
            PROFILE
         ===================================================== */
 
         const {
-          data: profile,
-          error: profileError,
+          data:
+            profile,
+          error:
+            profileError,
         } =
           await supabase
-            .from('profiles')
+            .from(
+              'profiles'
+            )
             .select(
               'id, full_name, email, mobile'
             )
@@ -423,7 +581,9 @@ export default function Login({
             )
             .maybeSingle();
 
-        if (profileError) {
+        if (
+          profileError
+        ) {
 
           console.error(
             'Profile read error:',
@@ -434,15 +594,12 @@ export default function Login({
 
         /* =====================================================
            STEP 3
-           PLATFORM SUPER ADMIN CHECK
-
-           NO hardcoded email/password.
-           Actual authorization:
-           public.platform_admins
+           PLATFORM SUPER ADMIN
         ===================================================== */
 
         const {
-          data: platformAdmin,
+          data:
+            platformAdmin,
           error:
             platformAdminError,
         } =
@@ -467,14 +624,6 @@ export default function Login({
           platformAdminError
         ) {
 
-          /*
-            Non-admin user ke liye RLS empty result
-            de sakta hai.
-
-            Unexpected DB error ko console me rakhenge,
-            user ko internal details nahi dikhayenge.
-          */
-
           console.error(
             'Platform admin check error:',
             platformAdminError
@@ -483,13 +632,15 @@ export default function Login({
         }
 
         /* =====================================================
-           SUPER ADMIN LOGIN
+           PLATFORM SUPER ADMIN LOGIN
 
-           Internal platform code = ADMIN.
+           Company Code:
+           ADMIN
 
-           ADMIN koi password/security secret nahi hai.
-           Real authentication Supabase email/password +
-           platform_admins table se ho rahi hai.
+           ADMIN itself is NOT authentication.
+
+           Actual authentication:
+           Supabase Auth + active platform_admins row.
         ===================================================== */
 
         if (
@@ -499,6 +650,7 @@ export default function Login({
 
           if (
             !platformAdmin
+              ?.is_active
           ) {
 
             await clearAuthSession();
@@ -520,8 +672,14 @@ export default function Login({
               authUser.email,
 
             name:
-              profile?.full_name ||
+              profile
+                ?.full_name ||
               authUser.email,
+
+            mobile:
+              profile
+                ?.mobile ||
+              null,
 
             role:
               'SUPER_ADMIN',
@@ -544,16 +702,34 @@ export default function Login({
             companyStatus:
               'active',
 
+            databaseCompanyStatus:
+              'active',
+
             accessScope:
               'platform',
 
             membershipId:
               null,
 
+            membershipStatus:
+              null,
+
             subscriptionStatus:
               null,
 
+            planId:
+              null,
+
+            trialStartAt:
+              null,
+
             trialEndAt:
+              null,
+
+            subscriptionStartAt:
+              null,
+
+            subscriptionEndAt:
               null,
           };
 
@@ -570,32 +746,50 @@ export default function Login({
             navigate(
               '/dashboard',
               {
-                replace: true,
+                replace:
+                  true,
               }
             );
 
           }
 
           return;
-
         }
 
         /* =====================================================
-           STEP 4
-           COMPANY LOOKUP BY ENTERED COMPANY CODE
+           IMPORTANT
 
-           RLS ensures authenticated user sirf apni
-           accessible company dekh sake.
+           Active platform admin ne normal Company Code enter
+           kiya hai to company-login flow hi chalega.
+
+           Super Admin privilege automatically company session
+           me carry nahi karenge.
+        ===================================================== */
+
+        /* =====================================================
+           STEP 4
+           COMPANY LOOKUP
         ===================================================== */
 
         const {
-          data: company,
-          error: companyError,
+          data:
+            company,
+          error:
+            companyError,
         } =
           await supabase
-            .from('companies')
+            .from(
+              'companies'
+            )
             .select(
-              'id, company_code, company_name, status, confirmed_at'
+              `
+                id,
+                company_code,
+                company_name,
+                status,
+                confirmed_at,
+                account_owner_user_id
+              `
             )
             .eq(
               'company_code',
@@ -618,16 +812,12 @@ export default function Login({
 
         /* =====================================================
            STEP 5
-           VERIFY ACTIVE MEMBERSHIP
-
-           Correct email/password hone se company access
-           automatically nahi milta.
-
-           User must belong to entered Company Code.
+           MEMBERSHIP
         ===================================================== */
 
         const {
-          data: membership,
+          data:
+            membership,
           error:
             membershipError,
         } =
@@ -636,7 +826,14 @@ export default function Login({
               'company_memberships'
             )
             .select(
-              'id, company_id, user_id, status, access_scope, joined_at'
+              `
+                id,
+                company_id,
+                user_id,
+                status,
+                access_scope,
+                joined_at
+              `
             )
             .eq(
               'company_id',
@@ -723,17 +920,6 @@ export default function Login({
 
         }
 
-        /*
-          Allowed login states:
-
-          trial_active
-          trial_expired
-          active
-
-          trial_expired ko restricted dashboard later
-          App/Dashboard logic handle karega.
-        */
-
         const allowedStatuses = [
           'trial_active',
           'trial_expired',
@@ -756,11 +942,12 @@ export default function Login({
 
         /* =====================================================
            STEP 6
-           SUBSCRIPTION INFORMATION
+           SUBSCRIPTION
         ===================================================== */
 
         const {
-          data: subscription,
+          data:
+            subscription,
           error:
             subscriptionError,
         } =
@@ -769,7 +956,14 @@ export default function Login({
               'subscriptions'
             )
             .select(
-              'status, plan_id, trial_start_at, trial_end_at, subscription_start_at, subscription_end_at'
+              `
+                status,
+                plan_id,
+                trial_start_at,
+                trial_end_at,
+                subscription_start_at,
+                subscription_end_at
+              `
             )
             .eq(
               'company_id',
@@ -789,11 +983,41 @@ export default function Login({
         }
 
         /* =====================================================
-           STEP 7
-           SUCCESS USER OBJECT
+           EFFECTIVE TRIAL STATUS
 
-           NO PASSWORD
-           NO PASSWORD HASH
+           DB scheduler later backend state update karega.
+
+           Frontend login ke time:
+           trial_end_at past hai to immediately expired
+           treat karenge.
+        ===================================================== */
+
+        let effectiveCompanyStatus =
+          company.status;
+
+        const trialEndAt =
+          subscription
+            ?.trial_end_at ||
+          null;
+
+        if (
+          company.status ===
+            'trial_active' &&
+          trialEndAt &&
+          new Date(
+            trialEndAt
+          ).getTime() <=
+            Date.now()
+        ) {
+
+          effectiveCompanyStatus =
+            'trial_expired';
+
+        }
+
+        /* =====================================================
+           STEP 7
+           AUTHORIZED COMPANY USER
         ===================================================== */
 
         const authenticatedUser = {
@@ -807,8 +1031,14 @@ export default function Login({
             authUser.email,
 
           name:
-            profile?.full_name ||
+            profile
+              ?.full_name ||
             authUser.email,
+
+          mobile:
+            profile
+              ?.mobile ||
+            null,
 
           role:
             'COMPANY_USER',
@@ -816,10 +1046,12 @@ export default function Login({
           userType:
             'company_user',
 
+          /*
+            Company login context is NOT platform context.
+          */
+
           isPlatformAdmin:
-            Boolean(
-              platformAdmin
-            ),
+            false,
 
           companyId:
             company.id,
@@ -831,6 +1063,9 @@ export default function Login({
             company.company_name,
 
           companyStatus:
+            effectiveCompanyStatus,
+
+          databaseCompanyStatus:
             company.status,
 
           confirmedAt:
@@ -845,28 +1080,36 @@ export default function Login({
           accessScope:
             membership.access_scope,
 
+          isAccountOwner:
+            company
+              .account_owner_user_id ===
+            authUser.id,
+
           subscriptionStatus:
-            subscription?.status ||
+            subscription
+              ?.status ||
             null,
 
           planId:
-            subscription?.plan_id ||
+            subscription
+              ?.plan_id ||
             null,
 
           trialStartAt:
-            subscription?.trial_start_at ||
+            subscription
+              ?.trial_start_at ||
             null,
 
-          trialEndAt:
-            subscription?.trial_end_at ||
-            null,
+          trialEndAt,
 
           subscriptionStartAt:
-            subscription?.subscription_start_at ||
+            subscription
+              ?.subscription_start_at ||
             null,
 
           subscriptionEndAt:
-            subscription?.subscription_end_at ||
+            subscription
+              ?.subscription_end_at ||
             null,
         };
 
@@ -883,7 +1126,8 @@ export default function Login({
           navigate(
             '/dashboard',
             {
-              replace: true,
+              replace:
+                true,
             }
           );
 
@@ -900,7 +1144,7 @@ export default function Login({
           err?.message;
 
         /* =====================================================
-           USER SAFE ERRORS
+           SAFE USER ERRORS
         ===================================================== */
 
         if (
@@ -944,8 +1188,8 @@ export default function Login({
         } else {
 
           /*
-            Wrong Company Code / Email / Password me exact
-            field reveal nahi karenge.
+            Wrong Company Code / Email / Password me
+            exact failed field reveal nahi karenge.
           */
 
           setErrorMessage(
@@ -956,7 +1200,9 @@ export default function Login({
 
       } finally {
 
-        setIsLoading(false);
+        setIsLoading(
+          false
+        );
 
       }
 
@@ -970,17 +1216,14 @@ export default function Login({
     <div
       className="
         relative
-        min-h-[100dvh]
+        min-h-full
         w-full
         overflow-x-hidden
         bg-[#050914]
-        font-sans
         text-white
 
-        lg:grid
-        lg:h-[100dvh]
+        lg:h-full
         lg:min-h-0
-        lg:grid-rows-[72px_minmax(0,1fr)_58px]
         lg:overflow-hidden
       "
     >
@@ -989,7 +1232,7 @@ export default function Login({
           BACKGROUND
       ===================================================== */}
 
-      <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
+      <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
 
         <img
           src="https://images.unsplash.com/photo-1519003722824-194d4455a60c?q=85&w=2400&auto=format&fit=crop"
@@ -1011,6 +1254,7 @@ export default function Login({
           style={{
             backgroundImage:
               'linear-gradient(rgba(56,189,248,0.7) 1px, transparent 1px), linear-gradient(90deg, rgba(56,189,248,0.7) 1px, transparent 1px)',
+
             backgroundSize:
               '55px 55px',
           }}
@@ -1027,272 +1271,152 @@ export default function Login({
       </div>
 
       {/* =====================================================
-          HEADER
+          DESKTOP EFFECTS
       ===================================================== */}
 
-      <header className="relative z-50 h-[110px] w-full shrink-0 sm:h-[104px] lg:h-[72px]">
+      <div className="pointer-events-none absolute inset-0 z-[1] hidden overflow-hidden lg:block">
 
-        {/* BRAND */}
+        <LightTrail
+          delay={0}
+          duration={8}
+          bottom="bottom-[12%]"
+          width="w-56"
+        />
 
-        <Link
-          to="/"
-          className="
-            group
-            absolute
-            left-4
-            top-4
-            z-20
-            flex
-            items-center
-            gap-2.5
+        <LightTrail
+          delay={2.5}
+          duration={9}
+          bottom="bottom-[18%]"
+          width="w-72"
+        />
 
-            sm:left-6
-            sm:top-5
-            sm:gap-3
+        <RadarPulse />
 
-            lg:left-10
-            lg:top-1/2
-            lg:-translate-y-1/2
-          "
-        >
+        <div className="absolute inset-x-0 bottom-0 h-20 overflow-hidden">
 
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-400/30 bg-gradient-to-br from-cyan-400 via-blue-500 to-violet-600 text-[10px] font-black text-white shadow-lg shadow-cyan-500/20 transition-transform duration-300 group-hover:scale-105 sm:h-11 sm:w-11 sm:text-xs">
-            BF
-          </div>
+          <div className="absolute inset-x-0 bottom-1 h-px bg-gradient-to-r from-transparent via-cyan-400/30 to-transparent" />
 
-          <div>
-
-            <div className="text-xs font-black tracking-tight text-white sm:text-sm">
-              Buddy Fleets
-            </div>
-
-            <div className="text-[7px] font-semibold uppercase tracking-[0.24em] text-slate-400 sm:text-[8px]">
-              Fleet Intelligence
-            </div>
-
-          </div>
-
-        </Link>
-
-        {/* TOP CENTER NAVBAR */}
-
-        <nav
-          className="
-            absolute
-            left-1/2
-            top-[66px]
-            z-10
-            flex
-            w-[calc(100%-24px)]
-            max-w-[430px]
-            -translate-x-1/2
-            items-center
-            justify-center
-            gap-2
-            rounded-full
-            border
-            border-white/10
-            bg-[#07101f]/90
-            px-2
-            py-2
-            shadow-2xl
-            backdrop-blur-2xl
-
-            sm:top-[62px]
-            sm:w-auto
-            sm:gap-4
-            sm:px-5
-            sm:py-2.5
-
-            md:gap-6
-            md:px-7
-
-            lg:top-1/2
-            lg:-translate-y-1/2
-          "
-        >
-
-          <Link
-            to="/"
-            className="whitespace-nowrap px-1 text-[9px] font-semibold text-slate-300 transition hover:text-cyan-300 sm:text-[10px] md:text-xs"
-          >
-            Home
-          </Link>
-
-          <Link
-            to="/features"
-            className="whitespace-nowrap px-1 text-[9px] font-semibold text-slate-300 transition hover:text-cyan-300 sm:text-[10px] md:text-xs"
-          >
-            Features
-          </Link>
-
-          <Link
-            to="/about"
-            className="whitespace-nowrap px-1 text-[9px] font-semibold text-slate-300 transition hover:text-cyan-300 sm:text-[10px] md:text-xs"
-          >
-            About Us
-          </Link>
-
-          <Link
-            to="/contact"
-            className="whitespace-nowrap px-1 text-[9px] font-semibold text-slate-300 transition hover:text-cyan-300 sm:text-[10px] md:text-xs"
-          >
-            Contact Us
-          </Link>
-
-        </nav>
-
-      </header>
-
-      {/* =====================================================
-          MAIN
-      ===================================================== */}
-
-      <main className="relative z-20 lg:min-h-0 lg:overflow-hidden">
-
-        {/* DESKTOP ANIMATIONS */}
-
-        <div className="pointer-events-none absolute inset-0 hidden overflow-hidden lg:block">
-
-          <LightTrail
-            delay={0}
-            duration={8}
-            bottom="bottom-[12%]"
-            width="w-56"
-          />
-
-          <LightTrail
-            delay={2.5}
-            duration={9}
-            bottom="bottom-[18%]"
-            width="w-72"
-          />
-
-          <RadarPulse />
-
-          <div className="absolute inset-x-0 bottom-0 h-20 overflow-hidden">
-
-            <div className="absolute inset-x-0 bottom-1 h-px bg-gradient-to-r from-transparent via-cyan-400/30 to-transparent" />
-
-            <AnimatedTruck />
-
-          </div>
+          <AnimatedTruck />
 
         </div>
 
+      </div>
+
+      {/* =====================================================
+          CONTENT
+      ===================================================== */}
+
+      <div
+        className="
+          relative
+          z-10
+          mx-auto
+          flex
+          w-full
+          max-w-[1280px]
+          flex-col
+          gap-7
+          px-4
+          py-7
+
+          sm:gap-9
+          sm:px-6
+          sm:py-9
+
+          lg:grid
+          lg:h-full
+          lg:grid-cols-[minmax(0,1fr)_430px]
+          lg:items-center
+          lg:gap-10
+          lg:px-10
+          lg:py-2
+
+          xl:grid-cols-[minmax(0,1fr)_448px]
+          xl:gap-16
+        "
+      >
+
         {/* =================================================
-            CONTENT
+            HERO
         ================================================= */}
 
-        <div
+        <motion.section
+          initial={{
+            opacity: 0,
+            x: -30,
+          }}
+          animate={{
+            opacity: 1,
+            x: 0,
+          }}
+          transition={{
+            duration: 0.8,
+          }}
           className="
             relative
-            z-10
             mx-auto
-            flex
             w-full
-            max-w-[1280px]
-            flex-col
-            gap-7
-            px-4
-            pb-8
-            pt-5
+            max-w-2xl
+            text-center
 
-            sm:gap-9
-            sm:px-6
-            sm:pb-10
-            sm:pt-7
-
-            lg:grid
-            lg:h-full
-            lg:grid-cols-[minmax(0,1fr)_430px]
-            lg:items-center
-            lg:gap-10
-            lg:px-10
-            lg:py-2
-
-            xl:grid-cols-[minmax(0,1fr)_448px]
-            xl:gap-16
+            lg:mx-0
+            lg:max-w-none
+            lg:text-left
           "
         >
 
-          {/* =================================================
-              HERO
-          ================================================= */}
+          {/* BADGE */}
 
-          <motion.section
-            initial={{
-              opacity: 0,
-              x: -30,
-            }}
-            animate={{
-              opacity: 1,
-              x: 0,
-            }}
-            transition={{
-              duration: 0.8,
-            }}
-            className="
-              relative
-              mx-auto
-              w-full
-              max-w-2xl
-              text-center
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/5 px-3.5 py-2 backdrop-blur-md sm:mb-5 sm:px-4">
 
-              lg:mx-0
-              lg:max-w-none
-              lg:text-left
-            "
-          >
+            <span className="relative flex h-2 w-2">
 
-            {/* BADGE */}
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-cyan-400 opacity-75" />
 
-            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/5 px-3.5 py-2 backdrop-blur-md sm:mb-5 sm:px-4">
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-cyan-400" />
 
-              <span className="relative flex h-2 w-2">
+            </span>
 
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-cyan-400 opacity-75" />
+            <span className="text-[8px] font-bold uppercase tracking-[0.18em] text-cyan-300 sm:text-[9px] xl:text-[10px]">
+              Secure Console Access
+            </span>
 
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-cyan-400" />
+          </div>
 
-              </span>
+          {/* HEADING */}
 
-              <span className="text-[8px] font-bold uppercase tracking-[0.18em] text-cyan-300 sm:text-[9px] xl:text-[10px]">
-                Secure Console Access
-              </span>
+          <h1 className="text-4xl font-black leading-[1.03] tracking-tight text-white sm:text-5xl lg:text-5xl xl:text-6xl">
 
-            </div>
+            Welcome back to
 
-            {/* HEADING */}
+            <span className="block bg-gradient-to-r from-cyan-300 via-blue-400 to-violet-400 bg-clip-text text-transparent">
+              command center.
+            </span>
 
-            <h1 className="text-4xl font-black leading-[1.03] tracking-tight text-white sm:text-5xl lg:text-5xl xl:text-6xl">
+          </h1>
 
-              Welcome back to
+          {/* DESCRIPTION */}
 
-              <span className="block bg-gradient-to-r from-cyan-300 via-blue-400 to-violet-400 bg-clip-text text-transparent">
-                command center.
-              </span>
+          <p className="mx-auto mt-4 max-w-lg text-xs leading-6 text-slate-400 sm:mt-5 sm:text-sm sm:leading-7 lg:mx-0 lg:max-w-md">
 
-            </h1>
+            Access your fleet operations, compliance,
+            workshops and financial information securely
+            through your company workspace.
 
-            {/* DESCRIPTION */}
+          </p>
 
-            <p className="mx-auto mt-4 max-w-lg text-xs leading-6 text-slate-400 sm:mt-5 sm:text-sm sm:leading-7 lg:mx-0 lg:max-w-md">
+          {/* POINTS */}
 
-              Access your fleet operations, tracking, compliance, workshops and financial reports securely.
+          <div className="mx-auto mt-5 flex max-w-md flex-col items-start gap-2.5 sm:mt-6 lg:mx-0 lg:mt-7">
 
-            </p>
-
-            {/* POINTS */}
-
-            <div className="mx-auto mt-5 flex max-w-md flex-col items-start gap-2.5 sm:mt-6 lg:mx-0 lg:mt-7">
-
-              {[
-                'Company-specific secure access',
-                'Role & site based permissions',
-                'Protected fleet operations',
-              ].map((item) => (
-
+            {[
+              'Company-specific secure access',
+              'Role & site based permissions',
+              'Protected fleet operations',
+            ].map(
+              (
+                item
+              ) => (
                 <div
                   key={item}
                   className="flex items-center gap-3 text-left text-[10px] font-medium text-slate-300 sm:text-xs"
@@ -1305,435 +1429,510 @@ export default function Login({
                   {item}
 
                 </div>
+              )
+            )}
 
-              ))}
+          </div>
 
-            </div>
+        </motion.section>
 
-          </motion.section>
+        {/* =================================================
+            MOBILE / TABLET TRUCK
+        ================================================= */}
 
-          {/* MOBILE/TABLET TRUCK */}
+        <MobileTruckScene />
 
-          <MobileTruckScene />
+        {/* =================================================
+            LOGIN CARD
+        ================================================= */}
 
-          {/* =================================================
-              LOGIN CARD
-          ================================================= */}
+        <motion.section
+          initial={{
+            opacity: 0,
+            y: 20,
+            scale: 0.98,
+          }}
+          animate={{
+            opacity: 1,
+            y: 0,
+            scale: 1,
+          }}
+          transition={{
+            duration: 0.7,
+            ease: 'easeOut',
+          }}
+          className="relative mx-auto w-full max-w-[448px] lg:mx-0 lg:max-w-[430px] lg:justify-self-end xl:max-w-[448px]"
+        >
 
-          <motion.section
-            initial={{
-              opacity: 0,
-              y: 20,
-              scale: 0.98,
-            }}
-            animate={{
-              opacity: 1,
-              y: 0,
-              scale: 1,
-            }}
-            transition={{
-              duration: 0.7,
-              ease: 'easeOut',
-            }}
-            className="relative mx-auto w-full max-w-[448px] lg:mx-0 lg:max-w-[430px] lg:justify-self-end xl:max-w-[448px]"
-          >
+          {/* GLOW */}
 
-            {/* GLOW */}
+          <div className="absolute -inset-[1px] rounded-[26px] bg-gradient-to-br from-cyan-400/30 via-blue-500/10 to-violet-500/30 blur-xl sm:rounded-[30px]" />
 
-            <div className="absolute -inset-[1px] rounded-[26px] bg-gradient-to-br from-cyan-400/30 via-blue-500/10 to-violet-500/30 blur-xl sm:rounded-[30px]" />
+          {/* CARD */}
 
-            {/* CARD */}
+          <div className="relative overflow-hidden rounded-[26px] border border-white/10 bg-[#07101f]/95 shadow-2xl shadow-black/60 backdrop-blur-2xl sm:rounded-[30px]">
 
-            <div className="relative overflow-hidden rounded-[26px] border border-white/10 bg-[#07101f]/95 shadow-2xl shadow-black/60 backdrop-blur-2xl sm:rounded-[30px]">
+            {/* TOP EDGE */}
 
-              <div className="absolute left-0 right-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-400 to-transparent" />
+            <div className="absolute left-0 right-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-400 to-transparent" />
 
-              <div className="pointer-events-none absolute -right-28 -top-28 h-56 w-56 rounded-full bg-cyan-500/10 blur-[80px]" />
+            {/* CARD GLOWS */}
 
-              <div className="pointer-events-none absolute -bottom-28 -left-28 h-56 w-56 rounded-full bg-violet-600/10 blur-[80px]" />
+            <div className="pointer-events-none absolute -right-28 -top-28 h-56 w-56 rounded-full bg-cyan-500/10 blur-[80px]" />
 
-              <div className="relative p-4 sm:p-6 lg:p-5 xl:p-6">
+            <div className="pointer-events-none absolute -bottom-28 -left-28 h-56 w-56 rounded-full bg-violet-600/10 blur-[80px]" />
 
-                {/* HEADER */}
+            <div className="relative p-4 sm:p-6 lg:p-5 xl:p-6">
 
-                <div className="mb-4">
+              {/* HEADER */}
 
-                  <div className="mb-2 flex items-center gap-1.5">
+              <div className="mb-4">
 
-                    <span className="h-1.5 w-8 rounded-full bg-cyan-400" />
+                <div className="mb-2 flex items-center gap-1.5">
 
-                    <span className="h-1.5 w-3 rounded-full bg-blue-500" />
+                  <span className="h-1.5 w-8 rounded-full bg-cyan-400" />
 
-                    <span className="h-1.5 w-2 rounded-full bg-violet-500" />
+                  <span className="h-1.5 w-3 rounded-full bg-blue-500" />
 
-                  </div>
-
-                  <h2 className="text-xl font-black tracking-tight text-white sm:text-2xl lg:text-xl xl:text-2xl">
-                    Log in to console
-                  </h2>
-
-                  <p className="mt-1 text-[10px] leading-4 text-slate-400 sm:text-[11px]">
-                    Enter your Company Code and registered credentials.
-                  </p>
+                  <span className="h-1.5 w-2 rounded-full bg-violet-500" />
 
                 </div>
 
-                {/* ERROR */}
+                <h2 className="text-xl font-black tracking-tight text-white sm:text-2xl lg:text-xl xl:text-2xl">
+                  Log in to console
+                </h2>
 
-                {errorMessage && (
+                <p className="mt-1 text-[10px] leading-4 text-slate-400 sm:text-[11px]">
+                  Enter your Company Code and registered credentials.
+                </p>
 
-                  <motion.div
-                    initial={{
-                      opacity: 0,
-                      y: -5,
-                    }}
-                    animate={{
-                      opacity: 1,
-                      y: 0,
-                    }}
-                    className="mb-3 rounded-xl border border-red-400/20 bg-red-400/[0.06] px-3 py-2.5"
-                    role="alert"
-                  >
+              </div>
 
-                    <div className="flex items-start gap-2">
+              {/* ERROR */}
 
-                      <span className="mt-[1px] flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-red-400/10 text-[9px] font-black text-red-400">
-                        !
-                      </span>
+              {errorMessage && (
 
-                      <p className="text-[9px] leading-4 text-red-300 sm:text-[10px]">
-                        {errorMessage}
-                      </p>
-
-                    </div>
-
-                  </motion.div>
-
-                )}
-
-                {/* FORM */}
-
-                <form
-                  onSubmit={handleSubmit}
-                  noValidate
-                  className="space-y-3"
+                <motion.div
+                  initial={{
+                    opacity: 0,
+                    y: -5,
+                  }}
+                  animate={{
+                    opacity: 1,
+                    y: 0,
+                  }}
+                  className="mb-3 rounded-xl border border-red-400/20 bg-red-400/[0.06] px-3 py-2.5"
+                  role="alert"
                 >
 
-                  {/* COMPANY CODE */}
+                  <div className="flex items-start gap-2">
 
-                  <div>
-
-                    <label
-                      htmlFor="companyCode"
-                      className="mb-1 block text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400"
-                    >
-                      Company Code
-                    </label>
-
-                    <div className="relative">
-
-                      <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-cyan-400/60">
-                        #
-                      </span>
-
-                      <input
-                        id="companyCode"
-                        type="text"
-                        required
-                        disabled={isLoading}
-                        autoComplete="organization"
-                        autoCapitalize="characters"
-                        spellCheck={false}
-                        placeholder="e.g. BUDDY001"
-                        value={companyCode}
-                        onChange={(e) => {
-
-                          setCompanyCode(
-                            e.target.value
-                          );
-
-                          setErrorMessage('');
-
-                        }}
-                        className={`${inputBase} pl-8 uppercase`}
-                      />
-
-                    </div>
-
-                  </div>
-
-                  {/* EMAIL */}
-
-                  <div>
-
-                    <label
-                      htmlFor="email"
-                      className="mb-1 block text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400"
-                    >
-                      Registered Email
-                    </label>
-
-                    <div className="relative">
-
-                      <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-cyan-400/60">
-                        @
-                      </span>
-
-                      <input
-                        id="email"
-                        type="email"
-                        required
-                        disabled={isLoading}
-                        autoComplete="username"
-                        autoCapitalize="none"
-                        spellCheck={false}
-                        placeholder="name@company.com"
-                        value={email}
-                        onChange={(e) => {
-
-                          setEmail(
-                            e.target.value
-                          );
-
-                          setErrorMessage('');
-
-                        }}
-                        className={`${inputBase} pl-8`}
-                      />
-
-                    </div>
-
-                  </div>
-
-                  {/* PASSWORD */}
-
-                  <div>
-
-                    <label
-                      htmlFor="password"
-                      className="mb-1 block text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400"
-                    >
-                      Password
-                    </label>
-
-                    <div className="relative">
-
-                      <input
-                        id="password"
-                        type={
-                          showPassword
-                            ? 'text'
-                            : 'password'
-                        }
-                        required
-                        disabled={isLoading}
-                        autoComplete="current-password"
-                        placeholder="Enter your password"
-                        value={password}
-                        onChange={(e) => {
-
-                          setPassword(
-                            e.target.value
-                          );
-
-                          setErrorMessage('');
-
-                        }}
-                        className={`${inputBase} pr-16`}
-                      />
-
-                      <button
-                        type="button"
-                        disabled={isLoading}
-                        onClick={() =>
-                          setShowPassword(
-                            (prev) => !prev
-                          )
-                        }
-                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md px-2 py-1 text-[9px] font-bold text-slate-500 transition hover:bg-white/5 hover:text-cyan-300 focus:outline-none focus:ring-2 focus:ring-cyan-400/20 disabled:opacity-50"
-                        aria-label={
-                          showPassword
-                            ? 'Hide password'
-                            : 'Show password'
-                        }
-                      >
-                        {showPassword
-                          ? 'HIDE'
-                          : 'SHOW'}
-                      </button>
-
-                    </div>
-
-                    {/* FORGOT PASSWORD */}
-
-                    <div className="mt-2 text-right">
-
-                      <Link
-                        to="/forgot-id"
-                        className="rounded text-[9px] font-bold text-cyan-400 transition hover:text-cyan-300 hover:underline focus:outline-none focus:ring-2 focus:ring-cyan-400/20 sm:text-[10px]"
-                      >
-                        Forgot Password?
-                      </Link>
-
-                    </div>
-
-                  </div>
-
-                  {/* LOGIN */}
-
-                  <motion.button
-                    whileHover={
-                      !isLoading
-                        ? { y: -1 }
-                        : {}
-                    }
-                    whileTap={
-                      !isLoading
-                        ? { scale: 0.99 }
-                        : {}
-                    }
-                    type="submit"
-                    disabled={isLoading}
-                    className="group relative w-full overflow-hidden rounded-xl bg-gradient-to-r from-cyan-400 via-blue-500 to-violet-600 px-4 py-3 text-xs font-black text-white shadow-xl shadow-blue-600/20 transition-all duration-300 hover:shadow-cyan-500/20 focus:outline-none focus:ring-4 focus:ring-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-60 sm:rounded-2xl sm:py-3.5 sm:text-sm lg:py-3 lg:text-xs"
-                  >
-
-                    <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
-
-                    <span className="relative flex items-center justify-center gap-2">
-
-                      {isLoading ? (
-
-                        <>
-
-                          <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-
-                          <span>
-                            Verifying Access...
-                          </span>
-
-                        </>
-
-                      ) : (
-
-                        <>
-
-                          <span>
-                            Login
-                          </span>
-
-                          <span className="text-base">
-                            →
-                          </span>
-
-                        </>
-
-                      )}
-
+                    <span className="mt-[1px] flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-red-400/10 text-[9px] font-black text-red-400">
+                      !
                     </span>
 
-                  </motion.button>
+                    <p className="text-[9px] leading-4 text-red-300 sm:text-[10px]">
+                      {errorMessage}
+                    </p>
 
-                </form>
+                  </div>
 
-                {/* SIGNUP */}
+                </motion.div>
 
-                <div className="mt-4 border-t border-white/[0.07] pt-3 text-center">
+              )}
 
-                  <p className="text-[9px] text-slate-500 sm:text-[10px]">
+              {/* =================================================
+                  FORM
+              ================================================= */}
 
-                    New to Buddy Fleets?{' '}
+              <form
+                onSubmit={
+                  handleSubmit
+                }
+                noValidate
+                className="space-y-3"
+              >
+
+                {/* =============================================
+                    COMPANY CODE
+                ============================================= */}
+
+                <div>
+
+                  <label
+                    htmlFor="companyCode"
+                    className="mb-1 block text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400"
+                  >
+                    Company Code
+                  </label>
+
+                  <div className="relative">
+
+                    <span
+                      aria-hidden="true"
+                      className="
+                        pointer-events-none
+                        absolute
+                        left-4
+                        top-1/2
+                        z-10
+                        -translate-y-1/2
+                        text-[11px]
+                        font-black
+                        text-cyan-400/70
+                      "
+                    >
+                      #
+                    </span>
+
+                    <input
+                      id="companyCode"
+                      type="text"
+                      required
+                      disabled={
+                        isLoading
+                      }
+                      autoComplete="organization"
+                      autoCapitalize="characters"
+                      spellCheck={false}
+                      placeholder="BUDDY001"
+                      value={
+                        companyCode
+                      }
+                      onChange={(
+                        event
+                      ) => {
+
+                        setCompanyCode(
+                          event.target.value
+                        );
+
+                        setErrorMessage('');
+
+                      }}
+                      className={
+                        companyCodeInput
+                      }
+                    />
+
+                  </div>
+
+                </div>
+
+                {/* =============================================
+                    EMAIL
+                ============================================= */}
+
+                <div>
+
+                  <label
+                    htmlFor="email"
+                    className="mb-1 block text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400"
+                  >
+                    Registered Email
+                  </label>
+
+                  <div className="relative">
+
+                    <span
+                      aria-hidden="true"
+                      className="
+                        pointer-events-none
+                        absolute
+                        left-4
+                        top-1/2
+                        z-10
+                        -translate-y-1/2
+                        text-[11px]
+                        font-black
+                        text-cyan-400/70
+                      "
+                    >
+                      @
+                    </span>
+
+                    <input
+                      id="email"
+                      type="email"
+                      required
+                      disabled={
+                        isLoading
+                      }
+                      autoComplete="username"
+                      autoCapitalize="none"
+                      spellCheck={false}
+                      placeholder="name@company.com"
+                      value={
+                        email
+                      }
+                      onChange={(
+                        event
+                      ) => {
+
+                        setEmail(
+                          event.target.value
+                        );
+
+                        setErrorMessage('');
+
+                      }}
+                      className={
+                        emailInput
+                      }
+                    />
+
+                  </div>
+
+                </div>
+
+                {/* =============================================
+                    PASSWORD
+                ============================================= */}
+
+                <div>
+
+                  <label
+                    htmlFor="password"
+                    className="mb-1 block text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400"
+                  >
+                    Password
+                  </label>
+
+                  <div className="relative">
+
+                    <input
+                      id="password"
+                      type={
+                        showPassword
+                          ? 'text'
+                          : 'password'
+                      }
+                      required
+                      disabled={
+                        isLoading
+                      }
+                      autoComplete="current-password"
+                      placeholder="Enter your password"
+                      value={
+                        password
+                      }
+                      onChange={(
+                        event
+                      ) => {
+
+                        setPassword(
+                          event.target.value
+                        );
+
+                        setErrorMessage('');
+
+                      }}
+                      className={
+                        passwordInput
+                      }
+                    />
+
+                    <button
+                      type="button"
+                      disabled={
+                        isLoading
+                      }
+                      onClick={() =>
+                        setShowPassword(
+                          (
+                            previous
+                          ) =>
+                            !previous
+                        )
+                      }
+                      className="
+                        absolute
+                        right-2.5
+                        top-1/2
+                        -translate-y-1/2
+                        rounded-lg
+                        px-2.5
+                        py-1.5
+                        text-[9px]
+                        font-bold
+                        text-slate-500
+                        transition
+
+                        hover:bg-white/5
+                        hover:text-cyan-300
+
+                        focus:outline-none
+                        focus:ring-2
+                        focus:ring-cyan-400/20
+
+                        disabled:opacity-50
+                      "
+                      aria-label={
+                        showPassword
+                          ? 'Hide password'
+                          : 'Show password'
+                      }
+                    >
+                      {showPassword
+                        ? 'HIDE'
+                        : 'SHOW'}
+                    </button>
+
+                  </div>
+
+                  {/* FORGOT PASSWORD */}
+
+                  <div className="mt-2 text-right">
 
                     <Link
-                      to="/signup"
-                      className="font-bold text-cyan-300 transition hover:text-cyan-200 hover:underline"
+                      to="/forgot-password"
+                      className="rounded text-[9px] font-bold text-cyan-400 transition hover:text-cyan-300 hover:underline focus:outline-none focus:ring-2 focus:ring-cyan-400/20 sm:text-[10px]"
                     >
-                      Start your 5-day free trial
+                      Forgot Password?
                     </Link>
 
-                  </p>
+                  </div>
 
                 </div>
 
-                {/* SECURITY */}
+                {/* =============================================
+                    LOGIN BUTTON
+                ============================================= */}
 
-                <div className="mt-3 flex items-center justify-center gap-2">
+                <motion.button
+                  whileHover={
+                    !isLoading
+                      ? {
+                          y: -1,
+                        }
+                      : {}
+                  }
+                  whileTap={
+                    !isLoading
+                      ? {
+                          scale:
+                            0.99,
+                        }
+                      : {}
+                  }
+                  type="submit"
+                  disabled={
+                    isLoading
+                  }
+                  className="
+                    group
+                    relative
+                    w-full
+                    overflow-hidden
+                    rounded-xl
+                    bg-gradient-to-r
+                    from-cyan-400
+                    via-blue-500
+                    to-violet-600
+                    px-4
+                    py-3
+                    text-xs
+                    font-black
+                    text-white
+                    shadow-xl
+                    shadow-blue-600/20
+                    transition-all
+                    duration-300
 
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+                    hover:shadow-cyan-500/20
 
-                  <span className="text-[8px] font-semibold uppercase tracking-[0.16em] text-slate-600">
-                    Supabase Secure Authentication
+                    focus:outline-none
+                    focus:ring-4
+                    focus:ring-cyan-400/20
+
+                    disabled:cursor-not-allowed
+                    disabled:opacity-60
+
+                    sm:rounded-2xl
+                    sm:py-3.5
+                    sm:text-sm
+
+                    lg:py-3
+                    lg:text-xs
+                  "
+                >
+
+                  <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
+
+                  <span className="relative flex items-center justify-center gap-2">
+
+                    {isLoading ? (
+                      <>
+
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+
+                        <span>
+                          Verifying Access...
+                        </span>
+
+                      </>
+                    ) : (
+                      <>
+
+                        <span>
+                          Login
+                        </span>
+
+                        <span className="text-base">
+                          →
+                        </span>
+
+                      </>
+                    )}
+
                   </span>
 
-                </div>
+                </motion.button>
+
+              </form>
+
+              {/* =================================================
+                  SIGNUP
+              ================================================= */}
+
+              <div className="mt-4 border-t border-white/[0.07] pt-3 text-center">
+
+                <p className="text-[9px] text-slate-500 sm:text-[10px]">
+
+                  New to Buddy Fleets?{' '}
+
+                  <Link
+                    to="/signup"
+                    className="font-bold text-cyan-300 transition hover:text-cyan-200 hover:underline"
+                  >
+                    Start your 5-day free trial
+                  </Link>
+
+                </p>
+
+              </div>
+
+              {/* =================================================
+                  SECURITY
+              ================================================= */}
+
+              <div className="mt-3 flex items-center justify-center gap-2">
+
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+
+                <span className="text-[8px] font-semibold uppercase tracking-[0.16em] text-slate-600">
+                  Supabase Secure Authentication
+                </span>
 
               </div>
 
             </div>
 
-          </motion.section>
+          </div>
 
-        </div>
+        </motion.section>
 
-      </main>
-
-      {/* =====================================================
-          FOOTER
-      ===================================================== */}
-
-      <footer
-        className="
-          relative
-          z-40
-          mt-2
-          flex
-          min-h-[64px]
-          flex-col
-          items-center
-          justify-center
-          border-t
-          border-white/[0.05]
-          bg-[#030712]/95
-          px-4
-          py-3
-          text-center
-          backdrop-blur-xl
-
-          sm:min-h-[70px]
-
-          lg:mt-0
-          lg:min-h-[58px]
-          lg:py-2
-        "
-      >
-
-        <p className="text-[9px] font-medium tracking-wide text-slate-400 sm:text-[10px]">
-
-          Copyright by{' '}
-
-          <span className="font-bold text-white">
-            BUDDY COMPUTERS
-          </span>
-
-          . All rights reserved.
-
-        </p>
-
-        <p className="mt-1.5 text-[8px] font-semibold uppercase tracking-[0.18em] text-slate-400 sm:text-[9px] sm:tracking-[0.22em]">
-
-          DESIGNED BY{' '}
-
-          <a
-            href="https://www.instagram.com/happiest_banda"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-purple-400 underline decoration-purple-400 underline-offset-2 transition duration-300 hover:text-purple-300 hover:drop-shadow-[0_0_8px_rgba(192,132,252,0.8)]"
-          >
-            SHUBHAM JANGIR
-          </a>
-
-        </p>
-
-      </footer>
+      </div>
 
     </div>
   );

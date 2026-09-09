@@ -16,10 +16,15 @@ import {
 import { supabase } from './supabaseClient';
 
 /* =========================================================
-   WEBSITE
+   LAYOUTS
 ========================================================= */
 
 import WebsiteLayout from './layouts/WebsiteLayout';
+import AuthLayout from './layouts/AuthLayout';
+
+/* =========================================================
+   WEBSITE
+========================================================= */
 
 import Home from './pages/Website/Home';
 import Features from './pages/Website/Features';
@@ -47,15 +52,19 @@ import SuperAdminDashboard from './pages/Dashboard/SuperAdminDashboard';
    STORAGE KEYS
 
    IMPORTANT:
-   Supabase session hi authentication authority hai.
 
-   LocalStorage me:
-   - password nahi
-   - access token manually nahi
-   - complete currentUser object nahi
+   Supabase Auth = authentication authority.
+
+   localStorage me kabhi:
+   - password
+   - password hash
+   - manually managed access token
+   - complete currentUser object
+
+   store nahi karenge.
 
    Sirf:
-   - selected company context
+   - active company context
    - inactivity timestamp
    - UI active tab
 ========================================================= */
@@ -77,7 +86,10 @@ const ACTIVE_TAB_KEY =
 const INACTIVITY_TIMEOUT_MS =
   30 * 60 * 1000;
 
-/* Activity events ko throttle karenge */
+/*
+  Mouse movement etc. frequently fire hote hain,
+  isliye activity writes throttle karenge.
+*/
 
 const ACTIVITY_THROTTLE_MS =
   15 * 1000;
@@ -87,8 +99,9 @@ const ACTIVITY_THROTTLE_MS =
 ========================================================= */
 
 function ScrollToTop() {
-  const { pathname } =
-    useLocation();
+  const {
+    pathname,
+  } = useLocation();
 
   useEffect(() => {
     window.scrollTo({
@@ -96,7 +109,9 @@ function ScrollToTop() {
       left: 0,
       behavior: 'instant',
     });
-  }, [pathname]);
+  }, [
+    pathname,
+  ]);
 
   return null;
 }
@@ -104,10 +119,11 @@ function ScrollToTop() {
 /* =========================================================
    LEGACY CONFIRMATION REDIRECT
 
-   Agar Supabase me purana redirect:
+   Agar Supabase me old URL:
+
    /auth/confirmation
 
-   kahin saved reh gaya ho to URL query/hash preserve karke
+   kahin configured reh gaya ho, query/hash preserve karke
    /confirm par redirect karega.
 ========================================================= */
 
@@ -149,6 +165,7 @@ function getStoredCompanyContext() {
     }
 
     return parsed;
+
   } catch {
     return null;
   }
@@ -179,367 +196,13 @@ function saveCompanyContext(user) {
 }
 
 /* =========================================================
-   BUILD AUTHENTICATED APP USER
-
-   Ye function password ko kabhi touch nahi karta.
-
-   Supabase Auth user
-            ↓
-   platform_admins
-        OR
-   selected company membership
-            ↓
-   companies
-            ↓
-   subscription
+   BUILD PLATFORM ADMIN CONTEXT
 ========================================================= */
 
-async function buildUserContext(
+function createPlatformAdminContext({
   authUser,
-  preferredCompanyId = null
-) {
-  if (!authUser?.id) {
-    return null;
-  }
-
-  /* ---------------------------------------------------------
-     EMAIL MUST BE CONFIRMED
-  --------------------------------------------------------- */
-
-  if (!authUser.email_confirmed_at) {
-    return null;
-  }
-
-  /* ---------------------------------------------------------
-     PROFILE
-  --------------------------------------------------------- */
-
-  const {
-    data: profile,
-    error: profileError,
-  } = await supabase
-    .from('profiles')
-    .select(
-      'id, full_name, email, mobile'
-    )
-    .eq(
-      'id',
-      authUser.id
-    )
-    .maybeSingle();
-
-  if (profileError) {
-    console.error(
-      'Profile context error:',
-      profileError
-    );
-  }
-
-  /* ---------------------------------------------------------
-     PLATFORM SUPER ADMIN
-
-     No hardcoded credentials.
-     Authorization = platform_admins table.
-  --------------------------------------------------------- */
-
-  const {
-    data: platformAdmin,
-    error: platformAdminError,
-  } = await supabase
-    .from('platform_admins')
-    .select(
-      'user_id, is_active'
-    )
-    .eq(
-      'user_id',
-      authUser.id
-    )
-    .eq(
-      'is_active',
-      true
-    )
-    .maybeSingle();
-
-  if (platformAdminError) {
-    console.error(
-      'Platform admin context error:',
-      platformAdminError
-    );
-  }
-
-  if (
-    platformAdmin?.is_active
-  ) {
-    return {
-      id:
-        authUser.id,
-
-      username:
-        authUser.email,
-
-      email:
-        authUser.email,
-
-      name:
-        profile?.full_name ||
-        authUser.email,
-
-      mobile:
-        profile?.mobile ||
-        null,
-
-      userType:
-        'platform_admin',
-
-      role:
-        'SUPER_ADMIN',
-
-      isPlatformAdmin:
-        true,
-
-      companyId:
-        null,
-
-      companyCode:
-        'ADMIN',
-
-      companyName:
-        'Buddy Fleets',
-
-      companyStatus:
-        'active',
-
-      databaseCompanyStatus:
-        'active',
-
-      membershipId:
-        null,
-
-      membershipStatus:
-        null,
-
-      accessScope:
-        'platform',
-
-      isAccountOwner:
-        false,
-
-      subscriptionStatus:
-        null,
-
-      planId:
-        null,
-
-      trialStartAt:
-        null,
-
-      trialEndAt:
-        null,
-    };
-  }
-
-  /* ---------------------------------------------------------
-     COMPANY USER
-
-     Company context required.
-
-     IMPORTANT:
-     Supabase session alone company dashboard access ke liye
-     enough nahi hai.
-
-     Selected company successful Login.jsx verification ke
-     baad save hoti hai.
-  --------------------------------------------------------- */
-
-  if (!preferredCompanyId) {
-    return null;
-  }
-
-  /* ---------------------------------------------------------
-     MEMBERSHIP
-  --------------------------------------------------------- */
-
-  const {
-    data: membership,
-    error: membershipError,
-  } = await supabase
-    .from(
-      'company_memberships'
-    )
-    .select(
-      'id, company_id, user_id, status, access_scope, joined_at'
-    )
-    .eq(
-      'company_id',
-      preferredCompanyId
-    )
-    .eq(
-      'user_id',
-      authUser.id
-    )
-    .maybeSingle();
-
-  if (
-    membershipError ||
-    !membership
-  ) {
-    if (membershipError) {
-      console.error(
-        'Membership context error:',
-        membershipError
-      );
-    }
-
-    return null;
-  }
-
-  /* ONLY ACTIVE MEMBERS */
-
-  if (
-    membership.status !==
-    'active'
-  ) {
-    return null;
-  }
-
-  /* ---------------------------------------------------------
-     COMPANY
-  --------------------------------------------------------- */
-
-  const {
-    data: company,
-    error: companyError,
-  } = await supabase
-    .from('companies')
-    .select(
-      `
-        id,
-        company_code,
-        company_name,
-        status,
-        confirmed_at,
-        account_owner_user_id
-      `
-    )
-    .eq(
-      'id',
-      membership.company_id
-    )
-    .maybeSingle();
-
-  if (
-    companyError ||
-    !company
-  ) {
-    if (companyError) {
-      console.error(
-        'Company context error:',
-        companyError
-      );
-    }
-
-    return null;
-  }
-
-  /* ---------------------------------------------------------
-     BLOCKED COMPANY STATES
-  --------------------------------------------------------- */
-
-  if (
-    company.status ===
-      'pending_confirmation' ||
-    company.status ===
-      'suspended' ||
-    company.status ===
-      'cancelled'
-  ) {
-    return null;
-  }
-
-  /* ---------------------------------------------------------
-     SUBSCRIPTION
-  --------------------------------------------------------- */
-
-  const {
-    data: subscription,
-    error: subscriptionError,
-  } = await supabase
-    .from('subscriptions')
-    .select(
-      `
-        status,
-        plan_id,
-        trial_start_at,
-        trial_end_at,
-        subscription_start_at,
-        subscription_end_at
-      `
-    )
-    .eq(
-      'company_id',
-      company.id
-    )
-    .maybeSingle();
-
-  if (subscriptionError) {
-    console.error(
-      'Subscription context error:',
-      subscriptionError
-    );
-  }
-
-  /* ---------------------------------------------------------
-     EFFECTIVE TRIAL STATUS
-
-     Database me trial_active ho lekin trial_end_at past ho
-     chuka ho to frontend immediately trial_expired treat karega.
-
-     NOTE:
-     Server-side entitlement enforcement bhi later database/RPC
-     level par update karna hai. Sirf frontend par depend nahi
-     karenge.
-  --------------------------------------------------------- */
-
-  let effectiveCompanyStatus =
-    company.status;
-
-  const trialEndAt =
-    subscription?.trial_end_at ||
-    null;
-
-  if (
-    company.status ===
-      'trial_active' &&
-    trialEndAt &&
-    new Date(
-      trialEndAt
-    ).getTime() <= Date.now()
-  ) {
-    effectiveCompanyStatus =
-      'trial_expired';
-  }
-
-  /* ---------------------------------------------------------
-     ALLOWED LOGIN STATES
-
-     trial_expired login allowed hai.
-     Usko restricted dashboard milega.
-  --------------------------------------------------------- */
-
-  const allowedStatuses = [
-    'trial_active',
-    'trial_expired',
-    'active',
-  ];
-
-  if (
-    !allowedStatuses.includes(
-      effectiveCompanyStatus
-    )
-  ) {
-    return null;
-  }
-
+  profile,
+}) {
   return {
     id:
       authUser.id,
@@ -559,80 +222,535 @@ async function buildUserContext(
       null,
 
     userType:
-      'company_user',
+      'platform_admin',
 
     role:
-      'COMPANY_USER',
+      'SUPER_ADMIN',
 
     isPlatformAdmin:
-      false,
+      true,
 
     companyId:
-      company.id,
+      null,
 
     companyCode:
-      company.company_code,
+      'ADMIN',
 
     companyName:
-      company.company_name,
+      'Buddy Fleets',
 
     companyStatus:
-      effectiveCompanyStatus,
+      'active',
 
     databaseCompanyStatus:
-      company.status,
+      'active',
 
     confirmedAt:
-      company.confirmed_at,
+      null,
 
     membershipId:
-      membership.id,
+      null,
 
     membershipStatus:
-      membership.status,
+      null,
 
     accessScope:
-      membership.access_scope,
+      'platform',
 
     isAccountOwner:
-      company.account_owner_user_id ===
-      authUser.id,
+      false,
 
     subscriptionStatus:
-      subscription?.status ||
       null,
 
     planId:
-      subscription?.plan_id ||
       null,
 
     trialStartAt:
-      subscription?.trial_start_at ||
       null,
 
-    trialEndAt,
+    trialEndAt:
+      null,
 
     subscriptionStartAt:
-      subscription?.subscription_start_at ||
       null,
 
     subscriptionEndAt:
-      subscription?.subscription_end_at ||
       null,
   };
 }
 
 /* =========================================================
-   COMPANY DASHBOARD TEMPORARY GATE
+   BUILD AUTHENTICATED APP USER
 
    IMPORTANT:
-   Abhi hamare folder me customer company ka real dashboard
-   nahi hai.
 
-   Customer ko SuperAdminDashboard dena SECURITY BUG hota.
+   Supabase Auth user
+        ↓
+   Profile
+        ↓
+   Company context exists?
+        ↓
+   YES:
+   Company + Membership + Subscription
+        ↓
+   NO:
+   Check Platform Admin
 
-   Isliye jab tak Company Dashboard build nahi hota,
-   authenticated customer yahan safe placeholder dekhega.
+   This ordering is intentional.
+
+   Example:
+
+   Platform Admin normal Company Code se company workspace me
+   login kare to refresh ke baad bhi company context me hi
+   rahega.
+
+   ADMIN login par ACTIVE_COMPANY_KEY absent hoga, tab
+   platform_admin context build hoga.
+========================================================= */
+
+async function buildUserContext(
+  authUser,
+  preferredCompanyId = null
+) {
+  if (
+    !authUser?.id
+  ) {
+    return null;
+  }
+
+  /* =======================================================
+     EMAIL MUST BE CONFIRMED
+  ======================================================= */
+
+  if (
+    !authUser.email_confirmed_at
+  ) {
+    return null;
+  }
+
+  /* =======================================================
+     PROFILE
+  ======================================================= */
+
+  const {
+    data:
+      profile,
+    error:
+      profileError,
+  } =
+    await supabase
+      .from(
+        'profiles'
+      )
+      .select(
+        'id, full_name, email, mobile'
+      )
+      .eq(
+        'id',
+        authUser.id
+      )
+      .maybeSingle();
+
+  if (
+    profileError
+  ) {
+    console.error(
+      'Profile context error:',
+      profileError
+    );
+  }
+
+  /* =======================================================
+     COMPANY CONTEXT HAS PRIORITY
+
+     Successful normal company login ke baad selected company
+     localStorage me stored hoti hai.
+
+     Agar preferredCompanyId available hai, pehle company
+     authorization verify karenge.
+  ======================================================= */
+
+  if (
+    preferredCompanyId
+  ) {
+    /* =====================================================
+       MEMBERSHIP
+    ===================================================== */
+
+    const {
+      data:
+        membership,
+      error:
+        membershipError,
+    } =
+      await supabase
+        .from(
+          'company_memberships'
+        )
+        .select(
+          `
+            id,
+            company_id,
+            user_id,
+            status,
+            access_scope,
+            joined_at
+          `
+        )
+        .eq(
+          'company_id',
+          preferredCompanyId
+        )
+        .eq(
+          'user_id',
+          authUser.id
+        )
+        .maybeSingle();
+
+    if (
+      membershipError ||
+      !membership
+    ) {
+      if (
+        membershipError
+      ) {
+        console.error(
+          'Membership context error:',
+          membershipError
+        );
+      }
+
+      return null;
+    }
+
+    /* ONLY ACTIVE MEMBERS */
+
+    if (
+      membership.status !==
+      'active'
+    ) {
+      return null;
+    }
+
+    /* =====================================================
+       COMPANY
+    ===================================================== */
+
+    const {
+      data:
+        company,
+      error:
+        companyError,
+    } =
+      await supabase
+        .from(
+          'companies'
+        )
+        .select(
+          `
+            id,
+            company_code,
+            company_name,
+            status,
+            confirmed_at,
+            account_owner_user_id
+          `
+        )
+        .eq(
+          'id',
+          membership.company_id
+        )
+        .maybeSingle();
+
+    if (
+      companyError ||
+      !company
+    ) {
+      if (
+        companyError
+      ) {
+        console.error(
+          'Company context error:',
+          companyError
+        );
+      }
+
+      return null;
+    }
+
+    /* =====================================================
+       BLOCKED COMPANY STATES
+    ===================================================== */
+
+    if (
+      company.status ===
+        'pending_confirmation' ||
+      company.status ===
+        'suspended' ||
+      company.status ===
+        'cancelled'
+    ) {
+      return null;
+    }
+
+    /* =====================================================
+       SUBSCRIPTION
+    ===================================================== */
+
+    const {
+      data:
+        subscription,
+      error:
+        subscriptionError,
+    } =
+      await supabase
+        .from(
+          'subscriptions'
+        )
+        .select(
+          `
+            status,
+            plan_id,
+            trial_start_at,
+            trial_end_at,
+            subscription_start_at,
+            subscription_end_at
+          `
+        )
+        .eq(
+          'company_id',
+          company.id
+        )
+        .maybeSingle();
+
+    if (
+      subscriptionError
+    ) {
+      console.error(
+        'Subscription context error:',
+        subscriptionError
+      );
+    }
+
+    /* =====================================================
+       EFFECTIVE TRIAL STATUS
+
+       Database status trial_active ho lekin trial_end_at
+       already past ho to frontend immediately expired
+       treat karega.
+
+       IMPORTANT:
+       Real module entitlement backend/database level par bhi
+       enforce hona chahiye.
+    ===================================================== */
+
+    let effectiveCompanyStatus =
+      company.status;
+
+    const trialEndAt =
+      subscription?.trial_end_at ||
+      null;
+
+    if (
+      company.status ===
+        'trial_active' &&
+      trialEndAt &&
+      new Date(
+        trialEndAt
+      ).getTime() <=
+        Date.now()
+    ) {
+      effectiveCompanyStatus =
+        'trial_expired';
+    }
+
+    /* =====================================================
+       ALLOWED STATES
+    ===================================================== */
+
+    const allowedStatuses = [
+      'trial_active',
+      'trial_expired',
+      'active',
+    ];
+
+    if (
+      !allowedStatuses.includes(
+        effectiveCompanyStatus
+      )
+    ) {
+      return null;
+    }
+
+    /* =====================================================
+       COMPANY USER CONTEXT
+    ===================================================== */
+
+    return {
+      id:
+        authUser.id,
+
+      username:
+        authUser.email,
+
+      email:
+        authUser.email,
+
+      name:
+        profile?.full_name ||
+        authUser.email,
+
+      mobile:
+        profile?.mobile ||
+        null,
+
+      userType:
+        'company_user',
+
+      role:
+        'COMPANY_USER',
+
+      /*
+        Company context me platform privilege expose
+        nahi karenge.
+      */
+
+      isPlatformAdmin:
+        false,
+
+      companyId:
+        company.id,
+
+      companyCode:
+        company.company_code,
+
+      companyName:
+        company.company_name,
+
+      companyStatus:
+        effectiveCompanyStatus,
+
+      databaseCompanyStatus:
+        company.status,
+
+      confirmedAt:
+        company.confirmed_at,
+
+      membershipId:
+        membership.id,
+
+      membershipStatus:
+        membership.status,
+
+      accessScope:
+        membership.access_scope,
+
+      isAccountOwner:
+        company
+          .account_owner_user_id ===
+        authUser.id,
+
+      subscriptionStatus:
+        subscription?.status ||
+        null,
+
+      planId:
+        subscription?.plan_id ||
+        null,
+
+      trialStartAt:
+        subscription
+          ?.trial_start_at ||
+        null,
+
+      trialEndAt,
+
+      subscriptionStartAt:
+        subscription
+          ?.subscription_start_at ||
+        null,
+
+      subscriptionEndAt:
+        subscription
+          ?.subscription_end_at ||
+        null,
+    };
+  }
+
+  /* =======================================================
+     NO COMPANY CONTEXT
+     CHECK PLATFORM SUPER ADMIN
+
+     No hardcoded credentials.
+
+     Authorization:
+     public.platform_admins
+  ======================================================= */
+
+  const {
+    data:
+      platformAdmin,
+    error:
+      platformAdminError,
+  } =
+    await supabase
+      .from(
+        'platform_admins'
+      )
+      .select(
+        'user_id, is_active'
+      )
+      .eq(
+        'user_id',
+        authUser.id
+      )
+      .eq(
+        'is_active',
+        true
+      )
+      .maybeSingle();
+
+  if (
+    platformAdminError
+  ) {
+    console.error(
+      'Platform admin context error:',
+      platformAdminError
+    );
+  }
+
+  if (
+    platformAdmin
+      ?.is_active
+  ) {
+    return createPlatformAdminContext({
+      authUser,
+      profile,
+    });
+  }
+
+  /*
+    Auth session valid ho sakti hai but company context nahi.
+
+    Example:
+    - email confirmation page
+    - reset/recovery flow
+    - login incomplete
+
+    Aise session ko automatically dashboard authority
+    nahi denge.
+  */
+
+  return null;
+}
+
+/* =========================================================
+   COMPANY DASHBOARD TEMPORARY GATE
+
+   Customer Company Dashboard abhi build nahi hua.
+
+   Customer ko SuperAdminDashboard kabhi render nahi karenge.
 ========================================================= */
 
 function CompanyDashboardPending({
@@ -669,7 +787,8 @@ function CompanyDashboardPending({
               </h1>
 
               <p className="mx-auto mt-3 max-w-md text-xs leading-6 text-slate-400 sm:text-sm">
-                Your account remains accessible, but operational modules are restricted until a subscription is activated.
+                Your account remains accessible, but operational
+                modules are restricted until a subscription is activated.
               </p>
             </>
           ) : (
@@ -683,7 +802,9 @@ function CompanyDashboardPending({
               </h1>
 
               <p className="mx-auto mt-3 max-w-md text-xs leading-6 text-slate-400 sm:text-sm">
-                Your company authentication is active. The customer fleet dashboard will be connected here in the next development phase.
+                Your company authentication is active. The customer
+                fleet dashboard will be connected here in the next
+                development phase.
               </p>
             </>
           )}
@@ -734,7 +855,8 @@ function CompanyDashboardPending({
                     : 'text-emerald-300'
                 }`}
               >
-                {currentUser?.companyStatus
+                {currentUser
+                  ?.companyStatus
                   ?.replaceAll(
                     '_',
                     ' '
@@ -745,9 +867,13 @@ function CompanyDashboardPending({
 
           </div>
 
+          {/* LOGOUT */}
+
           <button
             type="button"
-            onClick={onLogout}
+            onClick={
+              onLogout
+            }
             className="mt-6 rounded-xl border border-white/10 bg-white/[0.05] px-6 py-3 text-xs font-bold text-slate-200 transition hover:bg-white/[0.1] hover:text-white"
           >
             Logout
@@ -763,11 +889,20 @@ function CompanyDashboardPending({
 
         <p className="text-[9px] font-medium tracking-wide text-slate-400 sm:text-[10px]">
 
+          <span className="mr-1">
+            ©
+          </span>
+
           Copyright by{' '}
 
-          <span className="font-bold text-white">
+          <a
+            href="https://example.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-bold text-white underline decoration-slate-600 underline-offset-2 transition hover:text-cyan-300 hover:decoration-cyan-400"
+          >
             BUDDY COMPUTERS
-          </span>
+          </a>
 
           . All rights reserved.
 
@@ -822,43 +957,48 @@ export default function App() {
     useRef(true);
 
   /* =========================================================
-     SYNC USER REF
+     SYNC CURRENT USER REF
   ========================================================= */
 
   useEffect(() => {
     currentUserRef.current =
       currentUser;
-  }, [currentUser]);
+  }, [
+    currentUser,
+  ]);
 
   /* =========================================================
-     CLEAR APP CONTEXT
+     CLEAR LOCAL APP CONTEXT
   ========================================================= */
 
   const clearLocalAppContext =
-    useCallback(() => {
+    useCallback(
+      () => {
 
-      localStorage.removeItem(
-        ACTIVE_COMPANY_KEY
-      );
+        localStorage.removeItem(
+          ACTIVE_COMPANY_KEY
+        );
 
-      localStorage.removeItem(
-        LAST_ACTIVITY_KEY
-      );
+        localStorage.removeItem(
+          LAST_ACTIVITY_KEY
+        );
 
-      localStorage.removeItem(
-        ACTIVE_TAB_KEY
-      );
+        localStorage.removeItem(
+          ACTIVE_TAB_KEY
+        );
 
-      /*
-        Remove old insecure Buddy Fleets session object
-        from previous App.jsx versions.
-      */
+        /*
+          Remove legacy insecure session object from
+          old App.jsx versions.
+        */
 
-      localStorage.removeItem(
-        LEGACY_SESSION_KEY
-      );
+        localStorage.removeItem(
+          LEGACY_SESSION_KEY
+        );
 
-    }, []);
+      },
+      []
+    );
 
   /* =========================================================
      LOGOUT
@@ -882,10 +1022,12 @@ export default function App() {
         }
 
         /*
-          UI immediately lock karo.
+          UI immediately lock.
         */
 
-        setCurrentUser(null);
+        setCurrentUser(
+          null
+        );
 
         currentUserRef.current =
           null;
@@ -896,15 +1038,18 @@ export default function App() {
 
           /*
             Normal logout / inactivity logout:
-            current browser session end.
+            current browser session only.
 
-            Password reset ke time ALL sessions revoke karna
-            separate secure backend flow me hoga.
+            Password reset all-session revocation backend
+            separately handle karta hai.
           */
 
-          await supabase.auth.signOut({
-            scope: 'local',
-          });
+          await supabase
+            .auth
+            .signOut({
+              scope:
+                'local',
+            });
 
         } catch (err) {
 
@@ -918,7 +1063,9 @@ export default function App() {
         }
 
       },
-      [clearLocalAppContext]
+      [
+        clearLocalAppContext,
+      ]
     );
 
   /* =========================================================
@@ -927,7 +1074,9 @@ export default function App() {
 
   const scheduleInactivityLogout =
     useCallback(
-      (lastActivity) => {
+      (
+        lastActivity
+      ) => {
 
         if (
           inactivityTimerRef.current
@@ -945,9 +1094,12 @@ export default function App() {
           INACTIVITY_TIMEOUT_MS -
           elapsed;
 
-        if (remaining <= 0) {
-
-          handleLogout(true);
+        if (
+          remaining <= 0
+        ) {
+          handleLogout(
+            true
+          );
 
           return;
         }
@@ -955,195 +1107,210 @@ export default function App() {
         inactivityTimerRef.current =
           window.setTimeout(
             () => {
-              handleLogout(true);
+              handleLogout(
+                true
+              );
             },
             remaining
           );
 
       },
-      [handleLogout]
+      [
+        handleLogout,
+      ]
     );
 
   /* =========================================================
      RECORD ACTIVITY
-
-     LocalStorage timestamp auth authority nahi hai.
-     Ye sirf inactivity policy ke liye hai.
   ========================================================= */
 
   const recordActivity =
-    useCallback(() => {
+    useCallback(
+      () => {
 
-      if (
-        !currentUserRef.current
-      ) {
-        return;
-      }
+        if (
+          !currentUserRef.current
+        ) {
+          return;
+        }
 
-      const now =
-        Date.now();
+        const now =
+          Date.now();
 
-      /*
-        mousemove etc bahut frequently fire hote hain.
-        Har event par localStorage write nahi karenge.
-      */
+        if (
+          now -
+            lastActivityHandledRef.current <
+          ACTIVITY_THROTTLE_MS
+        ) {
+          return;
+        }
 
-      if (
-        now -
-          lastActivityHandledRef.current <
-        ACTIVITY_THROTTLE_MS
-      ) {
-        return;
-      }
+        lastActivityHandledRef.current =
+          now;
 
-      lastActivityHandledRef.current =
-        now;
+        localStorage.setItem(
+          LAST_ACTIVITY_KEY,
+          String(now)
+        );
 
-      localStorage.setItem(
-        LAST_ACTIVITY_KEY,
-        String(now)
-      );
+        scheduleInactivityLogout(
+          now
+        );
 
-      scheduleInactivityLogout(
-        now
-      );
-
-    }, [
-      scheduleInactivityLogout,
-    ]);
+      },
+      [
+        scheduleInactivityLogout,
+      ]
+    );
 
   /* =========================================================
-     REFRESH CURRENT AUTHORIZED CONTEXT
-
-     Existing logged-in user ke liye DB state re-check karta hai.
+     REFRESH AUTHORIZED USER CONTEXT
   ========================================================= */
 
   const refreshCurrentContext =
-    useCallback(async () => {
+    useCallback(
+      async () => {
 
-      try {
+        try {
 
-        const {
-          data: userResult,
-          error: userError,
-        } =
-          await supabase.auth.getUser();
+          const {
+            data:
+              userResult,
+            error:
+              userError,
+          } =
+            await supabase
+              .auth
+              .getUser();
 
-        if (
-          userError ||
-          !userResult?.user
-        ) {
-
-          setCurrentUser(null);
-
-          return null;
-        }
-
-        const authUser =
-          userResult.user;
-
-        const storedCompany =
-          getStoredCompanyContext();
-
-        const context =
-          await buildUserContext(
-            authUser,
-            storedCompany?.companyId ||
+          if (
+            userError ||
+            !userResult?.user
+          ) {
+            setCurrentUser(
               null
-          );
+            );
 
-        if (
-          !mountedRef.current
-        ) {
-          return null;
-        }
+            return null;
+          }
 
-        /*
-          If previously authenticated app context existed but
-          now access is gone, lock dashboard.
-        */
+          const authUser =
+            userResult.user;
 
-        if (
-          currentUserRef.current &&
-          !context
-        ) {
+          const storedCompany =
+            getStoredCompanyContext();
 
-          await handleLogout(false);
+          const context =
+            await buildUserContext(
+              authUser,
+              storedCompany?.companyId ||
+                null
+            );
 
-          return null;
-        }
+          if (
+            !mountedRef.current
+          ) {
+            return null;
+          }
 
-        if (context) {
+          /*
+            Existing authorized context tha but ab DB
+            authorization fail ho gaya.
+          */
 
-          setCurrentUser(
+          if (
+            currentUserRef.current &&
+            !context
+          ) {
+            await handleLogout(
+              false
+            );
+
+            return null;
+          }
+
+          if (
             context
+          ) {
+            setCurrentUser(
+              context
+            );
+
+            currentUserRef.current =
+              context;
+          }
+
+          return context;
+
+        } catch (err) {
+
+          console.error(
+            'User context refresh error:',
+            err
           );
 
-          currentUserRef.current =
-            context;
+          return null;
 
         }
 
-        return context;
-
-      } catch (err) {
-
-        console.error(
-          'User context refresh error:',
-          err
-        );
-
-        return null;
-
-      }
-
-    }, [handleLogout]);
+      },
+      [
+        handleLogout,
+      ]
+    );
 
   /* =========================================================
      INITIAL SESSION RESTORE
 
-     AUTHORITY:
-     supabase.auth.getSession()
-              +
-     supabase.auth.getUser()
-              +
-     database authorization
+     Authority:
 
-     NOT:
-     localStorage user object.
+     Supabase session
+          +
+     getUser()
+          +
+     Database authorization
+
+     NOT localStorage user object.
   ========================================================= */
 
   useEffect(() => {
-    mountedRef.current = true;
+    mountedRef.current =
+      true;
 
     const restoreSession =
       async () => {
 
         try {
 
-          /*
-            Remove old insecure session object.
-          */
+          /* REMOVE LEGACY OBJECT */
 
           localStorage.removeItem(
             LEGACY_SESSION_KEY
           );
 
           const {
-            data: sessionData,
-            error: sessionError,
+            data:
+              sessionData,
+            error:
+              sessionError,
           } =
-            await supabase.auth.getSession();
+            await supabase
+              .auth
+              .getSession();
 
-          if (sessionError) {
+          if (
+            sessionError
+          ) {
             throw sessionError;
           }
 
           const session =
-            sessionData?.session;
+            sessionData
+              ?.session;
 
-          if (!session?.user) {
-
+          if (
+            !session?.user
+          ) {
             if (
               mountedRef.current
             ) {
@@ -1155,9 +1322,9 @@ export default function App() {
             return;
           }
 
-          /* -----------------------------------------------
+          /* =================================================
              INACTIVITY CHECK
-          ----------------------------------------------- */
+          ================================================= */
 
           const storedActivity =
             Number(
@@ -1172,7 +1339,6 @@ export default function App() {
               storedActivity
             )
           ) {
-
             const elapsed =
               Date.now() -
               storedActivity;
@@ -1181,31 +1347,32 @@ export default function App() {
               elapsed >=
               INACTIVITY_TIMEOUT_MS
             ) {
-
               await handleLogout(
                 true
               );
 
               return;
             }
-
           }
 
-          /*
-            Verify user against Supabase Auth server.
-          */
+          /* =================================================
+             VERIFY USER AGAINST AUTH SERVER
+          ================================================= */
 
           const {
-            data: userResult,
-            error: userError,
+            data:
+              userResult,
+            error:
+              userError,
           } =
-            await supabase.auth.getUser();
+            await supabase
+              .auth
+              .getUser();
 
           if (
             userError ||
             !userResult?.user
           ) {
-
             await handleLogout(
               false
             );
@@ -1217,13 +1384,11 @@ export default function App() {
             userResult.user;
 
           /*
-            Company users ke liye selected company context
-            required hai.
+            Confirmation / recovery session me active company
+            context intentionally absent ho sakti hai.
 
-            Confirmation / password recovery session me ye key
-            intentionally absent ho sakti hai. Us situation me
-            auth session ko destroy nahi karenge because
-            /confirm ko uski zarurat hoti hai.
+            Us situation me auth session ko automatically
+            destroy nahi karenge.
           */
 
           const storedCompany =
@@ -1242,8 +1407,9 @@ export default function App() {
             return;
           }
 
-          if (context) {
-
+          if (
+            context
+          ) {
             setCurrentUser(
               context
             );
@@ -1252,12 +1418,18 @@ export default function App() {
               context;
 
             const activity =
-              storedActivity ||
-              Date.now();
+              storedActivity &&
+              Number.isFinite(
+                storedActivity
+              )
+                ? storedActivity
+                : Date.now();
 
             localStorage.setItem(
               LAST_ACTIVITY_KEY,
-              String(activity)
+              String(
+                activity
+              )
             );
 
           } else {
@@ -1270,15 +1442,16 @@ export default function App() {
               null;
 
             /*
-              Agar active company context stored tha but ab
-              authorization verify nahi hua, stale session
-              context remove karo.
+              Stored company context present tha but DB
+              authorization fail hua.
+
+              Stale context remove + auth session clear.
             */
 
             if (
-              storedCompany?.companyId
+              storedCompany
+                ?.companyId
             ) {
-
               localStorage.removeItem(
                 ACTIVE_COMPANY_KEY
               );
@@ -1287,15 +1460,16 @@ export default function App() {
                 LAST_ACTIVITY_KEY
               );
 
-              await supabase.auth
+              await supabase
+                .auth
                 .signOut({
                   scope:
                     'local',
                 })
-                .catch(() => {});
-
+                .catch(
+                  () => {}
+                );
             }
-
           }
 
         } catch (err) {
@@ -1334,108 +1508,109 @@ export default function App() {
         false;
     };
 
-  }, [handleLogout]);
+  }, [
+    handleLogout,
+  ]);
 
   /* =========================================================
      SUPABASE AUTH LISTENER
 
-     VERY IMPORTANT SECURITY RULE:
+     IMPORTANT SECURITY RULE:
 
-     SIGNED_IN event par automatically currentUser set NAHI
-     karenge.
+     SIGNED_IN event alone dashboard authorization nahi deta.
 
-     Why?
+     Login.jsx ko pehle:
+     - password
+     - company code
+     - membership
+     - company status
 
-     signInWithPassword() pehle email/password verify karta hai,
-     lekin Login.jsx ko uske baad Company Code + Membership bhi
      verify karna hota hai.
 
-     Agar App SIGNED_IN ko direct dashboard access de de,
-     wrong Company Code bypass ho sakta hai.
-
-     Actual dashboard activation:
+     Actual app activation:
      handleLoginSuccess()
   ========================================================= */
 
   useEffect(() => {
 
     const {
-      data: authListener,
+      data:
+        authListener,
     } =
-      supabase.auth.onAuthStateChange(
-        (event, session) => {
+      supabase
+        .auth
+        .onAuthStateChange(
+          (
+            event,
+            session
+          ) => {
 
-          /* -----------------------------------------------
-             SIGN OUT
-          ----------------------------------------------- */
+            /* =============================================
+               SIGNED OUT
+            ============================================= */
 
-          if (
-            event ===
-            'SIGNED_OUT'
-          ) {
-
-            window.setTimeout(
-              () => {
-
-                if (
-                  !mountedRef.current
-                ) {
-                  return;
-                }
-
-                setCurrentUser(
-                  null
-                );
-
-                currentUserRef.current =
-                  null;
-
-              },
-              0
-            );
-
-            return;
-          }
-
-          /* -----------------------------------------------
-             DO NOT AUTHORIZE ON SIGNED_IN
-          ----------------------------------------------- */
-
-          if (
-            event ===
-            'SIGNED_IN'
-          ) {
-            return;
-          }
-
-          /* -----------------------------------------------
-             REFRESH EXISTING AUTHORIZED SESSION
-          ----------------------------------------------- */
-
-          if (
-            (
+            if (
               event ===
-                'TOKEN_REFRESHED' ||
+              'SIGNED_OUT'
+            ) {
+              window.setTimeout(
+                () => {
+
+                  if (
+                    !mountedRef.current
+                  ) {
+                    return;
+                  }
+
+                  setCurrentUser(
+                    null
+                  );
+
+                  currentUserRef.current =
+                    null;
+
+                },
+                0
+              );
+
+              return;
+            }
+
+            /* =============================================
+               DO NOT AUTHORIZE ON SIGNED_IN
+            ============================================= */
+
+            if (
               event ===
-                'USER_UPDATED'
-            ) &&
-            session?.user &&
-            currentUserRef.current
-          ) {
+              'SIGNED_IN'
+            ) {
+              return;
+            }
 
-            window.setTimeout(
-              () => {
+            /* =============================================
+               REFRESH EXISTING AUTHORIZED SESSION
+            ============================================= */
 
-                refreshCurrentContext();
-
-              },
-              0
-            );
+            if (
+              (
+                event ===
+                  'TOKEN_REFRESHED' ||
+                event ===
+                  'USER_UPDATED'
+              ) &&
+              session?.user &&
+              currentUserRef.current
+            ) {
+              window.setTimeout(
+                () => {
+                  refreshCurrentContext();
+                },
+                0
+              );
+            }
 
           }
-
-        }
-      );
+        );
 
     return () => {
 
@@ -1445,7 +1620,9 @@ export default function App() {
 
     };
 
-  }, [refreshCurrentContext]);
+  }, [
+    refreshCurrentContext,
+  ]);
 
   /* =========================================================
      ACTIVITY LISTENERS
@@ -1453,7 +1630,9 @@ export default function App() {
 
   useEffect(() => {
 
-    if (!currentUser) {
+    if (
+      !currentUser
+    ) {
       return undefined;
     }
 
@@ -1465,10 +1644,6 @@ export default function App() {
       'scroll',
       'click',
     ];
-
-    /*
-      Login ke immediately baad activity initialize.
-    */
 
     const existing =
       Number(
@@ -1502,13 +1677,16 @@ export default function App() {
       };
 
     activityEvents.forEach(
-      (eventName) => {
+      (
+        eventName
+      ) => {
 
         window.addEventListener(
           eventName,
           handleActivity,
           {
-            passive: true,
+            passive:
+              true,
           }
         );
 
@@ -1518,7 +1696,9 @@ export default function App() {
     return () => {
 
       activityEvents.forEach(
-        (eventName) => {
+        (
+          eventName
+        ) => {
 
           window.removeEventListener(
             eventName,
@@ -1531,14 +1711,12 @@ export default function App() {
       if (
         inactivityTimerRef.current
       ) {
-
         window.clearTimeout(
           inactivityTimerRef.current
         );
 
         inactivityTimerRef.current =
           null;
-
       }
 
     };
@@ -1552,14 +1730,12 @@ export default function App() {
   /* =========================================================
      LOGIN SUCCESS
 
-     Called ONLY after Login.jsx successfully verifies:
+     Called only after Login.jsx successfully verifies:
 
      1. Supabase Auth
      2. Company Code
      3. Membership
      4. Company Status
-
-     Full user object localStorage me save nahi hota.
   ========================================================= */
 
   const handleLoginSuccess =
@@ -1569,28 +1745,29 @@ export default function App() {
       ) => {
 
         if (
-          !authenticatedUser?.id
+          !authenticatedUser
+            ?.id
         ) {
           return;
         }
 
-        /* PLATFORM ADMIN */
+        /* PLATFORM ADMIN LOGIN */
 
         if (
           authenticatedUser
             .isPlatformAdmin
         ) {
-
           localStorage.removeItem(
             ACTIVE_COMPANY_KEY
           );
 
         } else {
 
+          /* COMPANY LOGIN */
+
           saveCompanyContext(
             authenticatedUser
           );
-
         }
 
         const now =
@@ -1618,10 +1795,9 @@ export default function App() {
   /* =========================================================
      USER UPDATE
 
-     Dashboard se supplied object ko blindly authentication
-     authority nahi banayenge.
+     Dashboard supplied object ko blindly trust nahi karenge.
 
-     DB se fresh authorized context re-read karenge.
+     Fresh DB-authorized context read hoga.
   ========================================================= */
 
   const handleUserUpdate =
@@ -1631,14 +1807,18 @@ export default function App() {
         await refreshCurrentContext();
 
       },
-      [refreshCurrentContext]
+      [
+        refreshCurrentContext,
+      ]
     );
 
   /* =========================================================
      SESSION LOADING
   ========================================================= */
 
-  if (isSessionLoading) {
+  if (
+    isSessionLoading
+  ) {
     return (
       <div className="flex min-h-[100dvh] flex-col bg-[#050914] font-sans text-white">
 
@@ -1660,15 +1840,26 @@ export default function App() {
 
         </div>
 
-        <footer className="border-t border-white/[0.05] px-4 py-3 text-center">
+        {/* FOOTER */}
+
+        <footer className="border-t border-white/[0.05] bg-[#030712]/95 px-4 py-3 text-center">
 
           <p className="text-[8px] text-slate-500 sm:text-[9px]">
 
+            <span className="mr-1">
+              ©
+            </span>
+
             Copyright by{' '}
 
-            <span className="font-bold text-slate-300">
+            <a
+              href="https://example.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-bold text-slate-300 underline decoration-slate-600 underline-offset-2 transition hover:text-cyan-300"
+            >
               BUDDY COMPUTERS
-            </span>
+            </a>
 
             . All rights reserved.
 
@@ -1733,8 +1924,8 @@ export default function App() {
           <Route
             path="/pricing"
             element={
-             <Pricing />
-           }
+              <Pricing />
+            }
           />
 
           <Route
@@ -1754,115 +1945,155 @@ export default function App() {
         </Route>
 
         {/* ===================================================
-            LOGIN
+            AUTH PAGES
+
+            Common:
+            AuthLayout.jsx
+              ↓
+            Navbar
+              ↓
+            <Outlet />
+              ↓
+            Footer
         =================================================== */}
 
         <Route
-          path="/login"
           element={
-            currentUser ? (
-              <Navigate
-                to="/dashboard"
-                replace
-              />
-            ) : (
-              <Login
-                onLoginSuccess={
-                  handleLoginSuccess
-                }
-              />
-            )
+            <AuthLayout />
           }
-        />
+        >
+
+          {/* LOGIN */}
+
+          <Route
+            path="/login"
+            element={
+              currentUser ? (
+                <Navigate
+                  to="/dashboard"
+                  replace
+                />
+              ) : (
+                <Login
+                  onLoginSuccess={
+                    handleLoginSuccess
+                  }
+                />
+              )
+            }
+          />
+
+          {/* ===============================================
+              SIGNUP
+
+              Successful signup:
+              NO auto-login.
+
+              Trial starts only after email confirmation.
+          =============================================== */}
+
+          <Route
+            path="/signup"
+            element={
+              currentUser ? (
+                <Navigate
+                  to="/dashboard"
+                  replace
+                />
+              ) : (
+                <Signup />
+              )
+            }
+          />
+
+          {/* ===============================================
+              FORGOT PASSWORD
+
+              Canonical URL:
+              /forgot-password
+          =============================================== */}
+
+          <Route
+            path="/forgot-password"
+            element={
+              currentUser ? (
+                <Navigate
+                  to="/dashboard"
+                  replace
+                />
+              ) : (
+                <ForgotID />
+              )
+            }
+          />
+
+          {/* ===============================================
+              LEGACY FORGOT URL
+
+              File ka naam ForgotID.jsx retained hai.
+          =============================================== */}
+
+          <Route
+            path="/forgot-id"
+            element={
+              currentUser ? (
+                <Navigate
+                  to="/dashboard"
+                  replace
+                />
+              ) : (
+                <ForgotID />
+              )
+            }
+          />
+
+          {/* ===============================================
+              EMAIL CONFIRMATION
+
+              IMPORTANT:
+              currentUser guard nahi lagana.
+
+              Supabase confirmation link temporary session
+              create kar sakta hai.
+          =============================================== */}
+
+          <Route
+            path="/confirm"
+            element={
+              <ConfirmationPage />
+            }
+          />
+
+          {/* ===============================================
+              RESET PASSWORD
+
+              IMPORTANT:
+              currentUser guard nahi lagana.
+
+              Reset workflow independent public auth route hai.
+          =============================================== */}
+
+          <Route
+            path="/reset-password"
+            element={
+              <ResetPassword />
+            }
+          />
+
+        </Route>
 
         {/* ===================================================
-            SIGNUP
+            LEGACY CONFIRMATION URL
 
-            Signup successful hone par auto login NAHI hoga.
-            Trial email confirmation ke baad activate hoga.
+            AuthLayout ke bahar redirect.
+            Query/hash preserve hoga.
         =================================================== */}
-
-        <Route
-          path="/signup"
-          element={
-            currentUser ? (
-              <Navigate
-                to="/dashboard"
-                replace
-              />
-            ) : (
-              <Signup />
-            )
-          }
-        />
-
-        {/* ===================================================
-            FORGOT PASSWORD
-
-            File ka naam abhi ForgotID.jsx retain hai.
-            UI/logic Forgot Password only hai.
-        =================================================== */}
-
-        <Route
-          path="/forgot-id"
-          element={
-            currentUser ? (
-              <Navigate
-                to="/dashboard"
-                replace
-              />
-            ) : (
-              <ForgotID />
-            )
-          }
-        />
-
-        {/* FRIENDLY FUTURE ALIAS */}
-
-        <Route
-          path="/forgot-password"
-          element={
-            currentUser ? (
-              <Navigate
-                to="/dashboard"
-                replace
-              />
-            ) : (
-              <ForgotID />
-            )
-          }
-        />
-
-        {/* ===================================================
-            EMAIL CONFIRMATION
-
-            Is route ko currentUser ke basis par block nahi
-            karenge because Supabase confirmation redirect
-            temporary session create kar sakta hai.
-        =================================================== */}
-
-        <Route
-          path="/confirm"
-          element={
-            <ConfirmationPage />
-          }
-        />
-
-        {/* OLD REDIRECT COMPATIBILITY */}
 
         <Route
           path="/auth/confirmation"
           element={
             <LegacyConfirmationRedirect />
           }
-        />
-
-        {/* reset password */}
-        <Route
-         path="/reset-password"
-         element={
-          <ResetPassword />
-        }
         />
 
         {/* ===================================================
@@ -1882,10 +2113,9 @@ export default function App() {
             ) : currentUser
                 .isPlatformAdmin ? (
 
-              /* ---------------------------------------------
-                 ONLY PLATFORM SUPER ADMIN
-                 gets SuperAdminDashboard.
-              --------------------------------------------- */
+              /* ===========================================
+                 PLATFORM SUPER ADMIN ONLY
+              =========================================== */
 
               <SuperAdminDashboard
                 currentUser={
@@ -1903,12 +2133,11 @@ export default function App() {
 
             ) : (
 
-              /*
-                Customer ko SuperAdminDashboard kabhi nahi.
+              /* ===========================================
+                 COMPANY CUSTOMER
 
-                Company Dashboard ready hone tak safe
-                customer placeholder.
-              */
+                 Never SuperAdminDashboard.
+              =========================================== */
 
               <CompanyDashboardPending
                 currentUser={
