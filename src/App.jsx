@@ -23,6 +23,7 @@ import WebsiteLayout from './layouts/WebsiteLayout';
 
 import Home from './pages/Website/Home';
 import Features from './pages/Website/Features';
+import Pricing from './pages/Website/Pricing';
 import AboutUs from './pages/Website/AboutUs';
 import ContactUs from './pages/Website/ContactUs';
 
@@ -1727,6 +1728,13 @@ export default function App() {
             element={
               <Features />
             }
+          />
+
+          <Route
+            path="/pricing"
+            element={
+             <Pricing />
+           }
           />
 
           <Route
