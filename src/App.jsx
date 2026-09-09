@@ -34,6 +34,7 @@ import Login from './pages/Auth/Login';
 import Signup from './pages/Auth/Signup';
 import ForgotID from './pages/Auth/ForgotID';
 import ConfirmationPage from './pages/Auth/ConfirmationPage';
+import ResetPassword from './pages/Auth/ResetPassword';
 
 /* =========================================================
    DASHBOARD
@@ -1846,6 +1847,14 @@ export default function App() {
           element={
             <LegacyConfirmationRedirect />
           }
+        />
+
+        {/* reset password */}
+        <Route
+         path="/reset-password"
+         element={
+          <ResetPassword />
+        }
         />
 
         {/* ===================================================
