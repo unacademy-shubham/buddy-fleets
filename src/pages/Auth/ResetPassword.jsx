@@ -1,5 +1,6 @@
 import React, {
   useEffect,
+  useRef,
   useState,
 } from 'react';
 
@@ -12,7 +13,7 @@ import { motion } from 'framer-motion';
 import { supabase } from '../../supabaseClient';
 
 /* =========================================================
-   COMMON INPUT
+   COMMON INPUT STYLE
 ========================================================= */
 
 const inputBase =
@@ -108,7 +109,7 @@ function Truck() {
 
       </div>
 
-      {/* LIGHT */}
+      {/* FRONT LIGHT */}
 
       <div className="absolute right-[-4px] top-[31px] h-2 w-2 rounded-full bg-cyan-200 shadow-[0_0_14px_rgba(34,211,238,1)] sm:top-[39px]" />
 
@@ -232,15 +233,55 @@ function RadarPulse() {
 }
 
 /* =========================================================
-   RESET PASSWORD PAGE
+   RESET PASSWORD
 ========================================================= */
 
 export default function ResetPassword() {
   const navigate =
     useNavigate();
 
+  /*
+    URL token ko useRef me capture karna important hai.
+
+    React StrictMode development me useEffect dobara
+    run kar sakta hai. Hum URL se token remove karte hain,
+    isliye ref token ko safely retain karega.
+  */
+
+  const initialTokenRef =
+    useRef(
+      new URLSearchParams(
+        window.location.search
+      )
+        .get('token')
+        ?.trim() || ''
+    );
+
+  /* =========================================================
+     TOKEN STATES
+  ========================================================= */
+
   const [token, setToken] =
     useState('');
+
+  const [
+    isTokenChecking,
+    setIsTokenChecking,
+  ] = useState(true);
+
+  const [
+    isTokenValid,
+    setIsTokenValid,
+  ] = useState(false);
+
+  const [
+    tokenError,
+    setTokenError,
+  ] = useState('');
+
+  /* =========================================================
+     PASSWORD STATES
+  ========================================================= */
 
   const [
     newPassword,
@@ -262,6 +303,10 @@ export default function ResetPassword() {
     setShowConfirmPassword,
   ] = useState(false);
 
+  /* =========================================================
+     UI STATES
+  ========================================================= */
+
   const [
     isLoading,
     setIsLoading,
@@ -278,54 +323,219 @@ export default function ResetPassword() {
   ] = useState('');
 
   /* =========================================================
-     READ TOKEN
-
-     Token URL se read karke component memory me rakhenge.
-
-     Phir URL se token remove kar denge taaki:
-     - browser history
-     - copied URL
-     - screenshots
-     me token unnecessarily visible na rahe.
+     VALIDATE RESET TOKEN ON PAGE LOAD
   ========================================================= */
 
   useEffect(() => {
+    let cancelled = false;
 
-    const params =
-      new URLSearchParams(
-        window.location.search
-      );
+    const validateResetToken =
+      async () => {
 
-    const resetToken =
-      params
-        .get('token')
-        ?.trim() ||
-      '';
+        const resetToken =
+          initialTokenRef.current;
 
-    if (!resetToken) {
+        /* -----------------------------------------------
+           TOKEN MISSING
+        ----------------------------------------------- */
 
-      setErrorMessage(
-        'This password reset link is invalid or missing.'
-      );
+        if (!resetToken) {
 
-      return;
+          if (!cancelled) {
 
-    }
+            setToken('');
 
-    setToken(
-      resetToken
-    );
+            setIsTokenValid(false);
 
-    /*
-      Token React state me aa gaya.
-      Visible URL clean kar dete hain.
-    */
+            setTokenError(
+              'This password reset link is invalid or missing.'
+            );
 
-    window.history.replaceState(
-      {},
-      document.title,
-      '/reset-password'
-    );
+            setIsTokenChecking(false);
+
+          }
+
+          return;
+        }
+
+        /*
+          Token state me rakho.
+        */
+
+        setToken(resetToken);
+
+        /*
+          Raw token visible browser URL se hata do.
+
+          Important:
+          initialTokenRef me token already safely captured hai.
+        */
+
+        window.history.replaceState(
+          {},
+          document.title,
+          '/reset-password'
+        );
+
+        try {
+
+          /* ---------------------------------------------
+             SERVER VALIDATION
+          --------------------------------------------- */
+
+          const {
+            data,
+            error: functionError,
+          } =
+            await supabase.functions.invoke(
+              'validate-password-reset',
+              {
+                body: {
+                  token:
+                    resetToken,
+                },
+              }
+            );
+
+          if (cancelled) {
+            return;
+          }
+
+          /* ---------------------------------------------
+             FUNCTION ERROR
+          --------------------------------------------- */
+
+          if (functionError) {
+
+            console.error(
+              'Reset token validation function error:',
+              functionError
+            );
+
+            setIsTokenValid(false);
+
+            setTokenError(
+              'Unable to validate this password reset link. Please request a new reset link.'
+            );
+
+            return;
+          }
+
+          /* ---------------------------------------------
+             VALID TOKEN
+          --------------------------------------------- */
+
+          if (
+            data?.valid === true &&
+            data?.code ===
+              'TOKEN_VALID'
+          ) {
+
+            setIsTokenValid(true);
+
+            setTokenError('');
+
+            return;
+          }
+
+          /* ---------------------------------------------
+             USED TOKEN
+          --------------------------------------------- */
+
+          if (
+            data?.code ===
+            'TOKEN_USED'
+          ) {
+
+            setIsTokenValid(false);
+
+            setTokenError(
+              'This password reset link has already been used.'
+            );
+
+            return;
+          }
+
+          /* ---------------------------------------------
+             EXPIRED TOKEN
+          --------------------------------------------- */
+
+          if (
+            data?.code ===
+            'TOKEN_EXPIRED'
+          ) {
+
+            setIsTokenValid(false);
+
+            setTokenError(
+              'This password reset link has expired.'
+            );
+
+            return;
+          }
+
+          /* ---------------------------------------------
+             REVOKED TOKEN
+          --------------------------------------------- */
+
+          if (
+            data?.code ===
+            'TOKEN_REVOKED'
+          ) {
+
+            setIsTokenValid(false);
+
+            setTokenError(
+              'This password reset link is no longer valid.'
+            );
+
+            return;
+          }
+
+          /* ---------------------------------------------
+             INVALID / UNKNOWN
+          --------------------------------------------- */
+
+          setIsTokenValid(false);
+
+          setTokenError(
+            'This password reset link is invalid.'
+          );
+
+        } catch (err) {
+
+          console.error(
+            'Reset token validation error:',
+            err
+          );
+
+          if (!cancelled) {
+
+            setIsTokenValid(false);
+
+            setTokenError(
+              'Unable to validate this password reset link. Please request a new one.'
+            );
+
+          }
+
+        } finally {
+
+          if (!cancelled) {
+
+            setIsTokenChecking(false);
+
+          }
+
+        }
+
+      };
+
+    validateResetToken();
+
+    return () => {
+      cancelled = true;
+    };
 
   }, []);
 
@@ -372,7 +582,35 @@ export default function ResetPassword() {
       confirmPassword;
 
   /* =========================================================
-     RESET PASSWORD
+     INVALIDATE FORM LOCALLY
+  ========================================================= */
+
+  const invalidateToken = (
+    message
+  ) => {
+
+    setIsTokenValid(false);
+
+    setTokenError(
+      message
+    );
+
+    setToken('');
+
+    setNewPassword('');
+
+    setConfirmPassword('');
+
+    setShowPassword(false);
+
+    setShowConfirmPassword(false);
+
+    setErrorMessage('');
+
+  };
+
+  /* =========================================================
+     SUBMIT NEW PASSWORD
   ========================================================= */
 
   const handleSubmit =
@@ -386,19 +624,25 @@ export default function ResetPassword() {
 
       setErrorMessage('');
 
-      /* TOKEN */
+      /* -----------------------------------------------
+         TOKEN MUST STILL BE VALID
+      ----------------------------------------------- */
 
-      if (!token) {
+      if (
+        !token ||
+        !isTokenValid
+      ) {
 
-        setErrorMessage(
-          'This password reset link is invalid or missing.'
+        invalidateToken(
+          'This password reset link is invalid or no longer available.'
         );
 
         return;
-
       }
 
-      /* PASSWORD */
+      /* -----------------------------------------------
+         PASSWORD POLICY
+      ----------------------------------------------- */
 
       if (!isPasswordValid) {
 
@@ -407,10 +651,11 @@ export default function ResetPassword() {
         );
 
         return;
-
       }
 
-      /* MATCH */
+      /* -----------------------------------------------
+         PASSWORD MATCH
+      ----------------------------------------------- */
 
       if (
         newPassword !==
@@ -422,37 +667,24 @@ export default function ResetPassword() {
         );
 
         return;
-
       }
 
       setIsLoading(true);
 
       try {
 
-        /*
-          =====================================================
-          IMPORTANT SECURITY FLOW
+        /* =================================================
+           COMPLETE PASSWORD RESET
 
-          Browser does NOT:
-          supabase.auth.updateUser()
-
-          Browser sends:
-          token + newPassword
-
-          Secure Edge Function:
-          complete-password-reset
-
-          Edge Function will:
-          - hash token
-          - validate issued token
-          - verify 30-minute expiry
-          - verify unused/unrevoked
-          - update Supabase Auth password server-side
-          - mark token used
-          - revoke all sessions
-          - audit action
-        =====================================================
-        */
+           Server:
+           - token hash verify
+           - expiry verify
+           - used/revoked verify
+           - password update
+           - token consume
+           - sessions revoke
+           - audit
+        ================================================= */
 
         const {
           data,
@@ -468,9 +700,11 @@ export default function ResetPassword() {
             }
           );
 
-        if (
-          functionError
-        ) {
+        /* -----------------------------------------------
+           INFRA / FUNCTION ERROR
+        ----------------------------------------------- */
+
+        if (functionError) {
 
           console.error(
             'Complete password reset function error:',
@@ -483,78 +717,122 @@ export default function ResetPassword() {
 
         }
 
+        /* -----------------------------------------------
+           SUCCESS
+        ----------------------------------------------- */
+
         if (
-          !data?.ok
+          data?.ok === true
         ) {
 
-          if (
-            data?.code ===
-            'TOKEN_EXPIRED'
-          ) {
+          /*
+            Browser ke current local Supabase session ko
+            bhi clear kar do.
 
-            throw new Error(
-              'TOKEN_EXPIRED'
+            Server already user sessions revoke karta hai.
+          */
+
+          try {
+
+            await supabase.auth.signOut({
+              scope: 'local',
+            });
+
+          } catch (signOutError) {
+
+            console.error(
+              'Post reset local signout error:',
+              signOutError
             );
 
           }
 
-          if (
-            data?.code ===
-              'TOKEN_USED' ||
-            data?.code ===
-              'TOKEN_INVALID'
-          ) {
+          setToken('');
 
-            throw new Error(
-              'TOKEN_INVALID'
-            );
+          setNewPassword('');
 
-          }
+          setConfirmPassword('');
 
-          if (
-            data?.code ===
-            'PASSWORD_POLICY'
-          ) {
+          setIsTokenValid(false);
 
-            throw new Error(
-              'PASSWORD_POLICY'
-            );
+          setIsSuccess(true);
 
-          }
-
-          throw new Error(
-            'RESET_FAILED'
-          );
-
+          return;
         }
 
-        /*
-          Backend success ke baad browser me koi old
-          Supabase session ho to local side se bhi clear.
-        */
+        /* -----------------------------------------------
+           TOKEN USED
+        ----------------------------------------------- */
 
-        try {
+        if (
+          data?.code ===
+          'TOKEN_USED'
+        ) {
 
-          await supabase.auth.signOut({
-            scope: 'local',
-          });
-
-        } catch (signOutError) {
-
-          console.error(
-            'Post reset local signout error:',
-            signOutError
+          invalidateToken(
+            'This password reset link has already been used.'
           );
 
+          return;
         }
 
-        setToken('');
+        /* -----------------------------------------------
+           TOKEN EXPIRED
+        ----------------------------------------------- */
 
-        setNewPassword('');
+        if (
+          data?.code ===
+          'TOKEN_EXPIRED'
+        ) {
 
-        setConfirmPassword('');
+          invalidateToken(
+            'This password reset link has expired.'
+          );
 
-        setIsSuccess(true);
+          return;
+        }
+
+        /* -----------------------------------------------
+           INVALID / REVOKED TOKEN
+        ----------------------------------------------- */
+
+        if (
+          data?.code ===
+            'TOKEN_INVALID' ||
+          data?.code ===
+            'TOKEN_REVOKED'
+        ) {
+
+          invalidateToken(
+            'This password reset link is invalid or no longer available.'
+          );
+
+          return;
+        }
+
+        /* -----------------------------------------------
+           PASSWORD POLICY
+        ----------------------------------------------- */
+
+        if (
+          data?.code ===
+          'PASSWORD_POLICY'
+        ) {
+
+          setErrorMessage(
+            'Your new password does not meet Buddy Fleets security requirements.'
+          );
+
+          return;
+        }
+
+        /* -----------------------------------------------
+           OTHER
+        ----------------------------------------------- */
+
+        throw new Error(
+          'RESET_FAILED'
+        );
 
       } catch (err) {
 
@@ -563,43 +841,9 @@ export default function ResetPassword() {
           err
         );
 
-        const code =
-          err?.message;
-
-        if (
-          code ===
-          'TOKEN_EXPIRED'
-        ) {
-
-          setErrorMessage(
-            'This password reset link has expired. Please request a new reset link.'
-          );
-
-        } else if (
-          code ===
-          'TOKEN_INVALID'
-        ) {
-
-          setErrorMessage(
-            'This password reset link is invalid or has already been used.'
-          );
-
-        } else if (
-          code ===
-          'PASSWORD_POLICY'
-        ) {
-
-          setErrorMessage(
-            'Your new password does not meet Buddy Fleets security requirements.'
-          );
-
-        } else {
-
-          setErrorMessage(
-            'Unable to reset your password right now. Please request a new reset link and try again.'
-          );
-
-        }
+        setErrorMessage(
+          'Unable to reset your password right now. Please try again or request a new reset link.'
+        );
 
       } finally {
 
@@ -664,6 +908,8 @@ export default function ResetPassword() {
           }}
         />
 
+        {/* GLOWS */}
+
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_40%,rgba(6,182,212,0.10),transparent_30%),radial-gradient(circle_at_85%_40%,rgba(124,58,237,0.12),transparent_32%)]" />
 
         <AmbientOrb className="left-[4%] top-[15%] h-72 w-72 bg-cyan-500/20" />
@@ -694,6 +940,7 @@ export default function ResetPassword() {
 
             sm:left-6
             sm:top-5
+            sm:gap-3
 
             lg:left-10
             lg:top-1/2
@@ -701,13 +948,13 @@ export default function ResetPassword() {
           "
         >
 
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-400/30 bg-gradient-to-br from-cyan-400 via-blue-500 to-violet-600 text-[10px] font-black shadow-lg shadow-cyan-500/20 sm:h-11 sm:w-11 sm:text-xs">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-400/30 bg-gradient-to-br from-cyan-400 via-blue-500 to-violet-600 text-[10px] font-black text-white shadow-lg shadow-cyan-500/20 transition-transform duration-300 group-hover:scale-105 sm:h-11 sm:w-11 sm:text-xs">
             BF
           </div>
 
           <div>
 
-            <div className="text-xs font-black text-white sm:text-sm">
+            <div className="text-xs font-black tracking-tight text-white sm:text-sm">
               Buddy Fleets
             </div>
 
@@ -719,7 +966,9 @@ export default function ResetPassword() {
 
         </Link>
 
-        {/* TOP CENTER NAV */}
+        {/* =================================================
+            TOP CENTER NAVBAR
+        ================================================= */}
 
         <nav
           className="
@@ -825,7 +1074,9 @@ export default function ResetPassword() {
 
         </div>
 
-        {/* CONTENT */}
+        {/* =================================================
+            CONTENT
+        ================================================= */}
 
         <div
           className="
@@ -875,8 +1126,20 @@ export default function ResetPassword() {
             transition={{
               duration: 0.8,
             }}
-            className="relative mx-auto w-full max-w-2xl text-center lg:mx-0 lg:max-w-none lg:text-left"
+            className="
+              relative
+              mx-auto
+              w-full
+              max-w-2xl
+              text-center
+
+              lg:mx-0
+              lg:max-w-none
+              lg:text-left
+            "
           >
+
+            {/* BADGE */}
 
             <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/5 px-3.5 py-2 backdrop-blur-md sm:mb-5 sm:px-4">
 
@@ -894,6 +1157,8 @@ export default function ResetPassword() {
 
             </div>
 
+            {/* HEADING */}
+
             <h1 className="text-4xl font-black leading-[1.03] tracking-tight text-white sm:text-5xl lg:text-5xl xl:text-6xl">
 
               Create a new
@@ -904,11 +1169,15 @@ export default function ResetPassword() {
 
             </h1>
 
+            {/* DESCRIPTION */}
+
             <p className="mx-auto mt-4 max-w-lg text-xs leading-6 text-slate-400 sm:mt-5 sm:text-sm sm:leading-7 lg:mx-0 lg:max-w-md">
 
-              Choose a strong new password for your Buddy Fleets account. Your old active sessions will be revoked after the password is changed.
+              Choose a strong new password for your Buddy Fleets account. Used, expired or revoked reset links are blocked before password entry.
 
             </p>
+
+            {/* SECURITY POINTS */}
 
             <div className="mx-auto mt-5 flex max-w-md flex-col items-start gap-2.5 sm:mt-6 lg:mx-0 lg:mt-7">
 
@@ -937,7 +1206,7 @@ export default function ResetPassword() {
 
           </motion.section>
 
-          {/* MOBILE/TABLET TRUCK */}
+          {/* MOBILE / TABLET TRUCK */}
 
           <MobileTruckScene />
 
@@ -963,11 +1232,19 @@ export default function ResetPassword() {
             className="relative mx-auto w-full max-w-[448px] lg:mx-0 lg:max-w-[430px] lg:justify-self-end xl:max-w-[448px]"
           >
 
+            {/* OUTER GLOW */}
+
             <div className="absolute -inset-[1px] rounded-[26px] bg-gradient-to-br from-cyan-400/30 via-blue-500/10 to-violet-500/30 blur-xl sm:rounded-[30px]" />
+
+            {/* CARD */}
 
             <div className="relative overflow-hidden rounded-[26px] border border-white/10 bg-[#07101f]/95 shadow-2xl shadow-black/60 backdrop-blur-2xl sm:rounded-[30px]">
 
+              {/* TOP LINE */}
+
               <div className="absolute left-0 right-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-400 to-transparent" />
+
+              {/* INTERNAL GLOWS */}
 
               <div className="pointer-events-none absolute -right-28 -top-28 h-56 w-56 rounded-full bg-cyan-500/10 blur-[80px]" />
 
@@ -975,383 +1252,565 @@ export default function ResetPassword() {
 
               <div className="relative p-4 sm:p-6 lg:p-5 xl:p-6">
 
-                {!isSuccess ? (
-
-                  <>
-                    {/* HEADER */}
-
-                    <div className="mb-4">
-
-                      <div className="mb-2 flex items-center gap-1.5">
-
-                        <span className="h-1.5 w-8 rounded-full bg-cyan-400" />
-
-                        <span className="h-1.5 w-3 rounded-full bg-blue-500" />
-
-                        <span className="h-1.5 w-2 rounded-full bg-violet-500" />
-
-                      </div>
-
-                      <h2 className="text-xl font-black tracking-tight text-white sm:text-2xl lg:text-xl xl:text-2xl">
-                        Reset Password
-                      </h2>
-
-                      <p className="mt-1 text-[10px] leading-4 text-slate-400 sm:text-[11px]">
-                        Enter and confirm your new secure password.
-                      </p>
-
-                    </div>
-
-                    {/* ERROR */}
-
-                    {errorMessage && (
-
-                      <motion.div
-                        initial={{
-                          opacity: 0,
-                          y: -5,
-                        }}
-                        animate={{
-                          opacity: 1,
-                          y: 0,
-                        }}
-                        className="mb-3 rounded-xl border border-red-400/20 bg-red-400/[0.06] px-3 py-2.5"
-                        role="alert"
-                      >
-
-                        <p className="text-[9px] leading-4 text-red-300 sm:text-[10px]">
-                          {errorMessage}
-                        </p>
-
-                      </motion.div>
-
-                    )}
-
-                    <form
-                      onSubmit={handleSubmit}
-                      noValidate
-                      className="space-y-3"
-                    >
-
-                      {/* NEW PASSWORD */}
-
-                      <div>
-
-                        <label
-                          htmlFor="newPassword"
-                          className="mb-1 block text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400"
-                        >
-                          New Password
-                        </label>
-
-                        <div className="relative">
-
-                          <input
-                            id="newPassword"
-                            type={
-                              showPassword
-                                ? 'text'
-                                : 'password'
-                            }
-                            required
-                            disabled={isLoading}
-                            minLength={8}
-                            maxLength={64}
-                            autoComplete="new-password"
-                            placeholder="Enter new password"
-                            value={newPassword}
-                            onChange={(e) => {
-
-                              setNewPassword(
-                                e.target.value
-                              );
-
-                              setErrorMessage('');
-
-                            }}
-                            className={`${inputBase} pr-16`}
-                          />
-
-                          <button
-                            type="button"
-                            disabled={isLoading}
-                            onClick={() =>
-                              setShowPassword(
-                                (prev) => !prev
-                              )
-                            }
-                            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md px-2 py-1 text-[9px] font-bold text-slate-500 transition hover:bg-white/5 hover:text-cyan-300 disabled:opacity-50"
-                          >
-                            {showPassword
-                              ? 'HIDE'
-                              : 'SHOW'}
-                          </button>
-
-                        </div>
-
-                        {/* RULES */}
-
-                        <div className="mt-1.5 flex flex-wrap gap-x-2.5 gap-y-1 text-[8px]">
-
-                          <span
-                            className={
-                              passwordRules.length
-                                ? 'font-bold text-cyan-400'
-                                : 'text-slate-500'
-                            }
-                          >
-                            • 8–64 Chars
-                          </span>
-
-                          <span
-                            className={
-                              passwordRules.uppercase
-                                ? 'font-bold text-cyan-400'
-                                : 'text-slate-500'
-                            }
-                          >
-                            • A-Z
-                          </span>
-
-                          <span
-                            className={
-                              passwordRules.lowercase
-                                ? 'font-bold text-cyan-400'
-                                : 'text-slate-500'
-                            }
-                          >
-                            • a-z
-                          </span>
-
-                          <span
-                            className={
-                              passwordRules.number
-                                ? 'font-bold text-cyan-400'
-                                : 'text-slate-500'
-                            }
-                          >
-                            • 0-9
-                          </span>
-
-                          <span
-                            className={
-                              passwordRules.symbol
-                                ? 'font-bold text-cyan-400'
-                                : 'text-slate-500'
-                            }
-                          >
-                            • Symbol
-                          </span>
-
-                        </div>
-
-                      </div>
-
-                      {/* CONFIRM PASSWORD */}
-
-                      <div>
-
-                        <label
-                          htmlFor="confirmPassword"
-                          className="mb-1 block text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400"
-                        >
-                          Confirm Password
-                        </label>
-
-                        <div className="relative">
-
-                          <input
-                            id="confirmPassword"
-                            type={
-                              showConfirmPassword
-                                ? 'text'
-                                : 'password'
-                            }
-                            required
-                            disabled={isLoading}
-                            minLength={8}
-                            maxLength={64}
-                            autoComplete="new-password"
-                            placeholder="Re-enter new password"
-                            value={confirmPassword}
-                            onChange={(e) => {
-
-                              setConfirmPassword(
-                                e.target.value
-                              );
-
-                              setErrorMessage('');
-
-                            }}
-                            className={`${inputBase} pr-16`}
-                          />
-
-                          <button
-                            type="button"
-                            disabled={isLoading}
-                            onClick={() =>
-                              setShowConfirmPassword(
-                                (prev) => !prev
-                              )
-                            }
-                            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md px-2 py-1 text-[9px] font-bold text-slate-500 transition hover:bg-white/5 hover:text-cyan-300 disabled:opacity-50"
-                          >
-                            {showConfirmPassword
-                              ? 'HIDE'
-                              : 'SHOW'}
-                          </button>
-
-                        </div>
-
-                        {confirmPassword && (
-
-                          <p
-                            className={`mt-1 text-[8px] font-bold ${
-                              passwordsMatch
-                                ? 'text-emerald-400'
-                                : 'text-red-400'
-                            }`}
-                          >
-                            {passwordsMatch
-                              ? '✓ Passwords match'
-                              : '✕ Passwords do not match'}
-                          </p>
-
-                        )}
-
-                      </div>
-
-                      {/* SUBMIT */}
-
-                      <motion.button
-                        whileHover={
-                          !isLoading
-                            ? {
-                                y: -1,
-                              }
-                            : {}
-                        }
-                        whileTap={
-                          !isLoading
-                            ? {
-                                scale: 0.99,
-                              }
-                            : {}
-                        }
-                        type="submit"
-                        disabled={
-                          isLoading ||
-                          !token
-                        }
-                        className="group relative w-full overflow-hidden rounded-xl bg-gradient-to-r from-cyan-400 via-blue-500 to-violet-600 px-4 py-3 text-xs font-black text-white shadow-xl shadow-blue-600/20 transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-60 sm:rounded-2xl sm:py-3.5 sm:text-sm"
-                      >
-
-                        <span className="relative flex items-center justify-center gap-2">
-
-                          {isLoading ? (
-
-                            <>
-
-                              <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-
-                              Updating Password...
-
-                            </>
-
-                          ) : (
-
-                            <>
-                              Update Password
-                              <span>→</span>
-                            </>
-
-                          )}
-
-                        </span>
-
-                      </motion.button>
-
-                    </form>
-
-                    <div className="mt-4 border-t border-white/[0.07] pt-3 text-center">
-
-                      <Link
-                        to="/forgot-id"
-                        className="text-[9px] font-bold text-cyan-300 transition hover:text-cyan-200 hover:underline sm:text-[10px]"
-                      >
-                        Request a new reset link
-                      </Link>
-
-                    </div>
-
-                  </>
-
-                ) : (
-
-                  /* =========================================
-                     SUCCESS
-                  ========================================= */
+                {/* =================================================
+                    TOKEN CHECKING
+                ================================================= */}
+
+                {isTokenChecking && (
 
                   <motion.div
                     initial={{
                       opacity: 0,
-                      y: 10,
-                      scale: 0.97,
                     }}
                     animate={{
                       opacity: 1,
-                      y: 0,
-                      scale: 1,
                     }}
-                    className="py-5 text-center"
+                    className="py-8 text-center"
                   >
 
-                    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-emerald-400/30 bg-emerald-400/10 text-xl text-emerald-300">
-                      ✓
-                    </div>
+                    <div className="mx-auto h-11 w-11 animate-spin rounded-full border-2 border-cyan-400/25 border-t-cyan-300" />
 
-                    <h2 className="mt-4 text-xl font-black text-white sm:text-2xl">
-                      Password Updated
+                    <h2 className="mt-4 text-lg font-black text-white sm:text-xl">
+                      Checking Reset Link...
                     </h2>
 
-                    <p className="mx-auto mt-2 max-w-sm text-[10px] leading-5 text-slate-300 sm:text-xs">
-                      Your Buddy Fleets password has been changed successfully.
+                    <p className="mx-auto mt-2 max-w-sm text-[10px] leading-5 text-slate-400 sm:text-xs">
+                      Please wait while we securely verify your password reset request.
                     </p>
-
-                    <div className="mt-4 rounded-2xl border border-cyan-400/15 bg-cyan-400/[0.04] p-4 text-left">
-
-                      <p className="text-[10px] font-bold text-slate-200">
-                        Security Completed
-                      </p>
-
-                      <p className="mt-1.5 text-[9px] leading-4 text-slate-500">
-                        This reset link can no longer be used.
-                      </p>
-
-                      <p className="mt-1 text-[9px] leading-4 text-slate-500">
-                        Existing sessions have been revoked. Please log in again using your new password.
-                      </p>
-
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        navigate(
-                          '/login',
-                          {
-                            replace: true,
-                          }
-                        )
-                      }
-                      className="mt-5 w-full rounded-xl bg-gradient-to-r from-cyan-400 via-blue-500 to-violet-600 px-5 py-3 text-xs font-black text-white shadow-xl shadow-blue-600/20 sm:rounded-2xl sm:py-3.5 sm:text-sm"
-                    >
-                      Continue to Login →
-                    </button>
 
                   </motion.div>
 
                 )}
+
+                {/* =================================================
+                    INVALID / USED / EXPIRED TOKEN
+                ================================================= */}
+
+                {!isTokenChecking &&
+                  !isTokenValid &&
+                  !isSuccess && (
+
+                    <motion.div
+                      initial={{
+                        opacity: 0,
+                        scale: 0.97,
+                        y: 8,
+                      }}
+                      animate={{
+                        opacity: 1,
+                        scale: 1,
+                        y: 0,
+                      }}
+                      transition={{
+                        duration: 0.45,
+                      }}
+                      className="py-5 text-center"
+                    >
+
+                      {/* ERROR ICON */}
+
+                      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-red-400/30 bg-red-400/10 text-xl font-black text-red-300">
+                        ✕
+                      </div>
+
+                      <h2 className="mt-4 text-xl font-black text-white sm:text-2xl">
+                        Reset Link Unavailable
+                      </h2>
+
+                      <p
+                        className="mx-auto mt-2 max-w-sm text-[10px] leading-5 text-slate-400 sm:text-xs"
+                        role="alert"
+                      >
+                        {tokenError}
+                      </p>
+
+                      {/* SECURITY INFO */}
+
+                      <div className="mt-4 rounded-2xl border border-red-400/10 bg-red-400/[0.03] p-4 text-left">
+
+                        <p className="text-[10px] font-bold text-slate-200">
+                          For your security
+                        </p>
+
+                        <p className="mt-1.5 text-[9px] leading-4 text-slate-500 sm:text-[10px]">
+                          Buddy Fleets password reset links are valid for 30 minutes and can only be used once.
+                        </p>
+
+                      </div>
+
+                      {/* REQUEST NEW LINK */}
+
+                      <Link
+                        to="/forgot-id"
+                        className="mt-5 inline-flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-cyan-400 via-blue-500 to-violet-600 px-5 py-3 text-xs font-black text-white shadow-xl shadow-blue-600/20 transition hover:shadow-cyan-500/20 sm:rounded-2xl sm:py-3.5 sm:text-sm"
+                      >
+                        Request New Reset Link →
+                      </Link>
+
+                      {/* LOGIN */}
+
+                      <Link
+                        to="/login"
+                        className="mt-3 inline-block text-[9px] font-bold text-cyan-300 transition hover:text-cyan-200 hover:underline sm:text-[10px]"
+                      >
+                        Back to Login
+                      </Link>
+
+                    </motion.div>
+
+                  )}
+
+                {/* =================================================
+                    VALID TOKEN — PASSWORD FORM
+                ================================================= */}
+
+                {!isTokenChecking &&
+                  isTokenValid &&
+                  !isSuccess && (
+
+                    <motion.div
+                      initial={{
+                        opacity: 0,
+                        y: 8,
+                      }}
+                      animate={{
+                        opacity: 1,
+                        y: 0,
+                      }}
+                      transition={{
+                        duration: 0.45,
+                      }}
+                    >
+
+                      {/* HEADER */}
+
+                      <div className="mb-4">
+
+                        <div className="mb-2 flex items-center gap-1.5">
+
+                          <span className="h-1.5 w-8 rounded-full bg-cyan-400" />
+
+                          <span className="h-1.5 w-3 rounded-full bg-blue-500" />
+
+                          <span className="h-1.5 w-2 rounded-full bg-violet-500" />
+
+                        </div>
+
+                        <h2 className="text-xl font-black tracking-tight text-white sm:text-2xl lg:text-xl xl:text-2xl">
+                          Reset Password
+                        </h2>
+
+                        <p className="mt-1 text-[10px] leading-4 text-slate-400 sm:text-[11px]">
+                          Enter and confirm your new secure password.
+                        </p>
+
+                      </div>
+
+                      {/* ERROR MESSAGE */}
+
+                      {errorMessage && (
+
+                        <motion.div
+                          initial={{
+                            opacity: 0,
+                            y: -5,
+                          }}
+                          animate={{
+                            opacity: 1,
+                            y: 0,
+                          }}
+                          className="mb-3 rounded-xl border border-red-400/20 bg-red-400/[0.06] px-3 py-2.5"
+                          role="alert"
+                        >
+
+                          <p className="text-[9px] leading-4 text-red-300 sm:text-[10px]">
+                            {errorMessage}
+                          </p>
+
+                        </motion.div>
+
+                      )}
+
+                      {/* FORM */}
+
+                      <form
+                        onSubmit={handleSubmit}
+                        noValidate
+                        className="space-y-3"
+                      >
+
+                        {/* NEW PASSWORD */}
+
+                        <div>
+
+                          <label
+                            htmlFor="newPassword"
+                            className="mb-1 block text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400"
+                          >
+                            New Password
+                          </label>
+
+                          <div className="relative">
+
+                            <input
+                              id="newPassword"
+                              type={
+                                showPassword
+                                  ? 'text'
+                                  : 'password'
+                              }
+                              required
+                              disabled={isLoading}
+                              minLength={8}
+                              maxLength={64}
+                              autoComplete="new-password"
+                              placeholder="Enter new password"
+                              value={newPassword}
+                              onChange={(e) => {
+
+                                setNewPassword(
+                                  e.target.value
+                                );
+
+                                setErrorMessage('');
+
+                              }}
+                              className={`${inputBase} pr-16`}
+                            />
+
+                            <button
+                              type="button"
+                              disabled={isLoading}
+                              onClick={() =>
+                                setShowPassword(
+                                  (prev) => !prev
+                                )
+                              }
+                              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md px-2 py-1 text-[9px] font-bold text-slate-500 transition hover:bg-white/5 hover:text-cyan-300 focus:outline-none focus:ring-2 focus:ring-cyan-400/20 disabled:opacity-50"
+                              aria-label={
+                                showPassword
+                                  ? 'Hide new password'
+                                  : 'Show new password'
+                              }
+                            >
+                              {showPassword
+                                ? 'HIDE'
+                                : 'SHOW'}
+                            </button>
+
+                          </div>
+
+                          {/* PASSWORD RULES */}
+
+                          <div className="mt-1.5 flex flex-wrap gap-x-2.5 gap-y-1 text-[8px]">
+
+                            <span
+                              className={
+                                passwordRules.length
+                                  ? 'font-bold text-cyan-400'
+                                  : 'text-slate-500'
+                              }
+                            >
+                              • 8–64 Chars
+                            </span>
+
+                            <span
+                              className={
+                                passwordRules.uppercase
+                                  ? 'font-bold text-cyan-400'
+                                  : 'text-slate-500'
+                              }
+                            >
+                              • A-Z
+                            </span>
+
+                            <span
+                              className={
+                                passwordRules.lowercase
+                                  ? 'font-bold text-cyan-400'
+                                  : 'text-slate-500'
+                              }
+                            >
+                              • a-z
+                            </span>
+
+                            <span
+                              className={
+                                passwordRules.number
+                                  ? 'font-bold text-cyan-400'
+                                  : 'text-slate-500'
+                              }
+                            >
+                              • 0-9
+                            </span>
+
+                            <span
+                              className={
+                                passwordRules.symbol
+                                  ? 'font-bold text-cyan-400'
+                                  : 'text-slate-500'
+                              }
+                            >
+                              • Symbol
+                            </span>
+
+                          </div>
+
+                        </div>
+
+                        {/* CONFIRM PASSWORD */}
+
+                        <div>
+
+                          <label
+                            htmlFor="confirmPassword"
+                            className="mb-1 block text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400"
+                          >
+                            Confirm Password
+                          </label>
+
+                          <div className="relative">
+
+                            <input
+                              id="confirmPassword"
+                              type={
+                                showConfirmPassword
+                                  ? 'text'
+                                  : 'password'
+                              }
+                              required
+                              disabled={isLoading}
+                              minLength={8}
+                              maxLength={64}
+                              autoComplete="new-password"
+                              placeholder="Re-enter new password"
+                              value={confirmPassword}
+                              onChange={(e) => {
+
+                                setConfirmPassword(
+                                  e.target.value
+                                );
+
+                                setErrorMessage('');
+
+                              }}
+                              className={`${inputBase} pr-16`}
+                            />
+
+                            <button
+                              type="button"
+                              disabled={isLoading}
+                              onClick={() =>
+                                setShowConfirmPassword(
+                                  (prev) => !prev
+                                )
+                              }
+                              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md px-2 py-1 text-[9px] font-bold text-slate-500 transition hover:bg-white/5 hover:text-cyan-300 focus:outline-none focus:ring-2 focus:ring-cyan-400/20 disabled:opacity-50"
+                              aria-label={
+                                showConfirmPassword
+                                  ? 'Hide confirm password'
+                                  : 'Show confirm password'
+                              }
+                            >
+                              {showConfirmPassword
+                                ? 'HIDE'
+                                : 'SHOW'}
+                            </button>
+
+                          </div>
+
+                          {/* MATCH STATUS */}
+
+                          {confirmPassword && (
+
+                            <p
+                              className={`mt-1 text-[8px] font-bold ${
+                                passwordsMatch
+                                  ? 'text-emerald-400'
+                                  : 'text-red-400'
+                              }`}
+                            >
+
+                              {passwordsMatch
+                                ? '✓ Passwords match'
+                                : '✕ Passwords do not match'}
+
+                            </p>
+
+                          )}
+
+                        </div>
+
+                        {/* UPDATE PASSWORD */}
+
+                        <motion.button
+                          whileHover={
+                            !isLoading
+                              ? {
+                                  y: -1,
+                                }
+                              : {}
+                          }
+                          whileTap={
+                            !isLoading
+                              ? {
+                                  scale: 0.99,
+                                }
+                              : {}
+                          }
+                          type="submit"
+                          disabled={
+                            isLoading ||
+                            !isTokenValid ||
+                            !token
+                          }
+                          className="group relative w-full overflow-hidden rounded-xl bg-gradient-to-r from-cyan-400 via-blue-500 to-violet-600 px-4 py-3 text-xs font-black text-white shadow-xl shadow-blue-600/20 transition-all duration-300 hover:shadow-cyan-500/20 focus:outline-none focus:ring-4 focus:ring-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-60 sm:rounded-2xl sm:py-3.5 sm:text-sm"
+                        >
+
+                          <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
+
+                          <span className="relative flex items-center justify-center gap-2">
+
+                            {isLoading ? (
+
+                              <>
+
+                                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+
+                                <span>
+                                  Updating Password...
+                                </span>
+
+                              </>
+
+                            ) : (
+
+                              <>
+
+                                <span>
+                                  Update Password
+                                </span>
+
+                                <span className="text-base">
+                                  →
+                                </span>
+
+                              </>
+
+                            )}
+
+                          </span>
+
+                        </motion.button>
+
+                      </form>
+
+                      {/* NEW RESET LINK */}
+
+                      <div className="mt-4 border-t border-white/[0.07] pt-3 text-center">
+
+                        <Link
+                          to="/forgot-id"
+                          className="text-[9px] font-bold text-cyan-300 transition hover:text-cyan-200 hover:underline sm:text-[10px]"
+                        >
+                          Request a new reset link
+                        </Link>
+
+                      </div>
+
+                    </motion.div>
+
+                  )}
+
+                {/* =================================================
+                    SUCCESS
+                ================================================= */}
+
+                {!isTokenChecking &&
+                  isSuccess && (
+
+                    <motion.div
+                      initial={{
+                        opacity: 0,
+                        y: 10,
+                        scale: 0.97,
+                      }}
+                      animate={{
+                        opacity: 1,
+                        y: 0,
+                        scale: 1,
+                      }}
+                      transition={{
+                        duration: 0.5,
+                      }}
+                      className="py-5 text-center"
+                    >
+
+                      {/* SUCCESS ICON */}
+
+                      <motion.div
+                        initial={{
+                          scale: 0,
+                        }}
+                        animate={{
+                          scale: 1,
+                        }}
+                        transition={{
+                          type: 'spring',
+                          stiffness: 180,
+                          delay: 0.1,
+                        }}
+                        className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-emerald-400/30 bg-emerald-400/10 text-xl text-emerald-300 shadow-lg shadow-emerald-500/10"
+                      >
+                        ✓
+                      </motion.div>
+
+                      <h2 className="mt-4 text-xl font-black text-white sm:text-2xl">
+                        Password Updated
+                      </h2>
+
+                      <p className="mx-auto mt-2 max-w-sm text-[10px] leading-5 text-slate-300 sm:text-xs">
+                        Your Buddy Fleets password has been changed successfully.
+                      </p>
+
+                      {/* SECURITY COMPLETE */}
+
+                      <div className="mt-4 rounded-2xl border border-emerald-400/15 bg-emerald-400/[0.04] p-4 text-left">
+
+                        <p className="text-[10px] font-bold text-slate-200 sm:text-[11px]">
+                          Security Completed
+                        </p>
+
+                        <p className="mt-1.5 text-[9px] leading-4 text-slate-500 sm:text-[10px]">
+                          This password reset link has now been used and cannot be used again.
+                        </p>
+
+                        <p className="mt-1 text-[9px] leading-4 text-slate-500 sm:text-[10px]">
+                          Existing sessions have been revoked. Please log in again using your new password.
+                        </p>
+
+                      </div>
+
+                      {/* LOGIN */}
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          navigate(
+                            '/login',
+                            {
+                              replace: true,
+                            }
+                          )
+                        }
+                        className="mt-5 w-full rounded-xl bg-gradient-to-r from-cyan-400 via-blue-500 to-violet-600 px-5 py-3 text-xs font-black text-white shadow-xl shadow-blue-600/20 transition hover:shadow-cyan-500/20 focus:outline-none focus:ring-4 focus:ring-cyan-400/20 sm:rounded-2xl sm:py-3.5 sm:text-sm"
+                      >
+                        Continue to Login →
+                      </button>
+
+                    </motion.div>
+
+                  )}
 
               </div>
 
@@ -1364,7 +1823,7 @@ export default function ResetPassword() {
       </main>
 
       {/* =====================================================
-          FOOTER
+          FOOTER CREDITS
       ===================================================== */}
 
       <footer
@@ -1413,7 +1872,7 @@ export default function ResetPassword() {
             href="https://www.instagram.com/happiest_banda"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-purple-400 underline decoration-purple-400 underline-offset-2 transition hover:text-purple-300"
+            className="text-purple-400 underline decoration-purple-400 underline-offset-2 transition duration-300 hover:text-purple-300 hover:drop-shadow-[0_0_8px_rgba(192,132,252,0.8)]"
           >
             SHUBHAM JANGIR
           </a>
