@@ -1,17 +1,34 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, {
+  useEffect,
+  useState,
+} from 'react';
+
+import {
+  Link,
+} from 'react-router-dom';
+
 import { motion } from 'framer-motion';
 import { supabase } from '../../supabaseClient';
 
-const inputBase =
-  'w-full rounded-2xl border border-white/10 bg-[#101a2c]/80 px-4 py-3 text-sm text-white placeholder-slate-500 outline-none transition-all duration-300 focus:border-cyan-400/60 focus:bg-[#142139] focus:ring-4 focus:ring-cyan-400/10 disabled:cursor-not-allowed disabled:opacity-60';
+/* =========================================================
+   COMMON INPUT
+========================================================= */
 
-function AmbientOrb({ className = '' }) {
+const inputBase =
+  'w-full rounded-xl border border-white/10 bg-[#101a2c]/85 px-3.5 py-2.5 text-xs text-white placeholder-slate-500 outline-none transition-all duration-300 focus:border-cyan-400/60 focus:bg-[#142139] focus:ring-4 focus:ring-cyan-400/10 disabled:cursor-not-allowed disabled:opacity-60 sm:rounded-2xl sm:px-4 sm:py-3 sm:text-sm';
+
+/* =========================================================
+   AMBIENT ORB
+========================================================= */
+
+function AmbientOrb({
+  className = '',
+}) {
   return (
     <motion.div
       animate={{
         scale: [1, 1.12, 1],
-        opacity: [0.25, 0.45, 0.25],
+        opacity: [0.2, 0.42, 0.2],
       }}
       transition={{
         duration: 7,
@@ -23,10 +40,14 @@ function AmbientOrb({ className = '' }) {
   );
 }
 
+/* =========================================================
+   LIGHT TRAIL
+========================================================= */
+
 function LightTrail({
   delay = 0,
   duration = 8,
-  bottom = 'bottom-[16%]',
+  bottom = 'bottom-[15%]',
   width = 'w-48',
 }) {
   return (
@@ -37,7 +58,7 @@ function LightTrail({
       }}
       animate={{
         x: '130vw',
-        opacity: [0, 0.4, 0.7, 0],
+        opacity: [0, 0.35, 0.65, 0],
       }}
       transition={{
         duration,
@@ -45,10 +66,70 @@ function LightTrail({
         repeat: Infinity,
         ease: 'linear',
       }}
-      className={`pointer-events-none absolute left-0 ${bottom} h-px ${width} bg-gradient-to-r from-transparent via-cyan-300/60 to-transparent`}
+      className={`pointer-events-none absolute left-0 ${bottom} h-px ${width} bg-gradient-to-r from-transparent via-cyan-300/50 to-transparent`}
     />
   );
 }
+
+/* =========================================================
+   TRUCK
+========================================================= */
+
+function Truck() {
+  return (
+    <div className="relative h-16 w-44 sm:h-20 sm:w-56">
+
+      {/* UNDER GLOW */}
+
+      <div className="absolute -bottom-2 left-2 h-5 w-40 rounded-full bg-cyan-400/20 blur-xl sm:w-52" />
+
+      {/* TRAILER */}
+
+      <div className="absolute left-0 top-1 h-11 w-32 rounded-md border border-cyan-300/20 bg-gradient-to-br from-slate-700/80 via-slate-800/80 to-[#07101f] shadow-[0_0_30px_rgba(34,211,238,0.12)] sm:h-14 sm:w-40">
+
+        <div className="absolute left-2 right-2 top-2 h-1 rounded-full bg-cyan-400/40" />
+
+        <div className="absolute left-2 top-5 text-[7px] font-black uppercase tracking-[0.25em] text-slate-500 sm:top-6">
+          BUDDY FLEETS
+        </div>
+
+        <div className="absolute bottom-2 left-2 h-1 w-8 rounded-full bg-blue-400/30" />
+
+        <div className="absolute bottom-2 right-2 h-1 w-12 rounded-full bg-violet-400/30" />
+
+      </div>
+
+      {/* CABIN */}
+
+      <div className="absolute right-0 top-5 h-8 w-12 rounded-r-lg rounded-tl-sm border border-cyan-300/25 bg-gradient-to-br from-cyan-500/30 via-blue-600/30 to-violet-700/30 shadow-[0_0_25px_rgba(34,211,238,0.2)] sm:top-7 sm:h-10 sm:w-14">
+
+        <div className="absolute left-2 top-2 h-3 w-7 rounded-sm border border-cyan-300/20 bg-cyan-300/10 sm:h-4 sm:w-9" />
+
+      </div>
+
+      {/* FRONT LIGHT */}
+
+      <div className="absolute right-[-4px] top-[31px] h-2 w-2 rounded-full bg-cyan-200 shadow-[0_0_14px_rgba(34,211,238,1)] sm:top-[39px]" />
+
+      {/* WHEELS */}
+
+      <div className="absolute bottom-0 left-6 h-6 w-6 rounded-full border-2 border-slate-500 bg-[#020617] sm:left-8 sm:h-7 sm:w-7" />
+
+      <div className="absolute bottom-0 right-6 h-6 w-6 rounded-full border-2 border-slate-500 bg-[#020617] sm:right-7 sm:h-7 sm:w-7" />
+
+      {/* HUBS */}
+
+      <div className="absolute bottom-[7px] left-[35px] h-2 w-2 rounded-full bg-slate-600 sm:bottom-[8px] sm:left-[42px]" />
+
+      <div className="absolute bottom-[7px] right-[35px] h-2 w-2 rounded-full bg-slate-600 sm:bottom-[8px] sm:right-[42px]" />
+
+    </div>
+  );
+}
+
+/* =========================================================
+   ANIMATED TRUCK
+========================================================= */
 
 function AnimatedTruck() {
   return (
@@ -58,7 +139,7 @@ function AnimatedTruck() {
         opacity: 0,
       }}
       animate={{
-        x: '125vw',
+        x: '120vw',
         opacity: [0, 1, 1, 0],
       }}
       transition={{
@@ -67,39 +148,39 @@ function AnimatedTruck() {
         repeatDelay: 3,
         ease: 'linear',
       }}
-      className="pointer-events-none absolute bottom-[7%] left-0 z-[4]"
+      className="absolute bottom-0 left-0"
     >
-      <div className="relative h-16 w-44 sm:h-20 sm:w-56">
-        <div className="absolute -bottom-2 left-2 h-5 w-44 rounded-full bg-cyan-400/20 blur-xl sm:w-52" />
-
-        <div className="absolute left-0 top-1 h-11 w-32 rounded-md border border-cyan-300/20 bg-gradient-to-br from-slate-700/80 via-slate-800/80 to-[#07101f] shadow-[0_0_30px_rgba(34,211,238,0.12)] sm:h-14 sm:w-40">
-          <div className="absolute left-2 right-2 top-2 h-1 rounded-full bg-cyan-400/40" />
-          <div className="absolute left-2 top-5 text-[7px] font-black uppercase tracking-[0.25em] text-slate-500 sm:top-6">
-            BUDDY FLEETS
-          </div>
-          <div className="absolute bottom-2 left-2 h-1 w-8 rounded-full bg-blue-400/30" />
-          <div className="absolute bottom-2 right-2 h-1 w-12 rounded-full bg-violet-400/30" />
-        </div>
-
-        <div className="absolute right-0 top-5 h-8 w-12 rounded-r-lg rounded-tl-sm border border-cyan-300/25 bg-gradient-to-br from-cyan-500/30 via-blue-600/30 to-violet-700/30 shadow-[0_0_25px_rgba(34,211,238,0.2)] sm:top-7 sm:h-10 sm:w-14">
-          <div className="absolute left-2 top-2 h-3 w-7 rounded-sm border border-cyan-300/20 bg-cyan-300/10 sm:h-4 sm:w-9" />
-        </div>
-
-        <div className="absolute right-[-4px] top-[31px] h-2 w-2 rounded-full bg-cyan-200 shadow-[0_0_14px_rgba(34,211,238,1)] sm:top-[39px]" />
-
-        <div className="absolute bottom-0 left-6 h-6 w-6 rounded-full border-2 border-slate-500 bg-[#020617] shadow-[0_0_10px_rgba(34,211,238,0.2)] sm:left-8 sm:h-7 sm:w-7" />
-        <div className="absolute bottom-0 right-6 h-6 w-6 rounded-full border-2 border-slate-500 bg-[#020617] shadow-[0_0_10px_rgba(34,211,238,0.2)] sm:right-7 sm:h-7 sm:w-7" />
-
-        <div className="absolute bottom-[7px] left-[35px] h-2 w-2 rounded-full bg-slate-600 sm:bottom-[8px] sm:left-[42px]" />
-        <div className="absolute bottom-[7px] right-[35px] h-2 w-2 rounded-full bg-slate-600 sm:bottom-[8px] sm:right-[42px]" />
-      </div>
+      <Truck />
     </motion.div>
   );
 }
 
+/* =========================================================
+   MOBILE / TABLET TRUCK
+========================================================= */
+
+function MobileTruckScene() {
+  return (
+    <div className="relative h-24 w-full overflow-hidden border-y border-white/[0.04] sm:h-28 lg:hidden">
+
+      <div className="absolute inset-x-0 bottom-2 h-px bg-gradient-to-r from-transparent via-cyan-400/35 to-transparent" />
+
+      <div className="absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-cyan-500/[0.06] to-transparent" />
+
+      <AnimatedTruck />
+
+    </div>
+  );
+}
+
+/* =========================================================
+   RADAR
+========================================================= */
+
 function RadarPulse() {
   return (
-    <div className="pointer-events-none absolute right-[10%] top-[35%] hidden h-40 w-40 lg:block">
+    <div className="pointer-events-none absolute right-[7%] top-[30%] hidden h-36 w-36 xl:block">
+
       <motion.div
         animate={{
           scale: [0.7, 1.4],
@@ -112,6 +193,7 @@ function RadarPulse() {
         }}
         className="absolute inset-0 rounded-full border border-cyan-400/20"
       />
+
       <motion.div
         animate={{
           scale: [0.7, 1.4],
@@ -125,8 +207,11 @@ function RadarPulse() {
         }}
         className="absolute inset-0 rounded-full border border-cyan-400/15"
       />
+
       <div className="absolute inset-[20%] rounded-full border border-cyan-400/10" />
+
       <div className="absolute inset-[38%] rounded-full border border-cyan-400/20 bg-cyan-400/5" />
+
       <motion.div
         animate={{
           rotate: 360,
@@ -138,432 +223,1100 @@ function RadarPulse() {
         }}
         className="absolute left-1/2 top-1/2 h-[1px] w-1/2 origin-left bg-gradient-to-r from-cyan-400/70 to-transparent"
       />
+
       <div className="absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-cyan-300 shadow-[0_0_15px_rgba(34,211,238,1)]" />
+
     </div>
   );
 }
 
+/* =========================================================
+   FORGOT PASSWORD
+========================================================= */
+
 export default function ForgotID() {
-  const [companyCode, setCompanyCode] = useState('');
-  const [email, setEmail] = useState('');
-  const [recoveryType, setRecoveryType] = useState('password');
-  
-  const [companyError, setCompanyError] = useState('');
-  const [emailError, setEmailError] = useState('');
-  const [generalError, setGeneralError] = useState('');
-  
-  const [isLoading, setIsLoading] = useState(false);
-  const [isSubmitted, setIsSubmitted] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
+  const [companyCode, setCompanyCode] =
+    useState('');
 
-  const [lockoutUntil, setLockoutUntil] = useState(null);
+  const [email, setEmail] =
+    useState('');
 
-  const navigate = useNavigate();
+  const [isLoading, setIsLoading] =
+    useState(false);
+
+  const [errorMessage, setErrorMessage] =
+    useState('');
+
+  const [isSubmitted, setIsSubmitted] =
+    useState(false);
+
+  /*
+    Frontend cooldown sirf UX hai.
+
+    Security/rate limiting actual Edge Function/backend
+    me enforce hogi.
+  */
+
+  const [cooldown, setCooldown] =
+    useState(0);
+
+  /* =========================================================
+     COOLDOWN TIMER
+  ========================================================= */
 
   useEffect(() => {
-    const savedLockout = localStorage.getItem('buddy_forgot_lockout');
-    if (savedLockout) {
-      const lockTime = parseInt(savedLockout, 10);
-      if (Date.now() < lockTime) {
-        setLockoutUntil(lockTime);
-      } else {
-        localStorage.removeItem('buddy_forgot_lockout');
-        localStorage.removeItem('buddy_forgot_attempts');
-      }
-    }
-  }, []);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setCompanyError('');
-    setEmailError('');
-    setGeneralError('');
-
-    if (lockoutUntil && Date.now() < lockoutUntil) {
-      const diffMs = lockoutUntil - Date.now();
-      const hours = Math.floor(diffMs / (1000 * 60 * 60));
-      const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-      setGeneralError(`Too many failed attempts. Blocked for ${hours}h ${minutes}m.`);
-      return;
+    if (cooldown <= 0) {
+      return undefined;
     }
 
-    const cleanCompany = companyCode.trim();
-    const cleanEmail = email.trim();
+    const timer =
+      window.setInterval(() => {
 
-    if (!cleanCompany || !cleanEmail) {
-      setGeneralError('Please fill in both Company Code and Email ID.');
-      return;
-    }
+        setCooldown(
+          (current) => {
 
-    setIsLoading(true);
+            if (current <= 1) {
+              window.clearInterval(
+                timer
+              );
 
-    try {
-      const { data: companyData, error: companyDbError } = await supabase
-        .from('transport_companies')
-        .select('*')
-        .eq('company_code', cleanCompany)
-        .maybeSingle();
+              return 0;
+            }
 
-      const { data: userData, error: userDbError } = await supabase
-        .from('app_users')
-        .select('*')
-        .eq('email', cleanEmail)
-        .maybeSingle();
+            return current - 1;
 
-      let hasCompanyError = false;
-      let hasEmailError = false;
+          }
+        );
 
-      if (companyDbError || !companyData) {
-        if (cleanCompany.toUpperCase() !== 'ADMIN') {
-          hasCompanyError = true;
-        }
-      }
+      }, 1000);
 
-      if (userDbError || !userData) {
-        hasEmailError = true;
-      }
+    return () => {
+      window.clearInterval(
+        timer
+      );
+    };
 
-      if (hasCompanyError || hasEmailError) {
-        let currentAttempts = parseInt(localStorage.getItem('buddy_forgot_attempts') || '0', 10) + 1;
-        localStorage.setItem('buddy_forgot_attempts', currentAttempts.toString());
+  }, [cooldown]);
 
-        if (hasCompanyError) setCompanyError('Incorrect Company ID.');
-        if (hasEmailError) setEmailError('Incorrect Email ID.');
+  /* =========================================================
+     REQUEST RESET
+  ========================================================= */
 
-        if (currentAttempts >= 3) {
-          const blockUntil = Date.now() + 3 * 60 * 60 * 1000;
-          localStorage.setItem('buddy_forgot_lockout', blockUntil.toString());
-          setLockoutUntil(blockUntil);
-          setGeneralError('Maximum 3 invalid attempts. Blocked for 3 hours.');
-        } else {
-          setGeneralError(`Invalid details. ${3 - currentAttempts} attempt(s) remaining.`);
-        }
+  const handleSubmit =
+    async (e) => {
 
-        setIsLoading(false);
+      e.preventDefault();
+
+      if (
+        isLoading ||
+        cooldown > 0
+      ) {
         return;
       }
 
-      localStorage.removeItem('buddy_forgot_attempts');
-      localStorage.removeItem('buddy_forgot_lockout');
+      setErrorMessage('');
 
-      if (recoveryType === 'password') {
-        setSuccessMessage('Password reset link has been sent to your email.');
-      } else {
-        setSuccessMessage('Username has been delivered to your email id.');
+      const cleanCompanyCode =
+        companyCode
+          .trim()
+          .toUpperCase();
+
+      const cleanEmail =
+        email
+          .trim()
+          .toLowerCase();
+
+      /* COMPANY CODE */
+
+      if (!cleanCompanyCode) {
+
+        setErrorMessage(
+          'Please enter your Company Code.'
+        );
+
+        return;
+
       }
 
-      setIsSubmitted(true);
-    } catch (err) {
-      console.error('Recovery error:', err);
-      setGeneralError('An unexpected error occurred. Please try again later.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      /* EMAIL */
+
+      const emailRegex =
+        /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+      if (
+        !emailRegex.test(
+          cleanEmail
+        )
+      ) {
+
+        setErrorMessage(
+          'Please enter a valid registered email address.'
+        );
+
+        return;
+
+      }
+
+      setIsLoading(true);
+
+      try {
+
+        /*
+          =====================================================
+          SECURE PASSWORD RESET REQUEST
+          =====================================================
+
+          IMPORTANT:
+
+          Browser directly:
+          - companies table verify nahi karega
+          - profiles/users enumerate nahi karega
+          - email existence expose nahi karega
+
+          Secure Edge Function:
+          request-password-reset
+
+          ko Company Code + Email diya jayega.
+
+          Edge Function later:
+          1. Company Code verify karegi
+          2. User/company membership verify karegi
+          3. Server-side rate limit karegi
+          4. Generic response degi
+          5. Reset link generate/send karegi
+          6. Audit log create karegi
+        */
+
+        const {
+          error: functionError,
+        } =
+          await supabase.functions.invoke(
+            'request-password-reset',
+            {
+              body: {
+                companyCode:
+                  cleanCompanyCode,
+
+                email:
+                  cleanEmail,
+
+                redirectTo:
+                  `${window.location.origin}/forgot-id`,
+              },
+            }
+          );
+
+        /*
+          Enumeration avoid karne ke liye normal
+          application-level "account not found" response
+          frontend par differentiate nahi karenge.
+
+          Real server/network/function failure ko however
+          development me console me log kar sakte hain.
+        */
+
+        if (functionError) {
+
+          console.error(
+            'Password reset function error:',
+            functionError
+          );
+
+          throw new Error(
+            'RESET_REQUEST_FAILED'
+          );
+
+        }
+
+        /*
+          Generic success:
+          email/account exist kare ya na kare,
+          frontend same message dikhayega.
+        */
+
+        setIsSubmitted(true);
+
+        setCooldown(60);
+
+      } catch (err) {
+
+        console.error(
+          'Password reset request error:',
+          err
+        );
+
+        setErrorMessage(
+          'Unable to process the request right now. Please try again in a moment.'
+        );
+
+      } finally {
+
+        setIsLoading(false);
+
+      }
+
+    };
+
+  /* =========================================================
+     REQUEST AGAIN
+  ========================================================= */
+
+  const handleTryAgain =
+    () => {
+
+      if (cooldown > 0) {
+        return;
+      }
+
+      setIsSubmitted(false);
+      setErrorMessage('');
+
+    };
+
+  /* =========================================================
+     PAGE
+  ========================================================= */
 
   return (
-    <div className="relative h-screen w-full overflow-hidden bg-[#050914] font-sans text-white">
+    <div
+      className="
+        relative
+        min-h-[100dvh]
+        w-full
+        overflow-x-hidden
+        bg-[#050914]
+        font-sans
+        text-white
 
-      {/* CINEMATIC BACKGROUND */}
-      <div className="fixed inset-0 z-0 overflow-hidden">
+        lg:grid
+        lg:h-[100dvh]
+        lg:min-h-0
+        lg:grid-rows-[72px_minmax(0,1fr)_58px]
+        lg:overflow-hidden
+      "
+    >
+
+      {/* =====================================================
+          BACKGROUND
+      ===================================================== */}
+
+      <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
+
         <img
           src="https://images.unsplash.com/photo-1519003722824-194d4455a60c?q=85&w=2400&auto=format&fit=crop"
-          alt="Buddy Fleets transport fleet"
+          alt=""
+          aria-hidden="true"
           className="h-full w-full object-cover object-center opacity-25"
         />
-        <div className="absolute inset-0 bg-[#050914]/75" />
+
+        <div className="absolute inset-0 bg-[#050914]/80" />
+
         <div className="absolute inset-0 bg-gradient-to-r from-[#050914] via-[#050914]/90 to-[#071329]/75" />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#050914] via-transparent to-[#050914]/60" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_45%,rgba(6,182,212,0.12),transparent_30%),radial-gradient(circle_at_85%_45%,rgba(124,58,237,0.13),transparent_32%)]" />
+
+        <div className="absolute inset-0 bg-gradient-to-t from-[#050914] via-transparent to-[#050914]/65" />
+
+        {/* GRID */}
+
+        <div
+          className="absolute inset-0 opacity-[0.06]"
+          style={{
+            backgroundImage:
+              'linear-gradient(rgba(56,189,248,0.7) 1px, transparent 1px), linear-gradient(90deg, rgba(56,189,248,0.7) 1px, transparent 1px)',
+            backgroundSize:
+              '55px 55px',
+          }}
+        />
+
+        {/* GLOWS */}
+
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_40%,rgba(6,182,212,0.10),transparent_30%),radial-gradient(circle_at_85%_40%,rgba(124,58,237,0.12),transparent_32%)]" />
+
+        <AmbientOrb className="left-[4%] top-[15%] h-72 w-72 bg-cyan-500/20" />
+
+        <AmbientOrb className="right-[5%] top-[20%] h-80 w-80 bg-violet-600/20" />
+
       </div>
 
-      {/* ANIMATED GRID */}
-      <motion.div
-        animate={{ backgroundPosition: ['0px 0px', '55px 55px'] }}
-        transition={{ duration: 14, repeat: Infinity, ease: 'linear' }}
-        className="pointer-events-none fixed inset-0 z-[1] opacity-[0.07]"
-        style={{
-          backgroundImage:
-            'linear-gradient(rgba(56,189,248,0.8) 1px, transparent 1px), linear-gradient(90deg, rgba(56,189,248,0.8) 1px, transparent 1px)',
-          backgroundSize: '55px 55px',
-        }}
-      />
+      {/* =====================================================
+          HEADER
+      ===================================================== */}
 
-      {/* AMBIENT LIGHTS */}
-      <AmbientOrb className="left-[4%] top-[18%] h-80 w-80 bg-cyan-500/20" />
-      <AmbientOrb className="right-[5%] top-[20%] h-96 w-96 bg-violet-600/20" />
-      <AmbientOrb className="bottom-[5%] left-[38%] h-72 w-72 bg-blue-600/15" />
+      <header className="relative z-50 h-[110px] w-full shrink-0 sm:h-[104px] lg:h-[72px]">
 
-      {/* MOVING LIGHT TRAILS */}
-      <LightTrail delay={0} duration={8} bottom="bottom-[16%]" width="w-56" />
-      <LightTrail delay={2.5} duration={9} bottom="bottom-[21%]" width="w-72" />
-      <LightTrail delay={5} duration={7} bottom="bottom-[12%]" width="w-40" />
+        {/* BRAND */}
 
-      {/* ANIMATED TRUCK & RADAR */}
-      <AnimatedTruck />
-      <RadarPulse />
+        <Link
+          to="/"
+          className="
+            group
+            absolute
+            left-4
+            top-4
+            z-20
+            flex
+            items-center
+            gap-2.5
 
-      {/* ROAD GLOW */}
-      <div className="pointer-events-none fixed bottom-[7%] left-0 right-0 z-[3] h-px bg-gradient-to-r from-transparent via-cyan-400/30 to-transparent shadow-[0_0_18px_rgba(34,211,238,0.3)]" />
-      <div className="pointer-events-none fixed bottom-[5%] left-0 right-0 z-[2] h-16 bg-gradient-to-t from-cyan-500/[0.05] to-transparent blur-xl" />
+            sm:left-6
+            sm:top-5
+            sm:gap-3
 
-      {/* TOP BRAND & CENTER NAVIGATION */}
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.7 }}
-        className="absolute left-6 right-6 top-6 z-50 flex items-center justify-between pointer-events-auto sm:left-10 sm:right-10 sm:top-8"
-      >
-        <Link to="/" className="group flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-cyan-400/30 bg-gradient-to-br from-cyan-400 via-blue-500 to-violet-600 text-sm font-black text-white shadow-lg shadow-cyan-500/20 transition-transform duration-300 group-hover:scale-105">
+            lg:left-10
+            lg:top-1/2
+            lg:-translate-y-1/2
+          "
+        >
+
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-400/30 bg-gradient-to-br from-cyan-400 via-blue-500 to-violet-600 text-[10px] font-black text-white shadow-lg shadow-cyan-500/20 transition-transform duration-300 group-hover:scale-105 sm:h-11 sm:w-11 sm:text-xs">
             BF
           </div>
+
           <div>
-            <div className="text-base font-black tracking-tight text-white">
+
+            <div className="text-xs font-black tracking-tight text-white sm:text-sm">
               Buddy Fleets
             </div>
-            <div className="text-[10px] font-semibold uppercase tracking-[0.25em] text-slate-400">
+
+            <div className="text-[7px] font-semibold uppercase tracking-[0.24em] text-slate-400 sm:text-[8px]">
               Fleet Intelligence
             </div>
+
           </div>
+
         </Link>
 
-        <nav className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-8 rounded-full border border-white/10 bg-[#07101f]/90 px-8 py-3.5 shadow-2xl backdrop-blur-2xl md:flex">
-          <Link to="/" className="text-sm font-semibold text-slate-200 transition hover:text-cyan-400">Home</Link>
-          <Link to="/features" className="text-sm font-semibold text-slate-200 transition hover:text-cyan-400">Features</Link>
-          <Link to="/about" className="text-sm font-semibold text-slate-200 transition hover:text-cyan-400">About Us</Link>
-          <Link to="/contact" className="text-sm font-semibold text-slate-200 transition hover:text-cyan-400">Contact Us</Link>
+        {/* TOP CENTER NAVBAR */}
+
+        <nav
+          className="
+            absolute
+            left-1/2
+            top-[66px]
+            z-10
+            flex
+            w-[calc(100%-24px)]
+            max-w-[430px]
+            -translate-x-1/2
+            items-center
+            justify-center
+            gap-2
+            rounded-full
+            border
+            border-white/10
+            bg-[#07101f]/90
+            px-2
+            py-2
+            shadow-2xl
+            backdrop-blur-2xl
+
+            sm:top-[62px]
+            sm:w-auto
+            sm:gap-4
+            sm:px-5
+            sm:py-2.5
+
+            md:gap-6
+            md:px-7
+
+            lg:top-1/2
+            lg:-translate-y-1/2
+          "
+        >
+
+          <Link
+            to="/"
+            className="whitespace-nowrap px-1 text-[9px] font-semibold text-slate-300 transition hover:text-cyan-300 sm:text-[10px] md:text-xs"
+          >
+            Home
+          </Link>
+
+          <Link
+            to="/features"
+            className="whitespace-nowrap px-1 text-[9px] font-semibold text-slate-300 transition hover:text-cyan-300 sm:text-[10px] md:text-xs"
+          >
+            Features
+          </Link>
+
+          <Link
+            to="/about"
+            className="whitespace-nowrap px-1 text-[9px] font-semibold text-slate-300 transition hover:text-cyan-300 sm:text-[10px] md:text-xs"
+          >
+            About Us
+          </Link>
+
+          <Link
+            to="/contact"
+            className="whitespace-nowrap px-1 text-[9px] font-semibold text-slate-300 transition hover:text-cyan-300 sm:text-[10px] md:text-xs"
+          >
+            Contact Us
+          </Link>
+
         </nav>
 
-        <div className="hidden w-40 md:block" />
-      </motion.div>
+      </header>
 
-      {/* LEFT SIDE HERO TEXT */}
-      <motion.div
-        initial={{ opacity: 0, x: -35 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.9, delay: 0.15 }}
-        className="absolute left-[7%] top-1/2 z-10 hidden max-w-md -translate-y-1/2 xl:block"
-      >
-        <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/5 px-4 py-2 backdrop-blur-md">
-          <span className="relative flex h-2 w-2">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-cyan-400 opacity-75" />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-cyan-400" />
-          </span>
-          <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-300">
-            Secure Recovery Portal
-          </span>
+      {/* =====================================================
+          MAIN
+      ===================================================== */}
+
+      <main className="relative z-20 lg:min-h-0 lg:overflow-hidden">
+
+        {/* DESKTOP ANIMATIONS */}
+
+        <div className="pointer-events-none absolute inset-0 hidden overflow-hidden lg:block">
+
+          <LightTrail
+            delay={0}
+            duration={8}
+            bottom="bottom-[12%]"
+            width="w-56"
+          />
+
+          <LightTrail
+            delay={2.5}
+            duration={9}
+            bottom="bottom-[18%]"
+            width="w-72"
+          />
+
+          <RadarPulse />
+
+          <div className="absolute inset-x-0 bottom-0 h-20 overflow-hidden">
+
+            <div className="absolute inset-x-0 bottom-1 h-px bg-gradient-to-r from-transparent via-cyan-400/30 to-transparent" />
+
+            <AnimatedTruck />
+
+          </div>
+
         </div>
 
-        <h1 className="text-5xl font-black leading-[1.02] tracking-tight text-white 2xl:text-6xl">
-          Recover your
-          <span className="block bg-gradient-to-r from-cyan-300 via-blue-400 to-violet-400 bg-clip-text text-transparent">
-            access credentials.
-          </span>
-        </h1>
+        {/* =================================================
+            CONTENT
+        ================================================= */}
 
-        <p className="mt-5 max-w-sm text-sm leading-7 text-slate-400">
-          Verify your corporate profile safely to retrieve usernames or initiate secure password resets.
-        </p>
-      </motion.div>
+        <div
+          className="
+            relative
+            z-10
+            mx-auto
+            flex
+            w-full
+            max-w-[1280px]
+            flex-col
+            gap-7
+            px-4
+            pb-8
+            pt-5
 
-      {/* MAIN CONTENT AREA */}
-      <main className="relative z-20 flex h-full items-center justify-center px-4 sm:px-6 lg:justify-end lg:px-[9%]">
-        <motion.div
-          initial={{ opacity: 0, y: 25, scale: 0.97 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          transition={{ duration: 0.8, ease: 'easeOut' }}
-          className="relative w-full max-w-md"
+            sm:gap-9
+            sm:px-6
+            sm:pb-10
+            sm:pt-7
+
+            lg:grid
+            lg:h-full
+            lg:grid-cols-[minmax(0,1fr)_430px]
+            lg:items-center
+            lg:gap-10
+            lg:px-10
+            lg:py-2
+
+            xl:grid-cols-[minmax(0,1fr)_448px]
+            xl:gap-16
+          "
         >
-          <div className="absolute -inset-1 rounded-[30px] bg-gradient-to-r from-cyan-500/20 via-blue-500/10 to-violet-500/20 blur-2xl" />
 
-          <div className="relative overflow-hidden rounded-[30px] border border-white/10 bg-[#07101f]/95 shadow-2xl shadow-black/70 backdrop-blur-2xl">
-            <div className="absolute left-0 right-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-400 to-transparent opacity-90" />
-            <div className="pointer-events-none absolute -right-32 -top-32 h-64 w-64 rounded-full bg-cyan-500/10 blur-[90px]" />
-            <div className="pointer-events-none absolute -bottom-32 -left-32 h-64 w-64 rounded-full bg-violet-600/10 blur-[90px]" />
+          {/* =================================================
+              HERO
+          ================================================= */}
 
-            <div className="relative p-5 sm:p-7">
-              {!isSubmitted ? (
-                <>
-                  <div className="mb-4">
-                    <div className="mb-2 flex items-center gap-2">
-                      <span className="h-1.5 w-8 rounded-full bg-cyan-400" />
-                      <span className="h-1.5 w-3 rounded-full bg-blue-500" />
-                      <span className="h-1.5 w-2 rounded-full bg-violet-500" />
-                    </div>
+          <motion.section
+            initial={{
+              opacity: 0,
+              x: -30,
+            }}
+            animate={{
+              opacity: 1,
+              x: 0,
+            }}
+            transition={{
+              duration: 0.8,
+            }}
+            className="
+              relative
+              mx-auto
+              w-full
+              max-w-2xl
+              text-center
 
-                    <h2 className="text-xl font-black tracking-tight text-white sm:text-2xl">
-                      Account Recovery
-                    </h2>
-                    <p className="mt-1 text-[11px] leading-4 text-slate-400 sm:text-xs">
-                      Select option and enter company credentials.
-                    </p>
-                  </div>
+              lg:mx-0
+              lg:max-w-none
+              lg:text-left
+            "
+          >
 
-                  {generalError && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -6 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="mb-3 flex items-start gap-2.5 rounded-xl border border-red-400/20 bg-red-400/[0.06] px-3 py-2.5"
-                    >
-                      <div className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-red-400/10 text-[10px] font-black text-red-400">
-                        !
-                      </div>
-                      <p className="text-[11px] leading-4 text-red-300 font-medium">{generalError}</p>
-                    </motion.div>
-                  )}
+            {/* BADGE */}
 
-                  <form onSubmit={handleSubmit} className="space-y-3">
-                    <div>
-                      <label className="mb-1 block text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400">
-                        Recovery Option
-                      </label>
-                      <select
-                        value={recoveryType}
-                        onChange={(e) => setRecoveryType(e.target.value)}
-                        className={inputBase}
-                      >
-                        <option value="password" className="bg-[#07101f] text-white">Forgot Password</option>
-                        <option value="username" className="bg-[#07101f] text-white">Forgot Username</option>
-                      </select>
-                    </div>
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/5 px-3.5 py-2 backdrop-blur-md sm:mb-5 sm:px-4">
 
-                    <div>
-                      <label className="mb-1 block text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400">
-                        Company Code
-                      </label>
-                      <div className="relative">
-                        <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-xs font-bold text-cyan-400/60">
-                          #
-                        </span>
-                        <input
-                          type="text"
-                          required
-                          disabled={isLoading || (lockoutUntil && Date.now() < lockoutUntil)}
-                          placeholder="e.g. COMP123"
-                          value={companyCode}
-                          onChange={(e) => {
-                            setCompanyCode(e.target.value);
-                            setCompanyError('');
-                          }}
-                          className={`${inputBase} pl-9`}
-                        />
-                      </div>
-                      {companyError && (
-                        <p className="mt-1 text-[10px] font-bold text-red-400">{companyError}</p>
-                      )}
-                    </div>
+              <span className="relative flex h-2 w-2">
 
-                    <div>
-                      <label className="mb-1 block text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400">
-                        Registered Email ID
-                      </label>
-                      <div className="relative">
-                        <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-xs font-bold text-cyan-400/60">
-                          @
-                        </span>
-                        <input
-                          type="email"
-                          required
-                          disabled={isLoading || (lockoutUntil && Date.now() < lockoutUntil)}
-                          placeholder="name@company.com"
-                          value={email}
-                          onChange={(e) => {
-                            setEmail(e.target.value);
-                            setEmailError('');
-                          }}
-                          className={`${inputBase} pl-9`}
-                        />
-                      </div>
-                      {emailError && (
-                        <p className="mt-1 text-[10px] font-bold text-red-400">{emailError}</p>
-                      )}
-                    </div>
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-cyan-400 opacity-75" />
 
-                    <motion.button
-                      whileHover={!isLoading ? { y: -2 } : {}}
-                      whileTap={!isLoading ? { scale: 0.985 } : {}}
-                      type="submit"
-                      disabled={isLoading || (lockoutUntil && Date.now() < lockoutUntil)}
-                      className="group relative mt-1 w-full overflow-hidden rounded-2xl bg-gradient-to-r from-cyan-400 via-blue-500 to-violet-600 px-4 py-3 text-sm font-black text-white shadow-xl shadow-blue-600/20 transition-all duration-300 hover:shadow-cyan-500/20 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
-                      <span className="relative flex items-center justify-center gap-2">
-                        {isLoading ? (
-                          <>
-                            <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                            <span>Verifying Details...</span>
-                          </>
-                        ) : (
-                          <>
-                            <span>Submit Request</span>
-                            <span className="text-base transition-transform duration-300 group-hover:translate-x-1">→</span>
-                          </>
-                        )}
-                      </span>
-                    </motion.button>
-                  </form>
-                </>
-              ) : (
-                <div className="py-4 text-center">
-                  <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-emerald-400/30 bg-emerald-400/10 text-xl text-emerald-300 shadow-lg shadow-emerald-500/10"
-                  >
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-cyan-400" />
+
+              </span>
+
+              <span className="text-[8px] font-bold uppercase tracking-[0.18em] text-cyan-300 sm:text-[9px] xl:text-[10px]">
+                Secure Recovery Portal
+              </span>
+
+            </div>
+
+            {/* HEADING */}
+
+            <h1 className="text-4xl font-black leading-[1.03] tracking-tight text-white sm:text-5xl lg:text-5xl xl:text-6xl">
+
+              Recover your
+
+              <span className="block bg-gradient-to-r from-cyan-300 via-blue-400 to-violet-400 bg-clip-text text-transparent">
+                account access.
+              </span>
+
+            </h1>
+
+            {/* DESCRIPTION */}
+
+            <p className="mx-auto mt-4 max-w-lg text-xs leading-6 text-slate-400 sm:mt-5 sm:text-sm sm:leading-7 lg:mx-0 lg:max-w-md">
+
+              Enter your Buddy Fleets Company Code and registered email address to securely request a password reset.
+
+            </p>
+
+            {/* POINTS */}
+
+            <div className="mx-auto mt-5 flex max-w-md flex-col items-start gap-2.5 sm:mt-6 lg:mx-0 lg:mt-7">
+
+              {[
+                'Secure email verification',
+                'Protected account recovery',
+                'No password visible to administrators',
+              ].map((item) => (
+
+                <div
+                  key={item}
+                  className="flex items-center gap-3 text-left text-[10px] font-medium text-slate-300 sm:text-xs"
+                >
+
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-cyan-400/30 bg-cyan-400/10 text-[9px] text-cyan-300">
                     ✓
+                  </span>
+
+                  {item}
+
+                </div>
+
+              ))}
+
+            </div>
+
+          </motion.section>
+
+          {/* MOBILE/TABLET TRUCK */}
+
+          <MobileTruckScene />
+
+          {/* =================================================
+              RECOVERY CARD
+          ================================================= */}
+
+          <motion.section
+            initial={{
+              opacity: 0,
+              y: 20,
+              scale: 0.98,
+            }}
+            animate={{
+              opacity: 1,
+              y: 0,
+              scale: 1,
+            }}
+            transition={{
+              duration: 0.7,
+              ease: 'easeOut',
+            }}
+            className="relative mx-auto w-full max-w-[448px] lg:mx-0 lg:max-w-[430px] lg:justify-self-end xl:max-w-[448px]"
+          >
+
+            {/* GLOW */}
+
+            <div className="absolute -inset-[1px] rounded-[26px] bg-gradient-to-br from-cyan-400/30 via-blue-500/10 to-violet-500/30 blur-xl sm:rounded-[30px]" />
+
+            {/* CARD */}
+
+            <div className="relative overflow-hidden rounded-[26px] border border-white/10 bg-[#07101f]/95 shadow-2xl shadow-black/60 backdrop-blur-2xl sm:rounded-[30px]">
+
+              <div className="absolute left-0 right-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-400 to-transparent" />
+
+              <div className="pointer-events-none absolute -right-28 -top-28 h-56 w-56 rounded-full bg-cyan-500/10 blur-[80px]" />
+
+              <div className="pointer-events-none absolute -bottom-28 -left-28 h-56 w-56 rounded-full bg-violet-600/10 blur-[80px]" />
+
+              <div className="relative p-4 sm:p-6 lg:p-5 xl:p-6">
+
+                {!isSubmitted ? (
+
+                  /* =========================================
+                     REQUEST FORM
+                  ========================================= */
+
+                  <>
+
+                    {/* HEADER */}
+
+                    <div className="mb-4">
+
+                      <div className="mb-2 flex items-center gap-1.5">
+
+                        <span className="h-1.5 w-8 rounded-full bg-cyan-400" />
+
+                        <span className="h-1.5 w-3 rounded-full bg-blue-500" />
+
+                        <span className="h-1.5 w-2 rounded-full bg-violet-500" />
+
+                      </div>
+
+                      <h2 className="text-xl font-black tracking-tight text-white sm:text-2xl lg:text-xl xl:text-2xl">
+                        Forgot Password
+                      </h2>
+
+                      <p className="mt-1 text-[10px] leading-4 text-slate-400 sm:text-[11px]">
+                        Enter your company details to request a secure reset link.
+                      </p>
+
+                    </div>
+
+                    {/* ERROR */}
+
+                    {errorMessage && (
+
+                      <motion.div
+                        initial={{
+                          opacity: 0,
+                          y: -5,
+                        }}
+                        animate={{
+                          opacity: 1,
+                          y: 0,
+                        }}
+                        className="mb-3 rounded-xl border border-red-400/20 bg-red-400/[0.06] px-3 py-2.5"
+                        role="alert"
+                      >
+
+                        <div className="flex items-start gap-2">
+
+                          <span className="mt-[1px] flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-red-400/10 text-[9px] font-black text-red-400">
+                            !
+                          </span>
+
+                          <p className="text-[9px] leading-4 text-red-300 sm:text-[10px]">
+                            {errorMessage}
+                          </p>
+
+                        </div>
+
+                      </motion.div>
+
+                    )}
+
+                    {/* FORM */}
+
+                    <form
+                      onSubmit={handleSubmit}
+                      noValidate
+                      className="space-y-3"
+                    >
+
+                      {/* COMPANY CODE */}
+
+                      <div>
+
+                        <label
+                          htmlFor="companyCode"
+                          className="mb-1 block text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400"
+                        >
+                          Company Code
+                        </label>
+
+                        <div className="relative">
+
+                          <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-cyan-400/60">
+                            #
+                          </span>
+
+                          <input
+                            id="companyCode"
+                            type="text"
+                            required
+                            disabled={isLoading}
+                            autoComplete="organization"
+                            autoCapitalize="characters"
+                            spellCheck={false}
+                            placeholder="e.g. BUDDY001"
+                            value={companyCode}
+                            onChange={(e) => {
+
+                              setCompanyCode(
+                                e.target.value
+                              );
+
+                              setErrorMessage('');
+
+                            }}
+                            className={`${inputBase} pl-8 uppercase`}
+                          />
+
+                        </div>
+
+                      </div>
+
+                      {/* EMAIL */}
+
+                      <div>
+
+                        <label
+                          htmlFor="email"
+                          className="mb-1 block text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400"
+                        >
+                          Registered Email ID
+                        </label>
+
+                        <div className="relative">
+
+                          <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-cyan-400/60">
+                            @
+                          </span>
+
+                          <input
+                            id="email"
+                            type="email"
+                            required
+                            disabled={isLoading}
+                            autoComplete="email"
+                            autoCapitalize="none"
+                            spellCheck={false}
+                            placeholder="name@company.com"
+                            value={email}
+                            onChange={(e) => {
+
+                              setEmail(
+                                e.target.value
+                              );
+
+                              setErrorMessage('');
+
+                            }}
+                            className={`${inputBase} pl-8`}
+                          />
+
+                        </div>
+
+                      </div>
+
+                      {/* INFO */}
+
+                      <div className="rounded-xl border border-cyan-400/10 bg-cyan-400/[0.035] p-3">
+
+                        <div className="flex items-start gap-2.5">
+
+                          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-cyan-400/20 bg-cyan-400/10 text-[9px] font-black text-cyan-300">
+                            i
+                          </span>
+
+                          <p className="text-[8px] leading-4 text-slate-500 sm:text-[9px]">
+                            For your security, Buddy Fleets will not reveal whether a particular Company Code or email exists.
+                          </p>
+
+                        </div>
+
+                      </div>
+
+                      {/* SUBMIT */}
+
+                      <motion.button
+                        whileHover={
+                          !isLoading &&
+                          cooldown === 0
+                            ? {
+                                y: -1,
+                              }
+                            : {}
+                        }
+                        whileTap={
+                          !isLoading &&
+                          cooldown === 0
+                            ? {
+                                scale: 0.99,
+                              }
+                            : {}
+                        }
+                        type="submit"
+                        disabled={
+                          isLoading ||
+                          cooldown > 0
+                        }
+                        className="group relative w-full overflow-hidden rounded-xl bg-gradient-to-r from-cyan-400 via-blue-500 to-violet-600 px-4 py-3 text-xs font-black text-white shadow-xl shadow-blue-600/20 transition-all duration-300 hover:shadow-cyan-500/20 focus:outline-none focus:ring-4 focus:ring-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-60 sm:rounded-2xl sm:py-3.5 sm:text-sm lg:py-3 lg:text-xs"
+                      >
+
+                        <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
+
+                        <span className="relative flex items-center justify-center gap-2">
+
+                          {isLoading ? (
+
+                            <>
+
+                              <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+
+                              <span>
+                                Processing Request...
+                              </span>
+
+                            </>
+
+                          ) : cooldown > 0 ? (
+
+                            <span>
+                              Try again in {cooldown}s
+                            </span>
+
+                          ) : (
+
+                            <>
+
+                              <span>
+                                Send Reset Link
+                              </span>
+
+                              <span className="text-base">
+                                →
+                              </span>
+
+                            </>
+
+                          )}
+
+                        </span>
+
+                      </motion.button>
+
+                    </form>
+
+                  </>
+
+                ) : (
+
+                  /* =========================================
+                     GENERIC SUCCESS
+                  ========================================= */
+
+                  <motion.div
+                    initial={{
+                      opacity: 0,
+                      y: 10,
+                      scale: 0.97,
+                    }}
+                    animate={{
+                      opacity: 1,
+                      y: 0,
+                      scale: 1,
+                    }}
+                    transition={{
+                      duration: 0.5,
+                    }}
+                    className="py-4 text-center"
+                  >
+
+                    {/* ICON */}
+
+                    <motion.div
+                      initial={{
+                        scale: 0,
+                      }}
+                      animate={{
+                        scale: 1,
+                      }}
+                      transition={{
+                        type: 'spring',
+                        stiffness: 180,
+                        delay: 0.1,
+                      }}
+                      className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-emerald-400/30 bg-emerald-400/10 text-xl text-emerald-300 shadow-lg shadow-emerald-500/10"
+                    >
+                      ✓
+                    </motion.div>
+
+                    <h2 className="mt-4 text-xl font-black text-white sm:text-2xl">
+                      Check Your Email
+                    </h2>
+
+                    {/* LOCKED GENERIC RESPONSE */}
+
+                    <p className="mx-auto mt-2 max-w-sm text-[10px] leading-5 text-slate-300 sm:text-xs">
+
+                      If the details match an account, a password reset link has been sent to the registered email address.
+
+                    </p>
+
+                    {/* INFO BOX */}
+
+                    <div className="mt-4 rounded-2xl border border-cyan-400/15 bg-cyan-400/[0.04] p-4 text-left">
+
+                      <p className="text-[10px] font-bold text-slate-200 sm:text-[11px]">
+                        Password Reset Security
+                      </p>
+
+                      <p className="mt-1.5 text-[9px] leading-4 text-slate-500 sm:text-[10px]">
+                        The reset link will be time-limited and can only be used according to Buddy Fleets recovery security rules.
+                      </p>
+
+                      <p className="mt-1 text-[9px] leading-4 text-slate-500 sm:text-[10px]">
+                        Never share your password or password reset link with anyone.
+                      </p>
+
+                    </div>
+
+                    {/* BACK TO LOGIN */}
+
+                    <Link
+                      to="/login"
+                      className="mt-5 inline-flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-cyan-400 via-blue-500 to-violet-600 px-5 py-3 text-xs font-black text-white shadow-xl shadow-blue-600/20 transition hover:shadow-cyan-500/20 sm:rounded-2xl sm:py-3.5 sm:text-sm"
+                    >
+                      Back to Login →
+                    </Link>
+
+                    {/* RESEND */}
+
+                    <button
+                      type="button"
+                      disabled={
+                        cooldown > 0
+                      }
+                      onClick={
+                        handleTryAgain
+                      }
+                      className="mt-3 rounded-lg px-2 py-1 text-[9px] font-bold text-cyan-300 transition hover:bg-white/5 hover:text-cyan-200 hover:underline disabled:cursor-not-allowed disabled:text-slate-600 disabled:no-underline sm:text-[10px]"
+                    >
+
+                      {cooldown > 0
+                        ? `Request again in ${cooldown}s`
+                        : 'Request another reset link'}
+
+                    </button>
+
                   </motion.div>
 
-                  <h3 className="mt-4 text-xl font-black text-white">Request Successful</h3>
-                  
-                  <p className="mt-2 text-xs leading-5 text-slate-300">
-                    {successMessage}
-                  </p>
+                )}
 
-                  <p className="mt-1 text-[11px] text-slate-500">
-                    Please check your inbox or spam folder for further details.
-                  </p>
+                {/* BACK TO LOGIN */}
 
-                  <motion.button
-                    whileHover={{ y: -2 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => navigate('/login')}
-                    className="mt-5 w-full rounded-2xl bg-gradient-to-r from-cyan-400 via-blue-500 to-violet-600 px-6 py-3 text-xs font-black text-white shadow-xl shadow-blue-600/20 transition-all"
-                  >
-                    OK
-                  </motion.button>
+                {!isSubmitted && (
+
+                  <div className="mt-4 border-t border-white/[0.07] pt-3 text-center">
+
+                    <Link
+                      to="/login"
+                      className="text-[9px] font-bold text-cyan-300 transition hover:text-cyan-200 hover:underline sm:text-[10px]"
+                    >
+                      ← Back to Login
+                    </Link>
+
+                  </div>
+
+                )}
+
+                {/* SECURITY */}
+
+                <div className="mt-3 flex items-center justify-center gap-2">
+
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+
+                  <span className="text-[8px] font-semibold uppercase tracking-[0.16em] text-slate-600">
+                    Protected Account Recovery
+                  </span>
+
                 </div>
-              )}
 
-              <div className="mt-4 border-t border-white/[0.07] pt-3 text-center">
-                <Link
-                  to="/login"
-                  className="text-xs font-bold text-cyan-300 transition-colors hover:text-cyan-200 hover:underline"
-                >
-                  ← Back to Login
-                </Link>
               </div>
 
-              <div className="mt-3 flex items-center justify-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
-                <span className="text-[9px] font-semibold uppercase tracking-[0.16em] text-slate-600">
-                  Secure encrypted recovery
-                </span>
-              </div>
             </div>
-          </div>
-        </motion.div>
+
+          </motion.section>
+
+        </div>
+
       </main>
 
-      {/* FOOTER */}
-      <div className="absolute bottom-3 left-0 right-0 z-20 text-center">
-        <p className="text-[10px] text-slate-600">
-          Copyright © {new Date().getFullYear()}{' '}
-          <span className="font-bold text-slate-400">BUDDY COMPUTERS</span>. All rights reserved.
-        </p>
-      </div>
+      {/* =====================================================
+          FOOTER
+      ===================================================== */}
 
-      <div className="pointer-events-none absolute bottom-0 left-1/2 z-[1] h-40 w-[90%] -translate-x-1/2 rounded-full bg-cyan-500/10 blur-[100px] xl:hidden" />
+      <footer
+        className="
+          relative
+          z-40
+          mt-2
+          flex
+          min-h-[64px]
+          flex-col
+          items-center
+          justify-center
+          border-t
+          border-white/[0.05]
+          bg-[#030712]/95
+          px-4
+          py-3
+          text-center
+          backdrop-blur-xl
+
+          sm:min-h-[70px]
+
+          lg:mt-0
+          lg:min-h-[58px]
+          lg:py-2
+        "
+      >
+
+        <p className="text-[9px] font-medium tracking-wide text-slate-400 sm:text-[10px]">
+
+          Copyright by{' '}
+
+          <span className="font-bold text-white">
+            BUDDY COMPUTERS
+          </span>
+
+          . All rights reserved.
+
+        </p>
+
+        <p className="mt-1.5 text-[8px] font-semibold uppercase tracking-[0.18em] text-slate-400 sm:text-[9px] sm:tracking-[0.22em]">
+
+          DESIGNED BY{' '}
+
+          <a
+            href="https://www.instagram.com/happiest_banda"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-purple-400 underline decoration-purple-400 underline-offset-2 transition duration-300 hover:text-purple-300 hover:drop-shadow-[0_0_8px_rgba(192,132,252,0.8)]"
+          >
+            SHUBHAM JANGIR
+          </a>
+
+        </p>
+
+      </footer>
+
     </div>
   );
 }
