@@ -1,12 +1,9 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import {
-  motion,
-  useReducedMotion,
-} from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 
 /* =========================================================
-   LINKS / PROFILE DATA
+   LINKS
 ========================================================= */
 
 const SHUBHAM_PHOTO =
@@ -19,10 +16,10 @@ const NAVIN_INSTAGRAM =
   'https://www.instagram.com/navin.sharma/';
 
 /*
+  Temporary URL.
   Buddy Computers website ready hone ke baad
-  sirf ye URL replace karna hai.
+  sirf is URL ko replace karna hai.
 */
-
 const BUDDY_COMPUTERS_URL =
   'https://example.com';
 
@@ -30,9 +27,7 @@ const BUDDY_COMPUTERS_URL =
    ICONS
 ========================================================= */
 
-function ArrowRightIcon({
-  className = '',
-}) {
+function ArrowRightIcon({ className = '' }) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -51,9 +46,7 @@ function ArrowRightIcon({
   );
 }
 
-function ExternalIcon({
-  className = '',
-}) {
+function ExternalIcon({ className = '' }) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -72,9 +65,7 @@ function ExternalIcon({
   );
 }
 
-function MailIcon({
-  className = '',
-}) {
+function MailIcon({ className = '' }) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -103,9 +94,7 @@ function MailIcon({
   );
 }
 
-function InstagramIcon({
-  className = '',
-}) {
+function InstagramIcon({ className = '' }) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -132,8 +121,8 @@ function InstagramIcon({
       />
 
       <circle
-        cx="17.3"
-        cy="6.7"
+        cx="17.4"
+        cy="6.6"
         r="1"
         fill="currentColor"
       />
@@ -141,9 +130,7 @@ function InstagramIcon({
   );
 }
 
-function CheckIcon({
-  className = '',
-}) {
+function CheckIcon({ className = '' }) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -162,8 +149,42 @@ function CheckIcon({
   );
 }
 
+function TruckIcon({ className = '' }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+      className={className}
+    >
+      <path
+        d="M3 6h11v10H3V6Zm11 4h4l3 3v3h-7v-6Z"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+      />
+
+      <circle
+        cx="7"
+        cy="17"
+        r="2"
+        stroke="currentColor"
+        strokeWidth="1.6"
+      />
+
+      <circle
+        cx="18"
+        cy="17"
+        r="2"
+        stroke="currentColor"
+        strokeWidth="1.6"
+      />
+    </svg>
+  );
+}
+
 /* =========================================================
-   REVEAL
+   REVEAL ANIMATION
 ========================================================= */
 
 function Reveal({
@@ -171,8 +192,7 @@ function Reveal({
   className = '',
   delay = 0,
 }) {
-  const reduceMotion =
-    useReducedMotion();
+  const reduceMotion = useReducedMotion();
 
   return (
     <motion.div
@@ -209,10 +229,10 @@ function Reveal({
 }
 
 /* =========================================================
-   SECTION TITLE
+   SECTION HEADING
 ========================================================= */
 
-function SectionTitle({
+function SectionHeading({
   eyebrow,
   title,
   description,
@@ -230,7 +250,7 @@ function SectionTitle({
         {eyebrow}
       </p>
 
-      <h2 className="mt-3 text-3xl font-black leading-tight tracking-tight text-white sm:text-4xl lg:text-5xl">
+      <h2 className="mt-3 text-3xl font-black leading-[1.12] tracking-tight text-white sm:text-4xl lg:text-5xl">
         {title}
       </h2>
 
@@ -247,18 +267,28 @@ function SectionTitle({
    HERO UI GRAPHIC
 ========================================================= */
 
-function HeroOperationsGraphic() {
-  const reduceMotion =
-    useReducedMotion();
+function HeroFleetGraphic() {
+  const reduceMotion = useReducedMotion();
+
+  const bars = [
+    46,
+    66,
+    54,
+    83,
+    71,
+    92,
+    77,
+    96,
+  ];
 
   return (
-    <div className="relative mx-auto w-full max-w-[570px]">
+    <div className="relative mx-auto w-full max-w-[590px]">
 
-      {/* GLOW */}
+      {/* BACK GLOW */}
 
-      <div className="absolute left-1/2 top-1/2 h-[85%] w-[85%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-blue-500/10 blur-[100px]" />
+      <div className="absolute left-1/2 top-1/2 h-[85%] w-[85%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-blue-500/10 blur-[110px]" />
 
-      {/* MAIN PANEL */}
+      {/* MAIN DASHBOARD */}
 
       <motion.div
         animate={
@@ -277,200 +307,252 @@ function HeroOperationsGraphic() {
           repeat: Infinity,
           ease: 'easeInOut',
         }}
-        className="relative overflow-hidden rounded-[30px] border border-white/10 bg-[#091426]/90 p-4 shadow-2xl shadow-black/50 backdrop-blur-2xl sm:p-5"
+        className="
+          relative
+          overflow-hidden
+          rounded-[32px]
+          border
+          border-white/10
+          bg-[#081425]/95
+          p-4
+          shadow-2xl
+          shadow-black/50
+          backdrop-blur-2xl
+          sm:p-5
+        "
       >
 
-        {/* HEADER */}
+        {/* TOP */}
 
         <div className="flex items-center justify-between border-b border-white/[0.06] pb-4">
 
           <div>
 
-            <p className="text-[8px] font-black uppercase tracking-[0.2em] text-slate-500">
+            <p className="text-[7px] font-black uppercase tracking-[0.2em] text-slate-600 sm:text-[8px]">
               Fleet Operations
             </p>
 
-            <p className="mt-1 text-sm font-black text-white">
+            <p className="mt-1 text-xs font-black text-white sm:text-sm">
               Intelligence Overview
             </p>
 
           </div>
 
-          <div className="flex items-center gap-2 rounded-full border border-emerald-400/15 bg-emerald-400/[0.05] px-3 py-1.5">
+          <div className="flex items-center gap-2 rounded-full border border-cyan-400/15 bg-cyan-400/[0.05] px-3 py-1.5">
 
             <span className="relative flex h-2 w-2">
 
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-cyan-400 opacity-60" />
 
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-cyan-400" />
 
             </span>
 
-            <span className="text-[8px] font-black uppercase tracking-[0.15em] text-emerald-300">
-              Live
+            <span className="text-[7px] font-black uppercase tracking-[0.15em] text-cyan-300 sm:text-[8px]">
+              Connected
             </span>
 
           </div>
 
         </div>
 
-        {/* MINI CARDS */}
+        {/* MINI MODULES */}
 
         <div className="mt-4 grid grid-cols-3 gap-2 sm:gap-3">
 
           {[
             {
-              label:
-                'Vehicles',
-              value:
-                'Fleet',
+              label: 'Fleet',
+              value: 'Vehicles',
             },
             {
-              label:
-                'Drivers',
-              value:
-                'People',
+              label: 'People',
+              value: 'Drivers',
             },
             {
-              label:
-                'Operations',
-              value:
-                'Control',
+              label: 'Workflow',
+              value: 'Operations',
             },
-          ].map(
-            (
-              item,
-              index
-            ) => (
-              <motion.div
-                key={
-                  item.label
-                }
-                animate={
-                  reduceMotion
-                    ? {}
-                    : {
-                        y: [
-                          0,
-                          index % 2 === 0
-                            ? -4
-                            : 4,
-                          0,
-                        ],
-                      }
-                }
-                transition={{
-                  duration:
-                    4 +
-                    index,
-                  repeat:
-                    Infinity,
-                  ease:
-                    'easeInOut',
-                }}
-                className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-3"
-              >
+          ].map((item, index) => (
+            <motion.div
+              key={item.value}
+              animate={
+                reduceMotion
+                  ? {}
+                  : {
+                      y: [
+                        0,
+                        index % 2 === 0
+                          ? -3
+                          : 3,
+                        0,
+                      ],
+                    }
+              }
+              transition={{
+                duration: 4 + index,
+                repeat: Infinity,
+                ease: 'easeInOut',
+              }}
+              className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-3"
+            >
 
-                <p className="text-[7px] font-bold uppercase tracking-[0.14em] text-slate-600 sm:text-[8px]">
-                  {
-                    item.label
+              <p className="text-[6px] font-black uppercase tracking-[0.15em] text-slate-600 sm:text-[7px]">
+                {item.label}
+              </p>
+
+              <p className="mt-2 text-[9px] font-black text-white sm:text-[11px]">
+                {item.value}
+              </p>
+
+              <div className="mt-3 h-1 overflow-hidden rounded-full bg-white/[0.05]">
+
+                <motion.div
+                  animate={
+                    reduceMotion
+                      ? {}
+                      : {
+                          x: [
+                            '-80%',
+                            '180%',
+                          ],
+                        }
                   }
-                </p>
+                  transition={{
+                    duration:
+                      2.8 + index * 0.3,
+                    repeat: Infinity,
+                    ease: 'linear',
+                  }}
+                  className="h-full w-[45%] rounded-full bg-gradient-to-r from-cyan-400 via-blue-500 to-violet-500"
+                />
 
-                <p className="mt-2 text-[10px] font-black text-white sm:text-xs">
-                  {
-                    item.value
-                  }
-                </p>
+              </div>
 
-              </motion.div>
-            )
-          )}
+            </motion.div>
+          ))}
 
         </div>
 
-        {/* GRAPH */}
+        {/* OPERATION GRAPH */}
 
-        <div className="mt-4 rounded-[22px] border border-white/[0.06] bg-[#07101f]/80 p-4">
+        <div className="mt-4 rounded-[22px] border border-white/[0.06] bg-[#050d19]/70 p-4">
 
           <div className="flex items-center justify-between">
 
             <div>
 
-              <p className="text-[8px] font-black uppercase tracking-[0.16em] text-slate-600">
+              <p className="text-[7px] font-black uppercase tracking-[0.17em] text-slate-600 sm:text-[8px]">
                 Operational Flow
               </p>
 
-              <p className="mt-1 text-[10px] font-bold text-slate-300">
+              <p className="mt-1 text-[9px] font-semibold text-slate-300 sm:text-[10px]">
                 Connected fleet activity
               </p>
 
             </div>
 
-            <span className="text-[8px] font-black text-cyan-300">
+            <span className="rounded-lg bg-cyan-400/[0.06] px-2 py-1 text-[6px] font-black tracking-[0.15em] text-cyan-400 sm:text-[7px]">
               BUDDY FLEETS
             </span>
 
           </div>
 
-          <div className="mt-7 flex h-28 items-end gap-2 sm:h-32 sm:gap-3">
+          <div className="mt-6 flex h-28 items-end gap-2 sm:h-32 sm:gap-3">
 
-            {[
-              42,
-              63,
-              48,
-              82,
-              68,
-              91,
-              74,
-              96,
-            ].map(
-              (
-                height,
-                index
-              ) => (
+            {bars.map((height, index) => (
+              <div
+                key={index}
+                className="relative flex h-full flex-1 items-end overflow-hidden rounded-md bg-white/[0.025]"
+              >
+
+                <motion.div
+                  initial={{
+                    height: 0,
+                  }}
+                  whileInView={{
+                    height: `${height}%`,
+                  }}
+                  viewport={{
+                    once: true,
+                  }}
+                  transition={{
+                    duration: 1,
+                    delay:
+                      index *
+                      0.07,
+                  }}
+                  className="w-full rounded-md bg-gradient-to-t from-blue-600/40 via-blue-500/70 to-cyan-300"
+                />
+
+              </div>
+            ))}
+
+          </div>
+
+        </div>
+
+        {/* ROUTE */}
+
+        <div className="mt-4 rounded-[22px] border border-white/[0.06] bg-white/[0.02] p-4">
+
+          <div className="flex items-center gap-2">
+
+            <TruckIcon className="h-4 w-4 text-cyan-400" />
+
+            <span className="text-[8px] font-black uppercase tracking-[0.18em] text-slate-500">
+              Transport Workflow
+            </span>
+
+          </div>
+
+          <div className="relative mt-5">
+
+            <div className="absolute left-2 right-2 top-[5px] h-px bg-white/[0.08]" />
+
+            <motion.div
+              animate={
+                reduceMotion
+                  ? {}
+                  : {
+                      left: [
+                        '2%',
+                        '88%',
+                        '2%',
+                      ],
+                    }
+              }
+              transition={{
+                duration: 8,
+                repeat: Infinity,
+                ease: 'easeInOut',
+              }}
+              className="absolute top-[1px] h-2.5 w-2.5 rounded-full bg-cyan-400 shadow-[0_0_12px_rgba(34,211,238,.8)]"
+            />
+
+            <div className="relative flex justify-between">
+
+              {[
+                'Fleet',
+                'Docs',
+                'Dispatch',
+                'Reports',
+              ].map((item) => (
                 <div
-                  key={
-                    index
-                  }
-                  className="relative flex h-full flex-1 items-end overflow-hidden rounded-md bg-white/[0.025]"
+                  key={item}
+                  className="flex flex-col items-center"
                 >
 
-                  <motion.div
-                    initial={{
-                      height: 0,
-                    }}
-                    whileInView={{
-                      height:
-                        `${height}%`,
-                    }}
-                    viewport={{
-                      once: true,
-                    }}
-                    transition={{
-                      duration:
-                        0.9,
-                      delay:
-                        index *
-                        0.08,
-                    }}
-                    animate={
-                      reduceMotion
-                        ? {}
-                        : {
-                            opacity: [
-                              0.75,
-                              1,
-                              0.75,
-                            ],
-                          }
-                    }
-                    className="w-full rounded-md bg-gradient-to-t from-blue-600/50 via-cyan-400/70 to-cyan-300"
-                  />
+                  <span className="h-2.5 w-2.5 rounded-full border-2 border-[#091425] bg-slate-500" />
+
+                  <span className="mt-2 text-[6px] font-bold uppercase tracking-[0.1em] text-slate-600 sm:text-[7px]">
+                    {item}
+                  </span>
 
                 </div>
-              )
-            )}
+              ))}
+
+            </div>
 
           </div>
 
@@ -478,7 +560,7 @@ function HeroOperationsGraphic() {
 
       </motion.div>
 
-      {/* FLOATING CARD 1 */}
+      {/* FLOATING ITEM LEFT */}
 
       <motion.div
         animate={
@@ -487,12 +569,12 @@ function HeroOperationsGraphic() {
             : {
                 y: [
                   0,
-                  -12,
+                  -11,
                   0,
                 ],
                 x: [
                   0,
-                  4,
+                  3,
                   0,
                 ],
               }
@@ -502,20 +584,35 @@ function HeroOperationsGraphic() {
           repeat: Infinity,
           ease: 'easeInOut',
         }}
-        className="absolute -left-2 top-[18%] hidden rounded-2xl border border-cyan-400/15 bg-[#07101f]/95 p-3 shadow-xl backdrop-blur-xl sm:block lg:-left-10"
+        className="
+          absolute
+          -left-4
+          top-[18%]
+          hidden
+          rounded-2xl
+          border
+          border-cyan-400/15
+          bg-[#06101d]/95
+          px-4
+          py-3
+          shadow-xl
+          backdrop-blur-xl
+          sm:block
+          lg:-left-10
+        "
       >
 
-        <p className="text-[7px] font-black uppercase tracking-[0.15em] text-cyan-400">
-          Connected
+        <p className="text-[6px] font-black uppercase tracking-[0.17em] text-cyan-400">
+          Organized
         </p>
 
-        <p className="mt-1 text-[10px] font-bold text-white">
+        <p className="mt-1 text-[9px] font-bold text-white">
           Fleet Data
         </p>
 
       </motion.div>
 
-      {/* FLOATING CARD 2 */}
+      {/* FLOATING ITEM RIGHT */}
 
       <motion.div
         animate={
@@ -524,7 +621,7 @@ function HeroOperationsGraphic() {
             : {
                 y: [
                   0,
-                  12,
+                  11,
                   0,
                 ],
               }
@@ -534,14 +631,29 @@ function HeroOperationsGraphic() {
           repeat: Infinity,
           ease: 'easeInOut',
         }}
-        className="absolute -right-2 bottom-[12%] hidden rounded-2xl border border-violet-400/15 bg-[#07101f]/95 p-3 shadow-xl backdrop-blur-xl sm:block lg:-right-8"
+        className="
+          absolute
+          -right-3
+          bottom-[16%]
+          hidden
+          rounded-2xl
+          border
+          border-violet-400/15
+          bg-[#06101d]/95
+          px-4
+          py-3
+          shadow-xl
+          backdrop-blur-xl
+          sm:block
+          lg:-right-8
+        "
       >
 
-        <p className="text-[7px] font-black uppercase tracking-[0.15em] text-violet-400">
-          Designed For
+        <p className="text-[6px] font-black uppercase tracking-[0.17em] text-violet-400">
+          Built For
         </p>
 
-        <p className="mt-1 text-[10px] font-bold text-white">
+        <p className="mt-1 text-[9px] font-bold text-white">
           Indian Transport
         </p>
 
@@ -558,7 +670,7 @@ function HeroOperationsGraphic() {
 function AudienceCard({
   number,
   title,
-  text,
+  description,
   delay,
 }) {
   return (
@@ -571,22 +683,39 @@ function AudienceCard({
         transition={{
           duration: 0.25,
         }}
-        className="group relative h-full overflow-hidden rounded-[26px] border border-white/[0.08] bg-[#091221] p-6"
+        className="
+          group
+          relative
+          h-full
+          overflow-hidden
+          rounded-[26px]
+          border
+          border-white/[0.08]
+          bg-[#091221]
+          p-6
+          transition
+          duration-500
+          hover:border-cyan-400/15
+        "
       >
 
-        <div className="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-cyan-500/[0.04] blur-3xl transition group-hover:bg-cyan-500/[0.1]" />
+        <div className="pointer-events-none absolute -right-12 -top-12 h-32 w-32 rounded-full bg-cyan-500/[0.04] blur-3xl transition group-hover:bg-cyan-500/[0.1]" />
 
-        <span className="text-[9px] font-black tracking-[0.2em] text-cyan-400/60">
-          {number}
-        </span>
+        <div className="relative">
 
-        <h3 className="mt-8 text-xl font-black text-white">
-          {title}
-        </h3>
+          <span className="text-[9px] font-black tracking-[0.2em] text-cyan-400/60">
+            {number}
+          </span>
 
-        <p className="mt-3 text-xs leading-6 text-slate-400 sm:text-sm">
-          {text}
-        </p>
+          <h3 className="mt-7 text-xl font-black text-white">
+            {title}
+          </h3>
+
+          <p className="mt-3 text-xs leading-6 text-slate-400 sm:text-sm">
+            {description}
+          </p>
+
+        </div>
 
       </motion.div>
 
@@ -604,9 +733,7 @@ function FounderContact({
   children,
 }) {
   const external =
-    !href.startsWith(
-      'mailto:'
-    );
+    !href.startsWith('mailto:');
 
   return (
     <a
@@ -621,7 +748,29 @@ function FounderContact({
           ? 'noopener noreferrer'
           : undefined
       }
-      className="group flex items-center gap-2.5 rounded-xl border border-white/[0.07] bg-white/[0.025] px-3 py-2.5 text-[9px] font-semibold text-slate-400 transition hover:border-cyan-400/20 hover:bg-cyan-400/[0.04] hover:text-cyan-300 sm:text-[10px]"
+      className="
+        group
+        flex
+        min-w-0
+        items-center
+        gap-2.5
+        rounded-xl
+        border
+        border-white/[0.07]
+        bg-white/[0.025]
+        px-3
+        py-2.5
+        text-[9px]
+        font-semibold
+        text-slate-400
+        transition
+
+        hover:border-cyan-400/20
+        hover:bg-cyan-400/[0.04]
+        hover:text-cyan-300
+
+        sm:text-[10px]
+      "
     >
 
       <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/[0.04] text-cyan-400">
@@ -639,14 +788,12 @@ function FounderContact({
 /* =========================================================
    FOUNDER CARD
 
-   LEFT:
-   circular profile
-   name
+   DESKTOP:
+   [ CIRCLE PHOTO ] [ ROLE + DETAILS ]
+   [ NAME        ]
 
-   RIGHT:
-   role
-   description
-   contacts
+   OUTER GRID:
+   SHUBHAM | NAVIN
 ========================================================= */
 
 function FounderCard({
@@ -664,38 +811,64 @@ function FounderCard({
   const reduceMotion =
     useReducedMotion();
 
-  const isCyan =
+  const cyan =
     accent === 'cyan';
 
   return (
-    <Reveal delay={delay}>
+    <Reveal
+      delay={delay}
+      className="h-full"
+    >
 
-      <div className="relative overflow-hidden rounded-[30px] border border-white/[0.08] bg-[#091221] p-5 shadow-xl shadow-black/20 sm:p-6">
+      <motion.div
+        whileHover={
+          reduceMotion
+            ? {}
+            : {
+                y: -6,
+              }
+        }
+        transition={{
+          duration: 0.3,
+        }}
+        className="
+          group
+          relative
+          h-full
+          overflow-hidden
+          rounded-[30px]
+          border
+          border-white/[0.08]
+          bg-[#091221]
+          p-5
+          shadow-2xl
+          shadow-black/20
+          sm:p-6
+        "
+      >
 
         <div
           className={`
             pointer-events-none
             absolute
-            right-[-80px]
-            top-[-80px]
+            -right-20
+            -top-20
             h-56
             w-56
             rounded-full
             blur-[90px]
 
             ${
-              isCyan
+              cyan
                 ? 'bg-cyan-500/[0.08]'
                 : 'bg-violet-500/[0.09]'
             }
           `}
         />
 
-        <div className="relative grid gap-6 sm:grid-cols-[150px_minmax(0,1fr)] sm:items-center">
+        <div className="relative grid gap-6 sm:grid-cols-[145px_minmax(0,1fr)] sm:items-center">
 
-          {/* ===============================================
-              PROFILE SIDE
-          =============================================== */}
+          {/* PROFILE */}
 
           <div className="flex flex-col items-center text-center">
 
@@ -704,26 +877,26 @@ function FounderCard({
                 reduceMotion
                   ? {}
                   : {
-                      scale: 1.04,
+                      scale: 1.05,
                     }
               }
+              transition={{
+                duration: 0.3,
+              }}
               className={`
                 relative
-                flex
                 h-32
                 w-32
-                items-center
-                justify-center
                 overflow-hidden
                 rounded-full
                 border
                 p-[3px]
-                shadow-2xl
+                shadow-xl
 
                 ${
-                  isCyan
-                    ? 'border-cyan-400/25 shadow-cyan-500/10'
-                    : 'border-violet-400/25 shadow-violet-500/10'
+                  cyan
+                    ? 'border-cyan-400/30 shadow-cyan-500/10'
+                    : 'border-violet-400/30 shadow-violet-500/10'
                 }
               `}
             >
@@ -736,14 +909,14 @@ function FounderCard({
                   bg-gradient-to-br
 
                   ${
-                    isCyan
+                    cyan
                       ? 'from-cyan-400 via-blue-500 to-violet-600'
                       : 'from-violet-400 via-purple-500 to-blue-600'
                   }
                 `}
               />
 
-              <div className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-[#081221]">
+              <div className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-[#07101f]">
 
                 {image ? (
 
@@ -751,19 +924,29 @@ function FounderCard({
                     src={image}
                     alt={`${name} - ${role}`}
                     loading="lazy"
-                    className="h-full w-full object-cover object-center"
+                    className="
+                      h-full
+                      w-full
+                      object-cover
+                      object-center
+                      transition
+                      duration-700
+                      group-hover:scale-105
+                    "
                   />
 
                 ) : (
 
                   <>
-                    <div className="absolute left-2 top-4 h-14 w-14 rounded-full bg-cyan-400/10 blur-2xl" />
 
-                    <div className="absolute bottom-3 right-2 h-14 w-14 rounded-full bg-violet-500/15 blur-2xl" />
+                    <div className="absolute left-3 top-3 h-14 w-14 rounded-full bg-cyan-400/10 blur-2xl" />
+
+                    <div className="absolute bottom-3 right-3 h-16 w-16 rounded-full bg-violet-500/20 blur-2xl" />
 
                     <span className="relative text-3xl font-black text-white">
                       {initials}
                     </span>
+
                   </>
 
                 )}
@@ -772,17 +955,15 @@ function FounderCard({
 
             </motion.div>
 
-            <h3 className="mt-4 text-lg font-black text-white">
+            <h3 className="mt-4 text-lg font-black leading-tight text-white">
               {name}
             </h3>
 
           </div>
 
-          {/* ===============================================
-              DETAILS SIDE
-          =============================================== */}
+          {/* DETAILS */}
 
-          <div>
+          <div className="min-w-0">
 
             <span
               className={`
@@ -797,7 +978,7 @@ function FounderCard({
                 tracking-[0.18em]
 
                 ${
-                  isCyan
+                  cyan
                     ? 'border-cyan-400/20 bg-cyan-400/[0.06] text-cyan-300'
                     : 'border-violet-400/20 bg-violet-400/[0.06] text-violet-300'
                 }
@@ -810,7 +991,7 @@ function FounderCard({
               {description}
             </p>
 
-            <div className="mt-5 grid gap-2 lg:grid-cols-2">
+            <div className="mt-5 grid gap-2">
 
               <FounderContact
                 href={`mailto:${email}`}
@@ -836,14 +1017,14 @@ function FounderCard({
 
         </div>
 
-      </div>
+      </motion.div>
 
     </Reveal>
   );
 }
 
 /* =========================================================
-   ABOUT US
+   ABOUT US PAGE
 ========================================================= */
 
 export default function AboutUs() {
@@ -867,36 +1048,49 @@ export default function AboutUs() {
 
   const audience = [
     {
-      number:
-        '01',
-      title:
-        'Transport Companies',
-      text:
-        'Bring fleet, transport and operational activities into a cleaner digital working environment.',
+      number: '01',
+      title: 'Transport Companies',
+      description:
+        'Bring fleet, transport and everyday operational activities into a cleaner digital working environment.',
     },
     {
-      number:
-        '02',
-      title:
-        'Fleet Owners',
-      text:
-        'Organize vehicles, drivers, documents, expenses and everyday fleet activity more clearly.',
+      number: '02',
+      title: 'Fleet Owners',
+      description:
+        'Organize vehicles, drivers, documents, expenses and routine fleet activity more clearly.',
     },
     {
-      number:
-        '03',
-      title:
-        'Logistics Companies',
-      text:
-        'Support fast-moving logistics operations with structured workflows and better operational visibility.',
+      number: '03',
+      title: 'Logistics Companies',
+      description:
+        'Support fast-moving logistics workflows with structured information and better operational clarity.',
     },
     {
-      number:
-        '04',
-      title:
-        'Fleet Operators',
-      text:
-        'Manage routine fleet activity without turning everyday work into complicated software processes.',
+      number: '04',
+      title: 'Fleet Operators',
+      description:
+        'Manage everyday fleet work without turning routine operations into complicated software processes.',
+    },
+  ];
+
+  const philosophy = [
+    {
+      number: '01',
+      title: 'Less Complexity',
+      description:
+        'Clear workflows matter more than overloaded screens, unnecessary controls and difficult software processes.',
+    },
+    {
+      number: '02',
+      title: 'Operational Clarity',
+      description:
+        'Fleet information should be organized so teams can understand what is happening and act with greater confidence.',
+    },
+    {
+      number: '03',
+      title: 'Connected Operations',
+      description:
+        'Vehicles, drivers, documents, expenses, maintenance, dispatch and transport activity should work together in one connected environment.',
     },
   ];
 
@@ -933,11 +1127,11 @@ export default function AboutUs() {
                   }
             }
             transition={{
-              duration: 14,
+              duration: 15,
               repeat: Infinity,
               ease: 'easeInOut',
             }}
-            className="absolute -left-40 top-10 h-[420px] w-[420px] rounded-full bg-cyan-500/[0.09] blur-[130px]"
+            className="absolute -left-40 top-10 h-[440px] w-[440px] rounded-full bg-cyan-500/[0.08] blur-[140px]"
           />
 
           <motion.div
@@ -947,29 +1141,29 @@ export default function AboutUs() {
                 : {
                     x: [
                       0,
-                      -50,
+                      -55,
                       0,
                     ],
                     y: [
                       0,
-                      -20,
+                      -30,
                       0,
                     ],
                   }
             }
             transition={{
-              duration: 16,
+              duration: 17,
               repeat: Infinity,
               ease: 'easeInOut',
             }}
-            className="absolute -right-40 top-[12%] h-[480px] w-[480px] rounded-full bg-violet-600/[0.1] blur-[140px]"
+            className="absolute -right-40 top-[10%] h-[500px] w-[500px] rounded-full bg-violet-600/[0.1] blur-[150px]"
           />
 
           <div
             className="absolute inset-0 opacity-[0.035]"
             style={{
               backgroundImage:
-                'linear-gradient(rgba(56,189,248,0.8) 1px, transparent 1px), linear-gradient(90deg, rgba(56,189,248,0.8) 1px, transparent 1px)',
+                'linear-gradient(rgba(56,189,248,.8) 1px, transparent 1px), linear-gradient(90deg, rgba(56,189,248,.8) 1px, transparent 1px)',
               backgroundSize:
                 '58px 58px',
             }}
@@ -977,9 +1171,9 @@ export default function AboutUs() {
 
         </div>
 
-        <div className="relative mx-auto grid min-h-[680px] max-w-[1400px] items-center gap-14 px-5 py-20 sm:px-8 lg:grid-cols-[0.96fr_1.04fr] lg:px-12 lg:py-24 xl:px-16">
+        <div className="relative mx-auto grid min-h-[690px] max-w-[1400px] items-center gap-14 px-5 py-20 sm:px-8 lg:grid-cols-[0.95fr_1.05fr] lg:px-12 lg:py-24 xl:px-16">
 
-          {/* COPY */}
+          {/* HERO TEXT */}
 
           <motion.div
             initial={
@@ -995,14 +1189,21 @@ export default function AboutUs() {
               x: 0,
             }}
             transition={{
-              duration: 0.8,
+              duration: 0.85,
+              ease: 'easeOut',
             }}
             className="relative z-10"
           >
 
             <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/[0.05] px-4 py-2 backdrop-blur-xl">
 
-              <span className="h-2 w-2 rounded-full bg-cyan-400 shadow-[0_0_12px_rgba(34,211,238,.8)]" />
+              <span className="relative flex h-2 w-2">
+
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-cyan-400 opacity-60" />
+
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-cyan-400" />
+
+              </span>
 
               <span className="text-[8px] font-black uppercase tracking-[0.22em] text-cyan-300 sm:text-[9px]">
                 A Product of Buddy Computers
@@ -1010,33 +1211,56 @@ export default function AboutUs() {
 
             </div>
 
-            <h1 className="mt-6 text-4xl font-black leading-[1.02] tracking-tight sm:text-6xl lg:text-[64px] xl:text-[72px]">
+            <h1 className="mt-6 text-4xl font-black leading-[1.02] tracking-tight text-white sm:text-6xl lg:text-[64px] xl:text-[72px]">
 
-              Technology built
+              From technology
 
               <span className="block bg-gradient-to-r from-cyan-300 via-blue-400 to-violet-400 bg-clip-text text-transparent">
-                around real work.
+                solutions to fleet
               </span>
+
+              intelligence.
 
             </h1>
 
-            <p className="mt-6 max-w-xl text-sm leading-7 text-slate-400 sm:text-base sm:leading-8">
-              Buddy Fleets is a modern{' '}
+            <p className="mt-6 max-w-xl text-sm leading-7 text-slate-400 sm:text-base sm:leading-8 lg:text-[17px]">
+              Buddy Fleets is a{' '}
 
-              <span className="font-bold text-slate-200">
+              <span className="font-semibold text-slate-200">
                 Fleet Operations Intelligence Platform
               </span>{' '}
 
-              created for Indian transport businesses with one
-              clear goal — make everyday transport operations
-              simpler, smarter and easier to manage.
+              created for Indian transport businesses with a simple
+              philosophy — technology should make operations easier,
+              clearer and more manageable.
             </p>
 
             <div className="mt-8 flex flex-wrap gap-3">
 
               <Link
                 to="/features"
-                className="group inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-400 via-blue-500 to-violet-600 px-6 py-3.5 text-xs font-black text-white shadow-xl shadow-blue-600/20 transition hover:-translate-y-0.5 hover:shadow-cyan-500/20 sm:text-sm"
+                className="
+                  group
+                  inline-flex
+                  items-center
+                  gap-2
+                  rounded-xl
+                  bg-gradient-to-r
+                  from-cyan-400
+                  via-blue-500
+                  to-violet-600
+                  px-6
+                  py-3.5
+                  text-xs
+                  font-black
+                  text-white
+                  shadow-xl
+                  shadow-blue-600/20
+                  transition
+                  hover:-translate-y-0.5
+                  hover:shadow-cyan-500/20
+                  sm:text-sm
+                "
               >
                 Explore Buddy Fleets
 
@@ -1045,7 +1269,24 @@ export default function AboutUs() {
 
               <Link
                 to="/contact"
-                className="inline-flex items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] px-6 py-3.5 text-xs font-bold text-slate-200 transition hover:bg-white/[0.07] sm:text-sm"
+                className="
+                  inline-flex
+                  items-center
+                  justify-center
+                  rounded-xl
+                  border
+                  border-white/10
+                  bg-white/[0.04]
+                  px-6
+                  py-3.5
+                  text-xs
+                  font-bold
+                  text-slate-200
+                  transition
+                  hover:border-white/20
+                  hover:bg-white/[0.07]
+                  sm:text-sm
+                "
               >
                 Contact Us
               </Link>
@@ -1054,7 +1295,7 @@ export default function AboutUs() {
 
           </motion.div>
 
-          {/* VISUAL */}
+          {/* HERO GRAPHIC */}
 
           <motion.div
             initial={
@@ -1074,10 +1315,11 @@ export default function AboutUs() {
             transition={{
               duration: 0.9,
               delay: 0.1,
+              ease: 'easeOut',
             }}
           >
 
-            <HeroOperationsGraphic />
+            <HeroFleetGraphic />
 
           </motion.div>
 
@@ -1101,38 +1343,58 @@ export default function AboutUs() {
 
               <div>
 
-                <SectionTitle
+                <SectionHeading
                   eyebrow="Where the Story Begins"
                   title="Buddy Computers came first."
                 />
 
                 <p className="mt-6 text-sm leading-8 text-slate-400 sm:text-base">
-                  Buddy Computers started with a practical approach
-                  to technology — helping people solve real computer
+                  Buddy Computers began with a practical approach
+                  to technology — solving real computer, technical
                   and digital problems without making technology
                   unnecessarily difficult.
                 </p>
 
                 <p className="mt-4 text-sm leading-8 text-slate-400 sm:text-base">
-                  From PC and laptop repair to computer hardware,
-                  networking, IT support and digital services, the
-                  focus has always remained the same:
-                  understand the problem clearly and provide a
-                  solution that actually helps.
+                  From PC and laptop repair, hardware and custom PC
+                  solutions to networking, IT support, websites and
+                  creative digital services, the focus remains simple:
+                  understand the problem clearly and provide a solution
+                  that actually helps.
                 </p>
 
                 <p className="mt-4 text-sm leading-8 text-slate-400 sm:text-base">
-                  Buddy Fleets carries that same thinking into the
-                  transport industry.
+                  That practical technology-first thinking became the
+                  foundation for Buddy Fleets — bringing the same
+                  approach into transport and fleet operations.
                 </p>
 
                 <a
-                  href={
-                    BUDDY_COMPUTERS_URL
-                  }
+                  href={BUDDY_COMPUTERS_URL}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="group mt-7 inline-flex items-center gap-2 rounded-xl border border-cyan-400/20 bg-cyan-400/[0.06] px-5 py-3 text-xs font-black text-cyan-200 transition hover:-translate-y-0.5 hover:bg-cyan-400/[0.1] sm:text-sm"
+                  className="
+                    group
+                    mt-7
+                    inline-flex
+                    items-center
+                    gap-2
+                    rounded-xl
+                    border
+                    border-cyan-400/20
+                    bg-cyan-400/[0.06]
+                    px-5
+                    py-3
+                    text-xs
+                    font-black
+                    text-cyan-200
+                    transition
+
+                    hover:-translate-y-0.5
+                    hover:bg-cyan-400/[0.1]
+
+                    sm:text-sm
+                  "
                 >
                   Visit Buddy Computers
 
@@ -1143,17 +1405,37 @@ export default function AboutUs() {
 
             </Reveal>
 
-            {/* SERVICES PANEL */}
+            {/* SERVICES */}
 
             <Reveal delay={0.08}>
 
-              <div className="relative overflow-hidden rounded-[30px] border border-white/[0.08] bg-[#091221] p-6 sm:p-8">
+              <motion.div
+                whileHover={
+                  reduceMotion
+                    ? {}
+                    : {
+                        y: -5,
+                      }
+                }
+                className="
+                  relative
+                  overflow-hidden
+                  rounded-[30px]
+                  border
+                  border-white/[0.08]
+                  bg-[#091221]
+                  p-6
+                  shadow-2xl
+                  shadow-black/20
+                  sm:p-8
+                "
+              >
 
                 <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-blue-500/[0.08] blur-[90px]" />
 
                 <div className="relative">
 
-                  <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500">
+                  <p className="text-[9px] font-black uppercase tracking-[0.2em] text-cyan-400">
                     Buddy Computers
                   </p>
 
@@ -1161,64 +1443,76 @@ export default function AboutUs() {
                     Technology & Digital Services
                   </h3>
 
+                  <p className="mt-3 text-xs leading-6 text-slate-500 sm:text-sm">
+                    Practical technology services across computers,
+                    networking, IT and digital work.
+                  </p>
+
                   <div className="mt-6 flex flex-wrap gap-2.5">
 
-                    {buddyComputerServices.map(
-                      (
-                        service,
-                        index
-                      ) => (
+                    {buddyComputerServices.map((service, index) => (
+                      <motion.div
+                        key={service}
+                        initial={
+                          reduceMotion
+                            ? false
+                            : {
+                                opacity: 0,
+                                scale: 0.92,
+                              }
+                        }
+                        whileInView={{
+                          opacity: 1,
+                          scale: 1,
+                        }}
+                        viewport={{
+                          once: true,
+                        }}
+                        transition={{
+                          delay:
+                            index *
+                            0.035,
+                        }}
+                        whileHover={
+                          reduceMotion
+                            ? {}
+                            : {
+                                y: -3,
+                              }
+                        }
+                        className="
+                          inline-flex
+                          items-center
+                          gap-2
+                          rounded-xl
+                          border
+                          border-white/[0.07]
+                          bg-white/[0.03]
+                          px-3
+                          py-2
+                          text-[9px]
+                          font-semibold
+                          text-slate-300
+                          sm:text-[10px]
+                        "
+                      >
 
-                        <motion.div
-                          key={
-                            service
-                          }
-                          initial={
-                            reduceMotion
-                              ? false
-                              : {
-                                  opacity: 0,
-                                  scale: 0.94,
-                                }
-                          }
-                          whileInView={{
-                            opacity: 1,
-                            scale: 1,
-                          }}
-                          viewport={{
-                            once: true,
-                          }}
-                          transition={{
-                            delay:
-                              index *
-                              0.035,
-                          }}
-                          whileHover={{
-                            y: -3,
-                          }}
-                          className="inline-flex items-center gap-2 rounded-xl border border-white/[0.07] bg-white/[0.03] px-3 py-2 text-[9px] font-semibold text-slate-300 sm:text-[10px]"
-                        >
+                        <span className="flex h-4 w-4 items-center justify-center rounded-full bg-cyan-400/10 text-cyan-300">
 
-                          <span className="flex h-4 w-4 items-center justify-center rounded-full bg-cyan-400/10 text-cyan-300">
+                          <CheckIcon className="h-2.5 w-2.5" />
 
-                            <CheckIcon className="h-2.5 w-2.5" />
+                        </span>
 
-                          </span>
+                        {service}
 
-                          {
-                            service
-                          }
-
-                        </motion.div>
-
-                      )
-                    )}
+                      </motion.div>
+                    ))}
 
                   </div>
 
                 </div>
 
-              </div>
+              </motion.div>
 
             </Reveal>
 
@@ -1229,76 +1523,124 @@ export default function AboutUs() {
       </section>
 
       {/* =====================================================
-          BUDDY FLEETS STORY
+          WHY BUDDY FLEETS
       ===================================================== */}
 
-      <section className="border-y border-white/[0.05] bg-[#070d19] py-20 sm:py-24 lg:py-28">
+      <section className="relative border-y border-white/[0.05] bg-[#070d19] py-20 sm:py-24 lg:py-28">
 
         <div className="mx-auto max-w-[1280px] px-5 sm:px-8 lg:px-12">
 
           <Reveal>
 
-            <SectionTitle
-              eyebrow="Why Buddy Fleets"
-              title="Transport software became more complicated than transport itself."
-              description="Many businesses adopt ERP or transport software expecting their work to become easier. Instead, they often face cluttered dashboards, complicated workflows and systems that take too much effort to understand."
+            <SectionHeading
+              eyebrow="Why Buddy Fleets Exists"
+              title="Transport software should make transport easier."
+              description="Businesses adopt software to reduce work and improve clarity. But traditional ERP and transport systems can sometimes become difficult to navigate, difficult to understand and difficult to use in everyday operations."
             />
 
           </Reveal>
 
           <div className="mt-12 grid gap-5 lg:grid-cols-2">
 
+            {/* PROBLEM */}
+
             <Reveal>
 
               <motion.div
-                whileHover={{
-                  y: -5,
-                }}
-                className="h-full rounded-[30px] border border-red-400/10 bg-red-400/[0.025] p-7 sm:p-8"
+                whileHover={
+                  reduceMotion
+                    ? {}
+                    : {
+                        y: -6,
+                      }
+                }
+                className="
+                  relative
+                  h-full
+                  overflow-hidden
+                  rounded-[30px]
+                  border
+                  border-red-400/10
+                  bg-red-400/[0.025]
+                  p-7
+                  sm:p-8
+                "
               >
 
-                <span className="text-[9px] font-black uppercase tracking-[0.2em] text-red-300/70">
-                  The Problem
-                </span>
+                <div className="absolute -right-20 -top-20 h-52 w-52 rounded-full bg-red-500/[0.05] blur-[90px]" />
 
-                <h3 className="mt-5 text-2xl font-black text-white">
-                  Too much software. Too little clarity.
-                </h3>
+                <div className="relative">
 
-                <p className="mt-4 text-sm leading-8 text-slate-400">
-                  Business software can quickly become overloaded with
-                  screens, options and processes. That complexity can
-                  slow down the same teams the software was supposed
-                  to help.
-                </p>
+                  <span className="text-[9px] font-black uppercase tracking-[0.2em] text-red-300/70">
+                    The Problem
+                  </span>
+
+                  <h3 className="mt-5 text-2xl font-black text-white sm:text-3xl">
+                    Complexity became normal.
+                  </h3>
+
+                  <p className="mt-4 text-sm leading-8 text-slate-400">
+                    More screens, more menus and more options do not
+                    automatically create better operations. Software
+                    can become another task for the team instead of
+                    becoming a tool that supports the team.
+                  </p>
+
+                </div>
 
               </motion.div>
 
             </Reveal>
 
+            {/* APPROACH */}
+
             <Reveal delay={0.08}>
 
               <motion.div
-                whileHover={{
-                  y: -5,
-                }}
-                className="h-full rounded-[30px] border border-cyan-400/15 bg-gradient-to-br from-cyan-400/[0.05] to-violet-500/[0.04] p-7 sm:p-8"
+                whileHover={
+                  reduceMotion
+                    ? {}
+                    : {
+                        y: -6,
+                      }
+                }
+                className="
+                  relative
+                  h-full
+                  overflow-hidden
+                  rounded-[30px]
+                  border
+                  border-cyan-400/15
+                  bg-gradient-to-br
+                  from-cyan-400/[0.05]
+                  via-blue-500/[0.03]
+                  to-violet-500/[0.04]
+                  p-7
+                  sm:p-8
+                "
               >
 
-                <span className="text-[9px] font-black uppercase tracking-[0.2em] text-cyan-300">
-                  Buddy Fleets Approach
-                </span>
+                <div className="absolute -right-20 -top-20 h-52 w-52 rounded-full bg-cyan-500/[0.08] blur-[90px]" />
 
-                <h3 className="mt-5 text-2xl font-black text-white">
-                  Start from zero. Keep the purpose clear.
-                </h3>
+                <div className="relative">
 
-                <p className="mt-4 text-sm leading-8 text-slate-400">
-                  Buddy Fleets was created from the ground up around
-                  one simple belief: technology should make operations
-                  easier to understand and manage, not add another
-                  layer of complexity.
-                </p>
+                  <span className="text-[9px] font-black uppercase tracking-[0.2em] text-cyan-300">
+                    Our Approach
+                  </span>
+
+                  <h3 className="mt-5 text-2xl font-black text-white sm:text-3xl">
+                    Start from zero. Keep it clear.
+                  </h3>
+
+                  <p className="mt-4 text-sm leading-8 text-slate-400">
+                    Buddy Fleets was created from the ground up around
+                    one practical idea: technology should reduce
+                    operational confusion, not add another layer of
+                    complexity. Every workflow should have a clear
+                    purpose.
+                  </p>
+
+                </div>
 
               </motion.div>
 
@@ -1318,7 +1660,20 @@ export default function AboutUs() {
 
         <Reveal className="mx-auto max-w-[1280px]">
 
-          <div className="relative overflow-hidden rounded-[34px] border border-cyan-400/15 bg-[#081426] px-6 py-14 text-center sm:px-10 sm:py-16">
+          <div className="
+            relative
+            overflow-hidden
+            rounded-[34px]
+            border
+            border-cyan-400/15
+            bg-[#081426]
+            px-6
+            py-14
+            text-center
+            sm:px-10
+            sm:py-16
+            lg:px-16
+          ">
 
             <motion.div
               animate={
@@ -1327,7 +1682,7 @@ export default function AboutUs() {
                   : {
                       scale: [
                         1,
-                        1.15,
+                        1.18,
                         1,
                       ],
                     }
@@ -1335,8 +1690,21 @@ export default function AboutUs() {
               transition={{
                 duration: 8,
                 repeat: Infinity,
+                ease: 'easeInOut',
               }}
-              className="pointer-events-none absolute left-1/2 top-1/2 h-72 w-72 -translate-x-1/2 -translate-y-1/2 rounded-full bg-blue-500/10 blur-[100px]"
+              className="
+                pointer-events-none
+                absolute
+                left-1/2
+                top-1/2
+                h-72
+                w-72
+                -translate-x-1/2
+                -translate-y-1/2
+                rounded-full
+                bg-blue-500/10
+                blur-[100px]
+              "
             />
 
             <div className="relative">
@@ -1345,7 +1713,7 @@ export default function AboutUs() {
                 Our Mission
               </p>
 
-              <h2 className="mx-auto mt-5 max-w-4xl text-3xl font-black leading-tight sm:text-4xl lg:text-5xl">
+              <h2 className="mx-auto mt-5 max-w-4xl text-3xl font-black leading-tight text-white sm:text-4xl lg:text-5xl">
 
                 To make transport operations{' '}
 
@@ -1375,10 +1743,10 @@ export default function AboutUs() {
 
           <Reveal>
 
-            <SectionTitle
+            <SectionHeading
               eyebrow="Who We Serve"
               title="Built for businesses that keep India moving."
-              description="Buddy Fleets is focused on the transport and fleet ecosystem where vehicles, people and everyday operations need to work together."
+              description="Buddy Fleets is focused on businesses and operators working every day across India's transport and fleet ecosystem."
               center
             />
 
@@ -1386,23 +1754,16 @@ export default function AboutUs() {
 
           <div className="mt-12 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
 
-            {audience.map(
-              (
-                item,
-                index
-              ) => (
-                <AudienceCard
-                  key={
-                    item.title
-                  }
-                  {...item}
-                  delay={
-                    index *
-                    0.06
-                  }
-                />
-              )
-            )}
+            {audience.map((item, index) => (
+              <AudienceCard
+                key={item.title}
+                {...item}
+                delay={
+                  index *
+                  0.06
+                }
+              />
+            ))}
 
           </div>
 
@@ -1420,10 +1781,10 @@ export default function AboutUs() {
 
           <Reveal>
 
-            <SectionTitle
+            <SectionHeading
               eyebrow="How We Think"
-              title="Modern software should remove friction."
-              description="Buddy Fleets is built around practical product thinking — every part of the platform should help make transport operations clearer."
+              title="Useful technology should feel natural."
+              description="Buddy Fleets is guided by practical product thinking. The goal is not to add software for the sake of software — it is to make everyday transport work easier to manage."
               center
             />
 
@@ -1431,78 +1792,68 @@ export default function AboutUs() {
 
           <div className="mt-12 grid gap-5 lg:grid-cols-3">
 
-            {[
-              {
-                number:
-                  '01',
-                title:
-                  'Less Complexity',
-                text:
-                  'Clear workflows matter more than overloaded screens and unnecessary options.',
-              },
-              {
-                number:
-                  '02',
-                title:
-                  'Operational Clarity',
-                text:
-                  'Important fleet information should be easier to understand and easier to act on.',
-              },
-              {
-                number:
-                  '03',
-                title:
-                  'Connected Operations',
-                text:
-                  'Vehicles, drivers, documents, expenses and transport activity belong in one connected environment.',
-              },
-            ].map(
-              (
-                item,
-                index
-              ) => (
+            {philosophy.map((item, index) => (
+              <Reveal
+                key={item.number}
+                delay={
+                  index *
+                  0.07
+                }
+              >
 
-                <Reveal
-                  key={
-                    item.number
+                <motion.div
+                  whileHover={
+                    reduceMotion
+                      ? {}
+                      : {
+                          y: -7,
+                        }
                   }
-                  delay={
-                    index *
-                    0.07
-                  }
+                  transition={{
+                    duration: 0.25,
+                  }}
+                  className="
+                    group
+                    h-full
+                    rounded-[28px]
+                    border
+                    border-white/[0.08]
+                    bg-white/[0.025]
+                    p-7
+                    transition
+                    hover:border-cyan-400/15
+                  "
                 >
 
-                  <motion.div
-                    whileHover={{
-                      y: -7,
-                    }}
-                    className="h-full rounded-[28px] border border-white/[0.08] bg-white/[0.025] p-7"
-                  >
+                  <span className="
+                    flex
+                    h-10
+                    w-10
+                    items-center
+                    justify-center
+                    rounded-xl
+                    border
+                    border-cyan-400/15
+                    bg-cyan-400/[0.05]
+                    text-[9px]
+                    font-black
+                    text-cyan-300
+                  ">
+                    {item.number}
+                  </span>
 
-                    <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-400/15 bg-cyan-400/[0.05] text-[9px] font-black text-cyan-300">
-                      {
-                        item.number
-                      }
-                    </span>
+                  <h3 className="mt-6 text-xl font-black text-white">
+                    {item.title}
+                  </h3>
 
-                    <h3 className="mt-6 text-xl font-black text-white">
-                      {
-                        item.title
-                      }
-                    </h3>
+                  <p className="mt-3 text-sm leading-7 text-slate-400">
+                    {item.description}
+                  </p>
 
-                    <p className="mt-3 text-sm leading-7 text-slate-400">
-                      {
-                        item.text
-                      }
-                    </p>
+                </motion.div>
 
-                  </motion.div>
-
-                </Reveal>
-
-              )
-            )}
+              </Reveal>
+            ))}
 
           </div>
 
@@ -1511,14 +1862,26 @@ export default function AboutUs() {
       </section>
 
       {/* =====================================================
-          EXPLORE FEATURES
+          EXPLORE FEATURES CTA
       ===================================================== */}
 
       <section className="px-5 pb-20 sm:px-8 sm:pb-24 lg:px-12 lg:pb-28">
 
         <Reveal className="mx-auto max-w-[1280px]">
 
-          <div className="relative overflow-hidden rounded-[32px] border border-white/[0.08] bg-gradient-to-r from-[#071526] via-[#0b1730] to-[#17102c] p-7 sm:p-10">
+          <div className="
+            relative
+            overflow-hidden
+            rounded-[32px]
+            border
+            border-white/[0.08]
+            bg-gradient-to-r
+            from-[#071526]
+            via-[#0b1730]
+            to-[#17102c]
+            p-7
+            sm:p-10
+          ">
 
             <motion.div
               animate={
@@ -1535,6 +1898,7 @@ export default function AboutUs() {
               transition={{
                 duration: 10,
                 repeat: Infinity,
+                ease: 'easeInOut',
               }}
               className="absolute -right-24 top-[-80px] h-72 w-72 rounded-full bg-violet-500/15 blur-[100px]"
             />
@@ -1548,19 +1912,44 @@ export default function AboutUs() {
                 </p>
 
                 <h2 className="mt-3 text-2xl font-black text-white sm:text-3xl">
-                  Discover what Buddy Fleets brings together.
+                  See what Buddy Fleets brings together.
                 </h2>
 
                 <p className="mt-3 text-sm leading-7 text-slate-400">
-                  Explore the tools and workflows designed around
-                  everyday fleet and transport operations.
+                  Explore the operational tools and workflows designed
+                  to help transport teams manage their fleet more
+                  clearly.
                 </p>
 
               </div>
 
               <Link
                 to="/features"
-                className="group inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-400 via-blue-500 to-violet-600 px-6 py-3.5 text-xs font-black text-white shadow-lg shadow-blue-500/20 transition hover:-translate-y-0.5 sm:text-sm"
+                className="
+                  group
+                  inline-flex
+                  shrink-0
+                  items-center
+                  justify-center
+                  gap-2
+                  rounded-xl
+                  bg-gradient-to-r
+                  from-cyan-400
+                  via-blue-500
+                  to-violet-600
+                  px-6
+                  py-3.5
+                  text-xs
+                  font-black
+                  text-white
+                  shadow-lg
+                  shadow-blue-500/20
+                  transition
+
+                  hover:-translate-y-0.5
+
+                  sm:text-sm
+                "
               >
                 Explore Features
 
@@ -1579,13 +1968,13 @@ export default function AboutUs() {
           FOUNDERS
       ===================================================== */}
 
-      <section className="border-y border-white/[0.05] bg-[#070d19] py-20 sm:py-24 lg:py-28">
+      <section className="relative border-y border-white/[0.05] bg-[#070d19] py-20 sm:py-24 lg:py-28">
 
-        <div className="mx-auto max-w-[1180px] px-5 sm:px-8 lg:px-12">
+        <div className="mx-auto max-w-[1350px] px-5 sm:px-8 lg:px-12">
 
           <Reveal>
 
-            <SectionTitle
+            <SectionHeading
               eyebrow="People Behind Buddy Fleets"
               title="Two founders. One clear direction."
               description="Technology, product thinking, business operations and customer understanding come together behind Buddy Fleets."
@@ -1594,22 +1983,22 @@ export default function AboutUs() {
 
           </Reveal>
 
-          <div className="mt-14 grid gap-6">
+          {/* ===============================================
+              SHUBHAM LEFT | NAVIN RIGHT
+          =============================================== */}
+
+          <div className="mt-14 grid items-stretch gap-6 lg:grid-cols-2">
 
             {/* SHUBHAM */}
 
             <FounderCard
-              image={
-                SHUBHAM_PHOTO
-              }
+              image={SHUBHAM_PHOTO}
               initials="SJ"
               name="Shubham Jangir"
               role="Founder & Developer"
-              description="Leading the technical direction of Buddy Fleets, including platform development, product architecture, system design and the technology behind the complete Buddy Fleets experience."
+              description="Leading the technical direction of Buddy Fleets, including product architecture, platform development, system design and the technology behind the complete Buddy Fleets experience."
               email="jangirshubham72@gmail.com"
-              instagram={
-                SHUBHAM_INSTAGRAM
-              }
+              instagram={SHUBHAM_INSTAGRAM}
               instagramHandle="@happiest_banda"
               accent="cyan"
             />
@@ -1620,11 +2009,9 @@ export default function AboutUs() {
               initials="NS"
               name="Navin Sharma"
               role="Founder"
-              description="Focused on Operations, Business Development, Sales & Product — understanding market requirements, building customer relationships, developing business opportunities and contributing to the commercial and product direction of Buddy Fleets."
+              description="Focused on Operations, Business Development, Sales & Product — understanding market requirements, building customer relationships, developing business opportunities and contributing to the product and commercial direction of Buddy Fleets."
               email="navin4338@gmail.com"
-              instagram={
-                NAVIN_INSTAGRAM
-              }
+              instagram={NAVIN_INSTAGRAM}
               instagramHandle="@navin.sharma"
               accent="violet"
               delay={0.08}
@@ -1661,7 +2048,17 @@ export default function AboutUs() {
               repeat: Infinity,
               ease: 'easeInOut',
             }}
-            className="absolute left-1/2 top-0 h-80 w-[70%] -translate-x-1/2 rounded-full bg-blue-500/[0.08] blur-[130px]"
+            className="
+              absolute
+              left-1/2
+              top-0
+              h-80
+              w-[70%]
+              -translate-x-1/2
+              rounded-full
+              bg-blue-500/[0.08]
+              blur-[130px]
+            "
           />
 
         </div>
@@ -1679,15 +2076,39 @@ export default function AboutUs() {
             </h2>
 
             <p className="mx-auto mt-5 max-w-2xl text-sm leading-7 text-slate-400 sm:text-base">
-              Start your 5-day free trial or connect with us
-              to learn more about Buddy Fleets.
+              Explore Buddy Fleets with a 5-day free trial or
+              connect with us to learn more about the platform.
             </p>
 
             <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
 
               <Link
                 to="/signup"
-                className="group inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-400 via-blue-500 to-violet-600 px-7 py-3.5 text-xs font-black text-white shadow-xl shadow-blue-600/20 transition hover:-translate-y-0.5 hover:shadow-cyan-500/20 sm:text-sm"
+                className="
+                  group
+                  inline-flex
+                  items-center
+                  justify-center
+                  gap-2
+                  rounded-xl
+                  bg-gradient-to-r
+                  from-cyan-400
+                  via-blue-500
+                  to-violet-600
+                  px-7
+                  py-3.5
+                  text-xs
+                  font-black
+                  text-white
+                  shadow-xl
+                  shadow-blue-600/20
+                  transition
+
+                  hover:-translate-y-0.5
+                  hover:shadow-cyan-500/20
+
+                  sm:text-sm
+                "
               >
                 Start 5-Day Free Trial
 
@@ -1696,7 +2117,26 @@ export default function AboutUs() {
 
               <Link
                 to="/contact"
-                className="inline-flex items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] px-7 py-3.5 text-xs font-black text-slate-200 transition hover:bg-white/[0.07] sm:text-sm"
+                className="
+                  inline-flex
+                  items-center
+                  justify-center
+                  rounded-xl
+                  border
+                  border-white/10
+                  bg-white/[0.04]
+                  px-7
+                  py-3.5
+                  text-xs
+                  font-black
+                  text-slate-200
+                  transition
+
+                  hover:border-white/20
+                  hover:bg-white/[0.07]
+
+                  sm:text-sm
+                "
               >
                 Contact Us
               </Link>
