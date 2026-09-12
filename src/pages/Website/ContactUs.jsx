@@ -1,7 +1,51 @@
-import React, { useEffect, useState } from 'react';
+import React, {
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
+
 import { Link } from 'react-router-dom';
-import { motion, useReducedMotion } from 'framer-motion';
+import {
+  motion,
+  useReducedMotion,
+} from 'framer-motion';
+
 import { supabase } from '../../supabaseClient';
+
+/* =========================================================
+   OPTIONS
+========================================================= */
+
+const enquiryOptions = [
+  {
+    value: 'Buddy Fleets',
+    label: 'Buddy Fleets',
+  },
+  {
+    value: 'Product Demo',
+    label: 'Product Demo',
+  },
+  {
+    value: 'Free Trial',
+    label: '5-Day Free Trial',
+  },
+  {
+    value: 'Sales',
+    label: 'Sales Enquiry',
+  },
+  {
+    value: 'Partnership',
+    label: 'Business / Partnership',
+  },
+  {
+    value: 'Technical',
+    label: 'Technical Enquiry',
+  },
+  {
+    value: 'Other',
+    label: 'Other',
+  },
+];
 
 /* =========================================================
    ICONS
@@ -211,6 +255,44 @@ function ArrowIcon({ className = '' }) {
   );
 }
 
+function ChevronIcon({ className = '' }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+      className={className}
+    >
+      <path
+        d="m6 9 6 6 6-6"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function CheckIcon({ className = '' }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+      className={className}
+    >
+      <path
+        d="m5 12 4 4L19 6"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 function CheckCircleIcon({ className = '' }) {
   return (
     <svg
@@ -310,7 +392,290 @@ function Reveal({
 }
 
 /* =========================================================
-   CONTACT PERSON CARD
+   CUSTOM SELECT
+========================================================= */
+
+function CustomSelect({
+  value,
+  options,
+  onChange,
+  disabled = false,
+}) {
+  const wrapperRef = useRef(null);
+
+  const [open, setOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  const selectedIndex = Math.max(
+    0,
+    options.findIndex(
+      (option) => option.value === value
+    )
+  );
+
+  const selected =
+    options[selectedIndex] || options[0];
+
+  useEffect(() => {
+    if (!open) {
+      return undefined;
+    }
+
+    function handleOutside(event) {
+      if (
+        wrapperRef.current &&
+        !wrapperRef.current.contains(event.target)
+      ) {
+        setOpen(false);
+      }
+    }
+
+    document.addEventListener(
+      'pointerdown',
+      handleOutside
+    );
+
+    return () => {
+      document.removeEventListener(
+        'pointerdown',
+        handleOutside
+      );
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (open) {
+      setActiveIndex(selectedIndex);
+    }
+  }, [open, selectedIndex]);
+
+  function selectOption(option) {
+    onChange(option.value);
+    setOpen(false);
+  }
+
+  function handleKeyDown(event) {
+    if (disabled) return;
+
+    if (
+      event.key === 'Enter' ||
+      event.key === ' '
+    ) {
+      event.preventDefault();
+
+      if (!open) {
+        setOpen(true);
+      } else {
+        selectOption(
+          options[activeIndex]
+        );
+      }
+
+      return;
+    }
+
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+
+      if (!open) {
+        setOpen(true);
+        return;
+      }
+
+      setActiveIndex((current) =>
+        Math.min(
+          current + 1,
+          options.length - 1
+        )
+      );
+
+      return;
+    }
+
+    if (event.key === 'ArrowUp') {
+      event.preventDefault();
+
+      if (!open) {
+        setOpen(true);
+        return;
+      }
+
+      setActiveIndex((current) =>
+        Math.max(current - 1, 0)
+      );
+
+      return;
+    }
+
+    if (event.key === 'Escape') {
+      setOpen(false);
+    }
+  }
+
+  return (
+    <div
+      ref={wrapperRef}
+      className="relative"
+    >
+      <button
+        type="button"
+        disabled={disabled}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => {
+          if (!disabled) {
+            setOpen((current) => !current);
+          }
+        }}
+        onKeyDown={handleKeyDown}
+        className={`
+          flex
+          w-full
+          items-center
+          justify-between
+          gap-4
+          rounded-2xl
+          border
+          px-4
+          py-3.5
+          text-left
+          text-sm
+          outline-none
+          transition-all
+          duration-300
+
+          ${
+            open
+              ? 'border-cyan-400/35 bg-[#0d192d] ring-4 ring-cyan-400/[0.06]'
+              : 'border-white/[0.08] bg-[#0b1527] hover:border-white/[0.14] hover:bg-[#0d192d]'
+          }
+
+          ${
+            disabled
+              ? 'cursor-not-allowed opacity-60'
+              : 'cursor-pointer'
+          }
+        `}
+      >
+        <span className="font-medium text-white">
+          {selected?.label}
+        </span>
+
+        <ChevronIcon
+          className={`
+            h-4
+            w-4
+            shrink-0
+            text-slate-500
+            transition-transform
+            duration-300
+
+            ${
+              open
+                ? 'rotate-180 text-cyan-400'
+                : ''
+            }
+          `}
+        />
+      </button>
+
+      {open && !disabled && (
+        <motion.div
+          initial={{
+            opacity: 0,
+            y: -8,
+            scale: 0.98,
+          }}
+          animate={{
+            opacity: 1,
+            y: 0,
+            scale: 1,
+          }}
+          transition={{
+            duration: 0.16,
+          }}
+          className="
+            absolute
+            left-0
+            right-0
+            z-50
+            mt-2
+            max-h-72
+            overflow-y-auto
+            rounded-2xl
+            border
+            border-white/[0.1]
+            bg-[#091426]/[0.98]
+            p-2
+            shadow-2xl
+            shadow-black/50
+            backdrop-blur-2xl
+          "
+          role="listbox"
+        >
+          {options.map(
+            (option, index) => {
+              const isSelected =
+                option.value === value;
+
+              const isActive =
+                index === activeIndex;
+
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  role="option"
+                  aria-selected={isSelected}
+                  onMouseEnter={() =>
+                    setActiveIndex(index)
+                  }
+                  onClick={() =>
+                    selectOption(option)
+                  }
+                  className={`
+                    flex
+                    w-full
+                    items-center
+                    justify-between
+                    gap-3
+                    rounded-xl
+                    px-3
+                    py-3
+                    text-left
+                    text-sm
+                    transition
+
+                    ${
+                      isSelected
+                        ? 'bg-cyan-400/[0.1] text-cyan-200'
+                        : isActive
+                          ? 'bg-white/[0.05] text-white'
+                          : 'text-slate-400 hover:bg-white/[0.05] hover:text-white'
+                    }
+                  `}
+                >
+                  <span>
+                    {option.label}
+                  </span>
+
+                  {isSelected && (
+                    <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-cyan-400/[0.1] text-cyan-300">
+                      <CheckIcon className="h-3.5 w-3.5" />
+                    </span>
+                  )}
+                </button>
+              );
+            }
+          )}
+        </motion.div>
+      )}
+    </div>
+  );
+}
+
+/* =========================================================
+   CONTACT PERSON
 ========================================================= */
 
 function ContactPerson({
@@ -322,25 +687,23 @@ function ContactPerson({
   instagramHandle,
   index = 0,
 }) {
-  const isFirst = index === 0;
+  const cyan = index === 0;
 
   return (
-    <div
-      className="
-        group
-        relative
-        overflow-hidden
-        rounded-[26px]
-        border
-        border-white/[0.08]
-        bg-white/[0.025]
-        p-5
-        transition
-        duration-500
-        hover:border-white/[0.14]
-        sm:p-6
-      "
-    >
+    <div className="
+      group
+      relative
+      overflow-hidden
+      rounded-[26px]
+      border
+      border-white/[0.08]
+      bg-white/[0.025]
+      p-5
+      transition
+      duration-500
+      hover:border-white/[0.14]
+      sm:p-6
+    ">
       <div
         className={`
           pointer-events-none
@@ -353,7 +716,7 @@ function ContactPerson({
           blur-[80px]
 
           ${
-            isFirst
+            cyan
               ? 'bg-cyan-500/[0.08]'
               : 'bg-violet-500/[0.09]'
           }
@@ -376,7 +739,7 @@ function ContactPerson({
               border
 
               ${
-                isFirst
+                cyan
                   ? 'border-cyan-400/15 bg-cyan-400/[0.06] text-cyan-300'
                   : 'border-violet-400/15 bg-violet-400/[0.06] text-violet-300'
               }
@@ -400,7 +763,7 @@ function ContactPerson({
                 tracking-[0.18em]
 
                 ${
-                  isFirst
+                  cyan
                     ? 'text-cyan-400'
                     : 'text-violet-400'
                 }
@@ -452,7 +815,6 @@ function ContactPerson({
               <span className="truncate">
                 {email}
               </span>
-
             </a>
           )}
 
@@ -489,20 +851,18 @@ function ContactPerson({
               <span className="truncate">
                 {instagramHandle || 'Instagram'}
               </span>
-
             </a>
           )}
 
         </div>
 
       </div>
-
     </div>
   );
 }
 
 /* =========================================================
-   CONTACT LOADING CARD
+   LOADING CARD
 ========================================================= */
 
 function ContactLoadingCard() {
@@ -514,21 +874,15 @@ function ContactLoadingCard() {
         <div className="h-12 w-12 animate-pulse rounded-2xl bg-white/[0.05]" />
 
         <div className="flex-1">
-
           <div className="h-4 w-40 animate-pulse rounded bg-white/[0.06]" />
-
           <div className="mt-2 h-3 w-24 animate-pulse rounded bg-white/[0.04]" />
-
         </div>
 
       </div>
 
       <div className="mt-6 h-3 w-full animate-pulse rounded bg-white/[0.04]" />
-
       <div className="mt-2 h-3 w-4/5 animate-pulse rounded bg-white/[0.04]" />
-
       <div className="mt-6 h-12 animate-pulse rounded-xl bg-white/[0.04]" />
-
       <div className="mt-2 h-12 animate-pulse rounded-xl bg-white/[0.04]" />
 
     </div>
@@ -543,32 +897,36 @@ export default function ContactUs() {
   const reduceMotion = useReducedMotion();
 
   const [contacts, setContacts] = useState([]);
-  const [contactsLoading, setContactsLoading] = useState(true);
+  const [contactsLoading, setContactsLoading] =
+    useState(true);
 
-  const [formData, setFormData] = useState({
-    name: '',
-    company: '',
-    email: '',
-    mobile: '',
-    enquiryType: 'Buddy Fleets',
-    message: '',
-  });
+  const [submitting, setSubmitting] =
+    useState(false);
 
-  const [submitting, setSubmitting] = useState(false);
+  const [formStatus, setFormStatus] =
+    useState({
+      type: '',
+      message: '',
+    });
 
-  const [formStatus, setFormStatus] = useState({
-    type: '',
-    message: '',
-  });
+  const [formData, setFormData] =
+    useState({
+      name: '',
+      company: '',
+      email: '',
+      mobile: '',
+      enquiryType: 'Buddy Fleets',
+      message: '',
+    });
 
   /* =======================================================
-     LOAD CONTACT PEOPLE
+     LOAD CONTACTS
   ======================================================= */
 
   useEffect(() => {
     let mounted = true;
 
-    async function loadContactPeople() {
+    async function loadContacts() {
       try {
         setContactsLoading(true);
 
@@ -616,7 +974,7 @@ export default function ContactUs() {
       }
     }
 
-    loadContactPeople();
+    loadContacts();
 
     return () => {
       mounted = false;
@@ -624,7 +982,7 @@ export default function ContactUs() {
   }, []);
 
   /* =======================================================
-     FORM CHANGE
+     INPUT CHANGE
   ======================================================= */
 
   function handleChange(event) {
@@ -636,6 +994,20 @@ export default function ContactUs() {
     setFormData((previous) => ({
       ...previous,
       [name]: value,
+    }));
+
+    if (formStatus.message) {
+      setFormStatus({
+        type: '',
+        message: '',
+      });
+    }
+  }
+
+  function handleEnquiryTypeChange(value) {
+    setFormData((previous) => ({
+      ...previous,
+      enquiryType: value,
     }));
 
     if (formStatus.message) {
@@ -687,7 +1059,10 @@ export default function ContactUs() {
   }
 
   /* =======================================================
-     SUBMIT TO EDGE FUNCTION
+     SUBMIT
+     IMPORTANT:
+     NO MAILTO HERE.
+     ONLY SUPABASE EDGE FUNCTION.
   ======================================================= */
 
   async function handleSubmit(event) {
@@ -731,7 +1106,9 @@ export default function ContactUs() {
               formData.company.trim(),
 
             email:
-              formData.email.trim(),
+              formData.email
+                .trim()
+                .toLowerCase(),
 
             mobile:
               formData.mobile.trim(),
@@ -747,7 +1124,7 @@ export default function ContactUs() {
 
       if (error) {
         console.error(
-          'Contact function error:',
+          'Contact Edge Function error:',
           error
         );
 
@@ -796,7 +1173,7 @@ export default function ContactUs() {
   }
 
   /* =======================================================
-     STYLES
+     INPUT STYLE
   ======================================================= */
 
   const inputClass = `
@@ -810,7 +1187,8 @@ export default function ContactUs() {
     text-sm
     text-white
     outline-none
-    transition
+    transition-all
+    duration-300
 
     placeholder:text-slate-600
 
@@ -874,7 +1252,8 @@ export default function ContactUs() {
             style={{
               backgroundImage:
                 'linear-gradient(rgba(56,189,248,.8) 1px, transparent 1px), linear-gradient(90deg, rgba(56,189,248,.8) 1px, transparent 1px)',
-              backgroundSize: '58px 58px',
+              backgroundSize:
+                '58px 58px',
             }}
           />
 
@@ -927,9 +1306,10 @@ export default function ContactUs() {
             </h1>
 
             <p className="mx-auto mt-6 max-w-2xl text-sm leading-7 text-slate-400 sm:text-base sm:leading-8">
-              Have a question about Buddy Fleets, your trial,
-              product capabilities or working with us? Send your
-              enquiry and connect directly with the people behind
+              Have a question about Buddy Fleets,
+              your trial, product capabilities or
+              working with us? Send your enquiry and
+              connect directly with the people behind
               the platform.
             </p>
 
@@ -940,7 +1320,7 @@ export default function ContactUs() {
       </section>
 
       {/* =====================================================
-          FORM + DIRECT CONTACT
+          MAIN CONTACT AREA
       ===================================================== */}
 
       <section className="relative py-20 sm:py-24 lg:py-28">
@@ -953,21 +1333,19 @@ export default function ContactUs() {
 
           <Reveal>
 
-            <div
-              className="
-                relative
-                overflow-hidden
-                rounded-[32px]
-                border
-                border-white/[0.08]
-                bg-[#081221]
-                p-5
-                shadow-2xl
-                shadow-black/20
-                sm:p-7
-                lg:p-8
-              "
-            >
+            <div className="
+              relative
+              overflow-visible
+              rounded-[32px]
+              border
+              border-white/[0.08]
+              bg-[#081221]
+              p-5
+              shadow-2xl
+              shadow-black/20
+              sm:p-7
+              lg:p-8
+            ">
 
               <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-blue-500/[0.08] blur-[110px]" />
 
@@ -982,13 +1360,14 @@ export default function ContactUs() {
                 </h2>
 
                 <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-400">
-                  Share your details and our team will receive
-                  your enquiry directly.
+                  Share your details and our team will
+                  receive your enquiry directly.
                 </p>
 
                 <form
                   onSubmit={handleSubmit}
                   className="mt-8"
+                  noValidate
                 >
 
                   <div className="grid gap-4 sm:grid-cols-2">
@@ -1123,53 +1502,20 @@ export default function ContactUs() {
 
                   </div>
 
-                  {/* ENQUIRY TYPE */}
+                  {/* CUSTOM DROPDOWN */}
 
-                  <div className="mt-4">
+                  <div className="relative z-30 mt-4">
 
-                    <label
-                      htmlFor="enquiryType"
-                      className="mb-2 block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500"
-                    >
+                    <label className="mb-2 block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">
                       Enquiry About
                     </label>
 
-                    <select
-                      id="enquiryType"
-                      name="enquiryType"
+                    <CustomSelect
                       value={formData.enquiryType}
-                      onChange={handleChange}
+                      options={enquiryOptions}
+                      onChange={handleEnquiryTypeChange}
                       disabled={submitting}
-                      className={inputClass}
-                    >
-                      <option value="Buddy Fleets">
-                        Buddy Fleets
-                      </option>
-
-                      <option value="Product Demo">
-                        Product Demo
-                      </option>
-
-                      <option value="Free Trial">
-                        5-Day Free Trial
-                      </option>
-
-                      <option value="Sales">
-                        Sales Enquiry
-                      </option>
-
-                      <option value="Partnership">
-                        Business / Partnership
-                      </option>
-
-                      <option value="Technical">
-                        Technical Enquiry
-                      </option>
-
-                      <option value="Other">
-                        Other
-                      </option>
-                    </select>
+                    />
 
                   </div>
 
@@ -1231,7 +1577,6 @@ export default function ContactUs() {
                         }
                       `}
                     >
-
                       {formStatus.type === 'success' ? (
                         <CheckCircleIcon className="mt-0.5 h-4 w-4 shrink-0" />
                       ) : (
@@ -1241,7 +1586,6 @@ export default function ContactUs() {
                       <span>
                         {formStatus.message}
                       </span>
-
                     </div>
                   )}
 
@@ -1282,21 +1626,17 @@ export default function ContactUs() {
                       sm:w-auto
                     "
                   >
-
                     {submitting ? (
                       <>
                         <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-
                         Sending Enquiry...
                       </>
                     ) : (
                       <>
                         Send Enquiry
-
                         <SendIcon className="h-4 w-4 transition-transform group-hover:translate-x-1 group-hover:-translate-y-0.5" />
                       </>
                     )}
-
                   </button>
 
                 </form>
@@ -1326,9 +1666,10 @@ export default function ContactUs() {
                 </h2>
 
                 <p className="mt-4 text-sm leading-7 text-slate-400">
-                  Reach the Buddy Fleets team directly for
-                  product, technology, sales, business or
-                  partnership-related discussions.
+                  Reach the Buddy Fleets team directly
+                  for product, technology, sales,
+                  business or partnership-related
+                  discussions.
                 </p>
 
               </div>
@@ -1343,29 +1684,25 @@ export default function ContactUs() {
                   <ContactLoadingCard />
                 </>
               ) : contacts.length > 0 ? (
-
-                contacts.map((contact, index) => (
-                  <Reveal
-                    key={contact.id}
-                    delay={
-                      index *
-                      0.06
-                    }
-                  >
-                    <ContactPerson
-                      name={contact.name}
-                      role={contact.role}
-                      description={contact.description}
-                      email={contact.email}
-                      instagramUrl={contact.instagram_url}
-                      instagramHandle={contact.instagram_handle}
-                      index={index}
-                    />
-                  </Reveal>
-                ))
-
+                contacts.map(
+                  (contact, index) => (
+                    <Reveal
+                      key={contact.id}
+                      delay={index * 0.06}
+                    >
+                      <ContactPerson
+                        name={contact.name}
+                        role={contact.role}
+                        description={contact.description}
+                        email={contact.email}
+                        instagramUrl={contact.instagram_url}
+                        instagramHandle={contact.instagram_handle}
+                        index={index}
+                      />
+                    </Reveal>
+                  )
+                )
               ) : (
-
                 <div className="rounded-[26px] border border-white/[0.08] bg-white/[0.025] p-6">
 
                   <MailIcon className="h-6 w-6 text-cyan-400" />
@@ -1375,13 +1712,12 @@ export default function ContactUs() {
                   </h3>
 
                   <p className="mt-2 text-sm leading-7 text-slate-400">
-                    Direct contact information is temporarily
-                    unavailable. You can still use the enquiry
-                    form and our team will receive your message.
+                    Direct contact information is
+                    temporarily unavailable. You can
+                    still use the enquiry form.
                   </p>
 
                 </div>
-
               )}
 
             </div>
@@ -1413,9 +1749,10 @@ export default function ContactUs() {
               </h2>
 
               <p className="mt-4 text-sm leading-7 text-slate-400 sm:text-base">
-                Whether you're exploring Buddy Fleets for the
-                first time or want to discuss your transport
-                operations, you can reach us directly.
+                Whether you're exploring Buddy Fleets
+                for the first time or want to discuss
+                your transport operations, you can
+                reach us directly.
               </p>
 
             </div>
@@ -1449,53 +1786,48 @@ export default function ContactUs() {
                 description:
                   'Connect for platform, account or other technical Buddy Fleets enquiries.',
               },
-            ].map((item, index) => (
-              <Reveal
-                key={item.number}
-                delay={
-                  index *
-                  0.05
-                }
-              >
-
-                <motion.div
-                  whileHover={
-                    reduceMotion
-                      ? {}
-                      : {
-                          y: -6,
-                        }
-                  }
-                  className="
-                    group
-                    h-full
-                    rounded-[24px]
-                    border
-                    border-white/[0.07]
-                    bg-white/[0.025]
-                    p-5
-                    transition
-                    hover:border-cyan-400/15
-                    sm:p-6
-                  "
+            ].map(
+              (item, index) => (
+                <Reveal
+                  key={item.number}
+                  delay={index * 0.05}
                 >
+                  <motion.div
+                    whileHover={
+                      reduceMotion
+                        ? {}
+                        : {
+                            y: -6,
+                          }
+                    }
+                    className="
+                      group
+                      h-full
+                      rounded-[24px]
+                      border
+                      border-white/[0.07]
+                      bg-white/[0.025]
+                      p-5
+                      transition
+                      hover:border-cyan-400/15
+                      sm:p-6
+                    "
+                  >
+                    <span className="text-[9px] font-black tracking-[0.2em] text-cyan-400/60">
+                      {item.number}
+                    </span>
 
-                  <span className="text-[9px] font-black tracking-[0.2em] text-cyan-400/60">
-                    {item.number}
-                  </span>
+                    <h3 className="mt-6 text-lg font-black text-white">
+                      {item.title}
+                    </h3>
 
-                  <h3 className="mt-6 text-lg font-black text-white">
-                    {item.title}
-                  </h3>
-
-                  <p className="mt-3 text-xs leading-6 text-slate-400">
-                    {item.description}
-                  </p>
-
-                </motion.div>
-
-              </Reveal>
-            ))}
+                    <p className="mt-3 text-xs leading-6 text-slate-400">
+                      {item.description}
+                    </p>
+                  </motion.div>
+                </Reveal>
+              )
+            )}
 
           </div>
 
@@ -1546,7 +1878,8 @@ export default function ContactUs() {
             </h2>
 
             <p className="mx-auto mt-5 max-w-2xl text-sm leading-7 text-slate-400 sm:text-base">
-              Start your 5-day free trial and explore Buddy Fleets.
+              Start your 5-day free trial and explore
+              Buddy Fleets.
             </p>
 
             <Link
