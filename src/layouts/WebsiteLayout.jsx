@@ -1387,29 +1387,39 @@ export default function WebsiteLayout() {
                 href="https://www.instagram.com/buddy_computers"
                 target="_blank"
                 rel="noopener noreferrer"
-                className={`
-                  font-bold
-                  underline
-                  underline-offset-2
-                  transition-colors
-                  duration-200
-
-                  ${
-                    isDark
-                      ? `
-                          text-white
-                          decoration-slate-600
-                          hover:text-cyan-300
-                        `
-                      : `
-                          text-[#07519c]
-                          decoration-blue-300
-                          hover:text-[#078f34]
-                        `
-                  }
-                `}
+                aria-label="Buddy Computers Instagram"
+                className="
+                  inline-flex
+                  items-center
+                  gap-1
+                  font-black
+                  no-underline
+                  focus-visible:outline-none
+                  focus-visible:ring-2
+                  focus-visible:ring-cyan-400/60
+                  focus-visible:ring-offset-2
+                  focus-visible:ring-offset-transparent
+                "
               >
-                BUDDY COMPUTERS
+                <span
+                  className={
+                    isDark
+                      ? 'text-[#39AFFF]'
+                      : 'text-[#003A78]'
+                  }
+                >
+                  BUDDY
+                </span>
+
+                <span
+                  className={
+                    isDark
+                      ? 'text-[#4ADE6A]'
+                      : 'text-[#007D26]'
+                  }
+                >
+                  COMPUTERS
+                </span>
               </a>
 
               . All Rights Reserved.
@@ -1428,26 +1438,27 @@ export default function WebsiteLayout() {
                 href="https://www.instagram.com/happiest_banda"
                 target="_blank"
                 rel="noopener noreferrer"
-                className={`
-                  underline
-                  underline-offset-2
-                  transition-colors
-                  duration-200
-
-                  ${
-                    isDark
-                      ? `
-                          text-cyan-300
-                          decoration-cyan-400
-                          hover:text-emerald-300
-                        `
-                      : `
-                          text-[#078f34]
-                          decoration-emerald-400
-                          hover:text-[#07519c]
-                        `
-                  }
-                `}
+                className={
+                  isDark
+                    ? `
+                        font-black
+                        text-[#C4B5FD]
+                        no-underline
+                        hover:text-[#E9D5FF]
+                        focus-visible:outline-none
+                        focus-visible:ring-2
+                        focus-visible:ring-violet-300/60
+                      `
+                    : `
+                        font-black
+                        text-[#6D28D9]
+                        no-underline
+                        hover:text-[#5B21B6]
+                        focus-visible:outline-none
+                        focus-visible:ring-2
+                        focus-visible:ring-violet-500/50
+                      `
+                }
               >
                 SHUBHAM JANGIR
               </a>
