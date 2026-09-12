@@ -15,19 +15,10 @@ import {
   useLocation,
 } from 'react-router-dom';
 
-import { supabase } from './supabaseClient';
-
-/* =========================================================
-   LAYOUT
-========================================================= */
-
 import WebsiteLayout from './layouts/WebsiteLayout';
 
 /* =========================================================
    ROUTE-LEVEL CODE SPLITTING
-
-   Public + Auth + Dashboard pages lazy load honge.
-   Isse initial JS bundle smaller hoga.
 ========================================================= */
 
 const Home = lazy(() =>
@@ -75,24 +66,67 @@ const SuperAdminDashboard = lazy(() =>
 );
 
 /* =========================================================
-   STORAGE KEYS
+   LAZY SUPABASE CLIENT
 
    IMPORTANT:
 
-   Supabase Auth = authentication authority.
+   Public marketing routes par Supabase SDK initial bundle
+   ke saath load nahi hoga.
 
-   localStorage me kabhi:
-   - password
-   - password hash
-   - manually managed access token
-   - complete currentUser object
+   Auth/dashboard runtime ko jab zarurat hogi tabhi
+   separate chunk download hoga.
+========================================================= */
 
-   store nahi karenge.
+let supabaseClientPromise = null;
 
-   Sirf:
-   - active company context
-   - inactivity timestamp
-   - UI active tab
+function getSupabaseClient() {
+  if (!supabaseClientPromise) {
+    supabaseClientPromise = import(
+      './supabaseClient'
+    ).then(
+      (module) => module.supabase
+    );
+  }
+
+  return supabaseClientPromise;
+}
+
+/* =========================================================
+   AUTH RUNTIME ROUTES
+
+   In routes par App-level session restore / auth listener
+   required hai.
+
+   Public marketing pages intentionally excluded.
+========================================================= */
+
+const AUTH_RUNTIME_PATHS = new Set([
+  '/login',
+  '/signup',
+  '/forgot-password',
+  '/confirm',
+  '/reset-password',
+  '/dashboard',
+]);
+
+function requiresAuthRuntime(
+  pathname
+) {
+  if (
+    AUTH_RUNTIME_PATHS.has(
+      pathname
+    )
+  ) {
+    return true;
+  }
+
+  return pathname.startsWith(
+    '/dashboard/'
+  );
+}
+
+/* =========================================================
+   STORAGE KEYS
 ========================================================= */
 
 const LEGACY_SESSION_KEY =
@@ -112,19 +146,13 @@ const ACTIVE_TAB_KEY =
 const INACTIVITY_TIMEOUT_MS =
   30 * 60 * 1000;
 
-/*
-  Mouse movement etc. frequently fire hote hain,
-  isliye activity writes throttle karenge.
-*/
+/* ACTIVITY WRITE THROTTLE */
 
 const ACTIVITY_THROTTLE_MS =
   15 * 1000;
 
 /* =========================================================
    PAGE CHUNK LOADER
-
-   WebsiteLayout ke andar use hoga.
-   Header/footer visible rahenge.
 ========================================================= */
 
 function PageChunkLoader() {
@@ -141,7 +169,14 @@ function PageChunkLoader() {
         py-12
       "
     >
-      <div className="flex flex-col items-center gap-4">
+      <div
+        className="
+          flex
+          flex-col
+          items-center
+          gap-4
+        "
+      >
         <div
           className="
             flex
@@ -183,7 +218,7 @@ function PageChunkLoader() {
 }
 
 /* =========================================================
-   DASHBOARD / FULL SCREEN LOADER
+   FULL SCREEN LOADER
 ========================================================= */
 
 function FullScreenLoader() {
@@ -201,7 +236,14 @@ function FullScreenLoader() {
         text-white
       "
     >
-      <div className="flex flex-col items-center gap-4">
+      <div
+        className="
+          flex
+          flex-col
+          items-center
+          gap-4
+        "
+      >
         <div
           className="
             flex
@@ -257,9 +299,15 @@ function FullScreenLoader() {
    LAZY PAGE WRAPPER
 ========================================================= */
 
-function LazyPage({ children }) {
+function LazyPage({
+  children,
+}) {
   return (
-    <Suspense fallback={<PageChunkLoader />}>
+    <Suspense
+      fallback={
+        <PageChunkLoader />
+      }
+    >
       {children}
     </Suspense>
   );
@@ -270,32 +318,33 @@ function LazyPage({ children }) {
 ========================================================= */
 
 function ScrollToTop() {
-  const { pathname } = useLocation();
+  const {
+    pathname,
+  } = useLocation();
 
-  useEffect(() => {
-    window.scrollTo({
-      top: 0,
-      left: 0,
-      behavior: 'instant',
-    });
-  }, [pathname]);
+  useEffect(
+    () => {
+      window.scrollTo({
+        top: 0,
+        left: 0,
+        behavior: 'instant',
+      });
+    },
+    [
+      pathname,
+    ]
+  );
 
   return null;
 }
 
 /* =========================================================
-   LEGACY CONFIRMATION REDIRECT
-
-   Agar Supabase me old URL:
-
-   /auth/confirmation
-
-   configured reh gaya ho, query/hash preserve karke
-   /confirm par redirect karega.
+   LEGACY REDIRECTS
 ========================================================= */
 
 function LegacyConfirmationRedirect() {
-  const location = useLocation();
+  const location =
+    useLocation();
 
   return (
     <Navigate
@@ -305,18 +354,9 @@ function LegacyConfirmationRedirect() {
   );
 }
 
-/* =========================================================
-   LEGACY CONTACT REDIRECT
-
-   Old:
-   /contact
-
-   New canonical:
-   /contact-us
-========================================================= */
-
 function LegacyContactRedirect() {
-  const location = useLocation();
+  const location =
+    useLocation();
 
   return (
     <Navigate
@@ -326,18 +366,9 @@ function LegacyContactRedirect() {
   );
 }
 
-/* =========================================================
-   LEGACY FORGOT ID REDIRECT
-
-   Old:
-   /forgot-id
-
-   Canonical:
-   /forgot-password
-========================================================= */
-
 function LegacyForgotRedirect() {
-  const location = useLocation();
+  const location =
+    useLocation();
 
   return (
     <Navigate
@@ -363,7 +394,9 @@ function getStoredCompanyContext() {
     }
 
     const parsed =
-      JSON.parse(raw);
+      JSON.parse(
+        raw
+      );
 
     if (
       !parsed?.companyId ||
@@ -373,13 +406,14 @@ function getStoredCompanyContext() {
     }
 
     return parsed;
-
   } catch {
     return null;
   }
 }
 
-function saveCompanyContext(user) {
+function saveCompanyContext(
+  user
+) {
   if (
     !user?.companyId ||
     !user?.companyCode
@@ -404,7 +438,7 @@ function saveCompanyContext(user) {
 }
 
 /* =========================================================
-   BUILD PLATFORM ADMIN CONTEXT
+   PLATFORM ADMIN CONTEXT
 ========================================================= */
 
 function createPlatformAdminContext({
@@ -489,47 +523,39 @@ function createPlatformAdminContext({
 }
 
 /* =========================================================
-   BUILD AUTHENTICATED APP USER
+   BUILD AUTHORIZED USER CONTEXT
 
-   IMPORTANT:
+   Security ordering preserved:
 
-   Supabase Auth user
+   Supabase Auth
         ↓
    Profile
         ↓
-   Company context exists?
+   Stored company context?
         ↓
-   YES:
-   Company + Membership + Subscription
+   YES -> Membership -> Company -> Subscription
         ↓
-   NO:
-   Check Platform Admin
-
-   This ordering is intentional.
-
-   Platform Admin normal Company Code se company workspace me
-   login kare to refresh ke baad bhi company context me hi
-   rahega.
-
-   ADMIN login par ACTIVE_COMPANY_KEY absent hoga, tab
-   platform_admin context build hoga.
+   NO -> Platform Admin
 ========================================================= */
 
 async function buildUserContext(
   authUser,
   preferredCompanyId = null
 ) {
-  if (!authUser?.id) {
+  if (
+    !authUser?.id
+  ) {
     return null;
   }
 
-  /* =======================================================
-     EMAIL MUST BE CONFIRMED
-  ======================================================= */
-
-  if (!authUser.email_confirmed_at) {
+  if (
+    !authUser.email_confirmed_at
+  ) {
     return null;
   }
+
+  const supabase =
+    await getSupabaseClient();
 
   /* =======================================================
      PROFILE
@@ -537,10 +563,13 @@ async function buildUserContext(
 
   const {
     data: profile,
-    error: profileError,
+    error:
+      profileError,
   } =
     await supabase
-      .from('profiles')
+      .from(
+        'profiles'
+      )
       .select(
         'id, full_name, email, mobile'
       )
@@ -550,7 +579,9 @@ async function buildUserContext(
       )
       .maybeSingle();
 
-  if (profileError) {
+  if (
+    profileError
+  ) {
     console.error(
       'Profile context error:',
       profileError
@@ -561,30 +592,29 @@ async function buildUserContext(
      COMPANY CONTEXT HAS PRIORITY
   ======================================================= */
 
-  if (preferredCompanyId) {
-
-    /* =====================================================
-       MEMBERSHIP
-    ===================================================== */
+  if (
+    preferredCompanyId
+  ) {
+    /* MEMBERSHIP */
 
     const {
-      data: membership,
-      error: membershipError,
+      data:
+        membership,
+      error:
+        membershipError,
     } =
       await supabase
         .from(
           'company_memberships'
         )
-        .select(
-          `
-            id,
-            company_id,
-            user_id,
-            status,
-            access_scope,
-            joined_at
-          `
-        )
+        .select(`
+          id,
+          company_id,
+          user_id,
+          status,
+          access_scope,
+          joined_at
+        `)
         .eq(
           'company_id',
           preferredCompanyId
@@ -599,7 +629,9 @@ async function buildUserContext(
       membershipError ||
       !membership
     ) {
-      if (membershipError) {
+      if (
+        membershipError
+      ) {
         console.error(
           'Membership context error:',
           membershipError
@@ -609,8 +641,6 @@ async function buildUserContext(
       return null;
     }
 
-    /* ONLY ACTIVE MEMBERS */
-
     if (
       membership.status !==
       'active'
@@ -618,26 +648,26 @@ async function buildUserContext(
       return null;
     }
 
-    /* =====================================================
-       COMPANY
-    ===================================================== */
+    /* COMPANY */
 
     const {
-      data: company,
-      error: companyError,
+      data:
+        company,
+      error:
+        companyError,
     } =
       await supabase
-        .from('companies')
-        .select(
-          `
-            id,
-            company_code,
-            company_name,
-            status,
-            confirmed_at,
-            account_owner_user_id
-          `
+        .from(
+          'companies'
         )
+        .select(`
+          id,
+          company_code,
+          company_name,
+          status,
+          confirmed_at,
+          account_owner_user_id
+        `)
         .eq(
           'id',
           membership.company_id
@@ -648,7 +678,9 @@ async function buildUserContext(
       companyError ||
       !company
     ) {
-      if (companyError) {
+      if (
+        companyError
+      ) {
         console.error(
           'Company context error:',
           companyError
@@ -657,10 +689,6 @@ async function buildUserContext(
 
       return null;
     }
-
-    /* =====================================================
-       BLOCKED COMPANY STATES
-    ===================================================== */
 
     if (
       company.status ===
@@ -673,56 +701,49 @@ async function buildUserContext(
       return null;
     }
 
-    /* =====================================================
-       SUBSCRIPTION
-    ===================================================== */
+    /* SUBSCRIPTION */
 
     const {
-      data: subscription,
-      error: subscriptionError,
+      data:
+        subscription,
+      error:
+        subscriptionError,
     } =
       await supabase
-        .from('subscriptions')
-        .select(
-          `
-            status,
-            plan_id,
-            trial_start_at,
-            trial_end_at,
-            subscription_start_at,
-            subscription_end_at
-          `
+        .from(
+          'subscriptions'
         )
+        .select(`
+          status,
+          plan_id,
+          trial_start_at,
+          trial_end_at,
+          subscription_start_at,
+          subscription_end_at
+        `)
         .eq(
           'company_id',
           company.id
         )
         .maybeSingle();
 
-    if (subscriptionError) {
+    if (
+      subscriptionError
+    ) {
       console.error(
         'Subscription context error:',
         subscriptionError
       );
     }
 
-    /* =====================================================
-       EFFECTIVE TRIAL STATUS
-
-       Database status trial_active ho lekin trial_end_at
-       already past ho to frontend immediately expired
-       treat karega.
-
-       IMPORTANT:
-       Real module entitlement backend/database level par bhi
-       enforce hona chahiye.
-    ===================================================== */
+    /* EFFECTIVE TRIAL STATUS */
 
     let effectiveCompanyStatus =
       company.status;
 
     const trialEndAt =
-      subscription?.trial_end_at ||
+      subscription
+        ?.trial_end_at ||
       null;
 
     if (
@@ -738,10 +759,6 @@ async function buildUserContext(
         'trial_expired';
     }
 
-    /* =====================================================
-       ALLOWED STATES
-    ===================================================== */
-
     const allowedStatuses = [
       'trial_active',
       'trial_expired',
@@ -755,10 +772,6 @@ async function buildUserContext(
     ) {
       return null;
     }
-
-    /* =====================================================
-       COMPANY USER CONTEXT
-    ===================================================== */
 
     return {
       id:
@@ -783,11 +796,6 @@ async function buildUserContext(
 
       role:
         'COMPANY_USER',
-
-      /*
-        Company context me platform privilege expose
-        nahi karenge.
-      */
 
       isPlatformAdmin:
         false,
@@ -852,18 +860,14 @@ async function buildUserContext(
   }
 
   /* =======================================================
-     NO COMPANY CONTEXT
-     CHECK PLATFORM SUPER ADMIN
-
-     No hardcoded credentials.
-
-     Authorization:
-     public.platform_admins
+     PLATFORM ADMIN
   ======================================================= */
 
   const {
-    data: platformAdmin,
-    error: platformAdminError,
+    data:
+      platformAdmin,
+    error:
+      platformAdminError,
   } =
     await supabase
       .from(
@@ -882,7 +886,9 @@ async function buildUserContext(
       )
       .maybeSingle();
 
-  if (platformAdminError) {
+  if (
+    platformAdminError
+  ) {
     console.error(
       'Platform admin context error:',
       platformAdminError
@@ -899,27 +905,11 @@ async function buildUserContext(
     });
   }
 
-  /*
-    Auth session valid ho sakti hai but company context nahi.
-
-    Example:
-    - email confirmation page
-    - reset/recovery flow
-    - login incomplete
-
-    Aise session ko automatically dashboard authority
-    nahi denge.
-  */
-
   return null;
 }
 
 /* =========================================================
    COMPANY DASHBOARD TEMPORARY GATE
-
-   Customer Company Dashboard abhi build nahi hua.
-
-   Customer ko SuperAdminDashboard kabhi render nahi karenge.
 ========================================================= */
 
 function CompanyDashboardPending({
@@ -1201,7 +1191,9 @@ function CompanyDashboardPending({
 
           <button
             type="button"
-            onClick={onLogout}
+            onClick={
+              onLogout
+            }
             className="
               mt-6
               rounded-xl
@@ -1308,13 +1300,7 @@ function CompanyDashboardPending({
 }
 
 /* =========================================================
-   AUTH ROUTE GATE
-
-   Public website ko session restoration ke liye block nahi
-   karenge.
-
-   Sirf Login / Signup / Forgot pages user state resolve hone
-   ka wait karenge, taaki redirect flash na ho.
+   AUTH GUEST ROUTE
 ========================================================= */
 
 function AuthGuestRoute({
@@ -1322,11 +1308,17 @@ function AuthGuestRoute({
   currentUser,
   children,
 }) {
-  if (isSessionLoading) {
-    return <PageChunkLoader />;
+  if (
+    isSessionLoading
+  ) {
+    return (
+      <PageChunkLoader />
+    );
   }
 
-  if (currentUser) {
+  if (
+    currentUser
+  ) {
     return (
       <Navigate
         to="/dashboard"
@@ -1339,14 +1331,31 @@ function AuthGuestRoute({
 }
 
 /* =========================================================
-   APP
+   APP ROUTER
 ========================================================= */
 
-export default function App() {
+function AppRouter() {
+  const location =
+    useLocation();
+
+  const authRuntimeRequired =
+    requiresAuthRuntime(
+      location.pathname
+    );
+
   const [
     currentUser,
     setCurrentUser,
   ] = useState(null);
+
+  /*
+    Intentionally TRUE initially.
+
+    Public website is never blocked by this value.
+
+    Agar visitor public route se login par navigate kare to
+    Login route session restore complete hone tak flash nahi karega.
+  */
 
   const [
     isSessionLoading,
@@ -1366,15 +1375,35 @@ export default function App() {
     useRef(true);
 
   /* =========================================================
+     COMPONENT MOUNT STATE
+  ========================================================= */
+
+  useEffect(
+    () => {
+      mountedRef.current =
+        true;
+
+      return () => {
+        mountedRef.current =
+          false;
+      };
+    },
+    []
+  );
+
+  /* =========================================================
      SYNC CURRENT USER REF
   ========================================================= */
 
-  useEffect(() => {
-    currentUserRef.current =
-      currentUser;
-  }, [
-    currentUser,
-  ]);
+  useEffect(
+    () => {
+      currentUserRef.current =
+        currentUser;
+    },
+    [
+      currentUser,
+    ]
+  );
 
   /* =========================================================
      CLEAR LOCAL APP CONTEXT
@@ -1383,7 +1412,6 @@ export default function App() {
   const clearLocalAppContext =
     useCallback(
       () => {
-
         localStorage.removeItem(
           ACTIVE_COMPANY_KEY
         );
@@ -1396,15 +1424,9 @@ export default function App() {
           ACTIVE_TAB_KEY
         );
 
-        /*
-          Remove legacy insecure session object from
-          old App.jsx versions.
-        */
-
         localStorage.removeItem(
           LEGACY_SESSION_KEY
         );
-
       },
       []
     );
@@ -1418,7 +1440,6 @@ export default function App() {
       async (
         isAutoTimeout = false
       ) => {
-
         if (
           inactivityTimerRef.current
         ) {
@@ -1430,10 +1451,6 @@ export default function App() {
             null;
         }
 
-        /*
-          UI immediately lock.
-        */
-
         setCurrentUser(
           null
         );
@@ -1444,14 +1461,8 @@ export default function App() {
         clearLocalAppContext();
 
         try {
-
-          /*
-            Normal logout / inactivity logout:
-            current browser session only.
-
-            Password reset all-session revocation backend
-            separately handle karta hai.
-          */
+          const supabase =
+            await getSupabaseClient();
 
           await supabase
             .auth
@@ -1459,18 +1470,16 @@ export default function App() {
               scope:
                 'local',
             });
-
-        } catch (err) {
-
+        } catch (
+          err
+        ) {
           console.error(
             isAutoTimeout
               ? 'Inactivity logout error:'
               : 'Logout error:',
             err
           );
-
         }
-
       },
       [
         clearLocalAppContext,
@@ -1478,7 +1487,7 @@ export default function App() {
     );
 
   /* =========================================================
-     SCHEDULE INACTIVITY LOGOUT
+     INACTIVITY LOGOUT
   ========================================================= */
 
   const scheduleInactivityLogout =
@@ -1486,7 +1495,6 @@ export default function App() {
       (
         lastActivity
       ) => {
-
         if (
           inactivityTimerRef.current
         ) {
@@ -1522,7 +1530,6 @@ export default function App() {
             },
             remaining
           );
-
       },
       [
         handleLogout,
@@ -1536,7 +1543,6 @@ export default function App() {
   const recordActivity =
     useCallback(
       () => {
-
         if (
           !currentUserRef.current
         ) {
@@ -1559,13 +1565,14 @@ export default function App() {
 
         localStorage.setItem(
           LAST_ACTIVITY_KEY,
-          String(now)
+          String(
+            now
+          )
         );
 
         scheduleInactivityLogout(
           now
         );
-
       },
       [
         scheduleInactivityLogout,
@@ -1573,14 +1580,15 @@ export default function App() {
     );
 
   /* =========================================================
-     REFRESH AUTHORIZED USER CONTEXT
+     REFRESH AUTHORIZED CONTEXT
   ========================================================= */
 
   const refreshCurrentContext =
     useCallback(
       async () => {
-
         try {
+          const supabase =
+            await getSupabaseClient();
 
           const {
             data:
@@ -1621,11 +1629,6 @@ export default function App() {
           ) {
             return null;
           }
-
-          /*
-            Existing authorized context tha but ab DB
-            authorization fail ho gaya.
-          */
 
           if (
             currentUserRef.current &&
@@ -1638,7 +1641,9 @@ export default function App() {
             return null;
           }
 
-          if (context) {
+          if (
+            context
+          ) {
             setCurrentUser(
               context
             );
@@ -1648,18 +1653,16 @@ export default function App() {
           }
 
           return context;
-
-        } catch (err) {
-
+        } catch (
+          err
+        ) {
           console.error(
             'User context refresh error:',
             err
           );
 
           return null;
-
         }
-
       },
       [
         handleLogout,
@@ -1667,476 +1670,507 @@ export default function App() {
     );
 
   /* =========================================================
-     INITIAL SESSION RESTORE
+     ROUTE-AWARE SESSION RESTORE
 
-     IMPORTANT CHANGE:
+     Critical performance change:
 
-     Public website ko restore complete hone tak blank/loading
-     screen par block nahi karenge.
+     Public routes:
+       /
+       /features
+       /pricing
+       /about
+       /contact-us
 
-     Auth-sensitive routes individually isSessionLoading
-     handle karenge.
+     par Supabase client import nahi hoga.
   ========================================================= */
 
-  useEffect(() => {
-    mountedRef.current =
-      true;
+  useEffect(
+    () => {
+      if (
+        !authRuntimeRequired
+      ) {
+        /*
+          Public website session restore ke liye wait nahi karega.
 
-    const restoreSession =
-      async () => {
+          TRUE rakhenge so next auth-route navigation par
+          login/signup content premature render na ho.
+        */
 
-        try {
+        setIsSessionLoading(
+          true
+        );
 
-          /* REMOVE LEGACY OBJECT */
+        return undefined;
+      }
 
-          localStorage.removeItem(
-            LEGACY_SESSION_KEY
-          );
+      let cancelled =
+        false;
 
-          const {
-            data:
-              sessionData,
-            error:
-              sessionError,
-          } =
-            await supabase
-              .auth
-              .getSession();
+      setIsSessionLoading(
+        true
+      );
 
-          if (sessionError) {
-            throw sessionError;
-          }
-
-          const session =
-            sessionData
-              ?.session;
-
-          if (
-            !session?.user
-          ) {
-            if (
-              mountedRef.current
-            ) {
-              setCurrentUser(
-                null
-              );
-            }
-
-            return;
-          }
-
-          /* =================================================
-             INACTIVITY CHECK
-          ================================================= */
-
-          const storedActivity =
-            Number(
-              localStorage.getItem(
-                LAST_ACTIVITY_KEY
-              )
+      const restoreSession =
+        async () => {
+          try {
+            localStorage.removeItem(
+              LEGACY_SESSION_KEY
             );
 
-          if (
-            storedActivity &&
-            Number.isFinite(
-              storedActivity
-            )
-          ) {
-            const elapsed =
-              Date.now() -
-              storedActivity;
+            const supabase =
+              await getSupabaseClient();
+
+            const {
+              data:
+                sessionData,
+              error:
+                sessionError,
+            } =
+              await supabase
+                .auth
+                .getSession();
 
             if (
-              elapsed >=
-              INACTIVITY_TIMEOUT_MS
+              cancelled
             ) {
-              await handleLogout(
-                true
-              );
+              return;
+            }
+
+            if (
+              sessionError
+            ) {
+              throw sessionError;
+            }
+
+            const session =
+              sessionData
+                ?.session;
+
+            if (
+              !session?.user
+            ) {
+              if (
+                mountedRef.current &&
+                !cancelled
+              ) {
+                setCurrentUser(
+                  null
+                );
+
+                currentUserRef.current =
+                  null;
+              }
 
               return;
             }
-          }
 
-          /* =================================================
-             VERIFY USER AGAINST AUTH SERVER
-          ================================================= */
+            /* INACTIVITY CHECK */
 
-          const {
-            data:
-              userResult,
-            error:
-              userError,
-          } =
-            await supabase
-              .auth
-              .getUser();
+            const storedActivity =
+              Number(
+                localStorage.getItem(
+                  LAST_ACTIVITY_KEY
+                )
+              );
 
-          if (
-            userError ||
-            !userResult?.user
-          ) {
-            await handleLogout(
-              false
-            );
-
-            return;
-          }
-
-          const authUser =
-            userResult.user;
-
-          /*
-            Confirmation / recovery session me active company
-            context intentionally absent ho sakti hai.
-
-            Us situation me auth session ko automatically
-            destroy nahi karenge.
-          */
-
-          const storedCompany =
-            getStoredCompanyContext();
-
-          const context =
-            await buildUserContext(
-              authUser,
-              storedCompany?.companyId ||
-                null
-            );
-
-          if (
-            !mountedRef.current
-          ) {
-            return;
-          }
-
-          if (context) {
-            setCurrentUser(
-              context
-            );
-
-            currentUserRef.current =
-              context;
-
-            const activity =
+            if (
               storedActivity &&
               Number.isFinite(
                 storedActivity
               )
-                ? storedActivity
-                : Date.now();
-
-            localStorage.setItem(
-              LAST_ACTIVITY_KEY,
-              String(
-                activity
-              )
-            );
-
-          } else {
-
-            setCurrentUser(
-              null
-            );
-
-            currentUserRef.current =
-              null;
-
-            /*
-              Stored company context present tha but DB
-              authorization fail hua.
-
-              Stale context remove + auth session clear.
-            */
-
-            if (
-              storedCompany
-                ?.companyId
             ) {
-              localStorage.removeItem(
-                ACTIVE_COMPANY_KEY
-              );
+              const elapsed =
+                Date.now() -
+                storedActivity;
 
-              localStorage.removeItem(
-                LAST_ACTIVITY_KEY
-              );
+              if (
+                elapsed >=
+                INACTIVITY_TIMEOUT_MS
+              ) {
+                await handleLogout(
+                  true
+                );
 
+                return;
+              }
+            }
+
+            /* SERVER USER VERIFICATION */
+
+            const {
+              data:
+                userResult,
+              error:
+                userError,
+            } =
               await supabase
                 .auth
-                .signOut({
-                  scope:
-                    'local',
-                })
-                .catch(
-                  () => {}
-                );
-            }
-          }
-
-        } catch (err) {
-
-          console.error(
-            'Session restore error:',
-            err
-          );
-
-          if (
-            mountedRef.current
-          ) {
-            setCurrentUser(
-              null
-            );
-          }
-
-        } finally {
-
-          if (
-            mountedRef.current
-          ) {
-            setIsSessionLoading(
-              false
-            );
-          }
-
-        }
-
-      };
-
-    restoreSession();
-
-    return () => {
-      mountedRef.current =
-        false;
-    };
-
-  }, [
-    handleLogout,
-  ]);
-
-  /* =========================================================
-     SUPABASE AUTH LISTENER
-
-     IMPORTANT SECURITY RULE:
-
-     SIGNED_IN event alone dashboard authorization nahi deta.
-
-     Login.jsx ko pehle:
-     - password
-     - company code
-     - membership
-     - company status
-
-     verify karna hota hai.
-
-     Actual app activation:
-     handleLoginSuccess()
-  ========================================================= */
-
-  useEffect(() => {
-
-    const {
-      data:
-        authListener,
-    } =
-      supabase
-        .auth
-        .onAuthStateChange(
-          (
-            event,
-            session
-          ) => {
-
-            /* =============================================
-               SIGNED OUT
-            ============================================= */
+                .getUser();
 
             if (
-              event ===
-              'SIGNED_OUT'
+              cancelled
             ) {
-              window.setTimeout(
-                () => {
+              return;
+            }
+
+            if (
+              userError ||
+              !userResult?.user
+            ) {
+              await handleLogout(
+                false
+              );
+
+              return;
+            }
+
+            const authUser =
+              userResult.user;
+
+            const storedCompany =
+              getStoredCompanyContext();
+
+            const context =
+              await buildUserContext(
+                authUser,
+                storedCompany?.companyId ||
+                  null
+              );
+
+            if (
+              cancelled ||
+              !mountedRef.current
+            ) {
+              return;
+            }
+
+            if (
+              context
+            ) {
+              setCurrentUser(
+                context
+              );
+
+              currentUserRef.current =
+                context;
+
+              const activity =
+                storedActivity &&
+                Number.isFinite(
+                  storedActivity
+                )
+                  ? storedActivity
+                  : Date.now();
+
+              localStorage.setItem(
+                LAST_ACTIVITY_KEY,
+                String(
+                  activity
+                )
+              );
+            } else {
+              setCurrentUser(
+                null
+              );
+
+              currentUserRef.current =
+                null;
+
+              /*
+                Stored company context present tha but
+                authorization ab valid nahi hai.
+              */
+
+              if (
+                storedCompany
+                  ?.companyId
+              ) {
+                localStorage.removeItem(
+                  ACTIVE_COMPANY_KEY
+                );
+
+                localStorage.removeItem(
+                  LAST_ACTIVITY_KEY
+                );
+
+                await supabase
+                  .auth
+                  .signOut({
+                    scope:
+                      'local',
+                  })
+                  .catch(
+                    () => {}
+                  );
+              }
+            }
+          } catch (
+            err
+          ) {
+            console.error(
+              'Session restore error:',
+              err
+            );
+
+            if (
+              mountedRef.current &&
+              !cancelled
+            ) {
+              setCurrentUser(
+                null
+              );
+
+              currentUserRef.current =
+                null;
+            }
+          } finally {
+            if (
+              mountedRef.current &&
+              !cancelled
+            ) {
+              setIsSessionLoading(
+                false
+              );
+            }
+          }
+        };
+
+      restoreSession();
+
+      return () => {
+        cancelled =
+          true;
+      };
+    },
+    [
+      authRuntimeRequired,
+      handleLogout,
+    ]
+  );
+
+  /* =========================================================
+     ROUTE-AWARE SUPABASE AUTH LISTENER
+
+     Public marketing route par listener bhi initialize
+     nahi hoga.
+  ========================================================= */
+
+  useEffect(
+    () => {
+      if (
+        !authRuntimeRequired
+      ) {
+        return undefined;
+      }
+
+      let cancelled =
+        false;
+
+      let subscription =
+        null;
+
+      const setupAuthListener =
+        async () => {
+          const supabase =
+            await getSupabaseClient();
+
+          if (
+            cancelled
+          ) {
+            return;
+          }
+
+          const {
+            data:
+              authListener,
+          } =
+            supabase
+              .auth
+              .onAuthStateChange(
+                (
+                  event,
+                  session
+                ) => {
+                  /* SIGNED OUT */
 
                   if (
-                    !mountedRef.current
+                    event ===
+                    'SIGNED_OUT'
+                  ) {
+                    window.setTimeout(
+                      () => {
+                        if (
+                          !mountedRef.current
+                        ) {
+                          return;
+                        }
+
+                        setCurrentUser(
+                          null
+                        );
+
+                        currentUserRef.current =
+                          null;
+                      },
+                      0
+                    );
+
+                    return;
+                  }
+
+                  /*
+                    SIGNED_IN event alone authorization nahi deta.
+                  */
+
+                  if (
+                    event ===
+                    'SIGNED_IN'
                   ) {
                     return;
                   }
 
-                  setCurrentUser(
-                    null
-                  );
-
-                  currentUserRef.current =
-                    null;
-
-                },
-                0
+                  if (
+                    (
+                      event ===
+                        'TOKEN_REFRESHED' ||
+                      event ===
+                        'USER_UPDATED'
+                    ) &&
+                    session?.user &&
+                    currentUserRef.current
+                  ) {
+                    window.setTimeout(
+                      () => {
+                        refreshCurrentContext();
+                      },
+                      0
+                    );
+                  }
+                }
               );
 
-              return;
-            }
+          subscription =
+            authListener
+              ?.subscription ||
+            null;
+        };
 
-            /* =============================================
-               DO NOT AUTHORIZE ON SIGNED_IN
-            ============================================= */
+      setupAuthListener();
 
-            if (
-              event ===
-              'SIGNED_IN'
-            ) {
-              return;
-            }
+      return () => {
+        cancelled =
+          true;
 
-            /* =============================================
-               REFRESH EXISTING AUTHORIZED SESSION
-            ============================================= */
-
-            if (
-              (
-                event ===
-                  'TOKEN_REFRESHED' ||
-                event ===
-                  'USER_UPDATED'
-              ) &&
-              session?.user &&
-              currentUserRef.current
-            ) {
-              window.setTimeout(
-                () => {
-                  refreshCurrentContext();
-                },
-                0
-              );
-            }
-
-          }
-        );
-
-    return () => {
-
-      authListener
-        ?.subscription
-        ?.unsubscribe();
-
-    };
-
-  }, [
-    refreshCurrentContext,
-  ]);
+        subscription
+          ?.unsubscribe();
+      };
+    },
+    [
+      authRuntimeRequired,
+      refreshCurrentContext,
+    ]
+  );
 
   /* =========================================================
      ACTIVITY LISTENERS
   ========================================================= */
 
-  useEffect(() => {
+  useEffect(
+    () => {
+      if (
+        !currentUser
+      ) {
+        return undefined;
+      }
 
-    if (
-      !currentUser
-    ) {
-      return undefined;
-    }
+      const activityEvents = [
+        'mousemove',
+        'mousedown',
+        'keydown',
+        'touchstart',
+        'scroll',
+        'click',
+      ];
 
-    const activityEvents = [
-      'mousemove',
-      'mousedown',
-      'keydown',
-      'touchstart',
-      'scroll',
-      'click',
-    ];
+      const existing =
+        Number(
+          localStorage.getItem(
+            LAST_ACTIVITY_KEY
+          )
+        );
 
-    const existing =
-      Number(
-        localStorage.getItem(
-          LAST_ACTIVITY_KEY
+      const initialActivity =
+        existing &&
+        Number.isFinite(
+          existing
+        )
+          ? existing
+          : Date.now();
+
+      localStorage.setItem(
+        LAST_ACTIVITY_KEY,
+        String(
+          initialActivity
         )
       );
 
-    const initialActivity =
-      existing &&
-      Number.isFinite(
-        existing
-      )
-        ? existing
-        : Date.now();
-
-    localStorage.setItem(
-      LAST_ACTIVITY_KEY,
-      String(
+      scheduleInactivityLogout(
         initialActivity
-      )
-    );
+      );
 
-    scheduleInactivityLogout(
-      initialActivity
-    );
-
-    const handleActivity =
-      () => {
-        recordActivity();
-      };
-
-    activityEvents.forEach(
-      (
-        eventName
-      ) => {
-
-        window.addEventListener(
-          eventName,
-          handleActivity,
-          {
-            passive:
-              true,
-          }
-        );
-
-      }
-    );
-
-    return () => {
+      const handleActivity =
+        () => {
+          recordActivity();
+        };
 
       activityEvents.forEach(
         (
           eventName
         ) => {
-
-          window.removeEventListener(
+          window.addEventListener(
             eventName,
-            handleActivity
+            handleActivity,
+            {
+              passive:
+                true,
+            }
           );
-
         }
       );
 
-      if (
-        inactivityTimerRef.current
-      ) {
-        window.clearTimeout(
-          inactivityTimerRef.current
+      return () => {
+        activityEvents.forEach(
+          (
+            eventName
+          ) => {
+            window.removeEventListener(
+              eventName,
+              handleActivity
+            );
+          }
         );
 
-        inactivityTimerRef.current =
-          null;
-      }
+        if (
+          inactivityTimerRef.current
+        ) {
+          window.clearTimeout(
+            inactivityTimerRef.current
+          );
 
-    };
-
-  }, [
-    currentUser,
-    recordActivity,
-    scheduleInactivityLogout,
-  ]);
+          inactivityTimerRef.current =
+            null;
+        }
+      };
+    },
+    [
+      currentUser,
+      recordActivity,
+      scheduleInactivityLogout,
+    ]
+  );
 
   /* =========================================================
      LOGIN SUCCESS
-
-     Called only after Login.jsx successfully verifies:
-
-     1. Supabase Auth
-     2. Company Code
-     3. Membership
-     4. Company Status
   ========================================================= */
 
   const handleLoginSuccess =
@@ -2144,15 +2178,12 @@ export default function App() {
       (
         authenticatedUser
       ) => {
-
         if (
           !authenticatedUser
             ?.id
         ) {
           return;
         }
-
-        /* PLATFORM ADMIN LOGIN */
 
         if (
           authenticatedUser
@@ -2161,11 +2192,7 @@ export default function App() {
           localStorage.removeItem(
             ACTIVE_COMPANY_KEY
           );
-
         } else {
-
-          /* COMPANY LOGIN */
-
           saveCompanyContext(
             authenticatedUser
           );
@@ -2176,7 +2203,9 @@ export default function App() {
 
         localStorage.setItem(
           LAST_ACTIVITY_KEY,
-          String(now)
+          String(
+            now
+          )
         );
 
         lastActivityHandledRef.current =
@@ -2188,25 +2217,18 @@ export default function App() {
 
         currentUserRef.current =
           authenticatedUser;
-
       },
       []
     );
 
   /* =========================================================
      USER UPDATE
-
-     Dashboard supplied object ko blindly trust nahi karenge.
-
-     Fresh DB-authorized context read hoga.
   ========================================================= */
 
   const handleUserUpdate =
     useCallback(
       async () => {
-
         await refreshCurrentContext();
-
       },
       [
         refreshCurrentContext,
@@ -2218,21 +2240,12 @@ export default function App() {
   ========================================================= */
 
   return (
-    <BrowserRouter>
-
+    <>
       <ScrollToTop />
 
       <Routes>
-
         {/* ===================================================
             PUBLIC WEBSITE + AUTH
-
-            SAME WEBSITE LAYOUT:
-            Header
-              ↓
-            Outlet
-              ↓
-            Footer
         =================================================== */}
 
         <Route
@@ -2240,7 +2253,6 @@ export default function App() {
             <WebsiteLayout />
           }
         >
-
           {/* HOME */}
 
           <Route
@@ -2274,7 +2286,7 @@ export default function App() {
             }
           />
 
-          {/* ABOUT US */}
+          {/* ABOUT */}
 
           <Route
             path="/about"
@@ -2285,7 +2297,7 @@ export default function App() {
             }
           />
 
-          {/* CONTACT US */}
+          {/* CONTACT */}
 
           <Route
             path="/contact-us"
@@ -2296,9 +2308,7 @@ export default function App() {
             }
           />
 
-          {/* ===============================================
-              LOGIN
-          =============================================== */}
+          {/* LOGIN */}
 
           <Route
             path="/login"
@@ -2322,14 +2332,7 @@ export default function App() {
             }
           />
 
-          {/* ===============================================
-              SIGNUP
-
-              Successful signup:
-              NO auto-login.
-
-              Trial starts only after email confirmation.
-          =============================================== */}
+          {/* SIGNUP */}
 
           <Route
             path="/signup"
@@ -2349,9 +2352,7 @@ export default function App() {
             }
           />
 
-          {/* ===============================================
-              FORGOT PASSWORD
-          =============================================== */}
+          {/* FORGOT PASSWORD */}
 
           <Route
             path="/forgot-password"
@@ -2371,14 +2372,7 @@ export default function App() {
             }
           />
 
-          {/* ===============================================
-              EMAIL CONFIRMATION
-
-              No currentUser guard intentionally.
-
-              Supabase confirmation temporary session create
-              kar sakta hai.
-          =============================================== */}
+          {/* CONFIRMATION */}
 
           <Route
             path="/confirm"
@@ -2389,11 +2383,7 @@ export default function App() {
             }
           />
 
-          {/* ===============================================
-              RESET PASSWORD
-
-              No currentUser guard intentionally.
-          =============================================== */}
+          {/* RESET PASSWORD */}
 
           <Route
             path="/reset-password"
@@ -2403,12 +2393,9 @@ export default function App() {
               </LazyPage>
             }
           />
-
         </Route>
 
-        {/* ===================================================
-            LEGACY CONTACT URL
-        =================================================== */}
+        {/* LEGACY CONTACT */}
 
         <Route
           path="/contact"
@@ -2417,9 +2404,7 @@ export default function App() {
           }
         />
 
-        {/* ===================================================
-            LEGACY FORGOT URL
-        =================================================== */}
+        {/* LEGACY FORGOT */}
 
         <Route
           path="/forgot-id"
@@ -2428,11 +2413,7 @@ export default function App() {
           }
         />
 
-        {/* ===================================================
-            LEGACY CONFIRMATION URL
-
-            Query/hash preserve hoga.
-        =================================================== */}
+        {/* LEGACY CONFIRMATION */}
 
         <Route
           path="/auth/confirmation"
@@ -2443,29 +2424,20 @@ export default function App() {
 
         {/* ===================================================
             PROTECTED DASHBOARD
-
-            WebsiteLayout intentionally nahi.
-
-            Dashboard application workspace hai.
         =================================================== */}
 
         <Route
           path="/dashboard"
           element={
             isSessionLoading ? (
-
               <FullScreenLoader />
-
             ) : !currentUser ? (
-
               <Navigate
                 to="/login"
                 replace
               />
-
             ) : currentUser
                 .isPlatformAdmin ? (
-
               <Suspense
                 fallback={
                   <FullScreenLoader />
@@ -2485,9 +2457,7 @@ export default function App() {
                   }
                 />
               </Suspense>
-
             ) : (
-
               <CompanyDashboardPending
                 currentUser={
                   currentUser
@@ -2498,14 +2468,11 @@ export default function App() {
                   )
                 }
               />
-
             )
           }
         />
 
-        {/* ===================================================
-            CATCH ALL
-        =================================================== */}
+        {/* CATCH ALL */}
 
         <Route
           path="*"
@@ -2516,9 +2483,19 @@ export default function App() {
             />
           }
         />
-
       </Routes>
+    </>
+  );
+}
 
+/* =========================================================
+   APP
+========================================================= */
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <AppRouter />
     </BrowserRouter>
   );
 }
