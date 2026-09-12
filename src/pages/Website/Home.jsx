@@ -22,36 +22,24 @@ import {
    Hero image optimized for mobile LCP.
 
    IMPORTANT:
-   Keep these exact truck URLs in sync with the preload
+   Keep these local truck assets in sync with the preload
    that we will add to index.html next.
 ========================================================= */
 
 const IMAGES = {
   truck: {
-    small:
-      'https://images.unsplash.com/photo-1519003722824-194d4455a60c?auto=format&fit=crop&w=480&q=58',
-
-    medium:
-      'https://images.unsplash.com/photo-1519003722824-194d4455a60c?auto=format&fit=crop&w=720&q=62',
-
-    large:
-      'https://images.unsplash.com/photo-1519003722824-194d4455a60c?auto=format&fit=crop&w=960&q=65',
+    small: '/images/truck-400.webp',
+    medium: '/images/truck-640.webp',
   },
 
   workshop: {
-    small:
-      'https://images.unsplash.com/photo-1487754180451-c456f719a1fc?auto=format&fit=crop&w=480&q=65',
-
-    medium:
-      'https://images.unsplash.com/photo-1487754180451-c456f719a1fc?auto=format&fit=crop&w=680&q=68',
+    small: '/images/workshop-400.webp',
+    medium: '/images/workshop-560.webp',
   },
 
   finance: {
-    small:
-      'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=480&q=65',
-
-    medium:
-      'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=680&q=68',
+    small: '/images/finance-400.webp',
+    medium: '/images/finance-560.webp',
   },
 };
 
@@ -1009,7 +997,7 @@ export default function Home() {
                       - responsive srcSet
                       - explicit width/height
 
-                      index.html preload will use same URLs.
+                      index.html preload will use the same local assets.
                   ================================================= */}
 
                   <div
@@ -1028,9 +1016,8 @@ export default function Home() {
                     <img
                       src={IMAGES.truck.medium}
                       srcSet={`
-                        ${IMAGES.truck.small} 480w,
-                        ${IMAGES.truck.medium} 720w,
-                        ${IMAGES.truck.large} 960w
+                        ${IMAGES.truck.small} 400w,
+                        ${IMAGES.truck.medium} 640w
                       `}
                       sizes="
                         (max-width: 640px) 92vw,
@@ -1038,8 +1025,8 @@ export default function Home() {
                         500px
                       "
                       alt="Commercial transport truck"
-                      width="720"
-                      height="540"
+                      width="640"
+                      height="427"
                       loading="eager"
                       fetchPriority="high"
                       decoding="async"
@@ -1583,24 +1570,19 @@ export default function Home() {
                       "
                     >
                       <img
-                        src={
-                          feature
-                            .image
-                            .small
-                        }
+                        src={feature.image.small}
                         srcSet={`
-                          ${feature.image.small} 480w,
-                          ${feature.image.medium} 680w
+                          ${feature.image.small} 400w,
+                          ${feature.image.medium} 560w
                         `}
                         sizes="
-                          (max-width: 1024px) 92vw,
+                          (max-width: 640px) 92vw,
+                          (max-width: 1024px) 520px,
                           400px
                         "
-                        alt={
-                          feature.imageAlt
-                        }
-                        width="680"
-                        height="453"
+                        alt={feature.imageAlt}
+                        width="560"
+                        height="373"
                         loading="lazy"
                         decoding="async"
                         className="

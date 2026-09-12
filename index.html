@@ -19,7 +19,7 @@
 
     <meta
       name="description"
-      content="Buddy Fleets is a cloud-based fleet management platform for transport businesses to manage vehicles, drivers, dispatch, expenses, compliance, maintenance and reports."
+      content="Buddy Fleets is a cloud-based fleet management software for transport businesses to manage vehicles, drivers, trips, dispatch, LR/Bilty, expenses, diesel, maintenance, compliance, documents and fleet reports from one platform."
     />
 
     <meta
@@ -32,37 +32,71 @@
       content="Buddy Computers"
     />
 
+    <meta
+      name="application-name"
+      content="Buddy Fleets"
+    />
+
     <!-- =====================================================
          FAVICON
+
+         PNG is primary.
+         SVG kept as browser fallback.
     ====================================================== -->
 
     <link
       rel="icon"
-      type="image/svg+xml"
-      href="/favicon.svg?v=2"
+      type="image/png"
+      sizes="512x512"
+      href="/favicon.png"
     />
 
     <link
       rel="shortcut icon"
-      href="/favicon.svg?v=2"
+      type="image/png"
+      href="/favicon.png"
+    />
+
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="/favicon.svg"
     />
 
     <!-- =====================================================
-         HOME HERO / LCP IMAGE
+         THEME COLOR
+    ====================================================== -->
 
-         Must stay in sync with Home.jsx.
-         This allows the browser to discover the LCP image
-         directly from the initial HTML.
+    <meta
+      name="theme-color"
+      media="(prefers-color-scheme: dark)"
+      content="#050914"
+    />
+
+    <meta
+      name="theme-color"
+      media="(prefers-color-scheme: light)"
+      content="#F8FBFF"
+    />
+
+    <!-- =====================================================
+         HOME HERO / LCP PRELOAD
+
+         Must stay synchronized with Home.jsx.
+
+         Local images:
+         /images/truck-400.webp
+         /images/truck-640.webp
     ====================================================== -->
 
     <link
       rel="preload"
       as="image"
-      href="https://images.unsplash.com/photo-1519003722824-194d4455a60c?auto=format&fit=crop&w=720&q=62"
+      type="image/webp"
+      href="/images/truck-400.webp"
       imagesrcset="
-        https://images.unsplash.com/photo-1519003722824-194d4455a60c?auto=format&fit=crop&w=480&q=58 480w,
-        https://images.unsplash.com/photo-1519003722824-194d4455a60c?auto=format&fit=crop&w=720&q=62 720w,
-        https://images.unsplash.com/photo-1519003722824-194d4455a60c?auto=format&fit=crop&w=960&q=65 960w
+        /images/truck-400.webp 400w,
+        /images/truck-640.webp 640w
       "
       imagesizes="
         (max-width: 640px) 92vw,
@@ -88,12 +122,12 @@
 
     <meta
       property="og:title"
-      content="Buddy Fleets | Fleet Management Software"
+      content="Buddy Fleets | Fleet Management Software for Transport Businesses"
     />
 
     <meta
       property="og:description"
-      content="Manage vehicles, drivers, dispatch, expenses, compliance, maintenance and fleet operations from one cloud-based platform."
+      content="Manage vehicles, drivers, trips, dispatch, LR/Bilty, expenses, diesel, maintenance, compliance, documents and transport operations from one cloud-based fleet management platform."
     />
 
     <!-- =====================================================
@@ -112,7 +146,7 @@
 
     <meta
       name="twitter:description"
-      content="Cloud-based fleet management software for transport businesses."
+      content="Cloud-based fleet management software for transport businesses to manage vehicles, drivers, trips, expenses, maintenance, compliance and operations."
     />
   </head>
 
