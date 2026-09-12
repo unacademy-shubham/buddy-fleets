@@ -694,11 +694,10 @@ export default function Home() {
                   lg:text-[16px]
                 "
               >
-                Buddy Fleets brings trips, LR/Bilty,
-                vehicles, drivers, diesel, maintenance,
-                compliance, documents and settlements
-                into one simpler transport operations
-                platform.
+                 Buddy Fleets is a cloud-based fleet management software for transport
+                 businesses to manage vehicles, drivers, trips, dispatch, LR/Bilty,
+                 expenses, diesel, maintenance, compliance, documents and fleet reports
+                 from one platform.
               </p>
 
               {/* CTA */}
