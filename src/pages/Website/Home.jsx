@@ -19,22 +19,29 @@ import {
 /* =========================================================
    IMAGE CONFIG
 
-   Responsive images for better mobile + desktop PageSpeed.
+   Hero image optimized for mobile LCP.
+
+   IMPORTANT:
+   Keep these exact truck URLs in sync with the preload
+   that we will add to index.html next.
 ========================================================= */
 
 const IMAGES = {
   truck: {
     small:
-      'https://images.unsplash.com/photo-1519003722824-194d4455a60c?auto=format&fit=crop&w=560&q=65',
+      'https://images.unsplash.com/photo-1519003722824-194d4455a60c?auto=format&fit=crop&w=480&q=58',
+
     medium:
-      'https://images.unsplash.com/photo-1519003722824-194d4455a60c?auto=format&fit=crop&w=820&q=68',
+      'https://images.unsplash.com/photo-1519003722824-194d4455a60c?auto=format&fit=crop&w=720&q=62',
+
     large:
-      'https://images.unsplash.com/photo-1519003722824-194d4455a60c?auto=format&fit=crop&w=1000&q=70',
+      'https://images.unsplash.com/photo-1519003722824-194d4455a60c?auto=format&fit=crop&w=960&q=65',
   },
 
   workshop: {
     small:
       'https://images.unsplash.com/photo-1487754180451-c456f719a1fc?auto=format&fit=crop&w=480&q=65',
+
     medium:
       'https://images.unsplash.com/photo-1487754180451-c456f719a1fc?auto=format&fit=crop&w=680&q=68',
   },
@@ -42,6 +49,7 @@ const IMAGES = {
   finance: {
     small:
       'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=480&q=65',
+
     medium:
       'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=680&q=68',
   },
@@ -58,18 +66,21 @@ const HIGHLIGHTS = [
       'Vehicles, drivers, trips and dispatch workflows.',
     icon: Truck,
   },
+
   {
     title: 'Finance',
     description:
       'Expenses, diesel, advances and settlements.',
     icon: WalletCards,
   },
+
   {
     title: 'Compliance',
     description:
       'Documents, renewals and operational alerts.',
     icon: ShieldCheck,
   },
+
   {
     title: 'Maintenance',
     description:
@@ -85,33 +96,59 @@ const HIGHLIGHTS = [
 const CORE_FEATURES = [
   {
     number: '01',
-    title: 'Transport Operations',
+
+    title:
+      'Transport Operations',
+
     description:
       'Manage LR/Bilty, consignments, trip allocation, vehicle assignment, driver assignment and delivery workflows from one connected system.',
-    image: IMAGES.truck,
+
+    image:
+      IMAGES.truck,
+
     imageAlt:
       'Commercial transport truck representing transport operations',
-    icon: Truck,
+
+    icon:
+      Truck,
   },
+
   {
     number: '02',
-    title: 'Workshop, Tyres & Spares',
+
+    title:
+      'Workshop, Tyres & Spares',
+
     description:
       'Maintain workshop jobs, service records, tyre lifecycle, spare parts and vehicle maintenance information in one place.',
-    image: IMAGES.workshop,
+
+    image:
+      IMAGES.workshop,
+
     imageAlt:
       'Vehicle workshop representing maintenance operations',
-    icon: Wrench,
+
+    icon:
+      Wrench,
   },
+
   {
     number: '03',
-    title: 'Expenses & Transport Finance',
+
+    title:
+      'Expenses & Transport Finance',
+
     description:
       'Organize trip expenses, diesel, driver advances, party records, invoices and settlements with cleaner financial workflows.',
-    image: IMAGES.finance,
+
+    image:
+      IMAGES.finance,
+
     imageAlt:
       'Financial records representing transport finance workflows',
-    icon: ReceiptText,
+
+    icon:
+      ReceiptText,
   },
 ];
 
@@ -122,35 +159,67 @@ const CORE_FEATURES = [
 const WORKFLOW = [
   {
     step: '01',
-    title: 'Booking',
-    text: 'Create LR/Bilty and consignment details.',
-    icon: FileText,
+
+    title:
+      'Booking',
+
+    text:
+      'Create LR/Bilty and consignment details.',
+
+    icon:
+      FileText,
   },
+
   {
     step: '02',
-    title: 'Dispatch',
-    text: 'Assign the required vehicle and driver.',
-    icon: Truck,
+
+    title:
+      'Dispatch',
+
+    text:
+      'Assign the required vehicle and driver.',
+
+    icon:
+      Truck,
   },
+
   {
     step: '03',
-    title: 'Trip Updates',
+
+    title:
+      'Trip Updates',
+
     text:
       'Keep trip information and operational progress organized.',
-    icon: ClipboardCheck,
+
+    icon:
+      ClipboardCheck,
   },
+
   {
     step: '04',
-    title: 'Delivery',
-    text: 'Record delivery status and ePOD information.',
-    icon: PackageCheck,
+
+    title:
+      'Delivery',
+
+    text:
+      'Record delivery status and ePOD information.',
+
+    icon:
+      PackageCheck,
   },
+
   {
     step: '05',
-    title: 'Settlement',
+
+    title:
+      'Settlement',
+
     text:
       'Close the trip and complete financial records.',
-    icon: WalletCards,
+
+    icon:
+      WalletCards,
   },
 ];
 
@@ -160,22 +229,36 @@ const WORKFLOW = [
 
 const BENEFITS = [
   {
-    title: 'Controlled Fleet Records',
+    title:
+      'Controlled Fleet Records',
+
     text:
       'Keep vehicle, driver, party and operational records inside one organized platform.',
-    icon: ShieldCheck,
+
+    icon:
+      ShieldCheck,
   },
+
   {
-    title: 'Simpler Daily Operations',
+    title:
+      'Simpler Daily Operations',
+
     text:
       'Reduce repetitive manual work and give your transport team a clearer workflow.',
-    icon: BadgeCheck,
+
+    icon:
+      BadgeCheck,
   },
+
   {
-    title: 'Role-Based Access',
+    title:
+      'Role-Based Access',
+
     text:
       'Give owners, managers, accountants and operators access based on their responsibilities.',
-    icon: Users,
+
+    icon:
+      Users,
   },
 ];
 
@@ -185,20 +268,35 @@ const BENEFITS = [
 
 const OVERVIEW_ITEMS = [
   {
-    title: 'Trip & LR/Bilty',
-    icon: FileText,
+    title:
+      'Trip & LR/Bilty',
+
+    icon:
+      FileText,
   },
+
   {
-    title: 'Vehicles & Drivers',
-    icon: Truck,
+    title:
+      'Vehicles & Drivers',
+
+    icon:
+      Truck,
   },
+
   {
-    title: 'Expenses & Diesel',
-    icon: Fuel,
+    title:
+      'Expenses & Diesel',
+
+    icon:
+      Fuel,
   },
+
   {
-    title: 'Maintenance & Alerts',
-    icon: Bell,
+    title:
+      'Maintenance & Alerts',
+
+    icon:
+      Bell,
   },
 ];
 
@@ -208,24 +306,47 @@ const OVERVIEW_ITEMS = [
 
 const PRODUCT_ITEMS = [
   {
-    label: 'Vehicle Records',
-    value: 'Vehicles',
-    icon: Truck,
+    label:
+      'Vehicle Records',
+
+    value:
+      'Vehicles',
+
+    icon:
+      Truck,
   },
+
   {
-    label: 'Trip Operations',
-    value: 'Trips',
-    icon: ClipboardCheck,
+    label:
+      'Trip Operations',
+
+    value:
+      'Trips',
+
+    icon:
+      ClipboardCheck,
   },
+
   {
-    label: 'Delivery Records',
-    value: 'ePOD',
-    icon: PackageCheck,
+    label:
+      'Delivery Records',
+
+    value:
+      'ePOD',
+
+    icon:
+      PackageCheck,
   },
+
   {
-    label: 'Pending Actions',
-    value: 'Alerts',
-    icon: Bell,
+    label:
+      'Pending Actions',
+
+    value:
+      'Alerts',
+
+    icon:
+      Bell,
   },
 ];
 
@@ -253,8 +374,11 @@ export default function Home() {
         relative
         isolate
         overflow-hidden
+
         bg-[var(--bf-page-bg)]
+
         text-[color:var(--bf-text-primary)]
+
         transition-colors
         duration-300
       "
@@ -267,9 +391,11 @@ export default function Home() {
         aria-hidden="true"
         className="
           pointer-events-none
+
           absolute
           inset-0
           -z-10
+
           overflow-hidden
         "
       >
@@ -277,6 +403,7 @@ export default function Home() {
           className="
             absolute
             inset-0
+
             bg-[var(--bf-page-bg)]
           "
         />
@@ -287,12 +414,15 @@ export default function Home() {
           className="
             absolute
             inset-0
+
             opacity-[0.045]
           "
           style={{
             backgroundImage:
               'linear-gradient(rgba(100,116,139,0.28) 1px, transparent 1px), linear-gradient(90deg, rgba(100,116,139,0.28) 1px, transparent 1px)',
-            backgroundSize: '72px 72px',
+
+            backgroundSize:
+              '72px 72px',
           }}
         />
 
@@ -301,12 +431,17 @@ export default function Home() {
         <div
           className="
             absolute
+
             -left-44
             top-10
+
             h-[420px]
             w-[420px]
+
             rounded-full
+
             bg-cyan-500/[0.08]
+
             blur-[120px]
           "
         />
@@ -314,12 +449,17 @@ export default function Home() {
         <div
           className="
             absolute
+
             -right-44
             top-[30rem]
+
             h-[440px]
             w-[440px]
+
             rounded-full
+
             bg-blue-500/[0.07]
+
             blur-[130px]
           "
         />
@@ -327,12 +467,17 @@ export default function Home() {
         <div
           className="
             absolute
+
             bottom-[8%]
             left-[32%]
+
             h-[360px]
             w-[360px]
+
             rounded-full
+
             bg-emerald-500/[0.04]
+
             blur-[110px]
           "
         />
@@ -345,12 +490,15 @@ export default function Home() {
       <section
         className="
           relative
+
           px-5
           pb-8
           pt-8
+
           sm:px-8
           sm:pb-10
           sm:pt-10
+
           lg:px-12
           lg:pb-12
           lg:pt-12
@@ -360,15 +508,21 @@ export default function Home() {
           aria-hidden="true"
           className="
             pointer-events-none
+
             absolute
             left-1/2
             top-[25%]
+
             h-[400px]
             w-[88%]
             max-w-[820px]
+
             -translate-x-1/2
+
             rounded-full
+
             bg-blue-500/[0.05]
+
             blur-[125px]
           "
         />
@@ -376,7 +530,9 @@ export default function Home() {
         <div
           className="
             relative
+
             mx-auto
+
             w-full
             max-w-7xl
           "
@@ -386,6 +542,7 @@ export default function Home() {
               grid
               items-center
               gap-8
+
               lg:grid-cols-[1fr_0.92fr]
               lg:gap-12
             "
@@ -398,6 +555,7 @@ export default function Home() {
               className="
                 relative
                 z-10
+
                 min-w-0
               "
             >
@@ -406,15 +564,21 @@ export default function Home() {
               <div
                 className="
                   mb-4
+
                   inline-flex
                   items-center
                   gap-3
+
                   rounded-full
+
                   border
                   border-cyan-400/25
+
                   bg-cyan-400/[0.07]
+
                   px-4
                   py-2
+
                   backdrop-blur-xl
                 "
               >
@@ -423,9 +587,13 @@ export default function Home() {
                   className="
                     h-2
                     w-2
+
                     shrink-0
+
                     rounded-full
+
                     bg-cyan-400
+
                     shadow-[0_0_12px_rgba(34,211,238,0.55)]
                   "
                 />
@@ -434,9 +602,13 @@ export default function Home() {
                   className="
                     text-[9px]
                     font-black
+
                     uppercase
+
                     tracking-[0.18em]
+
                     text-cyan-500
+
                     sm:text-[10px]
                   "
                 >
@@ -448,30 +620,35 @@ export default function Home() {
                   HERO TITLE
 
                   EXACTLY 3 LINES ON NORMAL SCREENS.
-
-                  All 3 lines use same gradient.
-
-                  Extra line-height + bottom padding prevents
-                  gradient text from getting clipped.
               ================================================= */}
 
               <h1
                 className="
                   max-w-[720px]
+
                   overflow-visible
+
                   pb-2
+
                   text-[clamp(1.72rem,4vw,3.3rem)]
+
                   font-black
+
                   leading-[1.08]
+
                   tracking-[-0.025em]
                 "
               >
                 <span
                   className={`
                     block
+
                     overflow-visible
+
                     pb-[0.08em]
+
                     whitespace-nowrap
+
                     ${headingGradient}
                   `}
                 >
@@ -481,9 +658,13 @@ export default function Home() {
                 <span
                   className={`
                     block
+
                     overflow-visible
+
                     pb-[0.08em]
+
                     whitespace-nowrap
+
                     ${headingGradient}
                   `}
                 >
@@ -493,9 +674,13 @@ export default function Home() {
                 <span
                   className={`
                     block
+
                     overflow-visible
+
                     pb-[0.12em]
+
                     whitespace-nowrap
+
                     ${headingGradient}
                   `}
                 >
@@ -508,11 +693,16 @@ export default function Home() {
               <p
                 className="
                   mt-4
+
                   max-w-2xl
+
                   text-sm
                   leading-7
+
                   text-[color:var(--bf-text-secondary)]
+
                   sm:text-base
+
                   lg:text-[16px]
                 "
               >
@@ -528,9 +718,12 @@ export default function Home() {
               <div
                 className="
                   mt-5
+
                   flex
                   flex-col
+
                   gap-3
+
                   sm:flex-row
                 "
               >
@@ -539,24 +732,34 @@ export default function Home() {
                   className="
                     inline-flex
                     min-h-11
+
                     items-center
                     justify-center
+
                     rounded-xl
+
                     bg-gradient-to-r
                     from-[#12BFF2]
                     via-[#078EE5]
                     to-[#0AA23B]
+
                     px-6
                     py-3
+
                     text-sm
                     font-black
+
                     text-white
+
                     shadow-lg
                     shadow-blue-500/10
+
                     transition
                     duration-200
+
                     hover:-translate-y-0.5
                     hover:shadow-blue-500/20
+
                     focus-visible:outline-none
                     focus-visible:ring-2
                     focus-visible:ring-cyan-400
@@ -570,22 +773,33 @@ export default function Home() {
                   className="
                     inline-flex
                     min-h-11
+
                     items-center
                     justify-center
+
                     rounded-xl
+
                     border
                     border-[color:var(--bf-border)]
+
                     bg-[var(--bf-surface)]
+
                     px-6
                     py-3
+
                     text-sm
                     font-bold
+
                     text-[color:var(--bf-text-primary)]
+
                     shadow-sm
+
                     transition
                     duration-200
+
                     hover:-translate-y-0.5
                     hover:border-cyan-400/30
+
                     focus-visible:outline-none
                     focus-visible:ring-2
                     focus-visible:ring-cyan-400
@@ -600,12 +814,16 @@ export default function Home() {
               <div
                 className="
                   mt-5
+
                   flex
                   flex-wrap
+
                   gap-x-5
                   gap-y-2
+
                   text-[11px]
                   font-medium
+
                   text-[color:var(--bf-text-muted)]
                 "
               >
@@ -666,7 +884,9 @@ export default function Home() {
             <div
               className="
                 relative
+
                 mx-auto
+
                 w-full
                 max-w-[520px]
               "
@@ -678,11 +898,14 @@ export default function Home() {
                 className="
                   absolute
                   -inset-5
+
                   rounded-[36px]
+
                   bg-gradient-to-r
                   from-cyan-500/12
                   via-blue-500/[0.06]
                   to-emerald-500/[0.08]
+
                   blur-3xl
                 "
               />
@@ -692,11 +915,16 @@ export default function Home() {
               <div
                 className="
                   relative
+
                   rounded-[26px]
+
                   border
                   border-white/10
+
                   bg-[#09111f]
+
                   p-2.5
+
                   shadow-2xl
                   shadow-black/25
                 "
@@ -704,9 +932,12 @@ export default function Home() {
                 <div
                   className="
                     overflow-hidden
+
                     rounded-[20px]
+
                     border
                     border-white/[0.08]
+
                     bg-[#0b111c]
                   "
                 >
@@ -715,10 +946,13 @@ export default function Home() {
                   <div
                     className="
                       flex
+
                       items-center
                       justify-between
+
                       border-b
                       border-white/[0.06]
+
                       px-4
                       py-3
                     "
@@ -738,11 +972,16 @@ export default function Home() {
                     <p
                       className="
                         hidden
+
                         text-[8px]
                         font-bold
+
                         uppercase
+
                         tracking-[0.18em]
+
                         text-slate-400
+
                         sm:block
                       "
                     >
@@ -753,29 +992,45 @@ export default function Home() {
                       className="
                         h-2
                         w-2
+
                         rounded-full
+
                         bg-emerald-400
                       "
                     />
                   </div>
 
-                  {/* IMAGE */}
+                  {/* =================================================
+                      HERO LCP IMAGE
+
+                      Keep:
+                      - loading=eager
+                      - fetchPriority=high
+                      - responsive srcSet
+                      - explicit width/height
+
+                      index.html preload will use same URLs.
+                  ================================================= */}
 
                   <div
                     className="
                       relative
+
                       aspect-[4/3]
+
                       min-h-[245px]
+
                       overflow-hidden
+
                       sm:min-h-[300px]
                     "
                   >
                     <img
                       src={IMAGES.truck.medium}
                       srcSet={`
-                        ${IMAGES.truck.small} 560w,
-                        ${IMAGES.truck.medium} 820w,
-                        ${IMAGES.truck.large} 1000w
+                        ${IMAGES.truck.small} 480w,
+                        ${IMAGES.truck.medium} 720w,
+                        ${IMAGES.truck.large} 960w
                       `}
                       sizes="
                         (max-width: 640px) 92vw,
@@ -783,15 +1038,17 @@ export default function Home() {
                         500px
                       "
                       alt="Commercial transport truck"
-                      width="820"
-                      height="615"
+                      width="720"
+                      height="540"
                       loading="eager"
                       fetchPriority="high"
                       decoding="async"
                       className="
                         h-full
                         w-full
+
                         object-cover
+
                         opacity-70
                       "
                     />
@@ -801,6 +1058,7 @@ export default function Home() {
                       className="
                         absolute
                         inset-0
+
                         bg-gradient-to-t
                         from-[#080d16]
                         via-[#080d16]/25
@@ -815,18 +1073,26 @@ export default function Home() {
                         absolute
                         left-1/2
                         top-1/2
+
                         flex
                         h-14
                         w-14
+
                         -translate-x-1/2
                         -translate-y-1/2
+
                         items-center
                         justify-center
+
                         rounded-2xl
+
                         border
                         border-cyan-300/30
+
                         bg-cyan-400/15
+
                         text-cyan-100
+
                         backdrop-blur-xl
                       "
                     >
@@ -841,6 +1107,7 @@ export default function Home() {
                     <div
                       className="
                         absolute
+
                         bottom-3
                         left-3
                         right-3
@@ -849,18 +1116,24 @@ export default function Home() {
                       <div
                         className="
                           rounded-xl
+
                           border
                           border-white/10
+
                           bg-black/60
+
                           p-3.5
+
                           backdrop-blur-xl
                         "
                       >
                         <div
                           className="
                             flex
+
                             items-center
                             justify-between
+
                             gap-3
                           "
                         >
@@ -869,8 +1142,11 @@ export default function Home() {
                               className="
                                 text-[8px]
                                 font-semibold
+
                                 uppercase
+
                                 tracking-[0.18em]
+
                                 text-slate-400
                               "
                             >
@@ -880,9 +1156,12 @@ export default function Home() {
                             <p
                               className="
                                 mt-1
+
                                 text-xs
                                 font-bold
+
                                 text-white
+
                                 sm:text-sm
                               "
                             >
@@ -893,13 +1172,18 @@ export default function Home() {
                           <span
                             className="
                               rounded-full
+
                               border
                               border-emerald-400/20
+
                               bg-emerald-400/10
+
                               px-2.5
                               py-1
+
                               text-[8px]
                               font-bold
+
                               text-emerald-300
                             "
                           >
@@ -921,76 +1205,102 @@ export default function Home() {
           <div
             className="
               mt-8
+
               grid
               grid-cols-1
+
               gap-3
+
               sm:grid-cols-2
+
               lg:grid-cols-4
             "
           >
-            {HIGHLIGHTS.map((item) => {
-              const Icon = item.icon;
+            {HIGHLIGHTS.map(
+              (
+                item
+              ) => {
+                const Icon =
+                  item.icon;
 
-              return (
-                <article
-                  key={item.title}
-                  className="
-                    rounded-2xl
-                    border
-                    border-[color:var(--bf-border)]
-                    bg-[var(--bf-surface)]
-                    p-4
-                    shadow-sm
-                    transition
-                    duration-200
-                    hover:-translate-y-0.5
-                    hover:border-cyan-400/25
-                  "
-                >
-                  <div
+                return (
+                  <article
+                    key={
+                      item.title
+                    }
                     className="
-                      flex
-                      h-9
-                      w-9
-                      items-center
-                      justify-center
-                      rounded-xl
+                      rounded-2xl
+
                       border
-                      border-cyan-400/20
-                      bg-cyan-400/[0.07]
-                      text-cyan-500
-                    "
-                  >
-                    <Icon
-                      size={18}
-                      aria-hidden="true"
-                    />
-                  </div>
+                      border-[color:var(--bf-border)]
 
-                  <h2
-                    className="
-                      mt-3
-                      text-sm
-                      font-black
-                      text-[color:var(--bf-text-primary)]
-                    "
-                  >
-                    {item.title}
-                  </h2>
+                      bg-[var(--bf-surface)]
 
-                  <p
-                    className="
-                      mt-1.5
-                      text-xs
-                      leading-5
-                      text-[color:var(--bf-text-muted)]
+                      p-4
+
+                      shadow-sm
+
+                      transition
+                      duration-200
+
+                      hover:-translate-y-0.5
+                      hover:border-cyan-400/25
                     "
                   >
-                    {item.description}
-                  </p>
-                </article>
-              );
-            })}
+                    <div
+                      className="
+                        flex
+                        h-9
+                        w-9
+
+                        items-center
+                        justify-center
+
+                        rounded-xl
+
+                        border
+                        border-cyan-400/20
+
+                        bg-cyan-400/[0.07]
+
+                        text-cyan-500
+                      "
+                    >
+                      <Icon
+                        size={18}
+                        aria-hidden="true"
+                      />
+                    </div>
+
+                    <h2
+                      className="
+                        mt-3
+
+                        text-sm
+                        font-black
+
+                        text-[color:var(--bf-text-primary)]
+                      "
+                    >
+                      {item.title}
+                    </h2>
+
+                    <p
+                      className="
+                        mt-1.5
+
+                        text-xs
+                        leading-5
+
+                        text-[color:var(--bf-text-muted)]
+                      "
+                    >
+                      {item.description}
+                    </p>
+                  </article>
+                );
+              }
+            )}
           </div>
         </div>
       </section>
@@ -1002,10 +1312,13 @@ export default function Home() {
       <section
         className="
           relative
+
           px-5
           py-8
+
           sm:px-8
           sm:py-10
+
           lg:px-12
           lg:py-12
         "
@@ -1020,6 +1333,7 @@ export default function Home() {
             className="
               grid
               gap-6
+
               lg:grid-cols-[0.85fr_1.15fr]
               lg:gap-10
             "
@@ -1029,8 +1343,11 @@ export default function Home() {
                 className="
                   text-[11px]
                   font-bold
+
                   uppercase
+
                   tracking-[0.2em]
+
                   text-cyan-500
                 "
               >
@@ -1040,11 +1357,16 @@ export default function Home() {
               <h2
                 className="
                   mt-3
+
                   text-3xl
                   font-black
+
                   leading-tight
+
                   text-[color:var(--bf-text-primary)]
+
                   sm:text-4xl
+
                   lg:text-[44px]
                 "
               >
@@ -1070,9 +1392,12 @@ export default function Home() {
               <p
                 className="
                   max-w-3xl
+
                   text-sm
                   leading-7
+
                   text-[color:var(--bf-text-secondary)]
+
                   sm:text-base
                 "
               >
@@ -1094,10 +1419,13 @@ export default function Home() {
       <section
         className="
           relative
+
           px-5
           py-8
+
           sm:px-8
           sm:py-10
+
           lg:px-12
           lg:py-12
         "
@@ -1113,10 +1441,14 @@ export default function Home() {
           <div
             className="
               mb-6
+
               flex
               flex-col
+
               justify-between
+
               gap-4
+
               md:flex-row
               md:items-end
             "
@@ -1126,8 +1458,11 @@ export default function Home() {
                 className="
                   text-[11px]
                   font-bold
+
                   uppercase
+
                   tracking-[0.2em]
+
                   text-emerald-500
                 "
               >
@@ -1137,10 +1472,14 @@ export default function Home() {
               <h2
                 className="
                   mt-3
+
                   max-w-3xl
+
                   text-3xl
                   font-black
+
                   text-[color:var(--bf-text-primary)]
+
                   sm:text-4xl
                 "
               >
@@ -1153,20 +1492,30 @@ export default function Home() {
               className="
                 inline-flex
                 min-h-10
+
                 items-center
                 justify-center
+
                 rounded-xl
+
                 border
                 border-[color:var(--bf-border)]
+
                 bg-[var(--bf-surface)]
+
                 px-5
                 py-2.5
+
                 text-sm
                 font-bold
+
                 text-[color:var(--bf-text-primary)]
+
                 transition
                 duration-200
+
                 hover:border-cyan-400/30
+
                 focus-visible:outline-none
                 focus-visible:ring-2
                 focus-visible:ring-cyan-400
@@ -1181,144 +1530,187 @@ export default function Home() {
           <div
             className="
               grid
+
               gap-4
+
               lg:grid-cols-3
             "
           >
-            {CORE_FEATURES.map((feature) => {
-              const Icon = feature.icon;
+            {CORE_FEATURES.map(
+              (
+                feature
+              ) => {
+                const Icon =
+                  feature.icon;
 
-              return (
-                <article
-                  key={feature.number}
-                  className="
-                    group
-                    overflow-hidden
-                    rounded-[24px]
-                    border
-                    border-[color:var(--bf-border)]
-                    bg-[var(--bf-surface)]
-                    shadow-sm
-                    transition
-                    duration-300
-                    hover:-translate-y-0.5
-                    hover:border-cyan-400/25
-                  "
-                >
-                  {/* IMAGE */}
-
-                  <div
+                return (
+                  <article
+                    key={
+                      feature.number
+                    }
                     className="
-                      relative
-                      aspect-[3/1.65]
+                      group
+
                       overflow-hidden
-                      bg-[#0b111c]
+
+                      rounded-[24px]
+
+                      border
+                      border-[color:var(--bf-border)]
+
+                      bg-[var(--bf-surface)]
+
+                      shadow-sm
+
+                      transition
+                      duration-300
+
+                      hover:-translate-y-0.5
+                      hover:border-cyan-400/25
                     "
                   >
-                    <img
-                      src={feature.image.small}
-                      srcSet={`
-                        ${feature.image.small} 480w,
-                        ${feature.image.medium} 680w
-                      `}
-                      sizes="
-                        (max-width: 1024px) 92vw,
-                        400px
-                      "
-                      alt={feature.imageAlt}
-                      width="680"
-                      height="453"
-                      loading="lazy"
-                      decoding="async"
-                      className="
-                        h-full
-                        w-full
-                        object-cover
-                        opacity-65
-                        transition
-                        duration-500
-                        group-hover:scale-[1.02]
-                        group-hover:opacity-75
-                      "
-                    />
-
-                    <div
-                      aria-hidden="true"
-                      className="
-                        absolute
-                        inset-0
-                        bg-gradient-to-t
-                        from-[#080d16]
-                        via-[#080d16]/20
-                        to-transparent
-                      "
-                    />
+                    {/* IMAGE */}
 
                     <div
                       className="
-                        absolute
-                        left-4
-                        top-4
-                        flex
-                        h-10
-                        w-10
-                        items-center
-                        justify-center
-                        rounded-xl
-                        border
-                        border-white/10
-                        bg-black/40
-                        text-cyan-300
-                        backdrop-blur-xl
+                        relative
+
+                        aspect-[3/1.65]
+
+                        overflow-hidden
+
+                        bg-[#0b111c]
                       "
                     >
-                      <Icon
-                        size={19}
-                        aria-hidden="true"
+                      <img
+                        src={
+                          feature
+                            .image
+                            .small
+                        }
+                        srcSet={`
+                          ${feature.image.small} 480w,
+                          ${feature.image.medium} 680w
+                        `}
+                        sizes="
+                          (max-width: 1024px) 92vw,
+                          400px
+                        "
+                        alt={
+                          feature.imageAlt
+                        }
+                        width="680"
+                        height="453"
+                        loading="lazy"
+                        decoding="async"
+                        className="
+                          h-full
+                          w-full
+
+                          object-cover
+
+                          opacity-65
+
+                          transition
+                          duration-500
+
+                          group-hover:scale-[1.02]
+                          group-hover:opacity-75
+                        "
                       />
+
+                      <div
+                        aria-hidden="true"
+                        className="
+                          absolute
+                          inset-0
+
+                          bg-gradient-to-t
+                          from-[#080d16]
+                          via-[#080d16]/20
+                          to-transparent
+                        "
+                      />
+
+                      <div
+                        className="
+                          absolute
+                          left-4
+                          top-4
+
+                          flex
+                          h-10
+                          w-10
+
+                          items-center
+                          justify-center
+
+                          rounded-xl
+
+                          border
+                          border-white/10
+
+                          bg-black/40
+
+                          text-cyan-300
+
+                          backdrop-blur-xl
+                        "
+                      >
+                        <Icon
+                          size={19}
+                          aria-hidden="true"
+                        />
+                      </div>
+
+                      <span
+                        className="
+                          absolute
+                          right-4
+                          top-4
+
+                          font-mono
+
+                          text-[10px]
+
+                          text-slate-300
+                        "
+                      >
+                        {feature.number}
+                      </span>
                     </div>
 
-                    <span
-                      className="
-                        absolute
-                        right-4
-                        top-4
-                        font-mono
-                        text-[10px]
-                        text-slate-300
-                      "
-                    >
-                      {feature.number}
-                    </span>
-                  </div>
+                    {/* CONTENT */}
 
-                  {/* CONTENT */}
+                    <div className="p-5">
+                      <h3
+                        className="
+                          text-lg
+                          font-black
 
-                  <div className="p-5">
-                    <h3
-                      className="
-                        text-lg
-                        font-black
-                        text-[color:var(--bf-text-primary)]
-                      "
-                    >
-                      {feature.title}
-                    </h3>
+                          text-[color:var(--bf-text-primary)]
+                        "
+                      >
+                        {feature.title}
+                      </h3>
 
-                    <p
-                      className="
-                        mt-2.5
-                        text-sm
-                        leading-6
-                        text-[color:var(--bf-text-secondary)]
-                      "
-                    >
-                      {feature.description}
-                    </p>
-                  </div>
-                </article>
-              );
-            })}
+                      <p
+                        className="
+                          mt-2.5
+
+                          text-sm
+                          leading-6
+
+                          text-[color:var(--bf-text-secondary)]
+                        "
+                      >
+                        {feature.description}
+                      </p>
+                    </div>
+                  </article>
+                );
+              }
+            )}
           </div>
         </div>
       </section>
@@ -1332,10 +1724,13 @@ export default function Home() {
       <section
         className="
           relative
+
           px-5
           py-8
+
           sm:px-8
           sm:py-10
+
           lg:px-12
           lg:py-12
         "
@@ -1356,8 +1751,11 @@ export default function Home() {
               className="
                 text-[11px]
                 font-bold
+
                 uppercase
+
                 tracking-[0.2em]
+
                 text-cyan-500
               "
             >
@@ -1367,9 +1765,12 @@ export default function Home() {
             <h2
               className="
                 mt-3
+
                 text-3xl
                 font-black
+
                 text-[color:var(--bf-text-primary)]
+
                 sm:text-4xl
               "
             >
@@ -1378,6 +1779,7 @@ export default function Home() {
               <span
                 className="
                   ml-2
+
                   text-[color:var(--bf-text-muted)]
                 "
               >
@@ -1389,92 +1791,119 @@ export default function Home() {
           <div
             className="
               grid
+
               gap-3
+
               sm:grid-cols-2
+
               lg:grid-cols-5
             "
           >
-            {WORKFLOW.map((item) => {
-              const Icon = item.icon;
+            {WORKFLOW.map(
+              (
+                item
+              ) => {
+                const Icon =
+                  item.icon;
 
-              return (
-                <article
-                  key={item.step}
-                  className="
-                    h-full
-                    rounded-2xl
-                    border
-                    border-[color:var(--bf-border)]
-                    bg-[var(--bf-surface)]
-                    p-4
-                    transition
-                    duration-200
-                    hover:-translate-y-0.5
-                    hover:border-cyan-400/25
-                  "
-                >
-                  <div
+                return (
+                  <article
+                    key={
+                      item.step
+                    }
                     className="
-                      flex
-                      items-center
-                      justify-between
+                      h-full
+
+                      rounded-2xl
+
+                      border
+                      border-[color:var(--bf-border)]
+
+                      bg-[var(--bf-surface)]
+
+                      p-4
+
+                      transition
+                      duration-200
+
+                      hover:-translate-y-0.5
+                      hover:border-cyan-400/25
                     "
                   >
                     <div
                       className="
                         flex
-                        h-10
-                        w-10
                         items-center
-                        justify-center
-                        rounded-xl
-                        border
-                        border-cyan-400/15
-                        bg-cyan-400/[0.07]
-                        text-cyan-500
+                        justify-between
                       "
                     >
-                      <Icon
-                        size={18}
-                        aria-hidden="true"
-                      />
+                      <div
+                        className="
+                          flex
+                          h-10
+                          w-10
+
+                          items-center
+                          justify-center
+
+                          rounded-xl
+
+                          border
+                          border-cyan-400/15
+
+                          bg-cyan-400/[0.07]
+
+                          text-cyan-500
+                        "
+                      >
+                        <Icon
+                          size={18}
+                          aria-hidden="true"
+                        />
+                      </div>
+
+                      <span
+                        className="
+                          font-mono
+
+                          text-[9px]
+
+                          text-[color:var(--bf-text-muted)]
+                        "
+                      >
+                        {item.step}
+                      </span>
                     </div>
 
-                    <span
+                    <h3
                       className="
-                        font-mono
-                        text-[9px]
+                        mt-4
+
+                        text-base
+                        font-black
+
+                        text-[color:var(--bf-text-primary)]
+                      "
+                    >
+                      {item.title}
+                    </h3>
+
+                    <p
+                      className="
+                        mt-2
+
+                        text-xs
+                        leading-5
+
                         text-[color:var(--bf-text-muted)]
                       "
                     >
-                      {item.step}
-                    </span>
-                  </div>
-
-                  <h3
-                    className="
-                      mt-4
-                      text-base
-                      font-black
-                      text-[color:var(--bf-text-primary)]
-                    "
-                  >
-                    {item.title}
-                  </h3>
-
-                  <p
-                    className="
-                      mt-2
-                      text-xs
-                      leading-5
-                      text-[color:var(--bf-text-muted)]
-                    "
-                  >
-                    {item.text}
-                  </p>
-                </article>
-              );
-            })}
+                      {item.text}
+                    </p>
+                  </article>
+                );
+              }
+            )}
           </div>
         </div>
       </section>
@@ -1486,10 +1915,13 @@ export default function Home() {
       <section
         className="
           relative
+
           px-5
           py-8
+
           sm:px-8
           sm:py-10
+
           lg:px-12
           lg:py-12
         "
@@ -1504,7 +1936,9 @@ export default function Home() {
             className="
               grid
               items-center
+
               gap-8
+
               lg:grid-cols-[0.85fr_1.15fr]
               lg:gap-10
             "
@@ -1516,8 +1950,11 @@ export default function Home() {
                 className="
                   text-[11px]
                   font-bold
+
                   uppercase
+
                   tracking-[0.2em]
+
                   text-emerald-500
                 "
               >
@@ -1527,10 +1964,14 @@ export default function Home() {
               <h2
                 className="
                   mt-3
+
                   text-3xl
                   font-black
+
                   leading-tight
+
                   text-[color:var(--bf-text-primary)]
+
                   sm:text-4xl
                 "
               >
@@ -1539,6 +1980,7 @@ export default function Home() {
                 <span
                   className="
                     ml-2
+
                     text-[color:var(--bf-text-muted)]
                   "
                 >
@@ -1549,9 +1991,12 @@ export default function Home() {
               <p
                 className="
                   mt-4
+
                   max-w-xl
+
                   text-sm
                   leading-7
+
                   text-[color:var(--bf-text-secondary)]
                 "
               >
@@ -1565,59 +2010,79 @@ export default function Home() {
               <div
                 className="
                   mt-5
+
                   grid
+
                   gap-2.5
+
                   sm:grid-cols-2
                 "
               >
-                {OVERVIEW_ITEMS.map((item) => {
-                  const Icon = item.icon;
+                {OVERVIEW_ITEMS.map(
+                  (
+                    item
+                  ) => {
+                    const Icon =
+                      item.icon;
 
-                  return (
-                    <div
-                      key={item.title}
-                      className="
-                        flex
-                        items-center
-                        gap-3
-                        rounded-xl
-                        border
-                        border-[color:var(--bf-border)]
-                        bg-[var(--bf-surface)]
-                        p-3
-                      "
-                    >
+                    return (
                       <div
+                        key={
+                          item.title
+                        }
                         className="
                           flex
-                          h-8
-                          w-8
-                          shrink-0
                           items-center
-                          justify-center
-                          rounded-lg
-                          bg-emerald-400/[0.08]
-                          text-emerald-500
-                        "
-                      >
-                        <Icon
-                          size={16}
-                          aria-hidden="true"
-                        />
-                      </div>
+                          gap-3
 
-                      <span
-                        className="
-                          text-sm
-                          font-semibold
-                          text-[color:var(--bf-text-secondary)]
+                          rounded-xl
+
+                          border
+                          border-[color:var(--bf-border)]
+
+                          bg-[var(--bf-surface)]
+
+                          p-3
                         "
                       >
-                        {item.title}
-                      </span>
-                    </div>
-                  );
-                })}
+                        <div
+                          className="
+                            flex
+                            h-8
+                            w-8
+
+                            shrink-0
+
+                            items-center
+                            justify-center
+
+                            rounded-lg
+
+                            bg-emerald-400/[0.08]
+
+                            text-emerald-500
+                          "
+                        >
+                          <Icon
+                            size={16}
+                            aria-hidden="true"
+                          />
+                        </div>
+
+                        <span
+                          className="
+                            text-sm
+                            font-semibold
+
+                            text-[color:var(--bf-text-secondary)]
+                          "
+                        >
+                          {item.title}
+                        </span>
+                      </div>
+                    );
+                  }
+                )}
               </div>
             </div>
 
@@ -1631,8 +2096,11 @@ export default function Home() {
                 className="
                   absolute
                   -inset-6
+
                   rounded-[36px]
+
                   bg-blue-500/[0.05]
+
                   blur-3xl
                 "
               />
@@ -1640,11 +2108,16 @@ export default function Home() {
               <div
                 className="
                   relative
+
                   rounded-[26px]
+
                   border
                   border-white/10
+
                   bg-[#09111f]
+
                   p-2.5
+
                   shadow-xl
                   shadow-black/20
                 "
@@ -1652,9 +2125,12 @@ export default function Home() {
                 <div
                   className="
                     rounded-[20px]
+
                     border
                     border-white/[0.06]
+
                     bg-[#0b111c]
+
                     p-5
                   "
                 >
@@ -1664,8 +2140,11 @@ export default function Home() {
                     className="
                       flex
                       flex-col
+
                       justify-between
+
                       gap-3
+
                       sm:flex-row
                       sm:items-center
                     "
@@ -1675,8 +2154,11 @@ export default function Home() {
                         className="
                           text-[8px]
                           font-bold
+
                           uppercase
+
                           tracking-[0.18em]
+
                           text-cyan-300
                         "
                       >
@@ -1686,8 +2168,10 @@ export default function Home() {
                       <h3
                         className="
                           mt-1.5
+
                           text-lg
                           font-black
+
                           text-white
                         "
                       >
@@ -1699,16 +2183,23 @@ export default function Home() {
                       className="
                         inline-flex
                         w-fit
+
                         items-center
                         gap-2
+
                         rounded-full
+
                         border
                         border-emerald-400/20
+
                         bg-emerald-400/[0.06]
+
                         px-3
                         py-1.5
+
                         text-[9px]
                         font-bold
+
                         text-emerald-300
                       "
                     >
@@ -1716,7 +2207,9 @@ export default function Home() {
                         className="
                           h-2
                           w-2
+
                           rounded-full
+
                           bg-emerald-400
                         "
                       />
@@ -1730,57 +2223,75 @@ export default function Home() {
                   <div
                     className="
                       mt-5
+
                       grid
                       grid-cols-2
+
                       gap-2.5
                     "
                   >
-                    {PRODUCT_ITEMS.map((item) => {
-                      const Icon = item.icon;
+                    {PRODUCT_ITEMS.map(
+                      (
+                        item
+                      ) => {
+                        const Icon =
+                          item.icon;
 
-                      return (
-                        <div
-                          key={item.label}
-                          className="
-                            rounded-xl
-                            border
-                            border-white/[0.06]
-                            bg-white/[0.025]
-                            p-3.5
-                          "
-                        >
-                          <Icon
-                            size={18}
-                            aria-hidden="true"
-                            className="text-cyan-300"
-                          />
-
-                          <p
+                        return (
+                          <div
+                            key={
+                              item.label
+                            }
                             className="
-                              mt-3
-                              text-sm
-                              font-black
-                              text-white
+                              rounded-xl
+
+                              border
+                              border-white/[0.06]
+
+                              bg-white/[0.025]
+
+                              p-3.5
                             "
                           >
-                            {item.value}
-                          </p>
+                            <Icon
+                              size={18}
+                              aria-hidden="true"
+                              className="text-cyan-300"
+                            />
 
-                          <p
-                            className="
-                              mt-1
-                              text-[8px]
-                              font-medium
-                              uppercase
-                              tracking-wider
-                              text-slate-400
-                            "
-                          >
-                            {item.label}
-                          </p>
-                        </div>
-                      );
-                    })}
+                            <p
+                              className="
+                                mt-3
+
+                                text-sm
+                                font-black
+
+                                text-white
+                              "
+                            >
+                              {item.value}
+                            </p>
+
+                            <p
+                              className="
+                                mt-1
+
+                                text-[8px]
+                                font-medium
+
+                                uppercase
+
+                                tracking-wider
+
+                                text-slate-400
+                              "
+                            >
+                              {item.label}
+                            </p>
+                          </div>
+                        );
+                      }
+                    )}
                   </div>
 
                   {/* LOWER PANEL */}
@@ -1788,18 +2299,24 @@ export default function Home() {
                   <div
                     className="
                       mt-3
+
                       rounded-xl
+
                       border
                       border-white/[0.06]
+
                       bg-white/[0.02]
+
                       p-4
                     "
                   >
                     <div
                       className="
                         flex
+
                         items-center
                         justify-between
+
                         gap-4
                       "
                     >
@@ -1808,6 +2325,7 @@ export default function Home() {
                           className="
                             text-[11px]
                             font-bold
+
                             text-slate-200
                           "
                         >
@@ -1817,7 +2335,9 @@ export default function Home() {
                         <p
                           className="
                             mt-1
+
                             text-[9px]
+
                             text-slate-400
                           "
                         >
@@ -1835,8 +2355,11 @@ export default function Home() {
                     <div
                       className="
                         mt-4
+
                         grid
+
                         gap-2
+
                         sm:grid-cols-3
                       "
                     >
@@ -1848,8 +2371,11 @@ export default function Home() {
                     <div
                       className="
                         mt-2.5
+
                         grid
+
                         gap-2
+
                         sm:grid-cols-4
                       "
                     >
@@ -1873,10 +2399,13 @@ export default function Home() {
       <section
         className="
           relative
+
           px-5
           py-8
+
           sm:px-8
           sm:py-10
+
           lg:px-12
           lg:py-12
         "
@@ -1890,6 +2419,7 @@ export default function Home() {
           <div
             className="
               mb-6
+
               text-center
             "
           >
@@ -1897,8 +2427,11 @@ export default function Home() {
               className="
                 text-[11px]
                 font-bold
+
                 uppercase
+
                 tracking-[0.2em]
+
                 text-cyan-500
               "
             >
@@ -1908,9 +2441,12 @@ export default function Home() {
             <h2
               className="
                 mt-3
+
                 text-3xl
                 font-black
+
                 text-[color:var(--bf-text-primary)]
+
                 sm:text-4xl
               "
             >
@@ -1921,7 +2457,9 @@ export default function Home() {
           <div
             className="
               grid
+
               gap-4
+
               md:grid-cols-3
             "
           >
@@ -1930,20 +2468,29 @@ export default function Home() {
                 benefit,
                 index
               ) => {
-                const Icon = benefit.icon;
+                const Icon =
+                  benefit.icon;
 
                 return (
                   <article
-                    key={benefit.title}
+                    key={
+                      benefit.title
+                    }
                     className="
                       rounded-[22px]
+
                       border
                       border-[color:var(--bf-border)]
+
                       bg-[var(--bf-surface)]
+
                       p-5
+
                       shadow-sm
+
                       transition
                       duration-200
+
                       hover:-translate-y-0.5
                       hover:border-cyan-400/25
                     "
@@ -1960,12 +2507,17 @@ export default function Home() {
                           flex
                           h-11
                           w-11
+
                           items-center
                           justify-center
+
                           rounded-xl
+
                           border
                           border-cyan-400/15
+
                           bg-cyan-400/[0.07]
+
                           text-cyan-500
                         "
                       >
@@ -1978,7 +2530,9 @@ export default function Home() {
                       <span
                         className="
                           font-mono
+
                           text-[10px]
+
                           text-[color:var(--bf-text-muted)]
                         "
                       >
@@ -1989,8 +2543,10 @@ export default function Home() {
                     <h3
                       className="
                         mt-5
+
                         text-lg
                         font-black
+
                         text-[color:var(--bf-text-primary)]
                       "
                     >
@@ -2000,8 +2556,10 @@ export default function Home() {
                     <p
                       className="
                         mt-2.5
+
                         text-sm
                         leading-6
+
                         text-[color:var(--bf-text-secondary)]
                       "
                     >
@@ -2022,11 +2580,14 @@ export default function Home() {
       <section
         className="
           relative
+
           px-5
           pb-10
           pt-4
+
           sm:px-8
           sm:pb-12
+
           lg:px-12
         "
       >
@@ -2039,15 +2600,23 @@ export default function Home() {
           <div
             className="
               relative
+
               overflow-hidden
+
               rounded-[28px]
+
               border
               border-cyan-400/20
+
               bg-[var(--bf-surface)]
+
               px-6
               py-8
+
               text-center
+
               shadow-sm
+
               sm:px-10
               sm:py-10
             "
@@ -2058,14 +2627,20 @@ export default function Home() {
               aria-hidden="true"
               className="
                 absolute
+
                 left-1/2
                 top-0
+
                 h-64
                 w-64
+
                 -translate-x-1/2
                 -translate-y-1/2
+
                 rounded-full
+
                 bg-cyan-400/12
+
                 blur-[90px]
               "
             />
@@ -2077,12 +2652,15 @@ export default function Home() {
               className="
                 absolute
                 inset-0
+
                 opacity-[0.04]
               "
               style={{
                 backgroundImage:
                   'linear-gradient(rgba(100,116,139,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(100,116,139,0.3) 1px, transparent 1px)',
-                backgroundSize: '50px 50px',
+
+                backgroundSize:
+                  '50px 50px',
               }}
             />
 
@@ -2091,8 +2669,11 @@ export default function Home() {
                 className="
                   text-[10px]
                   font-black
+
                   uppercase
+
                   tracking-[0.22em]
+
                   text-cyan-500
                 "
               >
@@ -2103,19 +2684,27 @@ export default function Home() {
                 className="
                   mx-auto
                   mt-3
+
                   max-w-4xl
+
                   text-3xl
                   font-black
+
                   leading-tight
+
                   text-[color:var(--bf-text-primary)]
+
                   sm:text-4xl
+
                   lg:text-[44px]
                 "
               >
                 Your fleet deserves{' '}
 
                 <span
-                  className={headingGradient}
+                  className={
+                    headingGradient
+                  }
                 >
                   simpler technology.
                 </span>
@@ -2125,9 +2714,12 @@ export default function Home() {
                 className="
                   mx-auto
                   mt-4
+
                   max-w-2xl
+
                   text-sm
                   leading-6
+
                   text-[color:var(--bf-text-secondary)]
                 "
               >
@@ -2139,10 +2731,14 @@ export default function Home() {
               <div
                 className="
                   mt-5
+
                   flex
                   flex-col
+
                   justify-center
+
                   gap-3
+
                   sm:flex-row
                 "
               >
@@ -2155,23 +2751,33 @@ export default function Home() {
                   className="
                     inline-flex
                     min-h-11
+
                     items-center
                     justify-center
+
                     rounded-xl
+
                     bg-gradient-to-r
                     from-[#078EE5]
                     to-[#0AA23B]
+
                     px-6
                     py-3
+
                     text-sm
                     font-black
+
                     text-white
+
                     shadow-lg
                     shadow-blue-900/10
+
                     transition
                     duration-200
+
                     hover:-translate-y-0.5
                     hover:shadow-blue-500/20
+
                     focus-visible:outline-none
                     focus-visible:ring-2
                     focus-visible:ring-cyan-400
@@ -2185,21 +2791,31 @@ export default function Home() {
                   className="
                     inline-flex
                     min-h-11
+
                     items-center
                     justify-center
+
                     rounded-xl
+
                     border
                     border-[color:var(--bf-border)]
+
                     bg-[var(--bf-page-bg)]
+
                     px-6
                     py-3
+
                     text-sm
                     font-bold
+
                     text-[color:var(--bf-text-primary)]
+
                     transition
                     duration-200
+
                     hover:-translate-y-0.5
                     hover:border-cyan-400/30
+
                     focus-visible:outline-none
                     focus-visible:ring-2
                     focus-visible:ring-cyan-400

@@ -9,8 +9,6 @@ import {
   X,
 } from 'lucide-react';
 
-import { supabase } from '../supabaseClient';
-
 /* =========================================================
    DEFAULT WHATSAPP MESSAGE
 ========================================================= */
@@ -21,11 +19,47 @@ const DEFAULT_MESSAGE =
 /* =========================================================
    SESSION CACHE
 
-   Ek baar contacts load hone ke baad same session me
-   database query repeat nahi hogi.
+   Contacts ek baar load hone ke baad same browser session
+   me repeat DB query nahi hogi.
 ========================================================= */
 
 let cachedWhatsappContacts = null;
+
+/* =========================================================
+   SHARED LOAD PROMISE
+
+   Agar user accidentally fast double-click kare to bhi
+   duplicate Supabase query avoid hogi.
+========================================================= */
+
+let contactsLoadPromise = null;
+
+/* =========================================================
+   LAZY SUPABASE CLIENT
+
+   IMPORTANT PERFORMANCE OPTIMIZATION:
+
+   Supabase initial website bundle ke saath load nahi hoga.
+
+   User jab WhatsApp button first time open karega tabhi
+   supabaseClient module dynamically load hoga.
+========================================================= */
+
+let supabaseClientPromise = null;
+
+function getSupabaseClient() {
+  if (!supabaseClientPromise) {
+    supabaseClientPromise = import(
+      '../supabaseClient'
+    ).then(
+      (
+        module
+      ) => module.supabase
+    );
+  }
+
+  return supabaseClientPromise;
+}
 
 /* =========================================================
    WHATSAPP ICON
@@ -142,64 +176,29 @@ function buildWhatsappUrl(
 }
 
 /* =========================================================
-   WHATSAPP CONTACT BUTTON
+   FETCH CONTACTS
+
+   Supabase + database dono first interaction tak deferred.
 ========================================================= */
 
-export default function WhatsAppContactButton() {
-  const [
-    isOpen,
-    setIsOpen,
-  ] = useState(false);
+async function fetchWhatsappContacts() {
+  if (
+    cachedWhatsappContacts
+  ) {
+    return cachedWhatsappContacts;
+  }
 
-  const [
-    contacts,
-    setContacts,
-  ] = useState(
-    cachedWhatsappContacts ||
-      []
-  );
+  if (
+    contactsLoadPromise
+  ) {
+    return contactsLoadPromise;
+  }
 
-  const [
-    isLoading,
-    setIsLoading,
-  ] = useState(false);
-
-  const [
-    error,
-    setError,
-  ] = useState('');
-
-  const panelRef =
-    useRef(null);
-
-  const buttonRef =
-    useRef(null);
-
-  /* =======================================================
-     LOAD CONTACTS
-
-     Initial website load par query nahi chalegi.
-
-     User first time WhatsApp button click karega tabhi
-     contact_people table fetch hoga.
-  ======================================================= */
-
-  const loadContacts =
-    async () => {
-      if (
-        cachedWhatsappContacts
-          ?.length
-      ) {
-        setContacts(
-          cachedWhatsappContacts
-        );
-
-        return;
-      }
-
+  contactsLoadPromise =
+    (async () => {
       try {
-        setIsLoading(true);
-        setError('');
+        const supabase =
+          await getSupabaseClient();
 
         const {
           data,
@@ -238,7 +237,9 @@ export default function WhatsAppContactButton() {
               }
             );
 
-        if (queryError) {
+        if (
+          queryError
+        ) {
           throw queryError;
         }
 
@@ -246,7 +247,9 @@ export default function WhatsAppContactButton() {
           (
             data || []
           ).filter(
-            (contact) =>
+            (
+              contact
+            ) =>
               sanitizeWhatsappNumber(
                 contact
                   .whatsapp_number
@@ -255,6 +258,91 @@ export default function WhatsAppContactButton() {
 
         cachedWhatsappContacts =
           validContacts;
+
+        return validContacts;
+      } finally {
+        contactsLoadPromise =
+          null;
+      }
+    })();
+
+  return contactsLoadPromise;
+}
+
+/* =========================================================
+   WHATSAPP CONTACT BUTTON
+========================================================= */
+
+export default function WhatsAppContactButton() {
+  const [
+    isOpen,
+    setIsOpen,
+  ] = useState(false);
+
+  const [
+    contacts,
+    setContacts,
+  ] = useState(
+    cachedWhatsappContacts ||
+      []
+  );
+
+  const [
+    isLoading,
+    setIsLoading,
+  ] = useState(false);
+
+  const [
+    error,
+    setError,
+  ] = useState('');
+
+  const panelRef =
+    useRef(null);
+
+  const buttonRef =
+    useRef(null);
+
+  /* =======================================================
+     LOAD CONTACTS
+
+     Initial website load par:
+     - no DB query
+     - no Supabase client import
+
+     First WhatsApp interaction par hi dono load honge.
+  ======================================================= */
+
+  const loadContacts =
+    async () => {
+      if (
+        cachedWhatsappContacts
+      ) {
+        setContacts(
+          cachedWhatsappContacts
+        );
+
+        if (
+          cachedWhatsappContacts
+            .length === 0
+        ) {
+          setError(
+            'WhatsApp support is currently unavailable.'
+          );
+        }
+
+        return;
+      }
+
+      try {
+        setIsLoading(
+          true
+        );
+
+        setError('');
+
+        const validContacts =
+          await fetchWhatsappContacts();
 
         setContacts(
           validContacts
@@ -268,7 +356,9 @@ export default function WhatsAppContactButton() {
             'WhatsApp support is currently unavailable.'
           );
         }
-      } catch (err) {
+      } catch (
+        err
+      ) {
         console.error(
           'WhatsApp contacts error:',
           err
@@ -299,116 +389,135 @@ export default function WhatsAppContactButton() {
 
       if (
         nextState &&
-        contacts.length === 0
+        contacts.length ===
+          0 &&
+        !isLoading
       ) {
         await loadContacts();
       }
     };
 
-  const closePanel = () => {
-    setIsOpen(false);
-  };
+  const closePanel =
+    () => {
+      setIsOpen(
+        false
+      );
+    };
 
   /* =======================================================
      CLICK OUTSIDE
   ======================================================= */
 
-  useEffect(() => {
-    if (!isOpen) {
-      return undefined;
-    }
-
-    const handleOutsideClick =
-      (event) => {
-        const clickedPanel =
-          panelRef.current
-            ?.contains(
-              event.target
-            );
-
-        const clickedButton =
-          buttonRef.current
-            ?.contains(
-              event.target
-            );
-
-        if (
-          !clickedPanel &&
-          !clickedButton
-        ) {
-          closePanel();
-        }
-      };
-
-    document.addEventListener(
-      'mousedown',
-      handleOutsideClick
-    );
-
-    document.addEventListener(
-      'touchstart',
-      handleOutsideClick,
-      {
-        passive: true,
+  useEffect(
+    () => {
+      if (
+        !isOpen
+      ) {
+        return undefined;
       }
-    );
 
-    return () => {
-      document.removeEventListener(
+      const handleOutsideClick =
+        (
+          event
+        ) => {
+          const clickedPanel =
+            panelRef.current
+              ?.contains(
+                event.target
+              );
+
+          const clickedButton =
+            buttonRef.current
+              ?.contains(
+                event.target
+              );
+
+          if (
+            !clickedPanel &&
+            !clickedButton
+          ) {
+            closePanel();
+          }
+        };
+
+      document.addEventListener(
         'mousedown',
         handleOutsideClick
       );
 
-      document.removeEventListener(
+      document.addEventListener(
         'touchstart',
-        handleOutsideClick
+        handleOutsideClick,
+        {
+          passive: true,
+        }
       );
-    };
-  }, [
-    isOpen,
-  ]);
+
+      return () => {
+        document.removeEventListener(
+          'mousedown',
+          handleOutsideClick
+        );
+
+        document.removeEventListener(
+          'touchstart',
+          handleOutsideClick
+        );
+      };
+    },
+    [
+      isOpen,
+    ]
+  );
 
   /* =======================================================
      ESCAPE KEY
   ======================================================= */
 
-  useEffect(() => {
-    if (!isOpen) {
-      return undefined;
-    }
+  useEffect(
+    () => {
+      if (
+        !isOpen
+      ) {
+        return undefined;
+      }
 
-    const handleKeyDown =
-      (event) => {
-        if (
-          event.key ===
-          'Escape'
-        ) {
-          closePanel();
+      const handleKeyDown =
+        (
+          event
+        ) => {
+          if (
+            event.key ===
+            'Escape'
+          ) {
+            closePanel();
 
-          window.setTimeout(
-            () => {
-              buttonRef.current
-                ?.focus();
-            },
-            0
-          );
-        }
-      };
+            window.setTimeout(
+              () => {
+                buttonRef.current
+                  ?.focus();
+              },
+              0
+            );
+          }
+        };
 
-    document.addEventListener(
-      'keydown',
-      handleKeyDown
-    );
-
-    return () => {
-      document.removeEventListener(
+      document.addEventListener(
         'keydown',
         handleKeyDown
       );
-    };
-  }, [
-    isOpen,
-  ]);
+
+      return () => {
+        document.removeEventListener(
+          'keydown',
+          handleKeyDown
+        );
+      };
+    },
+    [
+      isOpen,
+    ]
+  );
 
   /* =======================================================
      CONTACT CLICK
@@ -424,7 +533,9 @@ export default function WhatsAppContactButton() {
             .whatsapp_number
         );
 
-      if (!url) {
+      if (
+        !url
+      ) {
         return;
       }
 
@@ -445,6 +556,7 @@ export default function WhatsAppContactButton() {
     <div
       className="
         relative
+
         flex
         flex-col
         items-end
@@ -461,16 +573,24 @@ export default function WhatsAppContactButton() {
           aria-label="Choose WhatsApp contact"
           className="
             absolute
+
             bottom-[60px]
             right-0
+
             w-[min(330px,calc(100vw-32px))]
+
             overflow-hidden
+
             rounded-2xl
+
             border
             border-[color:var(--bf-border)]
+
             bg-[var(--bf-surface)]
+
             shadow-2xl
             shadow-black/25
+
             backdrop-blur-2xl
           "
         >
@@ -481,11 +601,15 @@ export default function WhatsAppContactButton() {
           <div
             className="
               flex
+
               items-start
               justify-between
+
               gap-4
+
               border-b
               border-[color:var(--bf-border)]
+
               px-4
               py-4
             "
@@ -493,8 +617,11 @@ export default function WhatsAppContactButton() {
             <div
               className="
                 flex
+
                 min-w-0
+
                 items-center
+
                 gap-3
               "
             >
@@ -503,12 +630,18 @@ export default function WhatsAppContactButton() {
                   flex
                   h-10
                   w-10
+
                   shrink-0
+
                   items-center
                   justify-center
+
                   rounded-xl
+
                   bg-[#25D366]
+
                   text-white
+
                   shadow-md
                   shadow-emerald-950/15
                 "
@@ -518,11 +651,16 @@ export default function WhatsAppContactButton() {
                 />
               </div>
 
-              <div className="min-w-0">
+              <div
+                className="
+                  min-w-0
+                "
+              >
                 <p
                   className="
                     text-sm
                     font-black
+
                     text-[color:var(--bf-text-primary)]
                   "
                 >
@@ -532,13 +670,14 @@ export default function WhatsAppContactButton() {
                 <p
                   className="
                     mt-1
+
                     text-[11px]
                     leading-5
+
                     text-[color:var(--bf-text-muted)]
                   "
                 >
-                  Choose who you
-                  want to contact.
+                  Choose who you want to contact.
                 </p>
               </div>
             </div>
@@ -553,16 +692,24 @@ export default function WhatsAppContactButton() {
                 flex
                 h-8
                 w-8
+
                 shrink-0
+
                 items-center
                 justify-center
+
                 rounded-lg
+
                 border
                 border-[color:var(--bf-border)]
+
                 text-[color:var(--bf-text-muted)]
+
                 transition
+
                 hover:border-red-400/25
                 hover:text-red-500
+
                 focus-visible:outline-none
                 focus-visible:ring-2
                 focus-visible:ring-red-400
@@ -579,15 +726,20 @@ export default function WhatsAppContactButton() {
               CONTENT
           =============================================== */}
 
-          <div className="p-3">
-
+          <div
+            className="
+              p-3
+            "
+          >
             {/* LOADING */}
 
             {isLoading && (
               <div
                 className="
                   flex
+
                   min-h-[120px]
+
                   items-center
                   justify-center
                 "
@@ -596,7 +748,9 @@ export default function WhatsAppContactButton() {
                   className="
                     flex
                     flex-col
+
                     items-center
+
                     gap-3
                   "
                 >
@@ -605,6 +759,7 @@ export default function WhatsAppContactButton() {
                     aria-hidden="true"
                     className="
                       animate-spin
+
                       text-[#25D366]
                     "
                   />
@@ -612,6 +767,7 @@ export default function WhatsAppContactButton() {
                   <p
                     className="
                       text-xs
+
                       text-[color:var(--bf-text-muted)]
                     "
                   >
@@ -628,13 +784,18 @@ export default function WhatsAppContactButton() {
                 <div
                   className="
                     rounded-xl
+
                     border
                     border-red-400/20
+
                     bg-red-400/[0.06]
+
                     px-4
                     py-4
+
                     text-xs
                     leading-5
+
                     text-red-500
                   "
                 >
@@ -650,8 +811,11 @@ export default function WhatsAppContactButton() {
               !error &&
               contacts.length >
                 0 && (
-                <div className="space-y-2">
-
+                <div
+                  className="
+                    space-y-2
+                  "
+                >
                   {contacts.map(
                     (
                       contact
@@ -668,21 +832,33 @@ export default function WhatsAppContactButton() {
                         }
                         className="
                           group
+
                           flex
+
                           w-full
+
                           items-center
+
                           gap-3
+
                           rounded-xl
+
                           border
                           border-[color:var(--bf-border)]
+
                           bg-[var(--bf-page-bg)]
+
                           p-3
+
                           text-left
+
                           transition
                           duration-200
+
                           hover:-translate-y-[1px]
                           hover:border-[#25D366]/40
                           hover:bg-emerald-400/[0.05]
+
                           focus-visible:outline-none
                           focus-visible:ring-2
                           focus-visible:ring-[#25D366]
@@ -695,12 +871,18 @@ export default function WhatsAppContactButton() {
                             flex
                             h-10
                             w-10
+
                             shrink-0
+
                             items-center
                             justify-center
+
                             rounded-xl
+
                             bg-[#25D366]
+
                             text-white
+
                             shadow-sm
                             shadow-emerald-950/15
                           "
@@ -721,8 +903,10 @@ export default function WhatsAppContactButton() {
                           <p
                             className="
                               truncate
+
                               text-sm
                               font-black
+
                               text-[color:var(--bf-text-primary)]
                             "
                           >
@@ -734,8 +918,11 @@ export default function WhatsAppContactButton() {
                           <p
                             className="
                               mt-0.5
+
                               truncate
+
                               text-[11px]
+
                               text-[color:var(--bf-text-muted)]
                             "
                           >
@@ -750,15 +937,22 @@ export default function WhatsAppContactButton() {
                         <span
                           className="
                             rounded-full
+
                             border
                             border-[#25D366]/15
+
                             bg-[#25D366]/10
+
                             px-2.5
                             py-1
+
                             text-[8px]
                             font-black
+
                             uppercase
+
                             tracking-wide
+
                             text-[#20a951]
                           "
                         >
@@ -783,6 +977,7 @@ export default function WhatsAppContactButton() {
                 className="
                   border-t
                   border-[color:var(--bf-border)]
+
                   px-4
                   py-2.5
                 "
@@ -790,13 +985,14 @@ export default function WhatsAppContactButton() {
                 <p
                   className="
                     text-center
+
                     text-[9px]
                     leading-4
+
                     text-[color:var(--bf-text-muted)]
                   "
                 >
-                  Your selected contact will
-                  open in WhatsApp.
+                  Your selected contact will open in WhatsApp.
                 </p>
               </div>
             )}
@@ -824,23 +1020,33 @@ export default function WhatsAppContactButton() {
         title="WhatsApp"
         className="
           group
+
           flex
           h-12
           w-12
+
           items-center
           justify-center
+
           rounded-2xl
+
           border
           border-[#4ade80]/30
+
           bg-[#25D366]
+
           text-white
+
           shadow-xl
           shadow-emerald-950/25
+
           transition
           duration-200
+
           hover:-translate-y-0.5
           hover:bg-[#20bd5a]
           hover:shadow-emerald-500/20
+
           focus-visible:outline-none
           focus-visible:ring-2
           focus-visible:ring-[#25D366]

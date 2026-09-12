@@ -1,13 +1,127 @@
 <!doctype html>
+
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Buddy Fleets</title>
+
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+    />
+
+    <!-- =====================================================
+         PRIMARY SEO
+    ====================================================== -->
+
+    <title>
+      Buddy Fleets | Fleet Management Software for Transport Businesses
+    </title>
+
+    <meta
+      name="description"
+      content="Buddy Fleets is a cloud-based fleet management platform for transport businesses to manage vehicles, drivers, dispatch, expenses, compliance, maintenance and reports."
+    />
+
+    <meta
+      name="robots"
+      content="index, follow"
+    />
+
+    <meta
+      name="author"
+      content="Buddy Computers"
+    />
+
+    <!-- =====================================================
+         FAVICON
+    ====================================================== -->
+
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="/favicon.svg?v=2"
+    />
+
+    <link
+      rel="shortcut icon"
+      href="/favicon.svg?v=2"
+    />
+
+    <!-- =====================================================
+         HOME HERO / LCP IMAGE
+
+         Must stay in sync with Home.jsx.
+         This allows the browser to discover the LCP image
+         directly from the initial HTML.
+    ====================================================== -->
+
+    <link
+      rel="preload"
+      as="image"
+      href="https://images.unsplash.com/photo-1519003722824-194d4455a60c?auto=format&fit=crop&w=720&q=62"
+      imagesrcset="
+        https://images.unsplash.com/photo-1519003722824-194d4455a60c?auto=format&fit=crop&w=480&q=58 480w,
+        https://images.unsplash.com/photo-1519003722824-194d4455a60c?auto=format&fit=crop&w=720&q=62 720w,
+        https://images.unsplash.com/photo-1519003722824-194d4455a60c?auto=format&fit=crop&w=960&q=65 960w
+      "
+      imagesizes="
+        (max-width: 640px) 92vw,
+        (max-width: 1024px) 520px,
+        500px
+      "
+      fetchpriority="high"
+    />
+
+    <!-- =====================================================
+         OPEN GRAPH
+    ====================================================== -->
+
+    <meta
+      property="og:type"
+      content="website"
+    />
+
+    <meta
+      property="og:site_name"
+      content="Buddy Fleets"
+    />
+
+    <meta
+      property="og:title"
+      content="Buddy Fleets | Fleet Management Software"
+    />
+
+    <meta
+      property="og:description"
+      content="Manage vehicles, drivers, dispatch, expenses, compliance, maintenance and fleet operations from one cloud-based platform."
+    />
+
+    <!-- =====================================================
+         TWITTER / SOCIAL PREVIEW
+    ====================================================== -->
+
+    <meta
+      name="twitter:card"
+      content="summary"
+    />
+
+    <meta
+      name="twitter:title"
+      content="Buddy Fleets | Fleet Management Software"
+    />
+
+    <meta
+      name="twitter:description"
+      content="Cloud-based fleet management software for transport businesses."
+    />
   </head>
+
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
+
+    <script
+      type="module"
+      src="/src/main.jsx"
+    ></script>
   </body>
 </html>
