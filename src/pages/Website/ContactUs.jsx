@@ -1,18 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
-
-/* =========================================================
-   CONTACT DETAILS
-========================================================= */
-
-const SHUBHAM_EMAIL = 'jangirshubham72@gmail.com';
-const NAVIN_EMAIL = 'navin4338@gmail.com';
-
-const SHUBHAM_INSTAGRAM =
-  'https://www.instagram.com/happiest_banda';
-
-const NAVIN_INSTAGRAM =
-  'https://www.instagram.com/navin.sharma/';
+import { supabase } from '../../supabaseClient';
 
 /* =========================================================
    ICONS
@@ -222,6 +211,59 @@ function ArrowIcon({ className = '' }) {
   );
 }
 
+function CheckCircleIcon({ className = '' }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+      className={className}
+    >
+      <circle
+        cx="12"
+        cy="12"
+        r="9"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      />
+
+      <path
+        d="m8 12 2.5 2.5L16 9"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function AlertIcon({ className = '' }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+      className={className}
+    >
+      <circle
+        cx="12"
+        cy="12"
+        r="9"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      />
+
+      <path
+        d="M12 7v6M12 17h.01"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 /* =========================================================
    REVEAL
 ========================================================= */
@@ -276,11 +318,11 @@ function ContactPerson({
   role,
   description,
   email,
-  instagram,
+  instagramUrl,
   instagramHandle,
-  accent = 'cyan',
+  index = 0,
 }) {
-  const isCyan = accent === 'cyan';
+  const isFirst = index === 0;
 
   return (
     <div
@@ -311,7 +353,7 @@ function ContactPerson({
           blur-[80px]
 
           ${
-            isCyan
+            isFirst
               ? 'bg-cyan-500/[0.08]'
               : 'bg-violet-500/[0.09]'
           }
@@ -334,7 +376,7 @@ function ContactPerson({
               border
 
               ${
-                isCyan
+                isFirst
                   ? 'border-cyan-400/15 bg-cyan-400/[0.06] text-cyan-300'
                   : 'border-violet-400/15 bg-violet-400/[0.06] text-violet-300'
               }
@@ -343,7 +385,8 @@ function ContactPerson({
             <UserIcon className="h-5 w-5" />
           </div>
 
-          <div>
+          <div className="min-w-0">
+
             <h3 className="text-lg font-black text-white">
               {name}
             </h3>
@@ -357,7 +400,7 @@ function ContactPerson({
                 tracking-[0.18em]
 
                 ${
-                  isCyan
+                  isFirst
                     ? 'text-cyan-400'
                     : 'text-violet-400'
                 }
@@ -365,81 +408,90 @@ function ContactPerson({
             >
               {role}
             </p>
+
           </div>
 
         </div>
 
-        <p className="mt-5 text-sm leading-7 text-slate-400">
-          {description}
-        </p>
+        {description && (
+          <p className="mt-5 text-sm leading-7 text-slate-400">
+            {description}
+          </p>
+        )}
 
         <div className="mt-5 space-y-2">
 
-          <a
-            href={`mailto:${email}`}
-            className="
-              flex
-              min-w-0
-              items-center
-              gap-3
-              rounded-xl
-              border
-              border-white/[0.06]
-              bg-white/[0.025]
-              px-3
-              py-3
-              text-[10px]
-              font-semibold
-              text-slate-400
-              transition
+          {email && (
+            <a
+              href={`mailto:${email}`}
+              className="
+                flex
+                min-w-0
+                items-center
+                gap-3
+                rounded-xl
+                border
+                border-white/[0.06]
+                bg-white/[0.025]
+                px-3
+                py-3
+                text-[10px]
+                font-semibold
+                text-slate-400
+                transition
 
-              hover:border-cyan-400/20
-              hover:bg-cyan-400/[0.04]
-              hover:text-cyan-300
-            "
-          >
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/[0.04] text-cyan-400">
-              <MailIcon className="h-4 w-4" />
-            </span>
+                hover:border-cyan-400/20
+                hover:bg-cyan-400/[0.04]
+                hover:text-cyan-300
+              "
+            >
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/[0.04] text-cyan-400">
+                <MailIcon className="h-4 w-4" />
+              </span>
 
-            <span className="truncate">
-              {email}
-            </span>
-          </a>
+              <span className="truncate">
+                {email}
+              </span>
 
-          <a
-            href={instagram}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="
-              flex
-              min-w-0
-              items-center
-              gap-3
-              rounded-xl
-              border
-              border-white/[0.06]
-              bg-white/[0.025]
-              px-3
-              py-3
-              text-[10px]
-              font-semibold
-              text-slate-400
-              transition
+            </a>
+          )}
 
-              hover:border-pink-400/20
-              hover:bg-pink-400/[0.04]
-              hover:text-pink-300
-            "
-          >
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/[0.04] text-pink-400">
-              <InstagramIcon className="h-4 w-4" />
-            </span>
+          {instagramUrl && (
+            <a
+              href={instagramUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="
+                flex
+                min-w-0
+                items-center
+                gap-3
+                rounded-xl
+                border
+                border-white/[0.06]
+                bg-white/[0.025]
+                px-3
+                py-3
+                text-[10px]
+                font-semibold
+                text-slate-400
+                transition
 
-            <span className="truncate">
-              {instagramHandle}
-            </span>
-          </a>
+                hover:border-pink-400/20
+                hover:bg-pink-400/[0.04]
+                hover:text-pink-300
+              "
+            >
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/[0.04] text-pink-400">
+                <InstagramIcon className="h-4 w-4" />
+              </span>
+
+              <span className="truncate">
+                {instagramHandle || 'Instagram'}
+              </span>
+
+            </a>
+          )}
 
         </div>
 
@@ -450,11 +502,48 @@ function ContactPerson({
 }
 
 /* =========================================================
-   CONTACT US PAGE
+   CONTACT LOADING CARD
+========================================================= */
+
+function ContactLoadingCard() {
+  return (
+    <div className="rounded-[26px] border border-white/[0.08] bg-white/[0.025] p-6">
+
+      <div className="flex items-center gap-4">
+
+        <div className="h-12 w-12 animate-pulse rounded-2xl bg-white/[0.05]" />
+
+        <div className="flex-1">
+
+          <div className="h-4 w-40 animate-pulse rounded bg-white/[0.06]" />
+
+          <div className="mt-2 h-3 w-24 animate-pulse rounded bg-white/[0.04]" />
+
+        </div>
+
+      </div>
+
+      <div className="mt-6 h-3 w-full animate-pulse rounded bg-white/[0.04]" />
+
+      <div className="mt-2 h-3 w-4/5 animate-pulse rounded bg-white/[0.04]" />
+
+      <div className="mt-6 h-12 animate-pulse rounded-xl bg-white/[0.04]" />
+
+      <div className="mt-2 h-12 animate-pulse rounded-xl bg-white/[0.04]" />
+
+    </div>
+  );
+}
+
+/* =========================================================
+   CONTACT PAGE
 ========================================================= */
 
 export default function ContactUs() {
   const reduceMotion = useReducedMotion();
+
+  const [contacts, setContacts] = useState([]);
+  const [contactsLoading, setContactsLoading] = useState(true);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -465,7 +554,78 @@ export default function ContactUs() {
     message: '',
   });
 
-  const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const [formStatus, setFormStatus] = useState({
+    type: '',
+    message: '',
+  });
+
+  /* =======================================================
+     LOAD CONTACT PEOPLE
+  ======================================================= */
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadContactPeople() {
+      try {
+        setContactsLoading(true);
+
+        const {
+          data,
+          error,
+        } = await supabase
+          .from('contact_people')
+          .select(`
+            id,
+            name,
+            role,
+            email,
+            instagram_handle,
+            instagram_url,
+            description,
+            display_order
+          `)
+          .eq('is_active', true)
+          .eq('show_on_contact_page', true)
+          .order('display_order', {
+            ascending: true,
+          });
+
+        if (error) {
+          throw error;
+        }
+
+        if (mounted) {
+          setContacts(data || []);
+        }
+      } catch (error) {
+        console.error(
+          'Failed to load contact people:',
+          error
+        );
+
+        if (mounted) {
+          setContacts([]);
+        }
+      } finally {
+        if (mounted) {
+          setContactsLoading(false);
+        }
+      }
+    }
+
+    loadContactPeople();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  /* =======================================================
+     FORM CHANGE
+  ======================================================= */
 
   function handleChange(event) {
     const {
@@ -473,19 +633,24 @@ export default function ContactUs() {
       value,
     } = event.target;
 
-    setFormData((prev) => ({
-      ...prev,
+    setFormData((previous) => ({
+      ...previous,
       [name]: value,
     }));
 
-    if (error) {
-      setError('');
+    if (formStatus.message) {
+      setFormStatus({
+        type: '',
+        message: '',
+      });
     }
   }
 
-  function handleSubmit(event) {
-    event.preventDefault();
+  /* =======================================================
+     VALIDATION
+  ======================================================= */
 
+  function validateForm() {
     const name =
       formData.name.trim();
 
@@ -496,45 +661,143 @@ export default function ContactUs() {
       formData.message.trim();
 
     if (!name) {
-      setError('Please enter your name.');
-      return;
+      return 'Please enter your name.';
     }
 
     if (!email) {
-      setError('Please enter your email address.');
-      return;
+      return 'Please enter your email address.';
+    }
+
+    const emailPattern =
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!emailPattern.test(email)) {
+      return 'Please enter a valid email address.';
     }
 
     if (!message) {
-      setError('Please enter your message.');
+      return 'Please enter your message.';
+    }
+
+    if (message.length > 5000) {
+      return 'Message is too long.';
+    }
+
+    return '';
+  }
+
+  /* =======================================================
+     SUBMIT TO EDGE FUNCTION
+  ======================================================= */
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+
+    if (submitting) {
       return;
     }
 
-    const subject =
-      `${formData.enquiryType} Enquiry - ${name}`;
+    const validationError =
+      validateForm();
 
-    const body = [
-      'Hello Buddy Fleets,',
-      '',
-      `Name: ${name}`,
-      `Company: ${formData.company.trim() || 'Not provided'}`,
-      `Email: ${email}`,
-      `Mobile: ${formData.mobile.trim() || 'Not provided'}`,
-      `Enquiry Type: ${formData.enquiryType}`,
-      '',
-      'Message:',
-      message,
-      '',
-      'Sent from Buddy Fleets Contact Us page.',
-    ].join('\n');
+    if (validationError) {
+      setFormStatus({
+        type: 'error',
+        message: validationError,
+      });
 
-    const mailto =
-      `mailto:${SHUBHAM_EMAIL}` +
-      `?subject=${encodeURIComponent(subject)}` +
-      `&body=${encodeURIComponent(body)}`;
+      return;
+    }
 
-    window.location.href = mailto;
+    try {
+      setSubmitting(true);
+
+      setFormStatus({
+        type: '',
+        message: '',
+      });
+
+      const {
+        data,
+        error,
+      } = await supabase.functions.invoke(
+        'contact-enquiry',
+        {
+          body: {
+            name:
+              formData.name.trim(),
+
+            company:
+              formData.company.trim(),
+
+            email:
+              formData.email.trim(),
+
+            mobile:
+              formData.mobile.trim(),
+
+            enquiryType:
+              formData.enquiryType,
+
+            message:
+              formData.message.trim(),
+          },
+        }
+      );
+
+      if (error) {
+        console.error(
+          'Contact function error:',
+          error
+        );
+
+        throw new Error(
+          'Unable to submit enquiry.'
+        );
+      }
+
+      if (!data?.success) {
+        throw new Error(
+          data?.message ||
+            'Unable to submit enquiry.'
+        );
+      }
+
+      setFormStatus({
+        type: 'success',
+        message:
+          data?.message ||
+          'Thank you! Your enquiry has been submitted successfully.',
+      });
+
+      setFormData({
+        name: '',
+        company: '',
+        email: '',
+        mobile: '',
+        enquiryType: 'Buddy Fleets',
+        message: '',
+      });
+
+    } catch (error) {
+      console.error(
+        'Contact submission failed:',
+        error
+      );
+
+      setFormStatus({
+        type: 'error',
+        message:
+          'We could not submit your enquiry right now. Please try again.',
+      });
+    } finally {
+      setSubmitting(false);
+    }
   }
+
+  /* =======================================================
+     STYLES
+  ======================================================= */
 
   const inputClass = `
     w-full
@@ -555,6 +818,9 @@ export default function ContactUs() {
     focus:bg-[#0d192d]
     focus:ring-4
     focus:ring-cyan-400/[0.06]
+
+    disabled:cursor-not-allowed
+    disabled:opacity-60
   `;
 
   return (
@@ -575,16 +841,8 @@ export default function ContactUs() {
               reduceMotion
                 ? {}
                 : {
-                    x: [
-                      0,
-                      55,
-                      0,
-                    ],
-                    y: [
-                      0,
-                      25,
-                      0,
-                    ],
+                    x: [0, 55, 0],
+                    y: [0, 25, 0],
                   }
             }
             transition={{
@@ -600,11 +858,7 @@ export default function ContactUs() {
               reduceMotion
                 ? {}
                 : {
-                    x: [
-                      0,
-                      -45,
-                      0,
-                    ],
+                    x: [0, -45, 0],
                   }
             }
             transition={{
@@ -674,9 +928,9 @@ export default function ContactUs() {
 
             <p className="mx-auto mt-6 max-w-2xl text-sm leading-7 text-slate-400 sm:text-base sm:leading-8">
               Have a question about Buddy Fleets, your trial,
-              product capabilities or working with us? Send us
-              your enquiry and connect directly with the people
-              behind the platform.
+              product capabilities or working with us? Send your
+              enquiry and connect directly with the people behind
+              the platform.
             </p>
 
           </motion.div>
@@ -686,7 +940,7 @@ export default function ContactUs() {
       </section>
 
       {/* =====================================================
-          CONTACT FORM + DIRECT CONTACT
+          FORM + DIRECT CONTACT
       ===================================================== */}
 
       <section className="relative py-20 sm:py-24 lg:py-28">
@@ -728,8 +982,8 @@ export default function ContactUs() {
                 </h2>
 
                 <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-400">
-                  Share a few details and your email application
-                  will open with your enquiry already prepared.
+                  Share your details and our team will receive
+                  your enquiry directly.
                 </p>
 
                 <form
@@ -759,6 +1013,8 @@ export default function ContactUs() {
                           name="name"
                           type="text"
                           autoComplete="name"
+                          maxLength={120}
+                          disabled={submitting}
                           value={formData.name}
                           onChange={handleChange}
                           placeholder="Your name"
@@ -789,6 +1045,8 @@ export default function ContactUs() {
                           name="company"
                           type="text"
                           autoComplete="organization"
+                          maxLength={180}
+                          disabled={submitting}
                           value={formData.company}
                           onChange={handleChange}
                           placeholder="Company name"
@@ -819,6 +1077,8 @@ export default function ContactUs() {
                           name="email"
                           type="email"
                           autoComplete="email"
+                          maxLength={254}
+                          disabled={submitting}
                           value={formData.email}
                           onChange={handleChange}
                           placeholder="name@company.com"
@@ -849,6 +1109,8 @@ export default function ContactUs() {
                           name="mobile"
                           type="tel"
                           autoComplete="tel"
+                          maxLength={30}
+                          disabled={submitting}
                           value={formData.mobile}
                           onChange={handleChange}
                           placeholder="+91"
@@ -877,6 +1139,7 @@ export default function ContactUs() {
                       name="enquiryType"
                       value={formData.enquiryType}
                       onChange={handleChange}
+                      disabled={submitting}
                       className={inputClass}
                     >
                       <option value="Buddy Fleets">
@@ -929,6 +1192,8 @@ export default function ContactUs() {
                         id="message"
                         name="message"
                         rows="6"
+                        maxLength={5000}
+                        disabled={submitting}
                         value={formData.message}
                         onChange={handleChange}
                         placeholder="Tell us how we can help..."
@@ -937,13 +1202,46 @@ export default function ContactUs() {
 
                     </div>
 
+                    <div className="mt-2 text-right text-[9px] font-semibold text-slate-600">
+                      {formData.message.length}/5000
+                    </div>
+
                   </div>
 
-                  {/* ERROR */}
+                  {/* STATUS */}
 
-                  {error && (
-                    <div className="mt-4 rounded-xl border border-red-400/15 bg-red-400/[0.05] px-4 py-3 text-xs font-semibold text-red-300">
-                      {error}
+                  {formStatus.message && (
+                    <div
+                      className={`
+                        mt-5
+                        flex
+                        items-start
+                        gap-3
+                        rounded-xl
+                        border
+                        px-4
+                        py-3
+                        text-xs
+                        font-semibold
+
+                        ${
+                          formStatus.type === 'success'
+                            ? 'border-emerald-400/15 bg-emerald-400/[0.05] text-emerald-300'
+                            : 'border-red-400/15 bg-red-400/[0.05] text-red-300'
+                        }
+                      `}
+                    >
+
+                      {formStatus.type === 'success' ? (
+                        <CheckCircleIcon className="mt-0.5 h-4 w-4 shrink-0" />
+                      ) : (
+                        <AlertIcon className="mt-0.5 h-4 w-4 shrink-0" />
+                      )}
+
+                      <span>
+                        {formStatus.message}
+                      </span>
+
                     </div>
                   )}
 
@@ -951,6 +1249,7 @@ export default function ContactUs() {
 
                   <button
                     type="submit"
+                    disabled={submitting}
                     className="
                       group
                       mt-6
@@ -976,12 +1275,28 @@ export default function ContactUs() {
                       hover:-translate-y-0.5
                       hover:shadow-cyan-500/20
 
+                      disabled:cursor-not-allowed
+                      disabled:opacity-60
+                      disabled:hover:translate-y-0
+
                       sm:w-auto
                     "
                   >
-                    Send Enquiry
 
-                    <SendIcon className="h-4 w-4 transition-transform group-hover:translate-x-1 group-hover:-translate-y-0.5" />
+                    {submitting ? (
+                      <>
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+
+                        Sending Enquiry...
+                      </>
+                    ) : (
+                      <>
+                        Send Enquiry
+
+                        <SendIcon className="h-4 w-4 transition-transform group-hover:translate-x-1 group-hover:-translate-y-0.5" />
+                      </>
+                    )}
+
                   </button>
 
                 </form>
@@ -1011,9 +1326,9 @@ export default function ContactUs() {
                 </h2>
 
                 <p className="mt-4 text-sm leading-7 text-slate-400">
-                  Buddy Fleets is being built with both technology
-                  and transport business operations in mind. Reach
-                  the relevant founder directly below.
+                  Reach the Buddy Fleets team directly for
+                  product, technology, sales, business or
+                  partnership-related discussions.
                 </p>
 
               </div>
@@ -1022,33 +1337,52 @@ export default function ContactUs() {
 
             <div className="space-y-4">
 
-              <Reveal delay={0.05}>
+              {contactsLoading ? (
+                <>
+                  <ContactLoadingCard />
+                  <ContactLoadingCard />
+                </>
+              ) : contacts.length > 0 ? (
 
-                <ContactPerson
-                  name="Shubham Jangir"
-                  role="Founder & Developer"
-                  description="For platform, technology, product development and technical enquiries related to Buddy Fleets."
-                  email={SHUBHAM_EMAIL}
-                  instagram={SHUBHAM_INSTAGRAM}
-                  instagramHandle="@happiest_banda"
-                  accent="cyan"
-                />
+                contacts.map((contact, index) => (
+                  <Reveal
+                    key={contact.id}
+                    delay={
+                      index *
+                      0.06
+                    }
+                  >
+                    <ContactPerson
+                      name={contact.name}
+                      role={contact.role}
+                      description={contact.description}
+                      email={contact.email}
+                      instagramUrl={contact.instagram_url}
+                      instagramHandle={contact.instagram_handle}
+                      index={index}
+                    />
+                  </Reveal>
+                ))
 
-              </Reveal>
+              ) : (
 
-              <Reveal delay={0.1}>
+                <div className="rounded-[26px] border border-white/[0.08] bg-white/[0.025] p-6">
 
-                <ContactPerson
-                  name="Navin Sharma"
-                  role="Founder"
-                  description="For operations, business development, sales, partnerships and product-related discussions."
-                  email={NAVIN_EMAIL}
-                  instagram={NAVIN_INSTAGRAM}
-                  instagramHandle="@navin.sharma"
-                  accent="violet"
-                />
+                  <MailIcon className="h-6 w-6 text-cyan-400" />
 
-              </Reveal>
+                  <h3 className="mt-4 text-lg font-black text-white">
+                    Send us an enquiry
+                  </h3>
+
+                  <p className="mt-2 text-sm leading-7 text-slate-400">
+                    Direct contact information is temporarily
+                    unavailable. You can still use the enquiry
+                    form and our team will receive your message.
+                  </p>
+
+                </div>
+
+              )}
 
             </div>
 
@@ -1059,7 +1393,7 @@ export default function ContactUs() {
       </section>
 
       {/* =====================================================
-          CONTACT REASONS
+          ENQUIRY TYPES
       ===================================================== */}
 
       <section className="border-y border-white/[0.05] bg-[#070d19] py-20 sm:py-24">
@@ -1118,7 +1452,10 @@ export default function ContactUs() {
             ].map((item, index) => (
               <Reveal
                 key={item.number}
-                delay={index * 0.05}
+                delay={
+                  index *
+                  0.05
+                }
               >
 
                 <motion.div
@@ -1142,6 +1479,7 @@ export default function ContactUs() {
                     sm:p-6
                   "
                 >
+
                   <span className="text-[9px] font-black tracking-[0.2em] text-cyan-400/60">
                     {item.number}
                   </span>
@@ -1211,8 +1549,8 @@ export default function ContactUs() {
               Start your 5-day free trial and explore Buddy Fleets.
             </p>
 
-            <a
-              href="/signup"
+            <Link
+              to="/signup"
               className="
                 group
                 mt-8
@@ -1243,7 +1581,7 @@ export default function ContactUs() {
               Start 5-Day Free Trial
 
               <ArrowIcon className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-            </a>
+            </Link>
 
           </Reveal>
 
