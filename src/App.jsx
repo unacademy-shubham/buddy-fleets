@@ -1,4 +1,6 @@
 import React, {
+  Suspense,
+  lazy,
   useCallback,
   useEffect,
   useRef,
@@ -16,37 +18,61 @@ import {
 import { supabase } from './supabaseClient';
 
 /* =========================================================
-   LAYOUTS
+   LAYOUT
 ========================================================= */
 
 import WebsiteLayout from './layouts/WebsiteLayout';
-import AuthLayout from './layouts/AuthLayout';
 
 /* =========================================================
-   WEBSITE
+   ROUTE-LEVEL CODE SPLITTING
+
+   Public + Auth + Dashboard pages lazy load honge.
+   Isse initial JS bundle smaller hoga.
 ========================================================= */
 
-import Home from './pages/Website/Home';
-import Features from './pages/Website/Features';
-import Pricing from './pages/Website/Pricing';
-import AboutUs from './pages/Website/AboutUs';
-import ContactUs from './pages/Website/ContactUs';
+const Home = lazy(() =>
+  import('./pages/Website/Home')
+);
 
-/* =========================================================
-   AUTH
-========================================================= */
+const Features = lazy(() =>
+  import('./pages/Website/Features')
+);
 
-import Login from './pages/Auth/Login';
-import Signup from './pages/Auth/Signup';
-import ForgotID from './pages/Auth/ForgotID';
-import ConfirmationPage from './pages/Auth/ConfirmationPage';
-import ResetPassword from './pages/Auth/ResetPassword';
+const Pricing = lazy(() =>
+  import('./pages/Website/Pricing')
+);
 
-/* =========================================================
-   DASHBOARD
-========================================================= */
+const AboutUs = lazy(() =>
+  import('./pages/Website/AboutUs')
+);
 
-import SuperAdminDashboard from './pages/Dashboard/SuperAdminDashboard';
+const ContactUs = lazy(() =>
+  import('./pages/Website/ContactUs')
+);
+
+const Login = lazy(() =>
+  import('./pages/Auth/Login')
+);
+
+const Signup = lazy(() =>
+  import('./pages/Auth/Signup')
+);
+
+const ForgotID = lazy(() =>
+  import('./pages/Auth/ForgotID')
+);
+
+const ConfirmationPage = lazy(() =>
+  import('./pages/Auth/ConfirmationPage')
+);
+
+const ResetPassword = lazy(() =>
+  import('./pages/Auth/ResetPassword')
+);
+
+const SuperAdminDashboard = lazy(() =>
+  import('./pages/Dashboard/SuperAdminDashboard')
+);
 
 /* =========================================================
    STORAGE KEYS
@@ -95,13 +121,156 @@ const ACTIVITY_THROTTLE_MS =
   15 * 1000;
 
 /* =========================================================
+   PAGE CHUNK LOADER
+
+   WebsiteLayout ke andar use hoga.
+   Header/footer visible rahenge.
+========================================================= */
+
+function PageChunkLoader() {
+  return (
+    <div
+      className="
+        flex
+        min-h-[320px]
+        flex-1
+        items-center
+        justify-center
+        bg-[#0a0f1d]
+        px-4
+        py-12
+      "
+    >
+      <div className="flex flex-col items-center gap-4">
+        <div
+          className="
+            flex
+            h-11
+            w-11
+            items-center
+            justify-center
+            rounded-2xl
+            bg-gradient-to-br
+            from-cyan-400
+            via-blue-500
+            to-violet-600
+            text-xs
+            font-black
+            text-white
+            shadow-lg
+            shadow-cyan-500/15
+          "
+        >
+          BF
+        </div>
+
+        <div
+          aria-label="Loading page"
+          role="status"
+          className="
+            h-7
+            w-7
+            animate-spin
+            rounded-full
+            border-2
+            border-cyan-400/20
+            border-t-cyan-300
+          "
+        />
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================
+   DASHBOARD / FULL SCREEN LOADER
+========================================================= */
+
+function FullScreenLoader() {
+  return (
+    <div
+      className="
+        flex
+        min-h-screen
+        min-h-[100dvh]
+        items-center
+        justify-center
+        bg-[#050914]
+        px-4
+        font-sans
+        text-white
+      "
+    >
+      <div className="flex flex-col items-center gap-4">
+        <div
+          className="
+            flex
+            h-12
+            w-12
+            items-center
+            justify-center
+            rounded-2xl
+            bg-gradient-to-br
+            from-cyan-400
+            via-blue-500
+            to-violet-600
+            text-xs
+            font-black
+            shadow-lg
+            shadow-cyan-500/20
+          "
+        >
+          BF
+        </div>
+
+        <div
+          aria-label="Restoring secure session"
+          role="status"
+          className="
+            h-8
+            w-8
+            animate-spin
+            rounded-full
+            border-2
+            border-cyan-400/25
+            border-t-cyan-300
+          "
+        />
+
+        <p
+          className="
+            text-[10px]
+            font-bold
+            uppercase
+            tracking-[0.18em]
+            text-slate-500
+          "
+        >
+          Restoring Secure Session...
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================
+   LAZY PAGE WRAPPER
+========================================================= */
+
+function LazyPage({ children }) {
+  return (
+    <Suspense fallback={<PageChunkLoader />}>
+      {children}
+    </Suspense>
+  );
+}
+
+/* =========================================================
    SCROLL TO TOP
 ========================================================= */
 
 function ScrollToTop() {
-  const {
-    pathname,
-  } = useLocation();
+  const { pathname } = useLocation();
 
   useEffect(() => {
     window.scrollTo({
@@ -109,9 +278,7 @@ function ScrollToTop() {
       left: 0,
       behavior: 'instant',
     });
-  }, [
-    pathname,
-  ]);
+  }, [pathname]);
 
   return null;
 }
@@ -123,18 +290,59 @@ function ScrollToTop() {
 
    /auth/confirmation
 
-   kahin configured reh gaya ho, query/hash preserve karke
+   configured reh gaya ho, query/hash preserve karke
    /confirm par redirect karega.
 ========================================================= */
 
 function LegacyConfirmationRedirect() {
-  const location =
-    useLocation();
+  const location = useLocation();
 
   return (
     <Navigate
       replace
       to={`/confirm${location.search}${location.hash}`}
+    />
+  );
+}
+
+/* =========================================================
+   LEGACY CONTACT REDIRECT
+
+   Old:
+   /contact
+
+   New canonical:
+   /contact-us
+========================================================= */
+
+function LegacyContactRedirect() {
+  const location = useLocation();
+
+  return (
+    <Navigate
+      replace
+      to={`/contact-us${location.search}${location.hash}`}
+    />
+  );
+}
+
+/* =========================================================
+   LEGACY FORGOT ID REDIRECT
+
+   Old:
+   /forgot-id
+
+   Canonical:
+   /forgot-password
+========================================================= */
+
+function LegacyForgotRedirect() {
+  const location = useLocation();
+
+  return (
+    <Navigate
+      replace
+      to={`/forgot-password${location.search}${location.hash}`}
     />
   );
 }
@@ -299,8 +507,6 @@ function createPlatformAdminContext({
 
    This ordering is intentional.
 
-   Example:
-
    Platform Admin normal Company Code se company workspace me
    login kare to refresh ke baad bhi company context me hi
    rahega.
@@ -313,9 +519,7 @@ async function buildUserContext(
   authUser,
   preferredCompanyId = null
 ) {
-  if (
-    !authUser?.id
-  ) {
+  if (!authUser?.id) {
     return null;
   }
 
@@ -323,9 +527,7 @@ async function buildUserContext(
      EMAIL MUST BE CONFIRMED
   ======================================================= */
 
-  if (
-    !authUser.email_confirmed_at
-  ) {
+  if (!authUser.email_confirmed_at) {
     return null;
   }
 
@@ -334,15 +536,11 @@ async function buildUserContext(
   ======================================================= */
 
   const {
-    data:
-      profile,
-    error:
-      profileError,
+    data: profile,
+    error: profileError,
   } =
     await supabase
-      .from(
-        'profiles'
-      )
+      .from('profiles')
       .select(
         'id, full_name, email, mobile'
       )
@@ -352,9 +550,7 @@ async function buildUserContext(
       )
       .maybeSingle();
 
-  if (
-    profileError
-  ) {
+  if (profileError) {
     console.error(
       'Profile context error:',
       profileError
@@ -363,26 +559,17 @@ async function buildUserContext(
 
   /* =======================================================
      COMPANY CONTEXT HAS PRIORITY
-
-     Successful normal company login ke baad selected company
-     localStorage me stored hoti hai.
-
-     Agar preferredCompanyId available hai, pehle company
-     authorization verify karenge.
   ======================================================= */
 
-  if (
-    preferredCompanyId
-  ) {
+  if (preferredCompanyId) {
+
     /* =====================================================
        MEMBERSHIP
     ===================================================== */
 
     const {
-      data:
-        membership,
-      error:
-        membershipError,
+      data: membership,
+      error: membershipError,
     } =
       await supabase
         .from(
@@ -412,9 +599,7 @@ async function buildUserContext(
       membershipError ||
       !membership
     ) {
-      if (
-        membershipError
-      ) {
+      if (membershipError) {
         console.error(
           'Membership context error:',
           membershipError
@@ -438,15 +623,11 @@ async function buildUserContext(
     ===================================================== */
 
     const {
-      data:
-        company,
-      error:
-        companyError,
+      data: company,
+      error: companyError,
     } =
       await supabase
-        .from(
-          'companies'
-        )
+        .from('companies')
         .select(
           `
             id,
@@ -467,9 +648,7 @@ async function buildUserContext(
       companyError ||
       !company
     ) {
-      if (
-        companyError
-      ) {
+      if (companyError) {
         console.error(
           'Company context error:',
           companyError
@@ -499,15 +678,11 @@ async function buildUserContext(
     ===================================================== */
 
     const {
-      data:
-        subscription,
-      error:
-        subscriptionError,
+      data: subscription,
+      error: subscriptionError,
     } =
       await supabase
-        .from(
-          'subscriptions'
-        )
+        .from('subscriptions')
         .select(
           `
             status,
@@ -524,9 +699,7 @@ async function buildUserContext(
         )
         .maybeSingle();
 
-    if (
-      subscriptionError
-    ) {
+    if (subscriptionError) {
       console.error(
         'Subscription context error:',
         subscriptionError
@@ -689,10 +862,8 @@ async function buildUserContext(
   ======================================================= */
 
   const {
-    data:
-      platformAdmin,
-    error:
-      platformAdminError,
+    data: platformAdmin,
+    error: platformAdminError,
   } =
     await supabase
       .from(
@@ -711,9 +882,7 @@ async function buildUserContext(
       )
       .maybeSingle();
 
-  if (
-    platformAdminError
-  ) {
+  if (platformAdminError) {
     console.error(
       'Platform admin context error:',
       platformAdminError
@@ -762,46 +931,140 @@ function CompanyDashboardPending({
     'trial_expired';
 
   return (
-    <div className="flex min-h-[100dvh] flex-col bg-[#050914] text-white">
-
-      {/* MAIN */}
-
-      <main className="flex flex-1 items-center justify-center px-4 py-10 sm:px-6">
-
-        <div className="w-full max-w-xl rounded-[28px] border border-white/10 bg-[#07101f]/95 p-6 text-center shadow-2xl shadow-black/50 sm:p-8">
-
-          {/* LOGO */}
-
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-400 via-blue-500 to-violet-600 text-sm font-black">
+    <div
+      className="
+        flex
+        min-h-screen
+        min-h-[100dvh]
+        flex-col
+        bg-[#050914]
+        text-white
+      "
+    >
+      <main
+        className="
+          flex
+          flex-1
+          items-center
+          justify-center
+          px-4
+          py-10
+          sm:px-6
+        "
+      >
+        <div
+          className="
+            w-full
+            max-w-xl
+            rounded-[28px]
+            border
+            border-white/10
+            bg-[#07101f]/95
+            p-6
+            text-center
+            shadow-2xl
+            shadow-black/50
+            sm:p-8
+          "
+        >
+          <div
+            className="
+              mx-auto
+              flex
+              h-14
+              w-14
+              items-center
+              justify-center
+              rounded-2xl
+              bg-gradient-to-br
+              from-cyan-400
+              via-blue-500
+              to-violet-600
+              text-sm
+              font-black
+            "
+          >
             BF
           </div>
 
           {isTrialExpired ? (
             <>
-              <p className="mt-5 text-[10px] font-bold uppercase tracking-[0.2em] text-amber-300">
+              <p
+                className="
+                  mt-5
+                  text-[10px]
+                  font-bold
+                  uppercase
+                  tracking-[0.2em]
+                  text-amber-300
+                "
+              >
                 Trial Expired
               </p>
 
-              <h1 className="mt-2 text-2xl font-black sm:text-3xl">
+              <h1
+                className="
+                  mt-2
+                  text-2xl
+                  font-black
+                  sm:text-3xl
+                "
+              >
                 Your free trial has ended.
               </h1>
 
-              <p className="mx-auto mt-3 max-w-md text-xs leading-6 text-slate-400 sm:text-sm">
+              <p
+                className="
+                  mx-auto
+                  mt-3
+                  max-w-md
+                  text-xs
+                  leading-6
+                  text-slate-400
+                  sm:text-sm
+                "
+              >
                 Your account remains accessible, but operational
                 modules are restricted until a subscription is activated.
               </p>
             </>
           ) : (
             <>
-              <p className="mt-5 text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-300">
+              <p
+                className="
+                  mt-5
+                  text-[10px]
+                  font-bold
+                  uppercase
+                  tracking-[0.2em]
+                  text-cyan-300
+                "
+              >
                 Secure Company Workspace
               </p>
 
-              <h1 className="mt-2 text-2xl font-black sm:text-3xl">
+              <h1
+                className="
+                  mt-2
+                  text-2xl
+                  font-black
+                  sm:text-3xl
+                "
+              >
                 Welcome to Buddy Fleets
               </h1>
 
-              <p className="mx-auto mt-3 max-w-md text-xs leading-6 text-slate-400 sm:text-sm">
+              <p
+                className="
+                  mx-auto
+                  mt-3
+                  max-w-md
+                  text-xs
+                  leading-6
+                  text-slate-400
+                  sm:text-sm
+                "
+              >
                 Your company authentication is active. The customer
                 fleet dashboard will be connected here in the next
                 development phase.
@@ -809,51 +1072,121 @@ function CompanyDashboardPending({
             </>
           )}
 
-          {/* COMPANY INFO */}
-
-          <div className="mt-6 grid gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4 text-left sm:grid-cols-2">
-
+          <div
+            className="
+              mt-6
+              grid
+              gap-3
+              rounded-2xl
+              border
+              border-white/[0.07]
+              bg-white/[0.025]
+              p-4
+              text-left
+              sm:grid-cols-2
+            "
+          >
             <div>
-              <p className="text-[8px] font-bold uppercase tracking-[0.15em] text-slate-500">
+              <p
+                className="
+                  text-[8px]
+                  font-bold
+                  uppercase
+                  tracking-[0.15em]
+                  text-slate-500
+                "
+              >
                 Company
               </p>
 
-              <p className="mt-1 break-words text-xs font-bold text-white">
+              <p
+                className="
+                  mt-1
+                  break-words
+                  text-xs
+                  font-bold
+                  text-white
+                "
+              >
                 {currentUser?.companyName}
               </p>
             </div>
 
             <div>
-              <p className="text-[8px] font-bold uppercase tracking-[0.15em] text-slate-500">
+              <p
+                className="
+                  text-[8px]
+                  font-bold
+                  uppercase
+                  tracking-[0.15em]
+                  text-slate-500
+                "
+              >
                 Company Code
               </p>
 
-              <p className="mt-1 text-xs font-bold text-cyan-300">
+              <p
+                className="
+                  mt-1
+                  text-xs
+                  font-bold
+                  text-cyan-300
+                "
+              >
                 {currentUser?.companyCode}
               </p>
             </div>
 
             <div>
-              <p className="text-[8px] font-bold uppercase tracking-[0.15em] text-slate-500">
+              <p
+                className="
+                  text-[8px]
+                  font-bold
+                  uppercase
+                  tracking-[0.15em]
+                  text-slate-500
+                "
+              >
                 User
               </p>
 
-              <p className="mt-1 break-all text-xs font-medium text-slate-300">
+              <p
+                className="
+                  mt-1
+                  break-all
+                  text-xs
+                  font-medium
+                  text-slate-300
+                "
+              >
                 {currentUser?.email}
               </p>
             </div>
 
             <div>
-              <p className="text-[8px] font-bold uppercase tracking-[0.15em] text-slate-500">
+              <p
+                className="
+                  text-[8px]
+                  font-bold
+                  uppercase
+                  tracking-[0.15em]
+                  text-slate-500
+                "
+              >
                 Account Status
               </p>
 
               <p
-                className={`mt-1 text-xs font-bold ${
-                  isTrialExpired
-                    ? 'text-amber-300'
-                    : 'text-emerald-300'
-                }`}
+                className={`
+                  mt-1
+                  text-xs
+                  font-bold
+                  ${
+                    isTrialExpired
+                      ? 'text-amber-300'
+                      : 'text-emerald-300'
+                  }
+                `}
               >
                 {currentUser
                   ?.companyStatus
@@ -864,31 +1197,55 @@ function CompanyDashboardPending({
                   ?.toUpperCase()}
               </p>
             </div>
-
           </div>
-
-          {/* LOGOUT */}
 
           <button
             type="button"
-            onClick={
-              onLogout
-            }
-            className="mt-6 rounded-xl border border-white/10 bg-white/[0.05] px-6 py-3 text-xs font-bold text-slate-200 transition hover:bg-white/[0.1] hover:text-white"
+            onClick={onLogout}
+            className="
+              mt-6
+              rounded-xl
+              border
+              border-white/10
+              bg-white/[0.05]
+              px-6
+              py-3
+              text-xs
+              font-bold
+              text-slate-200
+              transition-colors
+              duration-200
+              hover:bg-white/[0.1]
+              hover:text-white
+              focus-visible:outline-none
+              focus-visible:ring-2
+              focus-visible:ring-cyan-400/70
+            "
           >
             Logout
           </button>
-
         </div>
-
       </main>
 
-      {/* FOOTER */}
-
-      <footer className="border-t border-white/[0.05] bg-[#030712]/95 px-4 py-4 text-center">
-
-        <p className="text-[9px] font-medium tracking-wide text-slate-400 sm:text-[10px]">
-
+      <footer
+        className="
+          border-t
+          border-white/[0.05]
+          bg-[#030712]/95
+          px-4
+          py-4
+          text-center
+        "
+      >
+        <p
+          className="
+            text-[9px]
+            font-medium
+            tracking-wide
+            text-slate-400
+            sm:text-[10px]
+          "
+        >
           <span className="mr-1">
             ©
           </span>
@@ -899,34 +1256,86 @@ function CompanyDashboardPending({
             href="https://example.com"
             target="_blank"
             rel="noopener noreferrer"
-            className="font-bold text-white underline decoration-slate-600 underline-offset-2 transition hover:text-cyan-300 hover:decoration-cyan-400"
+            className="
+              font-bold
+              text-white
+              underline
+              decoration-slate-600
+              underline-offset-2
+              transition-colors
+              hover:text-cyan-300
+              hover:decoration-cyan-400
+            "
           >
             BUDDY COMPUTERS
           </a>
 
           . All rights reserved.
-
         </p>
 
-        <p className="mt-1.5 text-[8px] font-semibold uppercase tracking-[0.18em] text-slate-400 sm:text-[9px]">
-
+        <p
+          className="
+            mt-1.5
+            text-[8px]
+            font-semibold
+            uppercase
+            tracking-[0.18em]
+            text-slate-400
+            sm:text-[9px]
+          "
+        >
           DESIGNED BY{' '}
 
           <a
             href="https://www.instagram.com/happiest_banda"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-purple-400 underline decoration-purple-400 underline-offset-2 transition hover:text-purple-300"
+            className="
+              text-purple-400
+              underline
+              decoration-purple-400
+              underline-offset-2
+              transition-colors
+              hover:text-purple-300
+            "
           >
             SHUBHAM JANGIR
           </a>
-
         </p>
-
       </footer>
-
     </div>
   );
+}
+
+/* =========================================================
+   AUTH ROUTE GATE
+
+   Public website ko session restoration ke liye block nahi
+   karenge.
+
+   Sirf Login / Signup / Forgot pages user state resolve hone
+   ka wait karenge, taaki redirect flash na ho.
+========================================================= */
+
+function AuthGuestRoute({
+  isSessionLoading,
+  currentUser,
+  children,
+}) {
+  if (isSessionLoading) {
+    return <PageChunkLoader />;
+  }
+
+  if (currentUser) {
+    return (
+      <Navigate
+        to="/dashboard"
+        replace
+      />
+    );
+  }
+
+  return children;
 }
 
 /* =========================================================
@@ -1229,9 +1638,7 @@ export default function App() {
             return null;
           }
 
-          if (
-            context
-          ) {
+          if (context) {
             setCurrentUser(
               context
             );
@@ -1262,15 +1669,13 @@ export default function App() {
   /* =========================================================
      INITIAL SESSION RESTORE
 
-     Authority:
+     IMPORTANT CHANGE:
 
-     Supabase session
-          +
-     getUser()
-          +
-     Database authorization
+     Public website ko restore complete hone tak blank/loading
+     screen par block nahi karenge.
 
-     NOT localStorage user object.
+     Auth-sensitive routes individually isSessionLoading
+     handle karenge.
   ========================================================= */
 
   useEffect(() => {
@@ -1298,9 +1703,7 @@ export default function App() {
               .auth
               .getSession();
 
-          if (
-            sessionError
-          ) {
+          if (sessionError) {
             throw sessionError;
           }
 
@@ -1407,9 +1810,7 @@ export default function App() {
             return;
           }
 
-          if (
-            context
-          ) {
+          if (context) {
             setCurrentUser(
               context
             );
@@ -1813,80 +2214,6 @@ export default function App() {
     );
 
   /* =========================================================
-     SESSION LOADING
-  ========================================================= */
-
-  if (
-    isSessionLoading
-  ) {
-    return (
-      <div className="flex min-h-[100dvh] flex-col bg-[#050914] font-sans text-white">
-
-        <div className="flex flex-1 items-center justify-center">
-
-          <div className="flex flex-col items-center gap-4">
-
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-400 via-blue-500 to-violet-600 text-xs font-black shadow-lg shadow-cyan-500/20">
-              BF
-            </div>
-
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-cyan-400/25 border-t-cyan-300" />
-
-            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">
-              Restoring Secure Session...
-            </p>
-
-          </div>
-
-        </div>
-
-        {/* FOOTER */}
-
-        <footer className="border-t border-white/[0.05] bg-[#030712]/95 px-4 py-3 text-center">
-
-          <p className="text-[8px] text-slate-500 sm:text-[9px]">
-
-            <span className="mr-1">
-              ©
-            </span>
-
-            Copyright by{' '}
-
-            <a
-              href="https://example.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-bold text-slate-300 underline decoration-slate-600 underline-offset-2 transition hover:text-cyan-300"
-            >
-              BUDDY COMPUTERS
-            </a>
-
-            . All rights reserved.
-
-          </p>
-
-          <p className="mt-1 text-[7px] font-semibold uppercase tracking-[0.16em] text-slate-500 sm:text-[8px]">
-
-            DESIGNED BY{' '}
-
-            <a
-              href="https://www.instagram.com/happiest_banda"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-purple-400 underline"
-            >
-              SHUBHAM JANGIR
-            </a>
-
-          </p>
-
-        </footer>
-
-      </div>
-    );
-  }
-
-  /* =========================================================
      ROUTES
   ========================================================= */
 
@@ -1898,7 +2225,14 @@ export default function App() {
       <Routes>
 
         {/* ===================================================
-            PUBLIC WEBSITE
+            PUBLIC WEBSITE + AUTH
+
+            SAME WEBSITE LAYOUT:
+            Header
+              ↓
+            Outlet
+              ↓
+            Footer
         =================================================== */}
 
         <Route
@@ -1907,79 +2241,84 @@ export default function App() {
           }
         >
 
+          {/* HOME */}
+
           <Route
             path="/"
             element={
-              <Home />
+              <LazyPage>
+                <Home />
+              </LazyPage>
             }
           />
+
+          {/* FEATURES */}
 
           <Route
             path="/features"
             element={
-              <Features />
+              <LazyPage>
+                <Features />
+              </LazyPage>
             }
           />
+
+          {/* PRICING */}
 
           <Route
             path="/pricing"
             element={
-              <Pricing />
+              <LazyPage>
+                <Pricing />
+              </LazyPage>
             }
           />
+
+          {/* ABOUT US */}
 
           <Route
             path="/about"
             element={
-              <AboutUs />
+              <LazyPage>
+                <AboutUs />
+              </LazyPage>
             }
           />
+
+          {/* CONTACT US */}
 
           <Route
-            path="/contact"
+            path="/contact-us"
             element={
-              <ContactUs />
+              <LazyPage>
+                <ContactUs />
+              </LazyPage>
             }
           />
 
-        </Route>
-
-        {/* ===================================================
-            AUTH PAGES
-
-            Common:
-            AuthLayout.jsx
-              ↓
-            Navbar
-              ↓
-            <Outlet />
-              ↓
-            Footer
-        =================================================== */}
-
-        <Route
-          element={
-            <AuthLayout />
-          }
-        >
-
-          {/* LOGIN */}
+          {/* ===============================================
+              LOGIN
+          =============================================== */}
 
           <Route
             path="/login"
             element={
-              currentUser ? (
-                <Navigate
-                  to="/dashboard"
-                  replace
-                />
-              ) : (
-                <Login
-                  onLoginSuccess={
-                    handleLoginSuccess
-                  }
-                />
-              )
+              <AuthGuestRoute
+                isSessionLoading={
+                  isSessionLoading
+                }
+                currentUser={
+                  currentUser
+                }
+              >
+                <LazyPage>
+                  <Login
+                    onLoginSuccess={
+                      handleLoginSuccess
+                    }
+                  />
+                </LazyPage>
+              </AuthGuestRoute>
             }
           />
 
@@ -1995,97 +2334,103 @@ export default function App() {
           <Route
             path="/signup"
             element={
-              currentUser ? (
-                <Navigate
-                  to="/dashboard"
-                  replace
-                />
-              ) : (
-                <Signup />
-              )
+              <AuthGuestRoute
+                isSessionLoading={
+                  isSessionLoading
+                }
+                currentUser={
+                  currentUser
+                }
+              >
+                <LazyPage>
+                  <Signup />
+                </LazyPage>
+              </AuthGuestRoute>
             }
           />
 
           {/* ===============================================
               FORGOT PASSWORD
-
-              Canonical URL:
-              /forgot-password
           =============================================== */}
 
           <Route
             path="/forgot-password"
             element={
-              currentUser ? (
-                <Navigate
-                  to="/dashboard"
-                  replace
-                />
-              ) : (
-                <ForgotID />
-              )
-            }
-          />
-
-          {/* ===============================================
-              LEGACY FORGOT URL
-
-              File ka naam ForgotID.jsx retained hai.
-          =============================================== */}
-
-          <Route
-            path="/forgot-id"
-            element={
-              currentUser ? (
-                <Navigate
-                  to="/dashboard"
-                  replace
-                />
-              ) : (
-                <ForgotID />
-              )
+              <AuthGuestRoute
+                isSessionLoading={
+                  isSessionLoading
+                }
+                currentUser={
+                  currentUser
+                }
+              >
+                <LazyPage>
+                  <ForgotID />
+                </LazyPage>
+              </AuthGuestRoute>
             }
           />
 
           {/* ===============================================
               EMAIL CONFIRMATION
 
-              IMPORTANT:
-              currentUser guard nahi lagana.
+              No currentUser guard intentionally.
 
-              Supabase confirmation link temporary session
-              create kar sakta hai.
+              Supabase confirmation temporary session create
+              kar sakta hai.
           =============================================== */}
 
           <Route
             path="/confirm"
             element={
-              <ConfirmationPage />
+              <LazyPage>
+                <ConfirmationPage />
+              </LazyPage>
             }
           />
 
           {/* ===============================================
               RESET PASSWORD
 
-              IMPORTANT:
-              currentUser guard nahi lagana.
-
-              Reset workflow independent public auth route hai.
+              No currentUser guard intentionally.
           =============================================== */}
 
           <Route
             path="/reset-password"
             element={
-              <ResetPassword />
+              <LazyPage>
+                <ResetPassword />
+              </LazyPage>
             }
           />
 
         </Route>
 
         {/* ===================================================
+            LEGACY CONTACT URL
+        =================================================== */}
+
+        <Route
+          path="/contact"
+          element={
+            <LegacyContactRedirect />
+          }
+        />
+
+        {/* ===================================================
+            LEGACY FORGOT URL
+        =================================================== */}
+
+        <Route
+          path="/forgot-id"
+          element={
+            <LegacyForgotRedirect />
+          }
+        />
+
+        {/* ===================================================
             LEGACY CONFIRMATION URL
 
-            AuthLayout ke bahar redirect.
             Query/hash preserve hoga.
         =================================================== */}
 
@@ -2098,12 +2443,20 @@ export default function App() {
 
         {/* ===================================================
             PROTECTED DASHBOARD
+
+            WebsiteLayout intentionally nahi.
+
+            Dashboard application workspace hai.
         =================================================== */}
 
         <Route
           path="/dashboard"
           element={
-            !currentUser ? (
+            isSessionLoading ? (
+
+              <FullScreenLoader />
+
+            ) : !currentUser ? (
 
               <Navigate
                 to="/login"
@@ -2113,31 +2466,27 @@ export default function App() {
             ) : currentUser
                 .isPlatformAdmin ? (
 
-              /* ===========================================
-                 PLATFORM SUPER ADMIN ONLY
-              =========================================== */
-
-              <SuperAdminDashboard
-                currentUser={
-                  currentUser
+              <Suspense
+                fallback={
+                  <FullScreenLoader />
                 }
-                onLogout={() =>
-                  handleLogout(
-                    false
-                  )
-                }
-                onUserUpdate={
-                  handleUserUpdate
-                }
-              />
+              >
+                <SuperAdminDashboard
+                  currentUser={
+                    currentUser
+                  }
+                  onLogout={() =>
+                    handleLogout(
+                      false
+                    )
+                  }
+                  onUserUpdate={
+                    handleUserUpdate
+                  }
+                />
+              </Suspense>
 
             ) : (
-
-              /* ===========================================
-                 COMPANY CUSTOMER
-
-                 Never SuperAdminDashboard.
-              =========================================== */
 
               <CompanyDashboardPending
                 currentUser={

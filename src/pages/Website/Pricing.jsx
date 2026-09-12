@@ -1,8 +1,12 @@
-import React, { useMemo, useState } from 'react';
+import React, {
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
+
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
+
 import {
-  ArrowRight,
   Check,
   ChevronDown,
   Crown,
@@ -13,7 +17,7 @@ import {
 } from 'lucide-react';
 
 /* =========================================================
-   PRICING DATA
+   SUBSCRIPTION DURATIONS
 ========================================================= */
 
 const DURATIONS = [
@@ -35,10 +39,22 @@ const DURATIONS = [
   },
 ];
 
+/* =========================================================
+   PRICING PLANS
+
+   IMPORTANT:
+   Prices / vehicle limits / user limits / site limits
+   are preserved from the existing pricing page.
+
+   Feature wording stays within approved Buddy Fleets scope.
+========================================================= */
+
 const PLANS = [
   {
     id: 'launch',
+
     name: 'Launch',
+
     tagline:
       'Essential fleet control for getting started.',
 
@@ -55,10 +71,13 @@ const PLANS = [
       Rocket,
 
     accent:
-      'from-cyan-400 via-blue-500 to-blue-700',
+      'from-[#12BFF2] via-[#078EE5] to-[#075bb8]',
 
-    glow:
-      'rgba(34, 211, 238, 0.20)',
+    accentSoft:
+      'bg-cyan-500/[0.07]',
+
+    accentText:
+      'text-cyan-500',
 
     prices: {
       1: 7000,
@@ -71,18 +90,20 @@ const PLANS = [
       '1–10 Vehicles',
       '2 Users',
       '1 Site',
-      'Vehicle & Driver Management',
+      'Vehicle & Driver Records',
       'Vehicle & Driver Documents',
       'Document Expiry Alerts',
-      'Expense & Fuel Tracking',
+      'Expenses & Fuel Records',
       'Maintenance Records',
-      'Basic Dashboard',
+      'Dashboard & Reports',
     ],
   },
 
   {
     id: 'accelerate',
+
     name: 'Accelerate',
+
     tagline:
       'Smarter operations for growing fleets.',
 
@@ -99,10 +120,13 @@ const PLANS = [
       TrendingUp,
 
     accent:
-      'from-blue-500 via-indigo-500 to-violet-600',
+      'from-[#078EE5] via-[#087bd0] to-[#0AA23B]',
 
-    glow:
-      'rgba(99, 102, 241, 0.20)',
+    accentSoft:
+      'bg-blue-500/[0.07]',
+
+    accentText:
+      'text-blue-500',
 
     prices: {
       1: 13000,
@@ -116,19 +140,21 @@ const PLANS = [
       '5 Users',
       '2 Sites',
       'Everything in Launch',
-      'Earning Monitoring',
-      'Driver Payments',
-      'Maintenance Alerts',
-      'Duty / Dispatch Allocation',
-      'Advanced Dashboard & Reports',
+      'Expenses & Earnings',
+      'Driver Advances & Payments',
+      'Workshop & Maintenance',
+      'Duty & Dispatch Allocation',
+      'Dashboard & Reports',
     ],
   },
 
   {
     id: 'scale',
+
     name: 'Scale',
+
     tagline:
-      'Advanced control for large fleet operations.',
+      'Connected control for larger fleet operations.',
 
     fleet:
       '51–200 Vehicles',
@@ -143,10 +169,13 @@ const PLANS = [
       Gauge,
 
     accent:
-      'from-violet-500 via-purple-500 to-fuchsia-600',
+      'from-[#078EE5] via-[#0b96b7] to-[#0AA23B]',
 
-    glow:
-      'rgba(168, 85, 247, 0.22)',
+    accentSoft:
+      'bg-emerald-500/[0.07]',
+
+    accentText:
+      'text-emerald-500',
 
     badge:
       'MOST POPULAR',
@@ -163,19 +192,21 @@ const PLANS = [
       '10 Users',
       '3 Sites',
       'Everything in Accelerate',
-      'LR / Builty / Consignment Notes',
-      'ePOD Management',
-      'Advanced Expense Reports',
-      'Site-wise Reports',
-      'Vehicle Performance Reports',
+      'LR / Bilty / Consignment Records',
+      'ePOD & Delivery Records',
+      'Invoices & Settlements',
+      'Party Records & Ledgers',
+      'Role & Site Access',
     ],
   },
 
   {
     id: 'apex',
+
     name: 'Apex',
+
     tagline:
-      'Complete operational control at enterprise scale.',
+      'Complete operational coverage for large fleets.',
 
     fleet:
       '201+ Vehicles',
@@ -190,10 +221,13 @@ const PLANS = [
       Crown,
 
     accent:
-      'from-amber-400 via-orange-500 to-rose-600',
+      'from-[#078EE5] via-[#0b9f74] to-[#0AA23B]',
 
-    glow:
-      'rgba(251, 146, 60, 0.18)',
+    accentSoft:
+      'bg-emerald-500/[0.07]',
+
+    accentText:
+      'text-emerald-500',
 
     prices: {
       1: 30000,
@@ -207,16 +241,17 @@ const PLANS = [
       '20 Users',
       '4 Sites',
       'Everything in Scale',
-      'Advanced Fleet Reports',
-      'Custom Report Filters',
-      'Company-wide Operational Reports',
-      'Advanced User & Role Control',
+      'Trip & Route Planning',
+      'Challan Records',
+      'Tyre Management',
+      'Spare Parts Management',
+      'Document & Compliance Alerts',
     ],
   },
 ];
 
 /* =========================================================
-   FORMAT PRICE
+   PRICE FORMATTER
 ========================================================= */
 
 function formatPrice(value) {
@@ -229,7 +264,312 @@ function formatPrice(value) {
 }
 
 /* =========================================================
+   CUSTOM DURATION DROPDOWN
+
+   No native <select>.
+========================================================= */
+
+function DurationPicker({
+  planId,
+  value,
+  onChange,
+}) {
+  const [
+    isOpen,
+    setIsOpen,
+  ] = useState(false);
+
+  const wrapperRef =
+    useRef(null);
+
+  const selectedOption =
+    DURATIONS.find(
+      (item) =>
+        item.months === value
+    ) || DURATIONS[0];
+
+  /* =======================================================
+     CLICK OUTSIDE
+  ======================================================= */
+
+  useEffect(() => {
+    if (!isOpen) {
+      return undefined;
+    }
+
+    const handleOutside =
+      (event) => {
+        if (
+          wrapperRef.current &&
+          !wrapperRef.current.contains(
+            event.target
+          )
+        ) {
+          setIsOpen(false);
+        }
+      };
+
+    document.addEventListener(
+      'mousedown',
+      handleOutside
+    );
+
+    document.addEventListener(
+      'touchstart',
+      handleOutside,
+      {
+        passive: true,
+      }
+    );
+
+    return () => {
+      document.removeEventListener(
+        'mousedown',
+        handleOutside
+      );
+
+      document.removeEventListener(
+        'touchstart',
+        handleOutside
+      );
+    };
+  }, [
+    isOpen,
+  ]);
+
+  /* =======================================================
+     ESCAPE KEY
+  ======================================================= */
+
+  useEffect(() => {
+    if (!isOpen) {
+      return undefined;
+    }
+
+    const handleKeyDown =
+      (event) => {
+        if (
+          event.key ===
+          'Escape'
+        ) {
+          setIsOpen(false);
+        }
+      };
+
+    document.addEventListener(
+      'keydown',
+      handleKeyDown
+    );
+
+    return () => {
+      document.removeEventListener(
+        'keydown',
+        handleKeyDown
+      );
+    };
+  }, [
+    isOpen,
+  ]);
+
+  return (
+    <div
+      ref={wrapperRef}
+      className="
+        relative
+        z-30
+      "
+    >
+      <p
+        id={`${planId}-duration-label`}
+        className="
+          mb-1.5
+          text-[8px]
+          font-black
+          uppercase
+          tracking-[0.15em]
+          text-[color:var(--bf-text-muted)]
+        "
+      >
+        Subscription Duration
+      </p>
+
+      <button
+        type="button"
+        aria-labelledby={`${planId}-duration-label`}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        onClick={() =>
+          setIsOpen(
+            (previous) =>
+              !previous
+          )
+        }
+        className="
+          flex
+          h-10
+          w-full
+          items-center
+          justify-between
+          gap-3
+
+          rounded-xl
+          border
+          border-[color:var(--bf-border)]
+
+          bg-[var(--bf-page-bg)]
+
+          px-3.5
+
+          text-left
+          text-[11px]
+          font-bold
+
+          text-[color:var(--bf-text-primary)]
+
+          transition
+          duration-200
+
+          hover:border-cyan-400/30
+
+          focus-visible:outline-none
+          focus-visible:ring-2
+          focus-visible:ring-cyan-400
+        "
+      >
+        <span>
+          {selectedOption.label}
+        </span>
+
+        <ChevronDown
+          size={14}
+          aria-hidden="true"
+          className={`
+            shrink-0
+            text-[color:var(--bf-text-muted)]
+            transition-transform
+            duration-200
+
+            ${
+              isOpen
+                ? 'rotate-180'
+                : ''
+            }
+          `}
+        />
+      </button>
+
+      {/* OPTIONS */}
+
+      {isOpen && (
+        <div
+          role="listbox"
+          aria-labelledby={`${planId}-duration-label`}
+          className="
+            absolute
+            left-0
+            right-0
+            top-[calc(100%+6px)]
+            z-50
+
+            overflow-hidden
+
+            rounded-xl
+            border
+            border-[color:var(--bf-border)]
+
+            bg-[var(--bf-surface)]
+
+            p-1.5
+
+            shadow-2xl
+            shadow-black/25
+
+            backdrop-blur-2xl
+          "
+        >
+          {DURATIONS.map(
+            (option) => {
+              const isSelected =
+                option.months ===
+                value;
+
+              return (
+                <button
+                  key={
+                    option.months
+                  }
+                  type="button"
+                  role="option"
+                  aria-selected={
+                    isSelected
+                  }
+                  onClick={() => {
+                    onChange(
+                      option.months
+                    );
+
+                    setIsOpen(
+                      false
+                    );
+                  }}
+                  className={`
+                    flex
+                    w-full
+                    items-center
+                    justify-between
+                    gap-3
+
+                    rounded-lg
+
+                    px-3
+                    py-2.5
+
+                    text-left
+                    text-[11px]
+                    font-semibold
+
+                    transition
+                    duration-150
+
+                    ${
+                      isSelected
+                        ? `
+                          bg-cyan-500/[0.09]
+                          text-cyan-500
+                        `
+                        : `
+                          text-[color:var(--bf-text-secondary)]
+                          hover:bg-cyan-500/[0.05]
+                          hover:text-[color:var(--bf-text-primary)]
+                        `
+                    }
+                  `}
+                >
+                  <span>
+                    {option.label}
+                  </span>
+
+                  {isSelected && (
+                    <Check
+                      size={13}
+                      aria-hidden="true"
+                    />
+                  )}
+                </button>
+              );
+            }
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* =========================================================
    PLAN VISUAL
+
+   Static visual.
+   No Framer Motion.
 ========================================================= */
 
 function PlanVisual({
@@ -240,106 +580,150 @@ function PlanVisual({
 
   return (
     <div
-      className="relative h-[160px] overflow-hidden rounded-[22px] border border-white/10 bg-[#09111f]"
-      style={{
-        boxShadow:
-          `0 20px 60px ${plan.glow}`,
-      }}
+      className="
+        relative
+        h-[112px]
+        overflow-hidden
+        rounded-[18px]
+        border
+        border-white/10
+        bg-[#09111f]
+      "
     >
-
-      {/* GRADIENT BACKGROUND */}
+      {/* GRADIENT */}
 
       <div
-        className={`absolute inset-0 bg-gradient-to-br ${plan.accent} opacity-30`}
+        className={`
+          absolute
+          inset-0
+          bg-gradient-to-br
+          ${plan.accent}
+          opacity-25
+        `}
       />
 
       {/* GRID */}
 
       <div
-        className="absolute inset-0 opacity-[0.12]"
+        aria-hidden="true"
+        className="
+          absolute
+          inset-0
+          opacity-[0.08]
+        "
         style={{
           backgroundImage:
-            `
-              linear-gradient(rgba(255,255,255,0.25) 1px, transparent 1px),
-              linear-gradient(90deg, rgba(255,255,255,0.25) 1px, transparent 1px)
-            `,
-
+            'linear-gradient(rgba(255,255,255,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.3) 1px, transparent 1px)',
           backgroundSize:
-            '28px 28px',
-
-          transform:
-            'perspective(500px) rotateX(58deg) scale(1.7)',
-
-          transformOrigin:
-            'bottom',
+            '24px 24px',
         }}
       />
 
       {/* GLOW */}
 
       <div
-        className={`absolute -right-10 -top-14 h-40 w-40 rounded-full bg-gradient-to-br ${plan.accent} opacity-30 blur-3xl`}
+        aria-hidden="true"
+        className={`
+          absolute
+          -right-10
+          -top-14
+          h-36
+          w-36
+          rounded-full
+          bg-gradient-to-br
+          ${plan.accent}
+          opacity-25
+          blur-3xl
+        `}
       />
-
-      {/* ROAD */}
-
-      <div className="absolute bottom-0 left-1/2 h-[80px] w-[160%] -translate-x-1/2 bg-gradient-to-t from-black/80 to-transparent">
-
-        <div className="absolute bottom-5 left-1/2 h-[2px] w-[70%] -translate-x-1/2 bg-gradient-to-r from-transparent via-white/40 to-transparent" />
-
-        <div className="absolute bottom-10 left-1/2 h-[1px] w-[50%] -translate-x-1/2 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-
-      </div>
 
       {/* ICON */}
 
-      <div className="absolute inset-0 flex items-center justify-center">
+      <div
+        className="
+          absolute
+          inset-0
+          flex
+          items-center
+          justify-center
+        "
+      >
+        <div
+          className="
+            flex
+            h-14
+            w-14
+            items-center
+            justify-center
 
-        <motion.div
-          animate={{
-            y: [0, -5, 0],
-          }}
-          transition={{
-            duration: 4,
-            repeat: Infinity,
-            ease: 'easeInOut',
-          }}
-          className="relative flex h-20 w-20 items-center justify-center rounded-[24px] border border-white/15 bg-black/25 shadow-2xl backdrop-blur-md"
+            rounded-2xl
+
+            border
+            border-white/15
+
+            bg-black/25
+
+            text-white
+
+            shadow-xl
+            backdrop-blur-md
+          "
         >
-
           <Icon
-            size={36}
-            strokeWidth={1.6}
-            className="text-white"
+            size={27}
+            strokeWidth={1.7}
+            aria-hidden="true"
           />
-
-          <div
-            className={`absolute inset-0 -z-10 rounded-[24px] bg-gradient-to-br ${plan.accent} opacity-20 blur-xl`}
-          />
-
-        </motion.div>
-
+        </div>
       </div>
 
-      {/* LABEL */}
+      {/* FLEET LABEL */}
 
-      <div className="absolute bottom-4 left-4">
+      <div
+        className="
+          absolute
+          bottom-3
+          left-3
+        "
+      >
+        <div
+          className="
+            flex
+            items-center
+            gap-1.5
 
-        <div className="flex items-center gap-2 rounded-full border border-white/10 bg-black/30 px-3 py-1.5 backdrop-blur-md">
+            rounded-full
 
+            border
+            border-white/10
+
+            bg-black/35
+
+            px-2.5
+            py-1
+
+            backdrop-blur-md
+          "
+        >
           <Truck
-            size={12}
+            size={10}
+            aria-hidden="true"
             className="text-cyan-300"
           />
 
-          <span className="text-[9px] font-bold uppercase tracking-[0.13em] text-slate-200">
+          <span
+            className="
+              text-[8px]
+              font-bold
+              uppercase
+              tracking-[0.1em]
+              text-slate-200
+            "
+          >
             {plan.fleet}
           </span>
-
         </div>
-
       </div>
-
     </div>
   );
 }
@@ -379,60 +763,115 @@ function PriceBlock({
     duration === 1
   ) {
     return (
-      <div className="min-h-[92px]">
-
-        <div className="flex items-end gap-1.5">
-
-          <span className="text-3xl font-black tracking-tight text-white xl:text-[34px]">
-            ₹{formatPrice(
+      <div>
+        <div
+          className="
+            flex
+            items-end
+            gap-1.5
+          "
+        >
+          <span
+            className="
+              text-[28px]
+              font-black
+              tracking-tight
+              text-[color:var(--bf-text-primary)]
+            "
+          >
+            ₹
+            {formatPrice(
               totalPrice
             )}
           </span>
 
-          <span className="pb-1 text-xs font-medium text-slate-500">
+          <span
+            className="
+              pb-1
+              text-[10px]
+              font-medium
+              text-[color:var(--bf-text-muted)]
+            "
+          >
             / month
           </span>
-
         </div>
 
-        <p className="mt-2 text-[11px] text-slate-500">
+        <p
+          className="
+            mt-1
+            text-[9px]
+            text-[color:var(--bf-text-muted)]
+          "
+        >
           Monthly subscription
         </p>
-
       </div>
     );
   }
 
   return (
-    <div className="min-h-[92px]">
-
-      <div className="text-3xl font-black tracking-tight text-white xl:text-[34px]">
-        ₹{formatPrice(
+    <div>
+      <div
+        className="
+          text-[28px]
+          font-black
+          tracking-tight
+          text-[color:var(--bf-text-primary)]
+        "
+      >
+        ₹
+        {formatPrice(
           totalPrice
         )}
       </div>
 
-      <div className="mt-1.5 flex flex-wrap items-center gap-2">
-
-        <span className="text-xs font-medium text-slate-400">
-          (₹
+      <div
+        className="
+          mt-1
+          flex
+          flex-wrap
+          items-center
+          gap-2
+        "
+      >
+        <span
+          className="
+            text-[10px]
+            font-medium
+            text-[color:var(--bf-text-muted)]
+          "
+        >
+          ₹
           {formatPrice(
             effectiveMonthly
           )}{' '}
-          / month)
+          / month
         </span>
 
         {savings > 0 && (
-          <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-1 text-[9px] font-bold uppercase tracking-wide text-emerald-300">
+          <span
+            className="
+              rounded-full
+              border
+              border-emerald-500/20
+              bg-emerald-500/[0.08]
+              px-2
+              py-1
+              text-[8px]
+              font-black
+              uppercase
+              tracking-wide
+              text-emerald-500
+            "
+          >
             Save ₹
             {formatPrice(
               savings
             )}
           </span>
         )}
-
       </div>
-
     </div>
   );
 }
@@ -447,162 +886,379 @@ function PlanCard({
   const [
     duration,
     setDuration,
-  ] =
-    useState(1);
+  ] = useState(1);
+
+  const Icon =
+    plan.icon;
+
+  const isPopular =
+    Boolean(plan.badge);
 
   return (
     <article
-      className={`relative flex h-full min-w-0 flex-col border-white/[0.08] bg-[#07101f]/80 px-5 py-6 backdrop-blur-xl lg:border-r lg:px-5 xl:px-6 ${
-        plan.id ===
-        'launch'
-          ? 'lg:border-l'
-          : ''
-      }`}
+      className={`
+        relative
+        flex
+        min-w-0
+        flex-col
+
+        rounded-[24px]
+
+        border
+
+        bg-[var(--bf-surface)]
+
+        p-4
+
+        shadow-sm
+
+        transition
+        duration-200
+
+        hover:-translate-y-0.5
+
+        ${
+          isPopular
+            ? `
+              border-cyan-400/35
+              shadow-lg
+              shadow-cyan-950/10
+            `
+            : `
+              border-[color:var(--bf-border)]
+              hover:border-cyan-400/25
+            `
+        }
+      `}
     >
+      {/* =====================================================
+          PLAN HEADER
+      ===================================================== */}
 
-      {/* BADGE */}
+      <div
+        className="
+          flex
+          items-start
+          justify-between
+          gap-3
+        "
+      >
+        <div
+          className="
+            flex
+            min-w-0
+            items-center
+            gap-2.5
+          "
+        >
+          <div
+            className={`
+              flex
+              h-9
+              w-9
+              shrink-0
+              items-center
+              justify-center
+              rounded-xl
+              ${plan.accentSoft}
+              ${plan.accentText}
+            `}
+          >
+            <Icon
+              size={17}
+              aria-hidden="true"
+            />
+          </div>
 
-      <div className="min-h-[28px]">
+          <div className="min-w-0">
+            <h2
+              className="
+                text-xl
+                font-black
+                tracking-tight
+                text-[color:var(--bf-text-primary)]
+              "
+            >
+              {plan.name}
+            </h2>
+
+            <p
+              className="
+                mt-0.5
+                text-[9px]
+                font-semibold
+                text-[color:var(--bf-text-muted)]
+              "
+            >
+              {plan.fleet}
+            </p>
+          </div>
+        </div>
 
         {plan.badge && (
           <span
-            className={`inline-flex rounded-full bg-gradient-to-r ${plan.accent} px-3 py-1 text-[8px] font-black uppercase tracking-[0.16em] text-white shadow-lg`}
+            className="
+              shrink-0
+              rounded-full
+              bg-gradient-to-r
+              from-[#12BFF2]
+              via-[#078EE5]
+              to-[#0AA23B]
+              px-2.5
+              py-1
+              text-[7px]
+              font-black
+              uppercase
+              tracking-[0.12em]
+              text-white
+            "
           >
             {plan.badge}
           </span>
         )}
-
       </div>
 
-      {/* PLAN NAME */}
+      <p
+        className="
+          mt-3
+          min-h-[38px]
+          text-[11px]
+          leading-5
+          text-[color:var(--bf-text-muted)]
+        "
+      >
+        {plan.tagline}
+      </p>
+
+      {/* =====================================================
+          VISUAL
+      ===================================================== */}
 
       <div className="mt-3">
-
-        <h2 className="text-[24px] font-black tracking-tight text-white">
-          {plan.name}
-        </h2>
-
-        <p className="mt-2 min-h-[42px] text-[11px] leading-5 text-slate-400">
-          {plan.tagline}
-        </p>
-
-      </div>
-
-      {/* VISUAL */}
-
-      <div className="mt-5">
         <PlanVisual
           plan={plan}
         />
       </div>
 
-      {/* PRICE */}
+      {/* =====================================================
+          LIMITS
+      ===================================================== */}
 
-      <div className="mt-6">
+      <div
+        className="
+          mt-3
+          grid
+          grid-cols-3
+          gap-2
+        "
+      >
+        <div
+          className="
+            rounded-xl
+            border
+            border-[color:var(--bf-border)]
+            bg-[var(--bf-page-bg)]
+            px-2
+            py-2.5
+            text-center
+          "
+        >
+          <p
+            className="
+              text-[7px]
+              font-bold
+              uppercase
+              tracking-wide
+              text-[color:var(--bf-text-muted)]
+            "
+          >
+            Fleet
+          </p>
 
+          <p
+            className="
+              mt-1
+              text-[9px]
+              font-black
+              text-[color:var(--bf-text-primary)]
+            "
+          >
+            {plan.fleet}
+          </p>
+        </div>
+
+        <div
+          className="
+            rounded-xl
+            border
+            border-[color:var(--bf-border)]
+            bg-[var(--bf-page-bg)]
+            px-2
+            py-2.5
+            text-center
+          "
+        >
+          <p
+            className="
+              text-[7px]
+              font-bold
+              uppercase
+              tracking-wide
+              text-[color:var(--bf-text-muted)]
+            "
+          >
+            Users
+          </p>
+
+          <p
+            className="
+              mt-1
+              text-[9px]
+              font-black
+              text-[color:var(--bf-text-primary)]
+            "
+          >
+            {plan.users}
+          </p>
+        </div>
+
+        <div
+          className="
+            rounded-xl
+            border
+            border-[color:var(--bf-border)]
+            bg-[var(--bf-page-bg)]
+            px-2
+            py-2.5
+            text-center
+          "
+        >
+          <p
+            className="
+              text-[7px]
+              font-bold
+              uppercase
+              tracking-wide
+              text-[color:var(--bf-text-muted)]
+            "
+          >
+            Sites
+          </p>
+
+          <p
+            className="
+              mt-1
+              text-[9px]
+              font-black
+              text-[color:var(--bf-text-primary)]
+            "
+          >
+            {plan.sites}
+          </p>
+        </div>
+      </div>
+
+      {/* =====================================================
+          PRICE
+      ===================================================== */}
+
+      <div className="mt-4">
         <PriceBlock
           plan={plan}
           duration={
             duration
           }
         />
-
       </div>
 
-      {/* DURATION */}
+      {/* =====================================================
+          CUSTOM DURATION PICKER
+      ===================================================== */}
 
-      <div className="relative mt-4">
-
-        <label
-          htmlFor={`${plan.id}-duration`}
-          className="mb-2 block text-[9px] font-bold uppercase tracking-[0.16em] text-slate-500"
-        >
-          Subscription Duration
-        </label>
-
-        <div className="relative">
-
-          <select
-            id={`${plan.id}-duration`}
-            value={duration}
-            onChange={(
-              event
-            ) =>
-              setDuration(
-                Number(
-                  event
-                    .target
-                    .value
-                )
-              )
-            }
-            className="h-12 w-full appearance-none rounded-xl border border-white/10 bg-white/[0.04] px-4 pr-11 text-xs font-bold text-white outline-none transition hover:border-cyan-400/30 focus:border-cyan-400/60 focus:bg-white/[0.06]"
-          >
-
-            {DURATIONS.map(
-              (
-                durationOption
-              ) => (
-                <option
-                  key={
-                    durationOption.months
-                  }
-                  value={
-                    durationOption.months
-                  }
-                  className="bg-[#07101f] text-white"
-                >
-                  {
-                    durationOption.label
-                  }
-                </option>
-              )
-            )}
-
-          </select>
-
-          <ChevronDown
-            size={15}
-            className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-400"
-          />
-
-        </div>
-
+      <div className="mt-4">
+        <DurationPicker
+          planId={plan.id}
+          value={duration}
+          onChange={
+            setDuration
+          }
+        />
       </div>
 
-      {/* CTA */}
+      {/* =====================================================
+          CTA
+      ===================================================== */}
 
       <Link
         to="/signup"
-        className={`mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r ${plan.accent} px-4 text-xs font-black text-white shadow-lg transition duration-300 hover:-translate-y-0.5 hover:brightness-110`}
+        className={`
+          mt-4
+          flex
+          h-10
+          w-full
+          items-center
+          justify-center
+
+          rounded-xl
+
+          bg-gradient-to-r
+          ${plan.accent}
+
+          px-4
+
+          text-[11px]
+          font-black
+          text-white
+
+          shadow-md
+
+          transition
+          duration-200
+
+          hover:-translate-y-0.5
+          hover:brightness-110
+
+          focus-visible:outline-none
+          focus-visible:ring-2
+          focus-visible:ring-cyan-400
+        `}
       >
         Choose {plan.name}
-
-        <ArrowRight
-          size={14}
-        />
       </Link>
 
-      {/* DIVIDER */}
+      {/* =====================================================
+          FEATURES
+      ===================================================== */}
 
-      <div className="my-6 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-
-      {/* FEATURES */}
-
-      <div className="flex-1">
-
-        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white">
+      <div
+        className="
+          mt-5
+          flex-1
+        "
+      >
+        <p
+          className="
+            text-[9px]
+            font-black
+            uppercase
+            tracking-[0.15em]
+            text-[color:var(--bf-text-primary)]
+          "
+        >
           What you get
         </p>
 
-        <div className="mt-4 space-y-3">
-
+        <div
+          className="
+            mt-3
+            space-y-2.5
+          "
+        >
           {plan.features.map(
             (
               feature,
               index
             ) => {
-
               const isInherited =
                 feature.startsWith(
                   'Everything in'
@@ -611,43 +1267,68 @@ function PlanCard({
               return (
                 <div
                   key={`${plan.id}-${index}`}
-                  className="flex items-start gap-2.5"
+                  className="
+                    flex
+                    items-start
+                    gap-2
+                  "
                 >
-
                   <div
-                    className={`mt-[1px] flex h-4 w-4 shrink-0 items-center justify-center rounded-full ${
-                      isInherited
-                        ? 'bg-violet-400/10 text-violet-300'
-                        : 'bg-emerald-400/10 text-emerald-300'
-                    }`}
+                    className={`
+                      mt-[2px]
+                      flex
+                      h-4
+                      w-4
+                      shrink-0
+                      items-center
+                      justify-center
+                      rounded-full
+
+                      ${
+                        isInherited
+                          ? `
+                            bg-blue-500/[0.08]
+                            text-blue-500
+                          `
+                          : `
+                            bg-emerald-500/[0.08]
+                            text-emerald-500
+                          `
+                      }
+                    `}
                   >
-
                     <Check
-                      size={10}
+                      size={9}
                       strokeWidth={3}
+                      aria-hidden="true"
                     />
-
                   </div>
 
                   <span
-                    className={`text-[11px] leading-5 ${
-                      isInherited
-                        ? 'font-bold text-slate-300'
-                        : 'text-slate-400'
-                    }`}
+                    className={`
+                      text-[10px]
+                      leading-5
+
+                      ${
+                        isInherited
+                          ? `
+                            font-bold
+                            text-[color:var(--bf-text-secondary)]
+                          `
+                          : `
+                            text-[color:var(--bf-text-muted)]
+                          `
+                      }
+                    `}
                   >
                     {feature}
                   </span>
-
                 </div>
               );
             }
           )}
-
         </div>
-
       </div>
-
     </article>
   );
 }
@@ -657,194 +1338,522 @@ function PlanCard({
 ========================================================= */
 
 export default function Pricing() {
-  const plans =
-    useMemo(
-      () => PLANS,
-      []
-    );
-
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#050914] text-white">
+    <div
+      className="
+        relative
+        isolate
+        overflow-hidden
 
-      {/* BACKGROUND */}
+        bg-[var(--bf-page-bg)]
+        text-[color:var(--bf-text-primary)]
 
-      <div className="pointer-events-none absolute inset-0">
+        transition-colors
+        duration-300
+      "
+    >
+      {/* =====================================================
+          GLOBAL BACKGROUND
+      ===================================================== */}
 
-        <div className="absolute left-[8%] top-[6%] h-[340px] w-[340px] rounded-full bg-cyan-500/10 blur-[120px]" />
+      <div
+        aria-hidden="true"
+        className="
+          pointer-events-none
+          absolute
+          inset-0
+          -z-10
+          overflow-hidden
+        "
+      >
+        <div
+          className="
+            absolute
+            inset-0
+            bg-[var(--bf-page-bg)]
+          "
+        />
 
-        <div className="absolute right-[5%] top-[14%] h-[420px] w-[420px] rounded-full bg-violet-600/10 blur-[140px]" />
+        {/* GRID */}
 
         <div
-          className="absolute inset-0 opacity-[0.035]"
+          className="
+            absolute
+            inset-0
+            opacity-[0.04]
+          "
           style={{
             backgroundImage:
-              `
-                linear-gradient(rgba(255,255,255,0.4) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255,255,255,0.4) 1px, transparent 1px)
-              `,
-
+              'linear-gradient(rgba(100,116,139,0.28) 1px, transparent 1px), linear-gradient(90deg, rgba(100,116,139,0.28) 1px, transparent 1px)',
             backgroundSize:
-              '48px 48px',
+              '72px 72px',
           }}
         />
 
+        {/* STATIC GLOWS */}
+
+        <div
+          className="
+            absolute
+            -left-40
+            top-16
+            h-[400px]
+            w-[400px]
+            rounded-full
+            bg-cyan-500/[0.07]
+            blur-[120px]
+          "
+        />
+
+        <div
+          className="
+            absolute
+            -right-40
+            top-[28rem]
+            h-[440px]
+            w-[440px]
+            rounded-full
+            bg-blue-500/[0.06]
+            blur-[130px]
+          "
+        />
+
+        <div
+          className="
+            absolute
+            bottom-[8%]
+            left-[38%]
+            h-[350px]
+            w-[350px]
+            rounded-full
+            bg-emerald-500/[0.04]
+            blur-[110px]
+          "
+        />
       </div>
 
-      <main className="relative z-10">
+      {/* =====================================================
+          HERO
+      ===================================================== */}
 
-        {/* HERO */}
+      <section
+        className="
+          relative
+          px-5
+          pb-7
+          pt-8
+          text-center
 
-        <section className="px-4 pb-10 pt-16 text-center sm:px-6 sm:pt-20 lg:pb-14 lg:pt-24">
+          sm:px-8
+          sm:pb-8
+          sm:pt-10
 
-          <motion.div
-            initial={{
-              opacity: 0,
-              y: 20,
-            }}
-            animate={{
-              opacity: 1,
-              y: 0,
-            }}
-            transition={{
-              duration: 0.55,
-            }}
-            className="mx-auto max-w-4xl"
+          lg:px-12
+          lg:pt-12
+        "
+      >
+        <div
+          className="
+            mx-auto
+            max-w-4xl
+          "
+        >
+          {/* BADGE */}
+
+          <div
+            className="
+              inline-flex
+              items-center
+              gap-2.5
+
+              rounded-full
+
+              border
+              border-cyan-400/20
+
+              bg-cyan-400/[0.06]
+
+              px-4
+              py-2
+            "
           >
+            <span
+              className="
+                h-1.5
+                w-1.5
+                rounded-full
+                bg-cyan-400
+                shadow-[0_0_10px_rgba(34,211,238,0.65)]
+              "
+            />
 
-            <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/15 bg-cyan-400/[0.06] px-4 py-2">
-
-              <span className="h-1.5 w-1.5 rounded-full bg-cyan-300 shadow-[0_0_12px_rgba(34,211,238,0.9)]" />
-
-              <span className="text-[9px] font-black uppercase tracking-[0.2em] text-cyan-300">
-                Buddy Fleets Pricing
-              </span>
-
-            </div>
-
-            <h1 className="mt-6 text-4xl font-black tracking-[-0.04em] text-white sm:text-5xl lg:text-6xl">
-
-              Choose the plan that
-
-              <span className="bg-gradient-to-r from-cyan-300 via-blue-400 to-violet-400 bg-clip-text text-transparent">
-                {' '}moves with your fleet.
-              </span>
-
-            </h1>
-
-            <p className="mx-auto mt-5 max-w-2xl text-sm leading-7 text-slate-400 sm:text-[15px]">
-              Compare all four Buddy Fleets plans side by side.
-              Choose your subscription duration and instantly see
-              the total price, effective monthly cost and savings.
-            </p>
-
-          </motion.div>
-
-        </section>
-
-        {/* PLAN COMPARISON */}
-
-        <section className="px-4 pb-20 sm:px-6 lg:px-8">
-
-          <div className="mx-auto max-w-[1500px]">
-
-            {/* MOBILE HELP */}
-
-            <div className="mb-3 flex items-center justify-between lg:hidden">
-
-              <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-slate-500">
-                Swipe to compare plans
-              </span>
-
-              <ArrowRight
-                size={14}
-                className="text-slate-500"
-              />
-
-            </div>
-
-            {/* CARDS */}
-
-            <div className="overflow-x-auto rounded-[26px] border border-white/[0.08] bg-[#07101f]/50 shadow-[0_30px_100px_rgba(0,0,0,0.35)]">
-
-              <div className="grid min-w-[1160px] grid-cols-4 lg:min-w-0">
-
-                {plans.map(
-                  (
-                    plan
-                  ) => (
-                    <PlanCard
-                      key={
-                        plan.id
-                      }
-                      plan={
-                        plan
-                      }
-                    />
-                  )
-                )}
-
-              </div>
-
-            </div>
-
-            {/* NOTE */}
-
-            <p className="mt-5 text-center text-[10px] leading-5 text-slate-500">
-              Choose a duration independently for each plan to compare
-              the effective monthly value before selecting your subscription.
-            </p>
-
+            <span
+              className="
+                text-[9px]
+                font-black
+                uppercase
+                tracking-[0.18em]
+                text-cyan-500
+              "
+            >
+              Buddy Fleets Pricing
+            </span>
           </div>
 
-        </section>
+          {/* TITLE */}
 
-        {/* BOTTOM CTA */}
+          <h1
+            className="
+              mx-auto
+              mt-4
+              max-w-4xl
 
-        <section className="border-t border-white/[0.06] px-4 py-16 sm:px-6">
+              text-[clamp(2.1rem,4.6vw,3.7rem)]
+              font-black
+              leading-[1.05]
+              tracking-[-0.03em]
+            "
+          >
+            <span
+              className="
+                bg-gradient-to-r
+                from-[#12BFF2]
+                via-[#078EE5]
+                to-[#0AA23B]
+                bg-clip-text
+                text-transparent
+              "
+            >
+              Choose the plan that moves with your fleet.
+            </span>
+          </h1>
 
-          <div className="mx-auto max-w-4xl rounded-[30px] border border-white/[0.08] bg-gradient-to-br from-white/[0.055] to-white/[0.015] px-6 py-10 text-center shadow-2xl backdrop-blur-xl sm:px-10">
+          {/* DESCRIPTION */}
 
-            <p className="text-[9px] font-black uppercase tracking-[0.2em] text-cyan-300">
-              Start with Buddy Fleets
-            </p>
+          <p
+            className="
+              mx-auto
+              mt-4
+              max-w-2xl
 
-            <h2 className="mt-3 text-2xl font-black text-white sm:text-3xl">
-              Not sure which plan fits your fleet?
-            </h2>
+              text-sm
+              leading-7
 
-            <p className="mx-auto mt-3 max-w-xl text-xs leading-6 text-slate-400 sm:text-sm">
-              Start your 5-day free trial or speak with us to
-              understand which plan best matches your operations.
-            </p>
+              text-[color:var(--bf-text-secondary)]
 
-            <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              sm:text-base
+            "
+          >
+            Compare all four Buddy Fleets plans, choose your
+            subscription duration and instantly see the total
+            price, effective monthly cost and savings.
+          </p>
+        </div>
+      </section>
 
-              <Link
-                to="/signup"
-                className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-400 via-blue-500 to-violet-600 px-6 text-xs font-black text-white shadow-lg shadow-blue-500/15 transition hover:-translate-y-0.5 hover:brightness-110 sm:w-auto"
-              >
-                Start 5-Day Free Trial
+      {/* =====================================================
+          PLAN GRID
 
-                <ArrowRight
-                  size={14}
+          Responsive:
+          Mobile  = 1
+          Tablet  = 2
+          Laptop+ = 4
+      ===================================================== */}
+
+      <section
+        className="
+          relative
+          px-5
+          pb-10
+          pt-4
+
+          sm:px-8
+          sm:pb-12
+
+          lg:px-8
+        "
+      >
+        <div
+          className="
+            mx-auto
+            max-w-[1500px]
+          "
+        >
+          <div
+            className="
+              grid
+              gap-4
+
+              md:grid-cols-2
+              xl:grid-cols-4
+            "
+          >
+            {PLANS.map(
+              (plan) => (
+                <PlanCard
+                  key={plan.id}
+                  plan={plan}
                 />
-              </Link>
-
-              <Link
-                to="/contact"
-                className="flex h-12 w-full items-center justify-center rounded-xl border border-white/10 bg-white/[0.035] px-6 text-xs font-bold text-slate-300 transition hover:border-white/20 hover:bg-white/[0.07] hover:text-white sm:w-auto"
-              >
-                Contact Us
-              </Link>
-
-            </div>
-
+              )
+            )}
           </div>
 
-        </section>
+          {/* NOTE */}
 
-      </main>
+          <p
+            className="
+              mx-auto
+              mt-4
+              max-w-3xl
+              text-center
 
+              text-[9px]
+              leading-5
+
+              text-[color:var(--bf-text-muted)]
+            "
+          >
+            Duration can be selected independently for each
+            plan so you can compare total pricing, effective
+            monthly value and applicable savings.
+          </p>
+        </div>
+      </section>
+
+      {/* =====================================================
+          BOTTOM CTA
+
+          No section divider line.
+      ===================================================== */}
+
+      <section
+        className="
+          relative
+          px-5
+          pb-10
+          pt-4
+
+          sm:px-8
+          sm:pb-12
+
+          lg:px-12
+        "
+      >
+        <div
+          className="
+            mx-auto
+            max-w-5xl
+          "
+        >
+          <div
+            className="
+              relative
+              overflow-hidden
+
+              rounded-[28px]
+
+              border
+              border-cyan-400/20
+
+              bg-[var(--bf-surface)]
+
+              px-6
+              py-8
+
+              text-center
+
+              shadow-sm
+
+              sm:px-10
+              sm:py-10
+            "
+          >
+            {/* GLOW */}
+
+            <div
+              aria-hidden="true"
+              className="
+                absolute
+                left-1/2
+                top-0
+
+                h-60
+                w-60
+
+                -translate-x-1/2
+                -translate-y-1/2
+
+                rounded-full
+
+                bg-cyan-400/12
+
+                blur-[90px]
+              "
+            />
+
+            {/* GRID */}
+
+            <div
+              aria-hidden="true"
+              className="
+                absolute
+                inset-0
+                opacity-[0.04]
+              "
+              style={{
+                backgroundImage:
+                  'linear-gradient(rgba(100,116,139,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(100,116,139,0.3) 1px, transparent 1px)',
+                backgroundSize:
+                  '50px 50px',
+              }}
+            />
+
+            <div className="relative">
+              <p
+                className="
+                  text-[9px]
+                  font-black
+                  uppercase
+                  tracking-[0.2em]
+                  text-cyan-500
+                "
+              >
+                Start with Buddy Fleets
+              </p>
+
+              <h2
+                className="
+                  mt-3
+
+                  text-2xl
+                  font-black
+                  leading-tight
+
+                  text-[color:var(--bf-text-primary)]
+
+                  sm:text-3xl
+                "
+              >
+                Not sure which plan fits your fleet?
+              </h2>
+
+              <p
+                className="
+                  mx-auto
+                  mt-3
+                  max-w-xl
+
+                  text-xs
+                  leading-6
+
+                  text-[color:var(--bf-text-secondary)]
+
+                  sm:text-sm
+                "
+              >
+                Start your 5-day free trial or speak with us
+                to understand which plan best matches your
+                operations.
+              </p>
+
+              <div
+                className="
+                  mt-5
+                  flex
+                  flex-col
+                  items-center
+                  justify-center
+                  gap-3
+
+                  sm:flex-row
+                "
+              >
+                <Link
+                  to="/signup"
+                  className="
+                    flex
+                    min-h-11
+                    w-full
+                    items-center
+                    justify-center
+
+                    rounded-xl
+
+                    bg-gradient-to-r
+                    from-[#12BFF2]
+                    via-[#078EE5]
+                    to-[#0AA23B]
+
+                    px-6
+                    py-3
+
+                    text-xs
+                    font-black
+                    text-white
+
+                    shadow-lg
+                    shadow-blue-500/10
+
+                    transition
+                    duration-200
+
+                    hover:-translate-y-0.5
+                    hover:shadow-blue-500/20
+
+                    focus-visible:outline-none
+                    focus-visible:ring-2
+                    focus-visible:ring-cyan-400
+
+                    sm:w-auto
+                  "
+                >
+                  Start 5-Day Free Trial
+                </Link>
+
+                <Link
+                  to="/contact-us"
+                  className="
+                    flex
+                    min-h-11
+                    w-full
+                    items-center
+                    justify-center
+
+                    rounded-xl
+
+                    border
+                    border-[color:var(--bf-border)]
+
+                    bg-[var(--bf-page-bg)]
+
+                    px-6
+                    py-3
+
+                    text-xs
+                    font-bold
+
+                    text-[color:var(--bf-text-primary)]
+
+                    transition
+                    duration-200
+
+                    hover:-translate-y-0.5
+                    hover:border-cyan-400/30
+
+                    focus-visible:outline-none
+                    focus-visible:ring-2
+                    focus-visible:ring-cyan-400
+
+                    sm:w-auto
+                  "
+                >
+                  Contact Us
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }

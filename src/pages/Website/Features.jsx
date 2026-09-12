@@ -1,563 +1,561 @@
-import React, { useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import React from 'react';
+import { Link } from 'react-router-dom';
+
 import {
-  motion,
-  useMotionValue,
-  useSpring,
-  useTransform,
-  useScroll,
-} from "framer-motion";
+  BadgeCheck,
+  Bell,
+  Building2,
+  ClipboardCheck,
+  FileCheck2,
+  FileText,
+  Fuel,
+  Gauge,
+  IndianRupee,
+  Landmark,
+  PackageCheck,
+  ReceiptText,
+  Route,
+  ShieldCheck,
+  Truck,
+  Users,
+  WalletCards,
+  Warehouse,
+  Wrench,
+} from 'lucide-react';
 
 /* =========================================================
-   FEATURE DATA (QR Tracking #11 removed, 17 modules left)
+   APPROVED BUDDY FLEETS MODULES
+
+   IMPORTANT:
+   Keep aligned with actual / planned product scope.
+
+   Do not add:
+   - Real-time GPS tracking claims
+   - Automated toll tracking claims
+   - Unit economics claims
+   - QR tracking claims
 ========================================================= */
 
-const features = [
+const FEATURES = [
   {
     id: 1,
-    title: "Smart Dashboard & Reports",
-    shortTitle: "Dashboard & Reports",
+    title: 'Dashboard & Reports',
     description:
-      "Get a complete real-time view of your fleet, trips, revenue, expenses, vehicles, drivers and operational performance from one intelligent dashboard.",
-    category: "Analytics",
-    icon: "📊",
-    image:
-      "https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=1600&q=85",
-    accent: "cyan",
+      'Review important fleet, trip, finance, maintenance and compliance information from one organized operational workspace.',
+    category: 'Overview',
+    icon: Gauge,
+    accent: 'cyan',
   },
   {
     id: 2,
-    title: "Expense & Earning Monitoring",
-    shortTitle: "Expenses & Earnings",
+    title: 'Vehicle & Driver Records',
     description:
-      "Track every operational expense and earning to understand where your money is going and how your fleet is performing.",
-    category: "Finance",
-    icon: "💰",
-    image:
-      "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=1600&q=85",
-    accent: "purple",
+      'Maintain structured records for vehicles and drivers, including documents, assignments and operational history.',
+    category: 'Fleet',
+    icon: Truck,
+    accent: 'blue',
   },
   {
     id: 3,
-    title: "Automated Toll Tracking",
-    shortTitle: "Toll Tracking",
+    title: 'LR / Bilty / Consignment Records',
     description:
-      "Keep toll expenses organized by vehicle, route and trip while maintaining a clear picture of transportation costs.",
-    category: "Operations",
-    icon: "🛣️",
-    image:
-      "https://images.unsplash.com/photo-1500534623283-312aade485b7?auto=format&fit=crop&w=1600&q=85",
-    accent: "blue",
+      'Create and organize LR, Bilty and consignment information while keeping shipment records connected with transport operations.',
+    category: 'Documentation',
+    icon: FileText,
+    accent: 'violet',
   },
   {
     id: 4,
-    title: "Unit Economics",
-    shortTitle: "Unit Economics",
+    title: 'Duty & Dispatch Allocation',
     description:
-      "Measure vehicle-level profitability, cost per kilometre, trip economics and operating margins to make smarter decisions.",
-    category: "Analytics",
-    icon: "📈",
-    image:
-      "https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1600&q=85",
-    accent: "violet",
+      'Assign vehicles and drivers to trips through a structured dispatch workflow designed to reduce operational confusion.',
+    category: 'Operations',
+    icon: ClipboardCheck,
+    accent: 'cyan',
   },
   {
     id: 5,
-    title: "Driver Payments",
-    shortTitle: "Driver Payments",
+    title: 'ePOD & Delivery Records',
     description:
-      "Manage driver advances, trip payments, deductions, balances and settlements with a transparent payment workflow.",
-    category: "Finance",
-    icon: "👨‍✈️",
-    image:
-      "https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?auto=format&fit=crop&w=1600&q=85",
-    accent: "purple",
+      'Maintain delivery status and electronic proof of delivery records connected with the relevant trip and consignment.',
+    category: 'Delivery',
+    icon: PackageCheck,
+    accent: 'emerald',
   },
   {
     id: 6,
-    title: "LR / Builty / Consignment Notes",
-    shortTitle: "LR & Consignments",
+    title: 'Expenses & Earnings',
     description:
-      "Create and manage digital LR, Builty and consignment records while keeping shipment information accessible in one place.",
-    category: "Documentation",
-    icon: "📄",
-    image:
-      "https://images.unsplash.com/photo-1450101499163-c8848c66ca85?auto=format&fit=crop&w=1600&q=85",
-    accent: "blue",
+      'Organize transport expenses and earnings so finance teams can maintain cleaner operational financial records.',
+    category: 'Finance',
+    icon: IndianRupee,
+    accent: 'violet',
   },
   {
     id: 7,
-    title: "ePOD — Electronic Proof of Delivery",
-    shortTitle: "ePOD",
+    title: 'Diesel & Fuel Records',
     description:
-      "Capture digital proof of delivery and keep delivery confirmation connected with the corresponding trip and consignment.",
-    category: "Delivery",
-    icon: "✓",
-    image:
-      "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=1600&q=85",
-    accent: "cyan",
+      'Maintain vehicle and trip-wise diesel or fuel entries and keep consumption-related records connected with operations.',
+    category: 'Finance',
+    icon: Fuel,
+    accent: 'blue',
   },
   {
     id: 8,
-    title: "Duty & Dispatch Allocation",
-    shortTitle: "Dispatch Allocation",
+    title: 'Driver Advances & Payments',
     description:
-      "Assign vehicles and drivers to trips with a structured dispatch workflow that helps reduce operational confusion.",
-    category: "Operations",
-    icon: "🚚",
-    image:
-      "https://images.unsplash.com/photo-1519003722824-194d4455a60c?auto=format&fit=crop&w=1600&q=85",
-    accent: "violet",
+      'Manage driver advances, trip payments, deductions, balances and settlement records through one structured workflow.',
+    category: 'Finance',
+    icon: WalletCards,
+    accent: 'cyan',
   },
   {
     id: 9,
-    title: "Document & Maintenance Alerts",
-    shortTitle: "Alerts & Compliance",
+    title: 'Invoices & Settlements',
     description:
-      "Stay ahead of expiry dates, service schedules, permits, insurance and other important vehicle documents.",
-    category: "Compliance",
-    icon: "🔔",
-    image:
-      "https://images.unsplash.com/photo-1486262715619-67b85e0b08d3?auto=format&fit=crop&w=1600&q=85",
-    accent: "purple",
+      'Organize customer invoices, transport settlements and related financial records in one centralized workflow.',
+    category: 'Finance',
+    icon: ReceiptText,
+    accent: 'violet',
   },
   {
     id: 10,
-    title: "Real-Time Vehicle Tracking",
-    shortTitle: "Live Tracking",
+    title: 'Party Records & Ledgers',
     description:
-      "Monitor vehicle movement and fleet activity with a modern tracking experience designed for transportation operations.",
-    category: "Tracking",
-    icon: "📍",
-    image:
-      "https://images.unsplash.com/photo-1526778548025-fa2f459cd5c1?auto=format&fit=crop&w=1600&q=85",
-    accent: "blue",
+      'Maintain customer, vendor and transport-party records with organized financial and operational references.',
+    category: 'Finance',
+    icon: Landmark,
+    accent: 'blue',
+  },
+  {
+    id: 11,
+    title: 'Document & Compliance Alerts',
+    description:
+      'Keep expiry dates, permits, insurance and other important fleet-document information easier to review and follow up.',
+    category: 'Compliance',
+    icon: Bell,
+    accent: 'emerald',
   },
   {
     id: 12,
-    title: "Vehicle & Driver Records",
-    shortTitle: "Fleet Records",
+    title: 'Workshop & Maintenance',
     description:
-      "Maintain structured records for vehicles and drivers including ownership, documents, assignments and operational history.",
-    category: "Fleet",
-    icon: "🚛",
-    image:
-      "https://images.unsplash.com/photo-1586191582151-f73872dfd183?auto=format&fit=crop&w=1600&q=85",
-    accent: "violet",
+      'Maintain workshop jobs, service records, preventive maintenance information and vehicle service history.',
+    category: 'Maintenance',
+    icon: Wrench,
+    accent: 'cyan',
   },
   {
     id: 13,
-    title: "Tyre Management",
-    shortTitle: "Tyre Management",
+    title: 'Tyre Management',
     description:
-      "Track tyre inventory, fitment, rotation, replacement and lifecycle information for better fleet maintenance.",
-    category: "Maintenance",
-    icon: "⭕",
-    image:
-      "https://images.unsplash.com/photo-1605559424843-9e4c228bf1c2?auto=format&fit=crop&w=1600&q=85",
-    accent: "purple",
+      'Track tyre inventory, fitment, rotation, replacement and lifecycle records for better maintenance control.',
+    category: 'Maintenance',
+    icon: BadgeCheck,
+    accent: 'violet',
   },
   {
     id: 14,
-    title: "Driver Salary Management",
-    shortTitle: "Driver Salary",
+    title: 'Spare Parts Management',
     description:
-      "Manage salary structures, advances, deductions, trip-based earnings and settlement information for drivers.",
-    category: "Payroll",
-    icon: "💳",
-    image:
-      "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&w=1600&q=85",
-    accent: "blue",
+      'Organize spare-parts inventory, purchases, usage and workshop consumption to maintain clearer stock records.',
+    category: 'Workshop',
+    icon: Warehouse,
+    accent: 'blue',
   },
   {
     id: 15,
-    title: "Spare Part Management",
-    shortTitle: "Spare Parts",
+    title: 'Challan Records',
     description:
-      "Monitor spare part inventory, usage, purchases and workshop consumption to maintain better stock control.",
-    category: "Workshop",
-    icon: "🔧",
-    image:
-      "https://images.unsplash.com/photo-1487754180451-c456f719a1fc?auto=format&fit=crop&w=1600&q=85",
-    accent: "cyan",
+      'Maintain traffic challan, penalty, payment-status and vehicle-wise compliance records inside the same platform.',
+    category: 'Compliance',
+    icon: FileCheck2,
+    accent: 'violet',
   },
   {
     id: 16,
-    title: "Invoice & Settlements",
-    shortTitle: "Invoices",
+    title: 'Trip & Route Planning',
     description:
-      "Organize customer invoices, transport settlements and financial records with a centralized workflow.",
-    category: "Finance",
-    icon: "🧾",
-    image:
-      "https://images.unsplash.com/photo-1554224154-26032ffc0d07?auto=format&fit=crop&w=1600&q=85",
-    accent: "violet",
+      'Organize trip routes and important planning information before assigning vehicles, drivers and operational resources.',
+    category: 'Planning',
+    icon: Route,
+    accent: 'cyan',
   },
   {
     id: 17,
-    title: "Route Cost Planner",
-    shortTitle: "Route Planner",
+    title: 'Role & Site Access',
     description:
-      "Estimate route-level costs using distance, fuel, tolls and other operational factors before assigning a trip.",
-    category: "Planning",
-    icon: "🗺️",
-    image:
-      "https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?auto=format&fit=crop&w=1600&q=85",
-    accent: "blue",
-  },
-  {
-    id: 18,
-    title: "Challan Tracker",
-    shortTitle: "Challan Tracker",
-    description:
-      "Maintain traffic challan records, penalties, payment status and vehicle-wise compliance history.",
-    category: "Compliance",
-    icon: "⚠️",
-    image:
-      "https://images.unsplash.com/photo-1504215680853-026ed2a45def?auto=format&fit=crop&w=1600&q=85",
-    accent: "purple",
+      'Give owners, managers, accountants and operators access according to their responsibilities and assigned work scope.',
+    category: 'Access',
+    icon: ShieldCheck,
+    accent: 'emerald',
   },
 ];
 
 /* =========================================================
-   DARK BLUE + PURPLE THEME ACCENT CONFIG
+   FEATURE GROUPS
 ========================================================= */
 
-const accentStyles = {
+const FEATURE_GROUPS = [
+  {
+    title: 'Fleet Operations',
+    description:
+      'Vehicles, drivers, trips, dispatch and transport documentation.',
+    icon: Truck,
+  },
+  {
+    title: 'Finance',
+    description:
+      'Expenses, diesel, advances, invoices and settlements.',
+    icon: WalletCards,
+  },
+  {
+    title: 'Compliance',
+    description:
+      'Documents, alerts, challans and important fleet records.',
+    icon: ShieldCheck,
+  },
+  {
+    title: 'Maintenance',
+    description:
+      'Workshop, tyres, spares and service-related records.',
+    icon: Wrench,
+  },
+];
+
+/* =========================================================
+   CONNECTED WORKFLOW
+========================================================= */
+
+const CONNECTED_WORKFLOW = [
+  {
+    number: '01',
+    title: 'Booking & LR',
+    text:
+      'Start with shipment and consignment records.',
+    icon: FileText,
+  },
+  {
+    number: '02',
+    title: 'Dispatch',
+    text:
+      'Assign vehicles and drivers to operations.',
+    icon: Truck,
+  },
+  {
+    number: '03',
+    title: 'Delivery',
+    text:
+      'Maintain delivery and ePOD records.',
+    icon: PackageCheck,
+  },
+  {
+    number: '04',
+    title: 'Settlement',
+    text:
+      'Complete expenses, invoices and settlements.',
+    icon: WalletCards,
+  },
+];
+
+/* =========================================================
+   TARGET USERS
+========================================================= */
+
+const TARGET_USERS = [
+  'Transport Companies',
+  'Fleet Owners',
+  'Logistics Companies',
+  'Fleet Operators',
+];
+
+/* =========================================================
+   ACCENT CONFIG
+========================================================= */
+
+const ACCENTS = {
   cyan: {
-    text: "text-cyan-400",
-    bg: "bg-cyan-500/10",
-    border: "border-cyan-500/30",
-    hoverBorder: "hover:border-cyan-400/60",
-    glow: "bg-cyan-500",
-    gradient: "from-cyan-500/20 via-purple-500/10 to-transparent",
+    icon:
+      'border-cyan-500/20 bg-cyan-500/[0.08] text-cyan-500',
+    tag:
+      'border-cyan-500/20 bg-cyan-500/[0.07] text-cyan-500',
+    glow:
+      'bg-cyan-500/[0.08]',
   },
+
   blue: {
-    text: "text-blue-400",
-    bg: "bg-blue-500/10",
-    border: "border-blue-500/30",
-    hoverBorder: "hover:border-blue-400/60",
-    glow: "bg-blue-500",
-    gradient: "from-blue-500/20 via-purple-500/10 to-transparent",
+    icon:
+      'border-blue-500/20 bg-blue-500/[0.08] text-blue-500',
+    tag:
+      'border-blue-500/20 bg-blue-500/[0.07] text-blue-500',
+    glow:
+      'bg-blue-500/[0.07]',
   },
-  purple: {
-    text: "text-purple-400",
-    bg: "bg-purple-500/10",
-    border: "border-purple-500/30",
-    hoverBorder: "hover:border-purple-400/60",
-    glow: "bg-purple-500",
-    gradient: "from-purple-500/20 via-blue-500/10 to-transparent",
-  },
+
   violet: {
-    text: "text-violet-400",
-    bg: "bg-violet-500/10",
-    border: "border-violet-500/30",
-    hoverBorder: "hover:border-violet-400/60",
-    glow: "bg-violet-500",
-    gradient: "from-violet-500/20 via-purple-500/10 to-transparent",
+    icon:
+      'border-violet-500/20 bg-violet-500/[0.08] text-violet-500',
+    tag:
+      'border-violet-500/20 bg-violet-500/[0.07] text-violet-500',
+    glow:
+      'bg-violet-500/[0.07]',
+  },
+
+  emerald: {
+    icon:
+      'border-emerald-500/20 bg-emerald-500/[0.08] text-emerald-500',
+    tag:
+      'border-emerald-500/20 bg-emerald-500/[0.07] text-emerald-500',
+    glow:
+      'bg-emerald-500/[0.07]',
   },
 };
 
 /* =========================================================
-   FLOATING ORB
+   FEATURE CARD
 ========================================================= */
 
-function FloatingOrb({ className = "", delay = 0 }) {
-  return (
-    <motion.div
-      className={`pointer-events-none absolute rounded-full blur-3xl opacity-25 ${className}`}
-      animate={{
-        x: [0, 35, -20, 0],
-        y: [0, -30, 25, 0],
-        scale: [1, 1.15, 0.9, 1],
-      }}
-      transition={{
-        duration: 12,
-        delay,
-        repeat: Infinity,
-        ease: "easeInOut",
-      }}
-    />
-  );
-}
+function FeatureCard({
+  feature,
+  index,
+}) {
+  const Icon =
+    feature.icon;
 
-/* =========================================================
-   TILT CARD
-========================================================= */
-
-function TiltCard({ children, className = "" }) {
-  const cardRef = useRef(null);
-
-  const mouseX = useMotionValue(0);
-  const mouseY = useMotionValue(0);
-
-  const rotateX = useSpring(
-    useTransform(mouseY, [-0.5, 0.5], [7, -7]),
-    {
-      stiffness: 180,
-      damping: 20,
-    }
-  );
-
-  const rotateY = useSpring(
-    useTransform(mouseX, [-0.5, 0.5], [-7, 7]),
-    {
-      stiffness: 180,
-      damping: 20,
-    }
-  );
-
-  const handleMouseMove = (event) => {
-    if (!cardRef.current) return;
-
-    const rect = cardRef.current.getBoundingClientRect();
-
-    const x = (event.clientX - rect.left) / rect.width - 0.5;
-    const y = (event.clientY - rect.top) / rect.height - 0.5;
-
-    mouseX.set(x);
-    mouseY.set(y);
-  };
-
-  const handleMouseLeave = () => {
-    mouseX.set(0);
-    mouseY.set(0);
-  };
+  const accent =
+    ACCENTS[feature.accent] ||
+    ACCENTS.cyan;
 
   return (
-    <motion.div
-      ref={cardRef}
-      className={className}
-      style={{
-        rotateX,
-        rotateY,
-        transformStyle: "preserve-3d",
-      }}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
+    <article
+      className="
+        group
+        relative
+        h-full
+        overflow-hidden
+        rounded-[22px]
+        border
+        border-[color:var(--bf-border)]
+        bg-[var(--bf-surface)]
+        p-5
+        shadow-sm
+        transition
+        duration-200
+        hover:-translate-y-0.5
+        hover:border-cyan-400/25
+      "
     >
-      {children}
-    </motion.div>
-  );
-}
+      {/* SUBTLE HOVER GLOW */}
 
-/* =========================================================
-   FEATURE CARD (Explore module text removed)
-========================================================= */
-
-function FeatureCard({ feature, index }) {
-  const colors = accentStyles[feature.accent] || accentStyles.purple;
-
-  return (
-    <TiltCard className="h-full">
-      <motion.div
-        initial={{
-          opacity: 0,
-          y: 60,
-        }}
-        whileInView={{
-          opacity: 1,
-          y: 0,
-        }}
-        viewport={{
-          once: true,
-          amount: 0.15,
-        }}
-        transition={{
-          duration: 0.65,
-          delay: (index % 3) * 0.08,
-          ease: [0.22, 1, 0.36, 1],
-        }}
-        className={`
-          group relative h-full min-h-[400px]
-          overflow-hidden rounded-[28px]
-          border ${colors.border}
-          ${colors.hoverBorder}
-          bg-slate-900/60
-          backdrop-blur-xl
-          transition-all duration-500
-        `}
-      >
-        {/* Background image */}
-        <div className="absolute inset-0 overflow-hidden">
-          <motion.img
-            src={feature.image}
-            alt={feature.title}
-            loading="lazy"
-            className="h-full w-full object-cover opacity-[0.16] transition-all duration-700 group-hover:scale-110 group-hover:opacity-[0.28]"
-          />
-
-          <div className="absolute inset-0 bg-gradient-to-t from-[#0a0f1d] via-[#0a0f1d]/90 to-[#0a0f1d]/30" />
-        </div>
-
-        {/* Glow */}
-        <div
-          className={`absolute -right-20 -top-20 h-48 w-48 rounded-full ${colors.glow} opacity-0 blur-3xl transition-opacity duration-500 group-hover:opacity-25`}
-        />
-
-        {/* Content */}
-        <div className="relative z-10 flex h-full flex-col p-7">
-          <div className="flex items-start justify-between">
-            <div
-              className={`flex h-14 w-14 items-center justify-center rounded-2xl ${colors.bg} border ${colors.border} text-2xl shadow-lg`}
-            >
-              {feature.icon}
-            </div>
-
-            <span
-              className={`rounded-full border ${colors.border} ${colors.bg} px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] ${colors.text}`}
-            >
-              {feature.category}
-            </span>
-          </div>
-
-          <div className="mt-auto pt-6">
-            <div className="mb-4 flex items-center gap-3">
-              <span className="text-xs font-mono text-white/30">
-                {String(index + 1).padStart(2, "0")}
-              </span>
-
-              <div className="h-px flex-1 bg-white/10" />
-            </div>
-
-            <h3 className="max-w-[340px] text-2xl font-bold leading-tight text-white md:text-[26px]">
-              {feature.title}
-            </h3>
-
-            <p className="mt-4 text-sm leading-7 text-slate-300/80">
-              {feature.description}
-            </p>
-          </div>
-        </div>
-      </motion.div>
-    </TiltCard>
-  );
-}
-
-/* =========================================================
-   MINI FEATURE
-========================================================= */
-
-function MiniFeature({ feature, index }) {
-  const colors = accentStyles[feature.accent] || accentStyles.purple;
-
-  return (
-    <motion.div
-      initial={{
-        opacity: 0,
-        y: 30,
-      }}
-      whileInView={{
-        opacity: 1,
-        y: 0,
-      }}
-      viewport={{
-        once: true,
-        amount: 0.2,
-      }}
-      transition={{
-        duration: 0.5,
-        delay: index * 0.04,
-      }}
-      whileHover={{
-        y: -5,
-      }}
-      className={`group flex items-center gap-4 rounded-2xl border ${colors.border} bg-slate-900/50 p-4 backdrop-blur-md transition-all duration-300 hover:bg-slate-900/80 hover:border-purple-500/50`}
-    >
       <div
-        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${colors.bg} text-xl`}
-      >
-        {feature.icon}
-      </div>
+        aria-hidden="true"
+        className={`
+          pointer-events-none
+          absolute
+          -right-14
+          -top-14
+          h-36
+          w-36
+          rounded-full
+          opacity-0
+          blur-3xl
+          transition-opacity
+          duration-300
+          group-hover:opacity-100
+          ${accent.glow}
+        `}
+      />
 
-      <div className="min-w-0">
-        <h4 className="truncate text-sm font-semibold text-white">
-          {feature.shortTitle}
-        </h4>
+      <div className="relative">
 
-        <p className={`mt-1 text-[11px] ${colors.text}`}>
-          {feature.category}
+        {/* TOP */}
+
+        <div
+          className="
+            flex
+            items-start
+            justify-between
+            gap-3
+          "
+        >
+          <div
+            className={`
+              flex
+              h-10
+              w-10
+              shrink-0
+              items-center
+              justify-center
+              rounded-xl
+              border
+              ${accent.icon}
+            `}
+          >
+            <Icon
+              size={18}
+              aria-hidden="true"
+            />
+          </div>
+
+          <span
+            className={`
+              rounded-full
+              border
+              px-2.5
+              py-1
+              text-[8px]
+              font-bold
+              uppercase
+              tracking-[0.12em]
+              ${accent.tag}
+            `}
+          >
+            {feature.category}
+          </span>
+        </div>
+
+        {/* NUMBER */}
+
+        <p
+          className="
+            mt-4
+            font-mono
+            text-[9px]
+            font-semibold
+            text-[color:var(--bf-text-muted)]
+          "
+        >
+          {String(
+            index + 1
+          ).padStart(
+            2,
+            '0'
+          )}
+        </p>
+
+        {/* CONTENT */}
+
+        <h3
+          className="
+            mt-2
+            text-lg
+            font-black
+            leading-tight
+            text-[color:var(--bf-text-primary)]
+          "
+        >
+          {feature.title}
+        </h3>
+
+        <p
+          className="
+            mt-2.5
+            text-sm
+            leading-6
+            text-[color:var(--bf-text-secondary)]
+          "
+        >
+          {feature.description}
         </p>
       </div>
-
-      <span className="ml-auto text-white/20 transition-all duration-300 group-hover:translate-x-1 group-hover:text-white/60">
-        →
-      </span>
-    </motion.div>
+    </article>
   );
 }
 
 /* =========================================================
-   HERO STATS
-========================================================= */
-
-const stats = [
-  {
-    value: "17+",
-    label: "Fleet Modules",
-  },
-  {
-    value: "360°",
-    label: "Fleet Visibility",
-  },
-  {
-    value: "24/7",
-    label: "Operational Access",
-  },
-  {
-    value: "1",
-    label: "Unified Platform",
-  },
-];
-
-/* =========================================================
-   MAIN COMPONENT
+   FEATURES PAGE
 ========================================================= */
 
 export default function Features() {
-  const heroRef = useRef(null);
-
-  const [activeFeature, setActiveFeature] = useState(features[0]);
-
-  const { scrollYProgress } = useScroll({
-    target: heroRef,
-    offset: ["start start", "end start"],
-  });
-
-  const heroY = useTransform(scrollYProgress, [0, 1], [0, 220]);
-  const heroOpacity = useTransform(scrollYProgress, [0, 0.75], [1, 0]);
-
   return (
-    <main className="min-h-screen overflow-hidden bg-[#0a0f1d] text-white">
+    <div
+      className="
+        relative
+        isolate
+        overflow-hidden
+        bg-[var(--bf-page-bg)]
+        text-[color:var(--bf-text-primary)]
+        transition-colors
+        duration-300
+      "
+    >
       {/* =====================================================
-          GLOBAL BACKGROUND & AMBIENT GLOWS
+          GLOBAL BACKGROUND
       ===================================================== */}
 
-      <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-        <div className="absolute inset-0 bg-[#0a0f1d]" />
+      <div
+        aria-hidden="true"
+        className="
+          pointer-events-none
+          absolute
+          inset-0
+          -z-10
+          overflow-hidden
+        "
+      >
+        <div
+          className="
+            absolute
+            inset-0
+            bg-[var(--bf-page-bg)]
+          "
+        />
+
+        {/* GRID */}
 
         <div
-          className="absolute inset-0 opacity-[0.035]"
+          className="
+            absolute
+            inset-0
+            opacity-[0.04]
+          "
           style={{
             backgroundImage:
-              "linear-gradient(rgba(255,255,255,0.8) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.8) 1px, transparent 1px)",
-            backgroundSize: "70px 70px",
+              'linear-gradient(rgba(100,116,139,0.28) 1px, transparent 1px), linear-gradient(90deg, rgba(100,116,139,0.28) 1px, transparent 1px)',
+            backgroundSize:
+              '72px 72px',
           }}
         />
 
-        <FloatingOrb
-          className="left-[5%] top-[15%] h-96 w-96 bg-blue-600/30 blur-[180px]"
-          delay={0}
+        {/* STATIC GLOWS */}
+
+        <div
+          className="
+            absolute
+            -left-40
+            top-20
+            h-[420px]
+            w-[420px]
+            rounded-full
+            bg-cyan-500/[0.07]
+            blur-[120px]
+          "
         />
 
-        <FloatingOrb
-          className="right-[5%] top-[25%] h-96 w-96 bg-purple-600/30 blur-[180px]"
-          delay={2}
+        <div
+          className="
+            absolute
+            -right-40
+            top-[32rem]
+            h-[450px]
+            w-[450px]
+            rounded-full
+            bg-blue-500/[0.06]
+            blur-[130px]
+          "
         />
 
-        <FloatingOrb
-          className="bottom-[10%] left-[35%] h-80 w-80 bg-indigo-600/30 blur-[160px]"
-          delay={4}
+        <div
+          className="
+            absolute
+            bottom-[8%]
+            left-[35%]
+            h-[360px]
+            w-[360px]
+            rounded-full
+            bg-emerald-500/[0.04]
+            blur-[110px]
+          "
         />
       </div>
 
@@ -566,485 +564,1033 @@ export default function Features() {
       ===================================================== */}
 
       <section
-        ref={heroRef}
-        className="relative flex min-h-screen items-center overflow-hidden px-5 py-24 sm:px-8 lg:px-12"
+        className="
+          relative
+          px-5
+          pb-8
+          pt-8
+          sm:px-8
+          sm:pb-10
+          sm:pt-10
+          lg:px-12
+          lg:pb-12
+          lg:pt-12
+        "
       >
-        <div className="absolute left-1/2 top-1/2 h-[600px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-purple-600/20 blur-[160px]" />
-
-        <motion.div
-          style={{
-            y: heroY,
-            opacity: heroOpacity,
-          }}
-          className="relative mx-auto w-full max-w-7xl"
+        <div
+          className="
+            relative
+            mx-auto
+            w-full
+            max-w-7xl
+          "
         >
-          <div className="grid items-center gap-16 lg:grid-cols-[1.05fr_0.95fr]">
+          <div
+            className="
+              grid
+              items-center
+              gap-8
+              lg:grid-cols-[1fr_0.92fr]
+              lg:gap-12
+            "
+          >
+            {/* =================================================
+                HERO LEFT
+            ================================================= */}
+
             <div>
-              <motion.div
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.7 }}
-                className="mb-7 inline-flex items-center gap-3 rounded-full border border-purple-500/30 bg-purple-500/10 px-4 py-2 backdrop-blur-md"
+
+              {/* BADGE */}
+
+              <div
+                className="
+                  mb-4
+                  inline-flex
+                  items-center
+                  gap-3
+                  rounded-full
+                  border
+                  border-cyan-400/25
+                  bg-cyan-400/[0.07]
+                  px-4
+                  py-2
+                  backdrop-blur-xl
+                "
               >
-                <motion.span
-                  animate={{
-                    opacity: [0.4, 1, 0.4],
-                    scale: [0.9, 1.15, 0.9],
-                  }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                  className="h-2 w-2 rounded-full bg-purple-400"
+                <span
+                  aria-hidden="true"
+                  className="
+                    h-2
+                    w-2
+                    rounded-full
+                    bg-cyan-400
+                    shadow-[0_0_12px_rgba(34,211,238,0.5)]
+                  "
                 />
 
-                <span className="text-xs font-semibold uppercase tracking-[0.2em] text-purple-300">
-                  Buddy Fleets Intelligence
+                <span
+                  className="
+                    text-[9px]
+                    font-black
+                    uppercase
+                    tracking-[0.18em]
+                    text-cyan-500
+                    sm:text-[10px]
+                  "
+                >
+                  Buddy Fleets Features
                 </span>
-              </motion.div>
+              </div>
 
-              <motion.h1
-                initial={{ opacity: 0, y: 50 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.9, delay: 0.1 }}
-                className="max-w-4xl text-5xl font-black leading-[0.95] tracking-tight sm:text-6xl lg:text-8xl"
+              {/* TITLE */}
+
+              <h1
+                className="
+                  max-w-[720px]
+                  text-[clamp(2.15rem,4.4vw,3.7rem)]
+                  font-black
+                  leading-[1.03]
+                  tracking-[-0.03em]
+                "
               >
-                Your fleet.
+                <span
+                  className="
+                    bg-gradient-to-r
+                    from-[#12BFF2]
+                    via-[#078EE5]
+                    to-[#0AA23B]
+                    bg-clip-text
+                    text-transparent
+                  "
+                >
+                  Everything your fleet needs.
+                </span>
+
                 <br />
-                <span className="bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-500 bg-clip-text text-transparent drop-shadow-[0_0_30px_rgba(147,51,234,0.5)]">
-                  Completely connected.
+
+                <span
+                  className="
+                    bg-gradient-to-r
+                    from-[#12BFF2]
+                    via-[#078EE5]
+                    to-[#0AA23B]
+                    bg-clip-text
+                    text-transparent
+                  "
+                >
+                  One platform.
                 </span>
-              </motion.h1>
+              </h1>
 
-              <motion.p
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.7, delay: 0.3 }}
-                className="mt-8 max-w-2xl text-base leading-8 text-slate-300 sm:text-lg"
+              {/* DESCRIPTION */}
+
+              <p
+                className="
+                  mt-4
+                  max-w-2xl
+                  text-sm
+                  leading-7
+                  text-[color:var(--bf-text-secondary)]
+                  sm:text-base
+                "
               >
-                Buddy Fleets brings vehicles, drivers, trips, finance,
-                maintenance, compliance and analytics together in one
-                intelligent transport management platform.
-              </motion.p>
+                Buddy Fleets brings fleet records, trips,
+                LR/Bilty, dispatch, expenses, diesel,
+                maintenance, compliance and settlements
+                into one connected transport operations
+                workspace.
+              </p>
 
-              <motion.div
-                initial={{ opacity: 0, y: 25 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.7, delay: 0.45 }}
-                className="mt-9 flex flex-col gap-4 sm:flex-row"
+              {/* CTA */}
+
+              <div
+                className="
+                  mt-5
+                  flex
+                  flex-col
+                  gap-3
+                  sm:flex-row
+                "
               >
                 <Link
                   to="/signup"
-                  className="group inline-flex items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-blue-600 to-purple-600 px-7 py-4 text-sm font-bold text-white shadow-xl shadow-purple-600/40 transition-all duration-300 hover:-translate-y-1 hover:from-blue-500 hover:to-purple-500"
+                  className="
+                    inline-flex
+                    min-h-11
+                    items-center
+                    justify-center
+                    rounded-xl
+                    bg-gradient-to-r
+                    from-[#12BFF2]
+                    via-[#078EE5]
+                    to-[#0AA23B]
+                    px-6
+                    py-3
+                    text-sm
+                    font-black
+                    text-white
+                    shadow-lg
+                    shadow-blue-500/10
+                    transition
+                    duration-200
+                    hover:-translate-y-0.5
+                    hover:shadow-blue-500/20
+                    focus-visible:outline-none
+                    focus-visible:ring-2
+                    focus-visible:ring-cyan-400
+                  "
                 >
-                  Start with Buddy Fleets
-                  <span className="transition-transform duration-300 group-hover:translate-x-1">
-                    →
-                  </span>
+                  Start Free Trial
                 </Link>
 
-                <a
-                  href="#modules"
-                  className="inline-flex items-center justify-center rounded-2xl border border-slate-700/80 bg-slate-900/80 px-7 py-4 text-sm font-semibold text-slate-200 backdrop-blur-xl transition-all duration-300 hover:border-purple-500/50 hover:bg-slate-800"
+                <Link
+                  to="/contact-us"
+                  className="
+                    inline-flex
+                    min-h-11
+                    items-center
+                    justify-center
+                    rounded-xl
+                    border
+                    border-[color:var(--bf-border)]
+                    bg-[var(--bf-surface)]
+                    px-6
+                    py-3
+                    text-sm
+                    font-bold
+                    text-[color:var(--bf-text-primary)]
+                    transition
+                    duration-200
+                    hover:-translate-y-0.5
+                    hover:border-cyan-400/30
+                    focus-visible:outline-none
+                    focus-visible:ring-2
+                    focus-visible:ring-cyan-400
+                  "
                 >
-                  Explore Modules
-                </a>
-              </motion.div>
+                  Contact Us
+                </Link>
+              </div>
             </div>
 
-            {/* Right visual */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.85, rotateY: 12 }}
-              animate={{ opacity: 1, scale: 1, rotateY: 0 }}
-              transition={{ duration: 1, delay: 0.2 }}
-              className="relative mx-auto w-full max-w-[560px]"
+            {/* =================================================
+                HERO PRODUCT MOCKUP
+            ================================================= */}
+
+            <div
+              className="
+                relative
+                mx-auto
+                w-full
+                max-w-[520px]
+              "
             >
-              <div className="absolute -inset-10 rounded-full bg-purple-600/20 blur-[90px]" />
+              <div
+                aria-hidden="true"
+                className="
+                  absolute
+                  -inset-5
+                  rounded-[34px]
+                  bg-gradient-to-r
+                  from-cyan-500/10
+                  via-blue-500/[0.07]
+                  to-emerald-500/[0.08]
+                  blur-3xl
+                "
+              />
 
-              <div className="relative overflow-hidden rounded-[34px] border border-slate-700/80 bg-slate-950/80 p-3 shadow-2xl shadow-purple-950/60 backdrop-blur-xl">
-                <div className="relative overflow-hidden rounded-[26px]">
-                  <img
-                    src={features[9].image}
-                    alt="Buddy Fleets vehicle tracking"
-                    className="h-[470px] w-full object-cover brightness-90 filter contrast-110"
-                  />
+              <div
+                className="
+                  relative
+                  rounded-[26px]
+                  border
+                  border-white/10
+                  bg-[#09111f]
+                  p-2.5
+                  shadow-2xl
+                  shadow-black/25
+                "
+              >
+                <div
+                  className="
+                    rounded-[20px]
+                    border
+                    border-white/[0.07]
+                    bg-[#0b111c]
+                    p-5
+                  "
+                >
+                  {/* TOP */}
 
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#0a0f1d] via-[#0a0f1d]/30 to-transparent" />
+                  <div
+                    className="
+                      flex
+                      items-center
+                      justify-between
+                      gap-3
+                    "
+                  >
+                    <div>
+                      <p
+                        className="
+                          text-[8px]
+                          font-bold
+                          uppercase
+                          tracking-[0.18em]
+                          text-cyan-300
+                        "
+                      >
+                        Fleet Workspace
+                      </p>
 
-                  {/* Radar */}
-                  <div className="absolute left-1/2 top-1/2 h-52 w-52 -translate-x-1/2 -translate-y-1/2 rounded-full border border-purple-400/30">
-                    <motion.div
-                      animate={{ scale: [0.7, 1.3], opacity: [0.5, 0] }}
-                      transition={{ duration: 2.5, repeat: Infinity, ease: "easeOut" }}
-                      className="absolute inset-0 rounded-full border border-purple-400/50"
-                    />
-                    <motion.div
-                      animate={{
-                        rotate: 360,
-                      }}
-                      transition={{
-                        duration: 5,
-                        repeat: Infinity,
-                        ease: "linear",
-                      }}
-                      className="absolute inset-0"
+                      <h2
+                        className="
+                          mt-1.5
+                          text-lg
+                          font-black
+                          text-white
+                        "
+                      >
+                        Operations Modules
+                      </h2>
+                    </div>
+
+                    <div
+                      className="
+                        flex
+                        items-center
+                        gap-2
+                        rounded-full
+                        border
+                        border-emerald-400/20
+                        bg-emerald-400/[0.06]
+                        px-3
+                        py-1.5
+                        text-[8px]
+                        font-bold
+                        text-emerald-300
+                      "
                     >
-                      <div className="absolute left-1/2 top-0 h-1/2 w-px origin-bottom bg-gradient-to-t from-purple-400 to-transparent" />
-                    </motion.div>
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+
+                      CONNECTED
+                    </div>
                   </div>
 
-                  {/* Vehicle marker */}
-                  <motion.div
-                    animate={{ y: [0, -8, 0] }}
-                    transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                    className="absolute left-[48%] top-[48%] flex h-14 w-14 items-center justify-center rounded-2xl border border-purple-400/40 bg-purple-600/30 shadow-lg shadow-purple-600/50 backdrop-blur-xl"
+                  {/* GROUPS */}
+
+                  <div
+                    className="
+                      mt-5
+                      grid
+                      grid-cols-2
+                      gap-2.5
+                    "
                   >
-                    🚚
-                  </motion.div>
+                    {FEATURE_GROUPS.map(
+                      (group) => {
+                        const Icon =
+                          group.icon;
 
-                  {/* Bottom card */}
-                  <div className="absolute bottom-5 left-5 right-5 rounded-2xl border border-slate-800 bg-slate-950/90 p-5 backdrop-blur-xl">
-                    <div className="flex items-center justify-between">
+                        return (
+                          <div
+                            key={group.title}
+                            className="
+                              rounded-xl
+                              border
+                              border-white/[0.07]
+                              bg-white/[0.025]
+                              p-3.5
+                            "
+                          >
+                            <div
+                              className="
+                                flex
+                                h-8
+                                w-8
+                                items-center
+                                justify-center
+                                rounded-lg
+                                bg-cyan-400/[0.07]
+                                text-cyan-300
+                              "
+                            >
+                              <Icon
+                                size={16}
+                                aria-hidden="true"
+                              />
+                            </div>
+
+                            <p
+                              className="
+                                mt-3
+                                text-xs
+                                font-black
+                                text-white
+                              "
+                            >
+                              {group.title}
+                            </p>
+
+                            <p
+                              className="
+                                mt-1
+                                text-[9px]
+                                leading-4
+                                text-slate-400
+                              "
+                            >
+                              {group.description}
+                            </p>
+                          </div>
+                        );
+                      }
+                    )}
+                  </div>
+
+                  {/* LOWER PANEL */}
+
+                  <div
+                    className="
+                      mt-3
+                      rounded-xl
+                      border
+                      border-white/[0.07]
+                      bg-white/[0.02]
+                      p-4
+                    "
+                  >
+                    <div
+                      className="
+                        flex
+                        items-center
+                        justify-between
+                        gap-3
+                      "
+                    >
                       <div>
-                        <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">
-                          Fleet Intelligence
+                        <p
+                          className="
+                            text-[11px]
+                            font-bold
+                            text-slate-200
+                          "
+                        >
+                          One connected system
                         </p>
-                        <p className="mt-1 text-lg font-bold text-white">
-                          Live Operations
+
+                        <p
+                          className="
+                            mt-1
+                            text-[9px]
+                            text-slate-400
+                          "
+                        >
+                          Structured fleet operations
                         </p>
                       </div>
 
-                      <div className="flex items-center gap-2 text-xs text-emerald-400">
-                        <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
-                        Online
-                      </div>
+                      <Building2
+                        size={18}
+                        aria-hidden="true"
+                        className="text-cyan-300"
+                      />
+                    </div>
+
+                    <div
+                      className="
+                        mt-4
+                        grid
+                        grid-cols-4
+                        gap-2
+                      "
+                    >
+                      <div className="h-1.5 rounded-full bg-cyan-400/60" />
+                      <div className="h-1.5 rounded-full bg-blue-400/50" />
+                      <div className="h-1.5 rounded-full bg-emerald-400/50" />
+                      <div className="h-1.5 rounded-full bg-cyan-400/45" />
                     </div>
                   </div>
                 </div>
               </div>
-            </motion.div>
+            </div>
           </div>
 
-          {/* Stats */}
-          <div className="mt-20 grid grid-cols-2 gap-4 lg:grid-cols-4">
-            {stats.map((stat, index) => (
-              <motion.div
-                key={stat.label}
-                initial={{ opacity: 0, y: 25 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.55 + index * 0.08 }}
-                className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 backdrop-blur-xl shadow-lg"
-              >
-                <div className="text-3xl font-black text-blue-400 drop-shadow-[0_0_12px_rgba(96,165,250,0.5)]">
-                  {stat.value}
-                </div>
-                <div className="mt-1 text-xs text-slate-400 font-medium uppercase tracking-wider">
-                  {stat.label}
-                </div>
-              </motion.div>
-            ))}
+          {/* =================================================
+              GROUP SUMMARY
+          ================================================= */}
+
+          <div
+            className="
+              mt-8
+              grid
+              gap-3
+              sm:grid-cols-2
+              lg:grid-cols-4
+            "
+          >
+            {FEATURE_GROUPS.map(
+              (group) => {
+                const Icon =
+                  group.icon;
+
+                return (
+                  <article
+                    key={group.title}
+                    className="
+                      rounded-2xl
+                      border
+                      border-[color:var(--bf-border)]
+                      bg-[var(--bf-surface)]
+                      p-4
+                      shadow-sm
+                      transition
+                      duration-200
+                      hover:-translate-y-0.5
+                      hover:border-cyan-400/25
+                    "
+                  >
+                    <div
+                      className="
+                        flex
+                        h-9
+                        w-9
+                        items-center
+                        justify-center
+                        rounded-xl
+                        border
+                        border-cyan-400/20
+                        bg-cyan-400/[0.07]
+                        text-cyan-500
+                      "
+                    >
+                      <Icon
+                        size={18}
+                        aria-hidden="true"
+                      />
+                    </div>
+
+                    <h2
+                      className="
+                        mt-3
+                        text-sm
+                        font-black
+                        text-[color:var(--bf-text-primary)]
+                      "
+                    >
+                      {group.title}
+                    </h2>
+
+                    <p
+                      className="
+                        mt-1.5
+                        text-xs
+                        leading-5
+                        text-[color:var(--bf-text-muted)]
+                      "
+                    >
+                      {group.description}
+                    </p>
+                  </article>
+                );
+              }
+            )}
           </div>
-        </motion.div>
+        </div>
       </section>
 
       {/* =====================================================
           INTRO
-      ===================================================== */}
-
-      <section className="relative px-5 py-28 sm:px-8 lg:px-12 border-t border-slate-800/80">
-        <div className="mx-auto max-w-7xl">
-          <div className="grid gap-12 lg:grid-cols-[0.8fr_1.2fr]">
-            <motion.div
-              initial={{ opacity: 0, x: -50 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.8 }}
-            >
-              <span className="text-xs font-semibold uppercase tracking-[0.25em] text-purple-400">
-                Built for transport businesses
-              </span>
-
-              <h2 className="mt-5 text-4xl font-black leading-tight sm:text-5xl text-white">
-                Everything your fleet needs.
-                <br />
-                <span className="text-slate-500">Nothing scattered.</span>
-              </h2>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, x: 50 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.8, delay: 0.1 }}
-              className="flex items-end"
-            >
-              <p className="max-w-3xl text-base leading-8 text-slate-300 sm:text-lg">
-                From dispatch and documentation to finance, maintenance and
-                compliance, Buddy Fleets gives your team one connected
-                operating layer for the entire transportation business.
-              </p>
-            </motion.div>
-          </div>
-        </div>
-      </section>
-
-      {/* =====================================================
-          FEATURE GRID (Heading updated to "Powerful modules")
+          NO SEPARATOR LINE
       ===================================================== */}
 
       <section
-        id="modules"
-        className="relative px-5 pb-32 sm:px-8 lg:px-12"
+        className="
+          relative
+          px-5
+          py-8
+          sm:px-8
+          sm:py-10
+          lg:px-12
+          lg:py-12
+        "
       >
         <div className="mx-auto max-w-7xl">
-          <div className="mb-14 flex flex-col justify-between gap-5 md:flex-row md:items-end">
+
+          <div
+            className="
+              grid
+              gap-6
+              lg:grid-cols-[0.8fr_1.2fr]
+              lg:gap-10
+            "
+          >
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-blue-400">
-                The ecosystem
+              <p
+                className="
+                  text-[10px]
+                  font-bold
+                  uppercase
+                  tracking-[0.2em]
+                  text-cyan-500
+                "
+              >
+                Built for transport businesses
               </p>
 
-              <h2 className="mt-4 text-4xl font-black sm:text-5xl text-white">
-                Powerful modules
+              <h2
+                className="
+                  mt-3
+                  text-3xl
+                  font-black
+                  leading-tight
+                  text-[color:var(--bf-text-primary)]
+                  sm:text-4xl
+                "
+              >
+                Everything has a place.
+
+                <span
+                  className="
+                    ml-2
+                    text-[color:var(--bf-text-muted)]
+                  "
+                >
+                  Nothing scattered.
+                </span>
               </h2>
             </div>
 
-            <p className="max-w-md text-sm leading-7 text-slate-400">
-              Designed to work together, so every part of your fleet operation
-              stays connected.
+            <div className="flex items-end">
+              <p
+                className="
+                  max-w-3xl
+                  text-sm
+                  leading-7
+                  text-[color:var(--bf-text-secondary)]
+                  sm:text-base
+                "
+              >
+                From dispatch and documentation to finance,
+                maintenance and compliance, Buddy Fleets is
+                designed to give transport teams one clearer
+                operational layer instead of multiple disconnected
+                systems and records.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* =====================================================
+          FEATURE MODULES
+      ===================================================== */}
+
+      <section
+        className="
+          relative
+          px-5
+          py-8
+          sm:px-8
+          sm:py-10
+          lg:px-12
+          lg:py-12
+        "
+      >
+        <div className="mx-auto max-w-7xl">
+
+          {/* HEADER */}
+
+          <div
+            className="
+              mb-6
+              flex
+              flex-col
+              justify-between
+              gap-4
+              md:flex-row
+              md:items-end
+            "
+          >
+            <div>
+              <p
+                className="
+                  text-[10px]
+                  font-bold
+                  uppercase
+                  tracking-[0.2em]
+                  text-cyan-500
+                "
+              >
+                Platform capabilities
+              </p>
+
+              <h2
+                className="
+                  mt-3
+                  text-3xl
+                  font-black
+                  text-[color:var(--bf-text-primary)]
+                  sm:text-4xl
+                "
+              >
+                Built around fleet workflows.
+              </h2>
+            </div>
+
+            <p
+              className="
+                max-w-md
+                text-sm
+                leading-6
+                text-[color:var(--bf-text-muted)]
+              "
+            >
+              Modules are designed to work together so important
+              fleet information remains easier to organize and
+              review.
             </p>
           </div>
 
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {features.map((feature, index) => (
-              <div
-                key={feature.id}
-                onMouseEnter={() => setActiveFeature(feature)}
-              >
+          {/* 17 MODULES */}
+
+          <div
+            className="
+              grid
+              gap-4
+              md:grid-cols-2
+              lg:grid-cols-3
+            "
+          >
+            {FEATURES.map(
+              (
+                feature,
+                index
+              ) => (
                 <FeatureCard
+                  key={feature.id}
                   feature={feature}
                   index={index}
                 />
-              </div>
-            ))}
+              )
+            )}
           </div>
         </div>
       </section>
 
       {/* =====================================================
-          STICKY SHOWCASE
+          CONNECTED WORKFLOW
+          NO BORDER-Y
       ===================================================== */}
 
-      <section className="relative px-5 py-32 sm:px-8 lg:px-12 border-t border-slate-800/80">
+      <section
+        className="
+          relative
+          px-5
+          py-8
+          sm:px-8
+          sm:py-10
+          lg:px-12
+          lg:py-12
+        "
+      >
         <div className="mx-auto max-w-7xl">
-          <div className="mb-16 text-center">
-            <motion.p
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              className="text-xs font-semibold uppercase tracking-[0.25em] text-purple-400"
-            >
-              One connected experience
-            </motion.p>
 
-            <motion.h2
-              initial={{ opacity: 0, y: 25 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.1 }}
-              className="mt-4 text-4xl font-black sm:text-6xl text-white"
-            >
-              See your operation differently.
-            </motion.h2>
-          </div>
-
-          <div className="grid gap-10 lg:grid-cols-[0.85fr_1.15fr]">
-            {/* Left list */}
-            <div className="space-y-3">
-              {features.slice(0, 9).map((feature, index) => {
-                const colors = accentStyles[feature.accent] || accentStyles.purple;
-                const isActive = activeFeature.id === feature.id;
-
-                return (
-                  <motion.button
-                    key={feature.id}
-                    type="button"
-                    onClick={() => setActiveFeature(feature)}
-                    initial={{ opacity: 0, x: -30 }}
-                    whileInView={{ opacity: 1, x: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ duration: 0.45, delay: index * 0.04 }}
-                    className={`w-full rounded-2xl border p-4 text-left transition-all duration-300 ${
-                      isActive
-                        ? `${colors.border} bg-slate-900/90 shadow-lg shadow-purple-950/30`
-                        : "border-slate-800 bg-slate-900/40 hover:border-slate-700 hover:bg-slate-900/70"
-                    }`}
-                  >
-                    <div className="flex items-center gap-4">
-                      <div
-                        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${
-                          isActive ? colors.bg : "bg-slate-800/50"
-                        }`}
-                      >
-                        {feature.icon}
-                      </div>
-
-                      <div className="min-w-0">
-                        <p
-                          className={`text-sm font-semibold ${
-                            isActive ? "text-white" : "text-slate-300"
-                          }`}
-                        >
-                          {feature.title}
-                        </p>
-
-                        <p className="mt-1 text-[11px] text-slate-400">
-                          {feature.category}
-                        </p>
-                      </div>
-
-                      <span
-                        className={`ml-auto transition-all duration-300 ${
-                          isActive ? colors.text : "text-slate-600"
-                        }`}
-                      >
-                        →
-                      </span>
-                    </div>
-                  </motion.button>
-                );
-              })}
-            </div>
-
-            {/* Right sticky visual */}
-            <div className="lg:sticky lg:top-24 lg:h-fit">
-              <motion.div
-                layout
-                className="relative overflow-hidden rounded-[32px] border border-slate-700/80 bg-slate-950/90 p-3 shadow-2xl shadow-purple-950/50 backdrop-blur-xl"
-              >
-                <div className="relative overflow-hidden rounded-[25px]">
-                  <motion.img
-                    key={activeFeature.id}
-                    initial={{ opacity: 0, scale: 1.08 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.7 }}
-                    src={activeFeature.image}
-                    alt={activeFeature.title}
-                    className="h-[520px] w-full object-cover brightness-90 filter contrast-110"
-                  />
-
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#0a0f1d] via-[#0a0f1d]/40 to-transparent" />
-
-                  {/* Feature information */}
-                  <motion.div
-                    key={`content-${activeFeature.id}`}
-                    initial={{ opacity: 0, y: 25 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5, delay: 0.1 }}
-                    className="absolute bottom-0 left-0 right-0 p-7 sm:p-10"
-                  >
-                    <div
-                      className={`mb-5 inline-flex rounded-full border ${
-                        (accentStyles[activeFeature.accent] || accentStyles.purple).border
-                      } ${
-                        (accentStyles[activeFeature.accent] || accentStyles.purple).bg
-                      } px-4 py-2 backdrop-blur-md`}
-                    >
-                      <span
-                        className={`text-xs font-semibold uppercase tracking-[0.18em] ${
-                          (accentStyles[activeFeature.accent] || accentStyles.purple).text
-                        }`}
-                      >
-                        {activeFeature.category}
-                      </span>
-                    </div>
-
-                    <h3 className="max-w-2xl text-3xl font-black leading-tight sm:text-5xl text-white">
-                      {activeFeature.title}
-                    </h3>
-
-                    <p className="mt-5 max-w-2xl text-sm leading-7 text-slate-300 sm:text-base">
-                      {activeFeature.description}
-                    </p>
-                  </motion.div>
-                </div>
-              </motion.div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* =====================================================
-          MINI MODULE GRID
-      ===================================================== */}
-
-      <section className="relative px-5 py-32 sm:px-8 lg:px-12 border-t border-slate-800/80">
-        <div className="mx-auto max-w-7xl">
-          <div className="mb-14 max-w-2xl">
-            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-purple-400">
-              More control
-            </p>
-
-            <h2 className="mt-4 text-4xl font-black sm:text-5xl text-white">
-              Every detail has a place.
-            </h2>
-
-            <p className="mt-5 leading-8 text-slate-400">
-              From driver salaries to challans and spare parts, keep every
-              operational detail organized inside the same platform.
-            </p>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {features.slice(9).map((feature, index) => (
-              <MiniFeature
-                key={feature.id}
-                feature={feature}
-                index={index}
-              />
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* =====================================================
-          VISUAL BREAK
-      ===================================================== */}
-
-      <section className="relative px-5 py-20 sm:px-8 lg:px-12">
-        <div className="mx-auto max-w-7xl">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.94 }}
-            whileInView={{ opacity: 1, scale: 1 }}
-            viewport={{ once: true, amount: 0.2 }}
-            transition={{ duration: 0.8 }}
-            className="relative overflow-hidden rounded-[36px] border border-slate-700 bg-slate-950"
+          <div
+            className="
+              grid
+              items-center
+              gap-8
+              lg:grid-cols-[0.9fr_1.1fr]
+              lg:gap-10
+            "
           >
-            <img
-              src="https://images.unsplash.com/photo-1565610222536-ef125c59da2e?auto=format&fit=crop&w=2200&q=85"
-              alt="Fleet operations"
-              loading="lazy"
-              className="h-[420px] w-full object-cover opacity-25 filter brightness-75"
-            />
+            {/* LEFT */}
 
-            <div className="absolute inset-0 bg-gradient-to-r from-[#0a0f1d] via-[#0a0f1d]/80 to-[#0a0f1d]/40" />
+            <div>
+              <p
+                className="
+                  text-[10px]
+                  font-bold
+                  uppercase
+                  tracking-[0.2em]
+                  text-emerald-500
+                "
+              >
+                Connected operations
+              </p>
 
-            <div className="absolute inset-0 flex items-center p-8 sm:p-14 lg:p-20">
-              <div className="max-w-2xl">
-                <p className="text-xs font-semibold uppercase tracking-[0.25em] text-blue-400">
-                  Built around your fleet
-                </p>
+              <h2
+                className="
+                  mt-3
+                  text-3xl
+                  font-black
+                  leading-tight
+                  text-[color:var(--bf-text-primary)]
+                  sm:text-4xl
+                "
+              >
+                One workflow across
 
-                <h2 className="mt-5 text-4xl font-black leading-tight sm:text-6xl text-white">
-                  Less paperwork.
-                  <br />
-                  <span className="text-slate-500">More control.</span>
-                </h2>
+                <span
+                  className="
+                    ml-2
+                    text-[color:var(--bf-text-muted)]
+                  "
+                >
+                  the fleet lifecycle.
+                </span>
+              </h2>
 
-                <p className="mt-6 max-w-xl text-sm leading-7 text-slate-300 sm:text-base">
-                  Replace disconnected spreadsheets and scattered records with
-                  a single operational system designed for modern transport
-                  businesses.
-                </p>
+              <p
+                className="
+                  mt-4
+                  max-w-xl
+                  text-sm
+                  leading-7
+                  text-[color:var(--bf-text-secondary)]
+                "
+              >
+                Important information can stay connected from
+                booking and dispatch through delivery, expenses,
+                maintenance, compliance and settlement.
+              </p>
+            </div>
+
+            {/* RIGHT */}
+
+            <div
+              className="
+                rounded-[24px]
+                border
+                border-[color:var(--bf-border)]
+                bg-[var(--bf-surface)]
+                p-4
+                shadow-sm
+                sm:p-5
+              "
+            >
+              <div
+                className="
+                  grid
+                  gap-3
+                  sm:grid-cols-2
+                "
+              >
+                {CONNECTED_WORKFLOW.map(
+                  (item) => {
+                    const Icon =
+                      item.icon;
+
+                    return (
+                      <article
+                        key={item.number}
+                        className="
+                          rounded-2xl
+                          border
+                          border-[color:var(--bf-border)]
+                          bg-[var(--bf-page-bg)]
+                          p-4
+                        "
+                      >
+                        <div
+                          className="
+                            flex
+                            items-center
+                            justify-between
+                            gap-3
+                          "
+                        >
+                          <div
+                            className="
+                              flex
+                              h-9
+                              w-9
+                              items-center
+                              justify-center
+                              rounded-xl
+                              bg-cyan-400/[0.07]
+                              text-cyan-500
+                            "
+                          >
+                            <Icon
+                              size={17}
+                              aria-hidden="true"
+                            />
+                          </div>
+
+                          <span
+                            className="
+                              font-mono
+                              text-[9px]
+                              text-[color:var(--bf-text-muted)]
+                            "
+                          >
+                            {item.number}
+                          </span>
+                        </div>
+
+                        <h3
+                          className="
+                            mt-4
+                            text-base
+                            font-black
+                            text-[color:var(--bf-text-primary)]
+                          "
+                        >
+                          {item.title}
+                        </h3>
+
+                        <p
+                          className="
+                            mt-2
+                            text-xs
+                            leading-5
+                            text-[color:var(--bf-text-muted)]
+                          "
+                        >
+                          {item.text}
+                        </p>
+                      </article>
+                    );
+                  }
+                )}
               </div>
             </div>
-          </motion.div>
+          </div>
+        </div>
+      </section>
+
+      {/* =====================================================
+          WHO IT IS FOR
+      ===================================================== */}
+
+      <section
+        className="
+          relative
+          px-5
+          py-8
+          sm:px-8
+          sm:py-10
+          lg:px-12
+          lg:py-12
+        "
+      >
+        <div className="mx-auto max-w-7xl">
+
+          <div
+            className="
+              rounded-[26px]
+              border
+              border-[color:var(--bf-border)]
+              bg-[var(--bf-surface)]
+              p-5
+              shadow-sm
+              sm:p-7
+              lg:p-8
+            "
+          >
+            <div
+              className="
+                grid
+                gap-7
+                lg:grid-cols-[0.8fr_1.2fr]
+              "
+            >
+              <div>
+                <div
+                  className="
+                    flex
+                    h-10
+                    w-10
+                    items-center
+                    justify-center
+                    rounded-xl
+                    border
+                    border-cyan-400/20
+                    bg-cyan-400/[0.07]
+                    text-cyan-500
+                  "
+                >
+                  <Users
+                    size={18}
+                    aria-hidden="true"
+                  />
+                </div>
+
+                <p
+                  className="
+                    mt-4
+                    text-[10px]
+                    font-bold
+                    uppercase
+                    tracking-[0.2em]
+                    text-cyan-500
+                  "
+                >
+                  Designed for Indian transport operations
+                </p>
+
+                <h2
+                  className="
+                    mt-3
+                    text-3xl
+                    font-black
+                    leading-tight
+                    text-[color:var(--bf-text-primary)]
+                    sm:text-4xl
+                  "
+                >
+                  Built for teams that manage fleets every day.
+                </h2>
+              </div>
+
+              <div
+                className="
+                  grid
+                  gap-3
+                  sm:grid-cols-2
+                "
+              >
+                {TARGET_USERS.map(
+                  (item) => (
+                    <div
+                      key={item}
+                      className="
+                        flex
+                        items-center
+                        gap-3
+                        rounded-xl
+                        border
+                        border-[color:var(--bf-border)]
+                        bg-[var(--bf-page-bg)]
+                        p-3.5
+                      "
+                    >
+                      <BadgeCheck
+                        size={17}
+                        aria-hidden="true"
+                        className="
+                          shrink-0
+                          text-emerald-500
+                        "
+                      />
+
+                      <span
+                        className="
+                          text-sm
+                          font-bold
+                          text-[color:var(--bf-text-secondary)]
+                        "
+                      >
+                        {item}
+                      </span>
+                    </div>
+                  )
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -1052,48 +1598,199 @@ export default function Features() {
           FINAL CTA
       ===================================================== */}
 
-      <section className="relative px-5 py-32 sm:px-8 lg:px-12">
-        <div className="relative mx-auto max-w-5xl overflow-hidden rounded-[38px] border border-purple-500/40 bg-gradient-to-r from-blue-950/60 via-indigo-950/60 to-purple-950/60 p-10 text-center sm:p-16 lg:p-20 shadow-2xl backdrop-blur-2xl">
-          <div className="absolute left-1/2 top-0 h-64 w-64 -translate-x-1/2 -translate-y-1/2 rounded-full bg-purple-600/30 blur-[100px]" />
+      <section
+        className="
+          relative
+          px-5
+          pb-10
+          pt-4
+          sm:px-8
+          sm:pb-12
+          lg:px-12
+        "
+      >
+        <div className="mx-auto max-w-6xl">
 
-          <motion.div
-            animate={{ scale: [1, 1.02, 1] }}
-            transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-            className="relative"
+          <div
+            className="
+              relative
+              overflow-hidden
+              rounded-[28px]
+              border
+              border-cyan-400/20
+              bg-[var(--bf-surface)]
+              px-6
+              py-8
+              text-center
+              shadow-sm
+              sm:px-10
+              sm:py-10
+            "
           >
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-purple-400">
-              Ready for the next level?
-            </p>
+            {/* GLOW */}
 
-            <h2 className="mx-auto mt-5 max-w-3xl text-4xl font-black leading-tight sm:text-6xl text-white">
-              Turn your fleet into a
-              <span className="bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-                {" "}
-                smarter operation.
-              </span>
-            </h2>
+            <div
+              aria-hidden="true"
+              className="
+                absolute
+                left-1/2
+                top-0
+                h-64
+                w-64
+                -translate-x-1/2
+                -translate-y-1/2
+                rounded-full
+                bg-cyan-400/12
+                blur-[90px]
+              "
+            />
 
-            <p className="mx-auto mt-6 max-w-2xl text-sm leading-7 text-slate-300 sm:text-base">
-              Bring your vehicles, drivers, trips, finance and maintenance
-              together with Buddy Fleets.
-            </p>
+            {/* GRID */}
 
-            <div className="mt-9">
-              <Link
-                to="/signup"
-                className="group inline-flex items-center gap-3 rounded-2xl bg-gradient-to-r from-blue-600 to-purple-600 px-8 py-4 text-sm font-bold text-white shadow-xl shadow-purple-600/40 transition-all duration-300 hover:-translate-y-1 hover:from-blue-500 hover:to-purple-500"
+            <div
+              aria-hidden="true"
+              className="
+                absolute
+                inset-0
+                opacity-[0.04]
+              "
+              style={{
+                backgroundImage:
+                  'linear-gradient(rgba(100,116,139,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(100,116,139,0.3) 1px, transparent 1px)',
+                backgroundSize:
+                  '50px 50px',
+              }}
+            />
+
+            <div className="relative">
+              <p
+                className="
+                  text-[10px]
+                  font-black
+                  uppercase
+                  tracking-[0.22em]
+                  text-cyan-500
+                "
               >
-                Get Started with Buddy Fleets
-                <span className="transition-transform duration-300 group-hover:translate-x-1">
-                  →
+                Ready to get started?
+              </p>
+
+              <h2
+                className="
+                  mx-auto
+                  mt-3
+                  max-w-4xl
+                  text-3xl
+                  font-black
+                  leading-tight
+                  text-[color:var(--bf-text-primary)]
+                  sm:text-4xl
+                  lg:text-[44px]
+                "
+              >
+                Bring your fleet operations{' '}
+
+                <span
+                  className="
+                    bg-gradient-to-r
+                    from-[#12BFF2]
+                    via-[#078EE5]
+                    to-[#0AA23B]
+                    bg-clip-text
+                    text-transparent
+                  "
+                >
+                  into one platform.
                 </span>
-              </Link>
+              </h2>
+
+              <p
+                className="
+                  mx-auto
+                  mt-4
+                  max-w-2xl
+                  text-sm
+                  leading-6
+                  text-[color:var(--bf-text-secondary)]
+                "
+              >
+                Start with Buddy Fleets and create a cleaner,
+                more organized workflow for your transport
+                business.
+              </p>
+
+              <div
+                className="
+                  mt-5
+                  flex
+                  flex-col
+                  justify-center
+                  gap-3
+                  sm:flex-row
+                "
+              >
+                <Link
+                  to="/signup"
+                  className="
+                    inline-flex
+                    min-h-11
+                    items-center
+                    justify-center
+                    rounded-xl
+                    bg-gradient-to-r
+                    from-[#078EE5]
+                    to-[#0AA23B]
+                    px-6
+                    py-3
+                    text-sm
+                    font-black
+                    text-white
+                    shadow-lg
+                    shadow-blue-900/10
+                    transition
+                    duration-200
+                    hover:-translate-y-0.5
+                    hover:shadow-blue-500/20
+                    focus-visible:outline-none
+                    focus-visible:ring-2
+                    focus-visible:ring-cyan-400
+                  "
+                >
+                  Get Started
+                </Link>
+
+                <Link
+                  to="/contact-us"
+                  className="
+                    inline-flex
+                    min-h-11
+                    items-center
+                    justify-center
+                    rounded-xl
+                    border
+                    border-[color:var(--bf-border)]
+                    bg-[var(--bf-page-bg)]
+                    px-6
+                    py-3
+                    text-sm
+                    font-bold
+                    text-[color:var(--bf-text-primary)]
+                    transition
+                    duration-200
+                    hover:-translate-y-0.5
+                    hover:border-cyan-400/30
+                    focus-visible:outline-none
+                    focus-visible:ring-2
+                    focus-visible:ring-cyan-400
+                  "
+                >
+                  Contact Us
+                </Link>
+              </div>
             </div>
-          </motion.div>
+          </div>
         </div>
       </section>
-
-      <div className="h-10" />
-    </main>
+    </div>
   );
 }

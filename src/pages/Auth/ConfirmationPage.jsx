@@ -9,16 +9,27 @@ import {
   useNavigate,
 } from 'react-router-dom';
 
-import { motion } from 'framer-motion';
-
 import { supabase } from '../../supabaseClient';
 
 /* =========================================================
    BUDDY FLEETS
    EMAIL CONFIRMATION PAGE
 
-   Navbar + Footer:
-   AuthLayout.jsx handles them.
+   WebsiteLayout handles:
+   - Header
+   - Development notice
+   - Footer
+   - Dark / Light theme
+
+   DESIGN:
+   - One unified auth canvas
+   - Same website visual language
+   - No separate visual page sections
+   - No Framer Motion
+   - No truck / radar / chart
+   - No external background image
+   - No blinking / pulsing
+   - PageSpeed-first
 
    IMPORTANT:
 
@@ -70,267 +81,126 @@ function formatDateTime(value) {
 }
 
 /* =========================================================
-   AMBIENT ORB
+   ICONS
 ========================================================= */
 
-function AmbientOrb({
+function CheckIcon({
   className = '',
 }) {
   return (
-    <motion.div
-      animate={{
-        scale: [
-          1,
-          1.12,
-          1,
-        ],
-
-        opacity: [
-          0.2,
-          0.42,
-          0.2,
-        ],
-      }}
-      transition={{
-        duration: 7,
-        repeat: Infinity,
-        ease: 'easeInOut',
-      }}
-      className={`
-        pointer-events-none
-        absolute
-        rounded-full
-        blur-[110px]
-        ${className}
-      `}
-    />
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+      className={className}
+    >
+      <path
+        d="m5 12 4 4L19 6"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 
-/* =========================================================
-   LIGHT TRAIL
-========================================================= */
-
-function LightTrail({
-  delay = 0,
-  duration = 8,
-  bottom = 'bottom-[15%]',
-  width = 'w-48',
+function CloseIcon({
+  className = '',
 }) {
   return (
-    <motion.div
-      initial={{
-        x: '-30vw',
-        opacity: 0,
-      }}
-      animate={{
-        x: '130vw',
-
-        opacity: [
-          0,
-          0.35,
-          0.65,
-          0,
-        ],
-      }}
-      transition={{
-        duration,
-        delay,
-        repeat: Infinity,
-        ease: 'linear',
-      }}
-      className={`
-        pointer-events-none
-        absolute
-        left-0
-        ${bottom}
-        h-px
-        ${width}
-        bg-gradient-to-r
-        from-transparent
-        via-cyan-300/50
-        to-transparent
-      `}
-    />
-  );
-}
-
-/* =========================================================
-   TRUCK
-========================================================= */
-
-function Truck() {
-  return (
-    <div className="relative h-16 w-44 sm:h-20 sm:w-56">
-
-      {/* UNDER GLOW */}
-
-      <div className="absolute -bottom-2 left-2 h-5 w-40 rounded-full bg-cyan-400/20 blur-xl sm:w-52" />
-
-      {/* TRAILER */}
-
-      <div className="absolute left-0 top-1 h-11 w-32 rounded-md border border-cyan-300/20 bg-gradient-to-br from-slate-700/80 via-slate-800/80 to-[#07101f] shadow-[0_0_30px_rgba(34,211,238,0.12)] sm:h-14 sm:w-40">
-
-        <div className="absolute left-2 right-2 top-2 h-1 rounded-full bg-cyan-400/40" />
-
-        <div className="absolute left-2 top-5 text-[7px] font-black uppercase tracking-[0.25em] text-slate-500 sm:top-6">
-          BUDDY FLEETS
-        </div>
-
-        <div className="absolute bottom-2 left-2 h-1 w-8 rounded-full bg-blue-400/30" />
-
-        <div className="absolute bottom-2 right-2 h-1 w-12 rounded-full bg-violet-400/30" />
-
-      </div>
-
-      {/* CABIN */}
-
-      <div className="absolute right-0 top-5 h-8 w-12 rounded-r-lg rounded-tl-sm border border-cyan-300/25 bg-gradient-to-br from-cyan-500/30 via-blue-600/30 to-violet-700/30 shadow-[0_0_25px_rgba(34,211,238,0.2)] sm:top-7 sm:h-10 sm:w-14">
-
-        <div className="absolute left-2 top-2 h-3 w-7 rounded-sm border border-cyan-300/20 bg-cyan-300/10 sm:h-4 sm:w-9" />
-
-      </div>
-
-      {/* FRONT LIGHT */}
-
-      <div className="absolute right-[-4px] top-[31px] h-2 w-2 rounded-full bg-cyan-200 shadow-[0_0_14px_rgba(34,211,238,1)] sm:top-[39px]" />
-
-      {/* WHEELS */}
-
-      <div className="absolute bottom-0 left-6 h-6 w-6 rounded-full border-2 border-slate-500 bg-[#020617] sm:left-8 sm:h-7 sm:w-7" />
-
-      <div className="absolute bottom-0 right-6 h-6 w-6 rounded-full border-2 border-slate-500 bg-[#020617] sm:right-7 sm:h-7 sm:w-7" />
-
-      {/* HUBS */}
-
-      <div className="absolute bottom-[7px] left-[35px] h-2 w-2 rounded-full bg-slate-600 sm:bottom-[8px] sm:left-[42px]" />
-
-      <div className="absolute bottom-[7px] right-[35px] h-2 w-2 rounded-full bg-slate-600 sm:bottom-[8px] sm:right-[42px]" />
-
-    </div>
-  );
-}
-
-/* =========================================================
-   ANIMATED TRUCK
-========================================================= */
-
-function AnimatedTruck() {
-  return (
-    <motion.div
-      initial={{
-        x: '-20vw',
-        opacity: 0,
-      }}
-      animate={{
-        x: '120vw',
-
-        opacity: [
-          0,
-          1,
-          1,
-          0,
-        ],
-      }}
-      transition={{
-        duration: 22,
-        repeat: Infinity,
-        repeatDelay: 3,
-        ease: 'linear',
-      }}
-      className="absolute bottom-0 left-0"
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+      className={className}
     >
-      <Truck />
-    </motion.div>
+      <path
+        d="m7 7 10 10M17 7 7 17"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    </svg>
   );
 }
 
-/* =========================================================
-   MOBILE / TABLET TRUCK
-========================================================= */
-
-function MobileTruckScene() {
+function CopyIcon({
+  className = '',
+}) {
   return (
-    <div className="relative h-24 w-full overflow-hidden border-y border-white/[0.04] sm:h-28 lg:hidden">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+      className={className}
+    >
+      <rect
+        x="8"
+        y="8"
+        width="11"
+        height="11"
+        rx="2"
+        stroke="currentColor"
+        strokeWidth="1.7"
+      />
 
-      <div className="absolute inset-x-0 bottom-2 h-px bg-gradient-to-r from-transparent via-cyan-400/35 to-transparent" />
-
-      <div className="absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-cyan-500/[0.06] to-transparent" />
-
-      <AnimatedTruck />
-
-    </div>
+      <path
+        d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+      />
+    </svg>
   );
 }
 
-/* =========================================================
-   RADAR
-========================================================= */
-
-function RadarPulse() {
+function ArrowIcon({
+  className = '',
+}) {
   return (
-    <div className="pointer-events-none absolute right-[7%] top-[30%] hidden h-36 w-36 xl:block">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+      className={className}
+    >
+      <path
+        d="M5 12h14M13 6l6 6-6 6"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
 
-      <motion.div
-        animate={{
-          scale: [
-            0.7,
-            1.4,
-          ],
-
-          opacity: [
-            0.45,
-            0,
-          ],
-        }}
-        transition={{
-          duration: 3,
-          repeat: Infinity,
-          ease: 'easeOut',
-        }}
-        className="absolute inset-0 rounded-full border border-cyan-400/20"
+function ShieldIcon({
+  className = '',
+}) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+      className={className}
+    >
+      <path
+        d="M12 3 19 6v5c0 4.5-2.8 8-7 10-4.2-2-7-5.5-7-10V6l7-3Z"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinejoin="round"
       />
 
-      <motion.div
-        animate={{
-          scale: [
-            0.7,
-            1.4,
-          ],
-
-          opacity: [
-            0.3,
-            0,
-          ],
-        }}
-        transition={{
-          duration: 3,
-          delay: 1.5,
-          repeat: Infinity,
-          ease: 'easeOut',
-        }}
-        className="absolute inset-0 rounded-full border border-cyan-400/15"
+      <path
+        d="m9 12 2 2 4-4"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
       />
-
-      <div className="absolute inset-[20%] rounded-full border border-cyan-400/10" />
-
-      <div className="absolute inset-[38%] rounded-full border border-cyan-400/20 bg-cyan-400/5" />
-
-      <motion.div
-        animate={{
-          rotate: 360,
-        }}
-        transition={{
-          duration: 5,
-          repeat: Infinity,
-          ease: 'linear',
-        }}
-        className="absolute left-1/2 top-1/2 h-[1px] w-1/2 origin-left bg-gradient-to-r from-cyan-400/70 to-transparent"
-      />
-
-      <div className="absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-cyan-300 shadow-[0_0_15px_rgba(34,211,238,1)]" />
-
-    </div>
+    </svg>
   );
 }
 
@@ -390,13 +260,13 @@ export default function ConfirmationPage() {
        Database trigger already handles:
 
        Email confirmation
-              ↓
+            ↓
        Company Code
-              ↓
+            ↓
        Active Membership
-              ↓
+            ↓
        Trial Activation
-              ↓
+            ↓
        Subscription
 
        ConfirmationPage sirf resulting data read karegi.
@@ -406,7 +276,6 @@ export default function ConfirmationPage() {
       async (
         user
       ) => {
-
         /*
           Auth confirmation aur DB trigger visibility ke
           beech tiny delay ho sakta hai.
@@ -419,7 +288,6 @@ export default function ConfirmationPage() {
           attempt < 6;
           attempt += 1
         ) {
-
           if (
             cancelled
           ) {
@@ -440,14 +308,12 @@ export default function ConfirmationPage() {
               .from(
                 'company_memberships'
               )
-              .select(
-                `
-                  company_id,
-                  status,
-                  joined_at,
-                  created_at
-                `
-              )
+              .select(`
+                company_id,
+                status,
+                joined_at,
+                created_at
+              `)
               .eq(
                 'user_id',
                 user.id
@@ -469,19 +335,16 @@ export default function ConfirmationPage() {
           if (
             membershipError
           ) {
-
             console.error(
               'Confirmation membership read error:',
               membershipError
             );
-
           }
 
           if (
             membership
               ?.company_id
           ) {
-
             /* =============================================
                COMPANY
             ============================================= */
@@ -496,15 +359,13 @@ export default function ConfirmationPage() {
                 .from(
                   'companies'
                 )
-                .select(
-                  `
-                    id,
-                    company_code,
-                    company_name,
-                    status,
-                    confirmed_at
-                  `
-                )
+                .select(`
+                  id,
+                  company_code,
+                  company_name,
+                  status,
+                  confirmed_at
+                `)
                 .eq(
                   'id',
                   membership.company_id
@@ -514,12 +375,10 @@ export default function ConfirmationPage() {
             if (
               companyError
             ) {
-
               console.error(
                 'Confirmation company read error:',
                 companyError
               );
-
             }
 
             /*
@@ -540,7 +399,6 @@ export default function ConfirmationPage() {
                   'active'
               )
             ) {
-
               /* ===========================================
                  SUBSCRIPTION
               =========================================== */
@@ -555,13 +413,11 @@ export default function ConfirmationPage() {
                   .from(
                     'subscriptions'
                   )
-                  .select(
-                    `
-                      status,
-                      trial_start_at,
-                      trial_end_at
-                    `
-                  )
+                  .select(`
+                    status,
+                    trial_start_at,
+                    trial_end_at
+                  `)
                   .eq(
                     'company_id',
                     company.id
@@ -571,12 +427,10 @@ export default function ConfirmationPage() {
               if (
                 subscriptionError
               ) {
-
                 console.error(
                   'Confirmation subscription read error:',
                   subscriptionError
                 );
-
               }
 
               return {
@@ -618,9 +472,7 @@ export default function ConfirmationPage() {
                     ?.trial_end_at ||
                   null,
               };
-
             }
-
           }
 
           /* SMALL RETRY */
@@ -630,7 +482,6 @@ export default function ConfirmationPage() {
               attempt *
                 250
           );
-
         }
 
         return null;
@@ -644,7 +495,6 @@ export default function ConfirmationPage() {
       async (
         session
       ) => {
-
         if (
           cancelled ||
           completedRef.current ||
@@ -660,15 +510,12 @@ export default function ConfirmationPage() {
         if (
           noSessionTimer
         ) {
-
           clearTimeout(
             noSessionTimer
           );
-
         }
 
         try {
-
           /*
             getUser() server-backed identity verification.
           */
@@ -696,11 +543,9 @@ export default function ConfirmationPage() {
           if (
             !verifiedUser
           ) {
-
             throw new Error(
               'AUTH_USER_NOT_FOUND'
             );
-
           }
 
           /* EMAIL CONFIRMATION REQUIRED */
@@ -709,11 +554,9 @@ export default function ConfirmationPage() {
             !verifiedUser
               .email_confirmed_at
           ) {
-
             throw new Error(
               'EMAIL_NOT_CONFIRMED'
             );
-
           }
 
           /* ACTIVATION DATA */
@@ -726,11 +569,9 @@ export default function ConfirmationPage() {
           if (
             !activation
           ) {
-
             throw new Error(
               'ACTIVATION_NOT_READY'
             );
-
           }
 
           if (
@@ -751,9 +592,7 @@ export default function ConfirmationPage() {
           setLoading(
             false
           );
-
         } catch (err) {
-
           console.error(
             'Confirmation processing error:',
             err
@@ -776,14 +615,10 @@ export default function ConfirmationPage() {
           setLoading(
             false
           );
-
         } finally {
-
           processingRef.current =
             false;
-
         }
-
       };
 
     /* =======================================================
@@ -801,7 +636,6 @@ export default function ConfirmationPage() {
             _event,
             session
           ) => {
-
             if (
               cancelled ||
               !session?.user
@@ -816,15 +650,12 @@ export default function ConfirmationPage() {
 
             window.setTimeout(
               () => {
-
                 processSession(
                   session
                 );
-
               },
               0
             );
-
           }
         );
 
@@ -834,9 +665,7 @@ export default function ConfirmationPage() {
 
     const checkInitialSession =
       async () => {
-
         try {
-
           const {
             data,
             error:
@@ -857,7 +686,6 @@ export default function ConfirmationPage() {
               ?.session
               ?.user
           ) {
-
             await processSession(
               data.session
             );
@@ -873,7 +701,6 @@ export default function ConfirmationPage() {
           noSessionTimer =
             window.setTimeout(
               () => {
-
                 if (
                   cancelled ||
                   completedRef.current
@@ -888,13 +715,10 @@ export default function ConfirmationPage() {
                 setError(
                   'Verification session was not found. The confirmation link may have expired or is invalid.'
                 );
-
               },
               6000
             );
-
         } catch (err) {
-
           console.error(
             'Initial confirmation session error:',
             err
@@ -903,7 +727,6 @@ export default function ConfirmationPage() {
           if (
             !cancelled
           ) {
-
             setLoading(
               false
             );
@@ -911,36 +734,28 @@ export default function ConfirmationPage() {
             setError(
               'Unable to verify this confirmation link. Please try again.'
             );
-
           }
-
         }
-
       };
 
     checkInitialSession();
 
     return () => {
-
       cancelled =
         true;
 
       if (
         noSessionTimer
       ) {
-
         clearTimeout(
           noSessionTimer
         );
-
       }
 
       authListener
         ?.subscription
         ?.unsubscribe();
-
     };
-
   }, []);
 
   /* =========================================================
@@ -949,7 +764,6 @@ export default function ConfirmationPage() {
 
   const handleCopy =
     async () => {
-
       const code =
         accountData
           ?.companyCode;
@@ -961,7 +775,6 @@ export default function ConfirmationPage() {
       }
 
       try {
-
         await navigator
           .clipboard
           .writeText(
@@ -974,17 +787,13 @@ export default function ConfirmationPage() {
 
         window.setTimeout(
           () => {
-
             setCopyStatus(
               'idle'
             );
-
           },
           2000
         );
-
       } catch (err) {
-
         console.error(
           'Clipboard error:',
           err
@@ -996,17 +805,13 @@ export default function ConfirmationPage() {
 
         window.setTimeout(
           () => {
-
             setCopyStatus(
               'idle'
             );
-
           },
           2500
         );
-
       }
-
     };
 
   /* =========================================================
@@ -1020,25 +825,19 @@ export default function ConfirmationPage() {
 
   const handleProceedToLogin =
     async () => {
-
       try {
-
         await supabase
           .auth
           .signOut({
             scope:
               'local',
           });
-
       } catch (err) {
-
         console.error(
           'Post-confirmation signout error:',
           err
         );
-
       } finally {
-
         navigate(
           '/login',
           {
@@ -1046,9 +845,7 @@ export default function ConfirmationPage() {
               true,
           }
         );
-
       }
-
     };
 
   /* =========================================================
@@ -1069,199 +866,305 @@ export default function ConfirmationPage() {
     <div
       className="
         relative
-        min-h-full
-        w-full
-        overflow-x-hidden
-        bg-[#050914]
-        text-white
+        isolate
 
-        lg:h-full
-        lg:min-h-0
-        lg:overflow-hidden
+        flex
+        w-full
+        flex-1
+
+        overflow-hidden
+
+        bg-[var(--bf-page-bg)]
+
+        text-[color:var(--bf-text-primary)]
+
+        transition-colors
+        duration-300
       "
     >
-
       {/* =====================================================
-          BACKGROUND
+          SINGLE UNIFIED BACKGROUND
       ===================================================== */}
 
-      <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
+      <div
+        aria-hidden="true"
+        className="
+          pointer-events-none
 
-        <img
-          src="https://images.unsplash.com/photo-1519003722824-194d4455a60c?q=85&w=2400&auto=format&fit=crop"
-          alt=""
-          aria-hidden="true"
-          className="h-full w-full object-cover object-center opacity-25"
-        />
+          absolute
+          inset-0
+          -z-10
 
-        <div className="absolute inset-0 bg-[#050914]/80" />
-
-        <div className="absolute inset-0 bg-gradient-to-r from-[#050914] via-[#050914]/90 to-[#071329]/75" />
-
-        <div className="absolute inset-0 bg-gradient-to-t from-[#050914] via-transparent to-[#050914]/65" />
-
-        {/* GRID */}
+          overflow-hidden
+        "
+      >
+        {/* BASE */}
 
         <div
-          className="absolute inset-0 opacity-[0.06]"
+          className="
+            absolute
+            inset-0
+
+            bg-[var(--bf-page-bg)]
+          "
+        />
+
+        {/* STATIC GRID */}
+
+        <div
+          className="
+            absolute
+            inset-0
+
+            opacity-[0.035]
+          "
           style={{
             backgroundImage:
-              'linear-gradient(rgba(56,189,248,0.7) 1px, transparent 1px), linear-gradient(90deg, rgba(56,189,248,0.7) 1px, transparent 1px)',
+              'linear-gradient(rgba(100,116,139,.28) 1px, transparent 1px), linear-gradient(90deg, rgba(100,116,139,.28) 1px, transparent 1px)',
 
             backgroundSize:
-              '55px 55px',
+              '72px 72px',
           }}
         />
 
-        {/* GLOWS */}
+        {/* CYAN GLOW */}
 
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_40%,rgba(6,182,212,0.10),transparent_30%),radial-gradient(circle_at_85%_40%,rgba(124,58,237,0.12),transparent_32%)]" />
+        <div
+          className="
+            absolute
+            -left-48
+            top-[-80px]
 
-        <AmbientOrb className="left-[4%] top-[15%] h-72 w-72 bg-cyan-500/20" />
+            h-[480px]
+            w-[480px]
 
-        <AmbientOrb className="right-[5%] top-[20%] h-80 w-80 bg-violet-600/20" />
+            rounded-full
 
+            bg-cyan-500/[0.065]
+
+            blur-[135px]
+          "
+        />
+
+        {/* BLUE GLOW */}
+
+        <div
+          className="
+            absolute
+            -right-52
+            top-[5%]
+
+            h-[500px]
+            w-[500px]
+
+            rounded-full
+
+            bg-blue-500/[0.055]
+
+            blur-[145px]
+          "
+        />
+
+        {/* GREEN GLOW */}
+
+        <div
+          className="
+            absolute
+            bottom-[-240px]
+            left-[38%]
+
+            h-[420px]
+            w-[420px]
+
+            rounded-full
+
+            bg-emerald-500/[0.045]
+
+            blur-[130px]
+          "
+        />
       </div>
 
       {/* =====================================================
-          DESKTOP EFFECTS
-      ===================================================== */}
-
-      <div className="pointer-events-none absolute inset-0 z-[1] hidden overflow-hidden lg:block">
-
-        <LightTrail
-          delay={0}
-          duration={8}
-          bottom="bottom-[12%]"
-          width="w-56"
-        />
-
-        <LightTrail
-          delay={2.5}
-          duration={9}
-          bottom="bottom-[18%]"
-          width="w-72"
-        />
-
-        <RadarPulse />
-
-        <div className="absolute inset-x-0 bottom-0 h-20 overflow-hidden">
-
-          <div className="absolute inset-x-0 bottom-1 h-px bg-gradient-to-r from-transparent via-cyan-400/30 to-transparent" />
-
-          <AnimatedTruck />
-
-        </div>
-
-      </div>
-
-      {/* =====================================================
-          CONTENT
+          ONE UNIFIED AUTH CANVAS
       ===================================================== */}
 
       <div
         className="
           relative
-          z-10
+
           mx-auto
-          flex
+
+          grid
           w-full
-          max-w-[1280px]
-          flex-col
+          max-w-7xl
+
+          items-center
+
           gap-7
-          px-4
-          py-7
 
-          sm:gap-9
-          sm:px-6
-          sm:py-9
+          px-5
+          py-6
 
-          lg:grid
-          lg:h-full
-          lg:grid-cols-[minmax(0,1fr)_430px]
-          lg:items-center
-          lg:gap-10
-          lg:px-10
-          lg:py-2
+          sm:px-8
+          sm:py-7
 
-          xl:grid-cols-[minmax(0,1fr)_448px]
+          lg:grid-cols-[minmax(0,1fr)_440px]
+          lg:gap-12
+          lg:px-12
+          lg:py-5
+
+          xl:grid-cols-[minmax(0,1fr)_460px]
           xl:gap-16
         "
       >
-
         {/* =================================================
-            HERO
+            LEFT CONTENT
         ================================================= */}
 
-        <motion.section
-          initial={{
-            opacity: 0,
-            x: -30,
-          }}
-          animate={{
-            opacity: 1,
-            x: 0,
-          }}
-          transition={{
-            duration: 0.8,
-          }}
+        <div
           className="
-            relative
             mx-auto
+
             w-full
             max-w-2xl
+
             text-center
 
             lg:mx-0
-            lg:max-w-none
             lg:text-left
           "
         >
-
           {/* BADGE */}
 
-          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/5 px-3.5 py-2 backdrop-blur-md sm:mb-5 sm:px-4">
+          <div
+            className="
+              inline-flex
 
-            <span className="relative flex h-2 w-2">
+              items-center
+              gap-2.5
 
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-70" />
+              rounded-full
 
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
+              border
+              border-emerald-400/20
 
-            </span>
+              bg-emerald-400/[0.06]
 
-            <span className="text-[8px] font-bold uppercase tracking-[0.18em] text-emerald-300 sm:text-[9px] xl:text-[10px]">
+              px-3.5
+              py-2
+            "
+          >
+            <span
+              className="
+                h-1.5
+                w-1.5
+
+                rounded-full
+
+                bg-emerald-500
+              "
+            />
+
+            <span
+              className="
+                text-[8px]
+                font-black
+                uppercase
+                tracking-[0.19em]
+
+                text-emerald-500
+
+                sm:text-[9px]
+              "
+            >
               Account Activation
             </span>
-
           </div>
 
           {/* HEADING */}
 
-          <h1 className="text-4xl font-black leading-[1.03] tracking-tight text-white sm:text-5xl lg:text-5xl xl:text-6xl">
+          <h1
+            className="
+              mt-4
 
-            Your fleet journey
+              text-[clamp(2.15rem,4.2vw,3.75rem)]
 
-            <span className="block bg-gradient-to-r from-cyan-300 via-blue-400 to-violet-400 bg-clip-text text-transparent">
-              starts here.
+              font-black
+
+              leading-[1.04]
+
+              tracking-[-0.035em]
+            "
+          >
+            <span
+              className="
+                block
+
+                text-[color:var(--bf-text-primary)]
+              "
+            >
+              Your fleet journey
             </span>
 
+            <span
+              className="
+                block
+
+                bg-gradient-to-r
+                from-[#12BFF2]
+                via-[#078EE5]
+                to-[#0AA23B]
+
+                bg-clip-text
+                text-transparent
+              "
+            >
+              starts here.
+            </span>
           </h1>
 
           {/* DESCRIPTION */}
 
-          <p className="mx-auto mt-4 max-w-lg text-xs leading-6 text-slate-400 sm:mt-5 sm:text-sm sm:leading-7 lg:mx-0 lg:max-w-md">
+          <p
+            className="
+              mx-auto
+              mt-3.5
 
+              max-w-lg
+
+              text-xs
+              leading-6
+
+              text-[color:var(--bf-text-secondary)]
+
+              sm:text-sm
+              sm:leading-7
+
+              lg:mx-0
+            "
+          >
             Your verified Buddy Fleets account connects your
             company, users and fleet operations inside one
             secure platform.
-
           </p>
 
-          {/* POINTS */}
+          {/* SUPPORTING POINTS */}
 
-          <div className="mx-auto mt-5 flex max-w-md flex-col items-start gap-2.5 sm:mt-6 lg:mx-0 lg:mt-7">
+          <div
+            className="
+              mx-auto
+              mt-5
 
+              flex
+              max-w-lg
+              flex-col
+
+              gap-2.5
+
+              lg:mx-0
+            "
+          >
             {[
               'Verified company account',
               'Unique Buddy Fleets Company Code',
@@ -1271,101 +1174,269 @@ export default function ConfirmationPage() {
                 item
               ) => (
                 <div
-                  key={item}
-                  className="flex items-center gap-3 text-left text-[10px] font-medium text-slate-300 sm:text-xs"
-                >
+                  key={
+                    item
+                  }
+                  className="
+                    flex
+                    items-center
+                    gap-3
 
-                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-emerald-400/30 bg-emerald-400/10 text-[9px] text-emerald-300">
-                    ✓
+                    text-left
+
+                    text-[10px]
+                    font-medium
+
+                    text-[color:var(--bf-text-secondary)]
+
+                    sm:text-xs
+                  "
+                >
+                  <span
+                    className="
+                      flex
+                      h-5
+                      w-5
+
+                      shrink-0
+
+                      items-center
+                      justify-center
+
+                      rounded-lg
+
+                      border
+                      border-emerald-400/20
+
+                      bg-emerald-400/[0.06]
+
+                      text-emerald-500
+                    "
+                  >
+                    <CheckIcon
+                      className="
+                        h-3
+                        w-3
+                      "
+                    />
                   </span>
 
-                  {item}
-
+                  <span>
+                    {item}
+                  </span>
                 </div>
               )
             )}
-
           </div>
 
-        </motion.section>
+          {/* SECURITY LINE */}
+
+          <div
+            className="
+              mx-auto
+              mt-5
+
+              flex
+              max-w-lg
+
+              items-center
+              justify-center
+
+              gap-2
+
+              text-[8px]
+              font-semibold
+              uppercase
+              tracking-[0.14em]
+
+              text-[color:var(--bf-text-muted)]
+
+              lg:mx-0
+              lg:justify-start
+            "
+          >
+            <ShieldIcon
+              className="
+                h-3.5
+                w-3.5
+
+                text-emerald-500
+              "
+            />
+
+            Secure Account Verification
+          </div>
+        </div>
 
         {/* =================================================
-            MOBILE / TABLET TRUCK
+            CONFIRMATION AREA
         ================================================= */}
 
-        <MobileTruckScene />
+        <div
+          className="
+            relative
 
-        {/* =================================================
-            CONFIRMATION CARD
-        ================================================= */}
+            mx-auto
 
-        <motion.section
-          initial={{
-            opacity: 0,
-            y: 20,
-            scale: 0.98,
-          }}
-          animate={{
-            opacity: 1,
-            y: 0,
-            scale: 1,
-          }}
-          transition={{
-            duration: 0.7,
-            ease: 'easeOut',
-          }}
-          className="relative mx-auto w-full max-w-[448px] lg:mx-0 lg:max-w-[430px] lg:justify-self-end xl:max-w-[448px]"
+            w-full
+            max-w-[460px]
+
+            lg:mx-0
+            lg:justify-self-end
+          "
         >
+          {/* SOFT OUTER GLOW */}
 
-          {/* OUTER GLOW */}
+          <div
+            aria-hidden="true"
+            className="
+              absolute
+              -inset-[1px]
 
-          <div className="absolute -inset-[1px] rounded-[26px] bg-gradient-to-br from-cyan-400/30 via-blue-500/10 to-violet-500/30 blur-xl sm:rounded-[30px]" />
+              rounded-[25px]
+
+              bg-gradient-to-br
+              from-cyan-400/18
+              via-blue-500/[0.05]
+              to-emerald-500/14
+
+              blur-xl
+            "
+          />
 
           {/* CARD */}
 
-          <div className="relative overflow-hidden rounded-[26px] border border-white/10 bg-[#07101f]/95 shadow-2xl shadow-black/60 backdrop-blur-2xl sm:rounded-[30px]">
+          <div
+            className="
+              relative
 
-            {/* TOP EDGE */}
+              overflow-hidden
 
-            <div className="absolute left-0 right-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-400 to-transparent" />
+              rounded-[24px]
 
-            {/* GLOWS */}
+              border
+              border-[color:var(--bf-border)]
 
-            <div className="pointer-events-none absolute -right-28 -top-28 h-56 w-56 rounded-full bg-cyan-500/10 blur-[80px]" />
+              bg-[var(--bf-surface)]
 
-            <div className="pointer-events-none absolute -bottom-28 -left-28 h-56 w-56 rounded-full bg-violet-600/10 blur-[80px]" />
+              shadow-2xl
+              shadow-black/10
 
-            <div className="relative p-5 sm:p-6">
+              backdrop-blur-xl
+            "
+          >
+            {/* TOP ACCENT */}
 
+            <div
+              className="
+                absolute
+                left-0
+                right-0
+                top-0
+
+                h-px
+
+                bg-gradient-to-r
+                from-transparent
+                via-cyan-400
+                to-transparent
+              "
+            />
+
+            {/* STATIC CARD GLOW */}
+
+            <div
+              aria-hidden="true"
+              className="
+                pointer-events-none
+
+                absolute
+                -right-28
+                -top-28
+
+                h-56
+                w-56
+
+                rounded-full
+
+                bg-cyan-500/[0.055]
+
+                blur-[80px]
+              "
+            />
+
+            <div
+              className="
+                relative
+
+                p-5
+
+                sm:p-6
+              "
+            >
               {/* =========================================
                   LOADING
               ========================================= */}
 
               {loading && (
-
-                <motion.div
-                  initial={{
-                    opacity: 0,
-                  }}
-                  animate={{
-                    opacity: 1,
-                  }}
-                  className="py-8 text-center"
+                <div
+                  className="
+                    py-6
+                    text-center
+                  "
+                  aria-live="polite"
                 >
+                  <div
+                    className="
+                      mx-auto
 
-                  <div className="mx-auto h-12 w-12 animate-spin rounded-full border-2 border-cyan-400/30 border-t-cyan-300" />
+                      h-11
+                      w-11
 
-                  <h2 className="mt-5 text-lg font-black text-white">
+                      animate-spin
+
+                      rounded-full
+
+                      border-2
+                      border-cyan-400/20
+                      border-t-cyan-500
+                    "
+                  />
+
+                  <h2
+                    className="
+                      mt-4
+
+                      text-lg
+                      font-black
+
+                      text-[color:var(--bf-text-primary)]
+
+                      sm:text-xl
+                    "
+                  >
                     Verifying your account...
                   </h2>
 
-                  <p className="mx-auto mt-2 max-w-sm text-[10px] leading-5 text-slate-400 sm:text-xs">
+                  <p
+                    className="
+                      mx-auto
+                      mt-2
+
+                      max-w-sm
+
+                      text-[10px]
+                      leading-5
+
+                      text-[color:var(--bf-text-muted)]
+
+                      sm:text-xs
+                    "
+                  >
                     We're confirming your Buddy Fleets account
                     and loading your activation details.
                   </p>
-
-                </motion.div>
-
+                </div>
               )}
 
               {/* =========================================
@@ -1374,59 +1445,147 @@ export default function ConfirmationPage() {
 
               {!loading &&
                 error && (
-
-                  <motion.div
-                    initial={{
-                      opacity: 0,
-                      scale: 0.97,
-                      y: 8,
-                    }}
-                    animate={{
-                      opacity: 1,
-                      scale: 1,
-                      y: 0,
-                    }}
-                    transition={{
-                      duration: 0.45,
-                    }}
-                    className="py-5 text-center"
+                  <div
+                    className="
+                      py-3
+                      text-center
+                    "
                   >
+                    <div
+                      className="
+                        mx-auto
 
-                    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-red-400/30 bg-red-400/10 text-xl font-black text-red-300">
-                      ✕
+                        flex
+                        h-14
+                        w-14
+
+                        items-center
+                        justify-center
+
+                        rounded-2xl
+
+                        border
+                        border-red-400/25
+
+                        bg-red-400/[0.07]
+
+                        text-red-500
+                      "
+                    >
+                      <CloseIcon
+                        className="
+                          h-6
+                          w-6
+                        "
+                      />
                     </div>
 
-                    <h2 className="mt-4 text-xl font-black text-white sm:text-2xl">
+                    <h2
+                      className="
+                        mt-4
+
+                        text-xl
+                        font-black
+
+                        text-[color:var(--bf-text-primary)]
+
+                        sm:text-2xl
+                      "
+                    >
                       Verification Failed
                     </h2>
 
                     <p
-                      className="mx-auto mt-2 max-w-sm text-[10px] leading-5 text-slate-400 sm:text-xs"
+                      className="
+                        mx-auto
+                        mt-2
+
+                        max-w-sm
+
+                        text-[10px]
+                        leading-5
+
+                        text-[color:var(--bf-text-secondary)]
+
+                        sm:text-xs
+                      "
                       role="alert"
                     >
                       {error}
                     </p>
 
-                    <div className="mt-5 grid gap-2.5">
+                    <div
+                      className="
+                        mt-4
 
+                        grid
+                        gap-2.5
+                      "
+                    >
                       <Link
                         to="/login"
-                        className="inline-flex w-full items-center justify-center rounded-xl border border-white/10 bg-white/[0.05] px-5 py-3 text-xs font-black text-white transition hover:bg-white/[0.09] sm:rounded-2xl"
+                        className="
+                          inline-flex
+                          min-h-11
+                          w-full
+
+                          items-center
+                          justify-center
+
+                          rounded-xl
+
+                          border
+                          border-[color:var(--bf-border)]
+
+                          bg-[var(--bf-page-bg)]
+
+                          px-5
+                          py-2.5
+
+                          text-xs
+                          font-black
+
+                          text-[color:var(--bf-text-primary)]
+
+                          transition-colors
+                          duration-200
+
+                          hover:border-cyan-400/30
+                          hover:bg-cyan-400/[0.04]
+
+                          focus-visible:outline-none
+                          focus-visible:ring-2
+                          focus-visible:ring-cyan-400/30
+                        "
                       >
                         Go to Login
                       </Link>
 
                       <Link
                         to="/signup"
-                        className="text-[10px] font-bold text-cyan-300 transition hover:text-cyan-200 hover:underline"
+                        className="
+                          rounded
+
+                          text-[10px]
+                          font-bold
+
+                          text-cyan-500
+
+                          transition-colors
+                          duration-200
+
+                          hover:text-cyan-400
+                          hover:underline
+
+                          focus-visible:outline-none
+                          focus-visible:ring-2
+                          focus-visible:ring-cyan-400/30
+                        "
                       >
                         Back to Signup
                       </Link>
-
                     </div>
-
-                  </motion.div>
-
+                  </div>
                 )}
 
               {/* =========================================
@@ -1436,55 +1595,72 @@ export default function ConfirmationPage() {
               {!loading &&
                 !error &&
                 accountData && (
-
-                  <motion.div
-                    initial={{
-                      opacity: 0,
-                      y: 10,
-                      scale: 0.98,
-                    }}
-                    animate={{
-                      opacity: 1,
-                      y: 0,
-                      scale: 1,
-                    }}
-                    transition={{
-                      duration: 0.55,
-                    }}
-                    className="text-center"
+                  <div
+                    className="
+                      text-center
+                    "
                   >
-
                     {/* SUCCESS ICON */}
 
-                    <motion.div
-                      initial={{
-                        scale: 0,
-                      }}
-                      animate={{
-                        scale: 1,
-                      }}
-                      transition={{
-                        type:
-                          'spring',
+                    <div
+                      className="
+                        mx-auto
 
-                        stiffness:
-                          180,
+                        flex
+                        h-14
+                        w-14
 
-                        delay:
-                          0.1,
-                      }}
-                      className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-emerald-400/30 bg-emerald-400/10 text-xl text-emerald-300 shadow-lg shadow-emerald-500/10"
+                        items-center
+                        justify-center
+
+                        rounded-2xl
+
+                        border
+                        border-emerald-400/25
+
+                        bg-emerald-400/[0.08]
+
+                        text-emerald-500
+                      "
                     >
-                      ✓
-                    </motion.div>
+                      <CheckIcon
+                        className="
+                          h-6
+                          w-6
+                        "
+                      />
+                    </div>
 
                     {/* HEADING */}
 
-                    <h2 className="mt-4 text-xl font-black leading-tight text-white sm:text-2xl">
+                    <h2
+                      className="
+                        mt-3.5
+
+                        text-xl
+                        font-black
+                        leading-tight
+
+                        text-[color:var(--bf-text-primary)]
+
+                        sm:text-2xl
+                      "
+                    >
                       Congratulations!
                     </h2>
 
-                    <p className="mt-1 text-xs font-bold text-emerald-300">
+                    <p
+                      className="
+                        mt-1
+
+                        text-[11px]
+                        font-bold
+
+                        text-emerald-500
+
+                        sm:text-xs
+                      "
+                    >
                       Your 5-Day Free Trial has been Activated.
                     </p>
 
@@ -1492,27 +1668,72 @@ export default function ConfirmationPage() {
 
                     {accountData
                       .companyName && (
+                      <p
+                        className="
+                          mt-1.5
 
-                      <p className="mt-2 text-[10px] text-slate-500 sm:text-[11px]">
+                          text-[10px]
+
+                          text-[color:var(--bf-text-muted)]
+
+                          sm:text-[11px]
+                        "
+                      >
                         {
                           accountData
                             .companyName
                         }
                       </p>
-
                     )}
 
                     {/* =====================================
                         COMPANY CODE
                     ===================================== */}
 
-                    <div className="mt-5 rounded-2xl border border-cyan-400/25 bg-cyan-400/[0.05] p-4">
+                    <div
+                      className="
+                        mt-4
 
-                      <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-cyan-400">
+                        rounded-2xl
+
+                        border
+                        border-cyan-400/20
+
+                        bg-cyan-400/[0.045]
+
+                        p-3.5
+                      "
+                    >
+                      <p
+                        className="
+                          text-[8px]
+                          font-black
+                          uppercase
+                          tracking-[0.2em]
+
+                          text-cyan-500
+
+                          sm:text-[9px]
+                        "
+                      >
                         Your Company Code
                       </p>
 
-                      <div className="mt-2 break-all text-2xl font-black tracking-[0.12em] text-white sm:text-3xl">
+                      <div
+                        className="
+                          mt-1.5
+
+                          break-all
+
+                          text-2xl
+                          font-black
+                          tracking-[0.11em]
+
+                          text-[color:var(--bf-text-primary)]
+
+                          sm:text-[1.7rem]
+                        "
+                      >
                         {
                           accountData
                             .companyCode
@@ -1524,139 +1745,371 @@ export default function ConfirmationPage() {
                         onClick={
                           handleCopy
                         }
-                        className="mt-2 rounded-lg px-2 py-1 text-[9px] font-bold text-slate-400 transition hover:bg-white/5 hover:text-cyan-300 focus:outline-none focus:ring-2 focus:ring-cyan-400/20"
+                        className="
+                          mt-1.5
+
+                          inline-flex
+
+                          items-center
+                          justify-center
+
+                          gap-1.5
+
+                          rounded-lg
+
+                          px-2
+                          py-1
+
+                          text-[8px]
+                          font-bold
+
+                          text-[color:var(--bf-text-muted)]
+
+                          transition-colors
+                          duration-200
+
+                          hover:bg-cyan-400/[0.06]
+                          hover:text-cyan-500
+
+                          focus-visible:outline-none
+                          focus-visible:ring-2
+                          focus-visible:ring-cyan-400/30
+
+                          sm:text-[9px]
+                        "
+                        aria-live="polite"
                       >
-
                         {copyStatus ===
-                        'copied'
-                          ? '✓ Copied'
-                          : copyStatus ===
-                              'failed'
-                            ? 'Copy failed'
-                            : 'Copy Company Code'}
+                        'copied' ? (
+                          <>
+                            <CheckIcon
+                              className="
+                                h-3
+                                w-3
+                              "
+                            />
 
+                            Copied
+                          </>
+                        ) : copyStatus ===
+                          'failed' ? (
+                          'Copy failed'
+                        ) : (
+                          <>
+                            <CopyIcon
+                              className="
+                                h-3
+                                w-3
+                              "
+                            />
+
+                            Copy Company Code
+                          </>
+                        )}
                       </button>
-
                     </div>
 
                     {/* =====================================
                         LOGIN DETAILS
                     ===================================== */}
 
-                    <div className="mt-3 overflow-hidden rounded-2xl border border-white/[0.07] bg-white/[0.025] text-left">
+                    <div
+                      className="
+                        mt-3
 
+                        overflow-hidden
+
+                        rounded-2xl
+
+                        border
+                        border-[color:var(--bf-border)]
+
+                        bg-[var(--bf-page-bg)]
+
+                        text-left
+                      "
+                    >
                       {/* USERNAME */}
 
-                      <div className="border-b border-white/[0.06] px-4 py-3">
+                      <div
+                        className="
+                          px-4
+                          py-2.5
+                        "
+                      >
+                        <p
+                          className="
+                            text-[8px]
+                            font-bold
+                            uppercase
+                            tracking-[0.16em]
 
-                        <p className="text-[8px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                            text-[color:var(--bf-text-muted)]
+                          "
+                        >
                           Username
                         </p>
 
-                        <p className="mt-1 break-all text-[10px] font-semibold text-slate-200 sm:text-xs">
+                        <p
+                          className="
+                            mt-1
+
+                            break-all
+
+                            text-[10px]
+                            font-semibold
+
+                            text-[color:var(--bf-text-primary)]
+
+                            sm:text-xs
+                          "
+                        >
                           {
                             accountData
                               .email
                           }
                         </p>
-
                       </div>
 
                       {/* STATUS + PERIOD */}
 
-                      <div className="grid grid-cols-2 divide-x divide-white/[0.06]">
+                      <div
+                        className="
+                          grid
+                          grid-cols-2
 
-                        <div className="px-4 py-3">
+                          border-t
+                          border-[color:var(--bf-border)]
+                        "
+                      >
+                        <div
+                          className="
+                            px-4
+                            py-2.5
+                          "
+                        >
+                          <p
+                            className="
+                              text-[8px]
+                              font-bold
+                              uppercase
+                              tracking-[0.16em]
 
-                          <p className="text-[8px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                              text-[color:var(--bf-text-muted)]
+                            "
+                          >
                             Trial Status
                           </p>
 
-                          <p className="mt-1 text-[10px] font-bold text-emerald-300 sm:text-xs">
+                          <p
+                            className="
+                              mt-1
+
+                              text-[10px]
+                              font-bold
+
+                              text-emerald-500
+
+                              sm:text-xs
+                            "
+                          >
                             ACTIVE
                           </p>
-
                         </div>
 
-                        <div className="px-4 py-3">
+                        <div
+                          className="
+                            border-l
+                            border-[color:var(--bf-border)]
 
-                          <p className="text-[8px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                            px-4
+                            py-2.5
+                          "
+                        >
+                          <p
+                            className="
+                              text-[8px]
+                              font-bold
+                              uppercase
+                              tracking-[0.16em]
+
+                              text-[color:var(--bf-text-muted)]
+                            "
+                          >
                             Trial Period
                           </p>
 
-                          <p className="mt-1 text-[10px] font-bold text-white sm:text-xs">
+                          <p
+                            className="
+                              mt-1
+
+                              text-[10px]
+                              font-bold
+
+                              text-[color:var(--bf-text-primary)]
+
+                              sm:text-xs
+                            "
+                          >
                             5 Days
                           </p>
-
                         </div>
-
                       </div>
 
                       {/* TRIAL END */}
 
                       {trialEndText && (
+                        <div
+                          className="
+                            border-t
+                            border-[color:var(--bf-border)]
 
-                        <div className="border-t border-white/[0.06] px-4 py-3">
+                            px-4
+                            py-2.5
+                          "
+                        >
+                          <p
+                            className="
+                              text-[8px]
+                              font-bold
+                              uppercase
+                              tracking-[0.16em]
 
-                          <p className="text-[8px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                              text-[color:var(--bf-text-muted)]
+                            "
+                          >
                             Trial Valid Until
                           </p>
 
-                          <p className="mt-1 text-[10px] font-semibold text-slate-200 sm:text-xs">
+                          <p
+                            className="
+                              mt-1
+
+                              text-[10px]
+                              font-semibold
+
+                              text-[color:var(--bf-text-primary)]
+
+                              sm:text-xs
+                            "
+                          >
                             {
                               trialEndText
                             }
                           </p>
-
                         </div>
-
                       )}
-
                     </div>
 
                     {/* INFORMATION */}
 
-                    <div className="mt-3 rounded-xl border border-cyan-400/10 bg-cyan-400/[0.03] px-3 py-2.5 text-left">
+                    <div
+                      className="
+                        mt-3
 
-                      <p className="text-[9px] leading-4 text-slate-500 sm:text-[10px]">
+                        rounded-xl
+
+                        border
+                        border-cyan-400/10
+
+                        bg-cyan-400/[0.025]
+
+                        px-3
+                        py-2.5
+
+                        text-left
+                      "
+                    >
+                      <p
+                        className="
+                          text-[9px]
+                          leading-4
+
+                          text-[color:var(--bf-text-muted)]
+
+                          sm:text-[10px]
+                        "
+                      >
                         Save your Company Code. You will use it
                         together with your registered email and
                         password whenever you log in to Buddy Fleets.
                       </p>
-
                     </div>
 
                     {/* LOGIN */}
 
-                    <motion.button
-                      whileHover={{
-                        y: -1,
-                      }}
-                      whileTap={{
-                        scale:
-                          0.99,
-                      }}
+                    <button
                       type="button"
                       onClick={
                         handleProceedToLogin
                       }
-                      className="mt-5 w-full rounded-xl bg-gradient-to-r from-cyan-400 via-blue-500 to-violet-600 px-5 py-3 text-xs font-black text-white shadow-xl shadow-blue-600/20 transition hover:shadow-cyan-500/20 focus:outline-none focus:ring-4 focus:ring-cyan-400/20 sm:rounded-2xl sm:py-3.5 sm:text-sm"
+                      className="
+                        group
+
+                        mt-4
+
+                        flex
+                        min-h-11
+                        w-full
+
+                        items-center
+                        justify-center
+
+                        gap-2
+
+                        rounded-xl
+
+                        bg-gradient-to-r
+                        from-[#12BFF2]
+                        via-[#078EE5]
+                        to-[#0AA23B]
+
+                        px-5
+                        py-2.5
+
+                        text-xs
+                        font-black
+
+                        text-white
+
+                        shadow-lg
+                        shadow-blue-500/10
+
+                        transition
+                        duration-200
+
+                        hover:-translate-y-0.5
+                        hover:shadow-blue-500/20
+
+                        focus-visible:outline-none
+                        focus-visible:ring-2
+                        focus-visible:ring-cyan-400/50
+
+                        sm:text-sm
+                      "
                     >
-                      Proceed to Login →
-                    </motion.button>
+                      <span>
+                        Proceed to Login
+                      </span>
 
-                  </motion.div>
+                      <ArrowIcon
+                        className="
+                          h-4
+                          w-4
 
+                          transition-transform
+                          duration-200
+
+                          group-hover:translate-x-0.5
+                        "
+                      />
+                    </button>
+                  </div>
                 )}
-
             </div>
-
           </div>
-
-        </motion.section>
-
+        </div>
       </div>
-
     </div>
   );
 }

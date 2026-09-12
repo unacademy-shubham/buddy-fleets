@@ -7,24 +7,35 @@ import {
   Link,
 } from 'react-router-dom';
 
-import { motion } from 'framer-motion';
-
 import { supabase } from '../../supabaseClient';
 
 /* =========================================================
    BUDDY FLEETS
    FORGOT PASSWORD PAGE
 
-   File name:
+   File:
    ForgotID.jsx
 
-   Actual purpose:
-   Password Recovery
+   Route:
+   /forgot-password
 
-   Navbar + Footer:
-   AuthLayout.jsx handles them.
+   WebsiteLayout handles:
+   - Header
+   - Development notice
+   - Footer
+   - Dark / Light theme
 
-   Recovery flow:
+   DESIGN RULE:
+   - One unified auth canvas
+   - Same website visual language
+   - No separate page sections
+   - No Framer Motion
+   - No truck / radar / chart
+   - No external background image
+   - No blinking
+   - PageSpeed-first
+
+   RECOVERY FLOW:
 
    Company Code + Registered Email
             ↓
@@ -41,307 +52,185 @@ import { supabase } from '../../supabaseClient';
 
 /* =========================================================
    INPUT STYLES
-
-   Dedicated left padding prevents:
-   # / @ prefix and placeholder overlap.
 ========================================================= */
 
 const inputBase = `
   w-full
+
   rounded-xl
+
   border
-  border-white/10
-  bg-[#101a2c]/85
+  border-[color:var(--bf-border)]
+
+  bg-[var(--bf-page-bg)]
+
   py-2.5
+
   text-xs
-  text-white
+  text-[color:var(--bf-text-primary)]
+
   outline-none
-  transition-all
-  duration-300
 
-  placeholder:text-slate-600
+  transition-colors
+  duration-200
 
-  focus:border-cyan-400/60
-  focus:bg-[#142139]
-  focus:ring-4
-  focus:ring-cyan-400/10
+  placeholder:text-[color:var(--bf-text-muted)]
+
+  hover:border-cyan-400/25
+
+  focus:border-cyan-400/45
+  focus:ring-2
+  focus:ring-cyan-400/[0.07]
 
   disabled:cursor-not-allowed
   disabled:opacity-60
 
-  sm:rounded-2xl
-  sm:py-3
   sm:text-sm
 `;
 
 const companyCodeInput =
-  `${inputBase} pl-11 pr-4 uppercase`;
+  `${inputBase} pl-10 pr-3.5 uppercase`;
 
 const emailInput =
-  `${inputBase} pl-11 pr-4`;
+  `${inputBase} pl-10 pr-3.5`;
 
 /* =========================================================
-   AMBIENT ORB
+   ICONS
 ========================================================= */
 
-function AmbientOrb({
+function CheckIcon({
   className = '',
 }) {
   return (
-    <motion.div
-      animate={{
-        scale: [
-          1,
-          1.12,
-          1,
-        ],
-
-        opacity: [
-          0.2,
-          0.42,
-          0.2,
-        ],
-      }}
-      transition={{
-        duration: 7,
-        repeat: Infinity,
-        ease: 'easeInOut',
-      }}
-      className={`
-        pointer-events-none
-        absolute
-        rounded-full
-        blur-[110px]
-        ${className}
-      `}
-    />
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+      className={className}
+    >
+      <path
+        d="m5 12 4 4L19 6"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 
-/* =========================================================
-   LIGHT TRAIL
-========================================================= */
-
-function LightTrail({
-  delay = 0,
-  duration = 8,
-  bottom = 'bottom-[15%]',
-  width = 'w-48',
+function ArrowIcon({
+  className = '',
 }) {
   return (
-    <motion.div
-      initial={{
-        x: '-30vw',
-        opacity: 0,
-      }}
-      animate={{
-        x: '130vw',
-
-        opacity: [
-          0,
-          0.35,
-          0.65,
-          0,
-        ],
-      }}
-      transition={{
-        duration,
-        delay,
-        repeat: Infinity,
-        ease: 'linear',
-      }}
-      className={`
-        pointer-events-none
-        absolute
-        left-0
-        ${bottom}
-        h-px
-        ${width}
-        bg-gradient-to-r
-        from-transparent
-        via-cyan-300/50
-        to-transparent
-      `}
-    />
-  );
-}
-
-/* =========================================================
-   TRUCK
-========================================================= */
-
-function Truck() {
-  return (
-    <div className="relative h-16 w-44 sm:h-20 sm:w-56">
-
-      {/* UNDER GLOW */}
-
-      <div className="absolute -bottom-2 left-2 h-5 w-40 rounded-full bg-cyan-400/20 blur-xl sm:w-52" />
-
-      {/* TRAILER */}
-
-      <div className="absolute left-0 top-1 h-11 w-32 rounded-md border border-cyan-300/20 bg-gradient-to-br from-slate-700/80 via-slate-800/80 to-[#07101f] shadow-[0_0_30px_rgba(34,211,238,0.12)] sm:h-14 sm:w-40">
-
-        <div className="absolute left-2 right-2 top-2 h-1 rounded-full bg-cyan-400/40" />
-
-        <div className="absolute left-2 top-5 text-[7px] font-black uppercase tracking-[0.25em] text-slate-500 sm:top-6">
-          BUDDY FLEETS
-        </div>
-
-        <div className="absolute bottom-2 left-2 h-1 w-8 rounded-full bg-blue-400/30" />
-
-        <div className="absolute bottom-2 right-2 h-1 w-12 rounded-full bg-violet-400/30" />
-
-      </div>
-
-      {/* CABIN */}
-
-      <div className="absolute right-0 top-5 h-8 w-12 rounded-r-lg rounded-tl-sm border border-cyan-300/25 bg-gradient-to-br from-cyan-500/30 via-blue-600/30 to-violet-700/30 shadow-[0_0_25px_rgba(34,211,238,0.2)] sm:top-7 sm:h-10 sm:w-14">
-
-        <div className="absolute left-2 top-2 h-3 w-7 rounded-sm border border-cyan-300/20 bg-cyan-300/10 sm:h-4 sm:w-9" />
-
-      </div>
-
-      {/* FRONT LIGHT */}
-
-      <div className="absolute right-[-4px] top-[31px] h-2 w-2 rounded-full bg-cyan-200 shadow-[0_0_14px_rgba(34,211,238,1)] sm:top-[39px]" />
-
-      {/* WHEELS */}
-
-      <div className="absolute bottom-0 left-6 h-6 w-6 rounded-full border-2 border-slate-500 bg-[#020617] sm:left-8 sm:h-7 sm:w-7" />
-
-      <div className="absolute bottom-0 right-6 h-6 w-6 rounded-full border-2 border-slate-500 bg-[#020617] sm:right-7 sm:h-7 sm:w-7" />
-
-      {/* HUBS */}
-
-      <div className="absolute bottom-[7px] left-[35px] h-2 w-2 rounded-full bg-slate-600 sm:bottom-[8px] sm:left-[42px]" />
-
-      <div className="absolute bottom-[7px] right-[35px] h-2 w-2 rounded-full bg-slate-600 sm:bottom-[8px] sm:right-[42px]" />
-
-    </div>
-  );
-}
-
-/* =========================================================
-   ANIMATED TRUCK
-========================================================= */
-
-function AnimatedTruck() {
-  return (
-    <motion.div
-      initial={{
-        x: '-20vw',
-        opacity: 0,
-      }}
-      animate={{
-        x: '120vw',
-
-        opacity: [
-          0,
-          1,
-          1,
-          0,
-        ],
-      }}
-      transition={{
-        duration: 22,
-        repeat: Infinity,
-        repeatDelay: 3,
-        ease: 'linear',
-      }}
-      className="absolute bottom-0 left-0"
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+      className={className}
     >
-      <Truck />
-    </motion.div>
+      <path
+        d="M5 12h14M13 6l6 6-6 6"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 
-/* =========================================================
-   MOBILE / TABLET TRUCK
-========================================================= */
-
-function MobileTruckScene() {
+function ShieldIcon({
+  className = '',
+}) {
   return (
-    <div className="relative h-24 w-full overflow-hidden border-y border-white/[0.04] sm:h-28 lg:hidden">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+      className={className}
+    >
+      <path
+        d="M12 3 19 6v5c0 4.5-2.8 8-7 10-4.2-2-7-5.5-7-10V6l7-3Z"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinejoin="round"
+      />
 
-      <div className="absolute inset-x-0 bottom-2 h-px bg-gradient-to-r from-transparent via-cyan-400/35 to-transparent" />
-
-      <div className="absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-cyan-500/[0.06] to-transparent" />
-
-      <AnimatedTruck />
-
-    </div>
+      <path
+        d="m9 12 2 2 4-4"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 
-/* =========================================================
-   RADAR
-========================================================= */
-
-function RadarPulse() {
+function MailIcon({
+  className = '',
+}) {
   return (
-    <div className="pointer-events-none absolute right-[7%] top-[30%] hidden h-36 w-36 xl:block">
-
-      <motion.div
-        animate={{
-          scale: [
-            0.7,
-            1.4,
-          ],
-
-          opacity: [
-            0.45,
-            0,
-          ],
-        }}
-        transition={{
-          duration: 3,
-          repeat: Infinity,
-          ease: 'easeOut',
-        }}
-        className="absolute inset-0 rounded-full border border-cyan-400/20"
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+      className={className}
+    >
+      <rect
+        x="3"
+        y="5"
+        width="18"
+        height="14"
+        rx="3"
+        stroke="currentColor"
+        strokeWidth="1.7"
       />
 
-      <motion.div
-        animate={{
-          scale: [
-            0.7,
-            1.4,
-          ],
+      <path
+        d="m5 8 7 5 7-5"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
 
-          opacity: [
-            0.3,
-            0,
-          ],
-        }}
-        transition={{
-          duration: 3,
-          delay: 1.5,
-          repeat: Infinity,
-          ease: 'easeOut',
-        }}
-        className="absolute inset-0 rounded-full border border-cyan-400/15"
+function InfoIcon({
+  className = '',
+}) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+      className={className}
+    >
+      <circle
+        cx="12"
+        cy="12"
+        r="9"
+        stroke="currentColor"
+        strokeWidth="1.7"
       />
 
-      <div className="absolute inset-[20%] rounded-full border border-cyan-400/10" />
-
-      <div className="absolute inset-[38%] rounded-full border border-cyan-400/20 bg-cyan-400/5" />
-
-      <motion.div
-        animate={{
-          rotate: 360,
-        }}
-        transition={{
-          duration: 5,
-          repeat: Infinity,
-          ease: 'linear',
-        }}
-        className="absolute left-1/2 top-1/2 h-[1px] w-1/2 origin-left bg-gradient-to-r from-cyan-400/70 to-transparent"
+      <path
+        d="M12 11v5"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
       />
 
-      <div className="absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-cyan-300 shadow-[0_0_15px_rgba(34,211,238,1)]" />
-
-    </div>
+      <circle
+        cx="12"
+        cy="8"
+        r="1"
+        fill="currentColor"
+      />
+    </svg>
   );
 }
 
@@ -378,7 +267,7 @@ export default function ForgotID() {
   /*
     Frontend cooldown only UX protection hai.
 
-    Actual security/rate limiting Edge Function
+    Actual security / rate limiting Edge Function
     enforce karti hai.
   */
 
@@ -392,7 +281,6 @@ export default function ForgotID() {
   ========================================================= */
 
   useEffect(() => {
-
     if (
       cooldown <= 0
     ) {
@@ -402,16 +290,13 @@ export default function ForgotID() {
     const timer =
       window.setInterval(
         () => {
-
           setCooldown(
             (
               current
             ) => {
-
               if (
                 current <= 1
               ) {
-
                 window.clearInterval(
                   timer
                 );
@@ -424,19 +309,15 @@ export default function ForgotID() {
               );
             }
           );
-
         },
         1000
       );
 
     return () => {
-
       window.clearInterval(
         timer
       );
-
     };
-
   }, [
     cooldown,
   ]);
@@ -449,7 +330,6 @@ export default function ForgotID() {
     async (
       event
     ) => {
-
       event.preventDefault();
 
       if (
@@ -471,12 +351,13 @@ export default function ForgotID() {
           .trim()
           .toLowerCase();
 
-      /* COMPANY CODE */
+      /* =====================================================
+         COMPANY CODE
+      ===================================================== */
 
       if (
         !cleanCompanyCode
       ) {
-
         setErrorMessage(
           'Please enter your Company Code.'
         );
@@ -484,7 +365,9 @@ export default function ForgotID() {
         return;
       }
 
-      /* EMAIL */
+      /* =====================================================
+         EMAIL
+      ===================================================== */
 
       const emailRegex =
         /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -494,7 +377,6 @@ export default function ForgotID() {
           cleanEmail
         )
       ) {
-
         setErrorMessage(
           'Please enter a valid registered email address.'
         );
@@ -507,7 +389,6 @@ export default function ForgotID() {
       );
 
       try {
-
         /* =====================================================
            SECURE PASSWORD RESET REQUEST
 
@@ -519,7 +400,7 @@ export default function ForgotID() {
            Edge Function:
            request-password-reset
 
-           handles:
+           Handles:
            - Company Code validation
            - Email/user validation
            - Membership validation
@@ -559,7 +440,6 @@ export default function ForgotID() {
         if (
           functionError
         ) {
-
           console.error(
             'Password reset function error:',
             functionError
@@ -568,7 +448,6 @@ export default function ForgotID() {
           throw new Error(
             'RESET_REQUEST_FAILED'
           );
-
         }
 
         /* GENERIC SUCCESS */
@@ -580,9 +459,7 @@ export default function ForgotID() {
         setCooldown(
           60
         );
-
       } catch (err) {
-
         console.error(
           'Password reset request error:',
           err
@@ -591,15 +468,11 @@ export default function ForgotID() {
         setErrorMessage(
           'Unable to process the request right now. Please try again in a moment.'
         );
-
       } finally {
-
         setIsLoading(
           false
         );
-
       }
-
     };
 
   /* =========================================================
@@ -608,7 +481,6 @@ export default function ForgotID() {
 
   const handleTryAgain =
     () => {
-
       if (
         cooldown > 0
       ) {
@@ -620,7 +492,6 @@ export default function ForgotID() {
       );
 
       setErrorMessage('');
-
     };
 
   /* =========================================================
@@ -631,198 +502,304 @@ export default function ForgotID() {
     <div
       className="
         relative
-        min-h-full
-        w-full
-        overflow-x-hidden
-        bg-[#050914]
-        text-white
+        isolate
 
-        lg:h-full
-        lg:min-h-0
-        lg:overflow-hidden
+        flex
+        w-full
+        flex-1
+
+        overflow-hidden
+
+        bg-[var(--bf-page-bg)]
+
+        text-[color:var(--bf-text-primary)]
+
+        transition-colors
+        duration-300
       "
     >
-
       {/* =====================================================
-          BACKGROUND
+          SINGLE UNIFIED BACKGROUND
       ===================================================== */}
 
-      <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
+      <div
+        aria-hidden="true"
+        className="
+          pointer-events-none
 
-        <img
-          src="https://images.unsplash.com/photo-1519003722824-194d4455a60c?q=85&w=2400&auto=format&fit=crop"
-          alt=""
-          aria-hidden="true"
-          className="h-full w-full object-cover object-center opacity-25"
+          absolute
+          inset-0
+          -z-10
+
+          overflow-hidden
+        "
+      >
+        {/* BASE */}
+
+        <div
+          className="
+            absolute
+            inset-0
+
+            bg-[var(--bf-page-bg)]
+          "
         />
-
-        <div className="absolute inset-0 bg-[#050914]/80" />
-
-        <div className="absolute inset-0 bg-gradient-to-r from-[#050914] via-[#050914]/90 to-[#071329]/75" />
-
-        <div className="absolute inset-0 bg-gradient-to-t from-[#050914] via-transparent to-[#050914]/65" />
 
         {/* GRID */}
 
         <div
-          className="absolute inset-0 opacity-[0.06]"
+          className="
+            absolute
+            inset-0
+
+            opacity-[0.035]
+          "
           style={{
             backgroundImage:
-              'linear-gradient(rgba(56,189,248,0.7) 1px, transparent 1px), linear-gradient(90deg, rgba(56,189,248,0.7) 1px, transparent 1px)',
+              'linear-gradient(rgba(100,116,139,.28) 1px, transparent 1px), linear-gradient(90deg, rgba(100,116,139,.28) 1px, transparent 1px)',
 
             backgroundSize:
-              '55px 55px',
+              '72px 72px',
           }}
         />
 
-        {/* GLOWS */}
+        {/* CYAN GLOW */}
 
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_40%,rgba(6,182,212,0.10),transparent_30%),radial-gradient(circle_at_85%_40%,rgba(124,58,237,0.12),transparent_32%)]" />
+        <div
+          className="
+            absolute
+            -left-48
+            top-[-80px]
 
-        <AmbientOrb className="left-[4%] top-[15%] h-72 w-72 bg-cyan-500/20" />
+            h-[480px]
+            w-[480px]
 
-        <AmbientOrb className="right-[5%] top-[20%] h-80 w-80 bg-violet-600/20" />
+            rounded-full
 
+            bg-cyan-500/[0.065]
+
+            blur-[135px]
+          "
+        />
+
+        {/* BLUE GLOW */}
+
+        <div
+          className="
+            absolute
+            -right-52
+            top-[5%]
+
+            h-[500px]
+            w-[500px]
+
+            rounded-full
+
+            bg-blue-500/[0.055]
+
+            blur-[145px]
+          "
+        />
+
+        {/* GREEN GLOW */}
+
+        <div
+          className="
+            absolute
+            bottom-[-240px]
+            left-[38%]
+
+            h-[420px]
+            w-[420px]
+
+            rounded-full
+
+            bg-emerald-500/[0.04]
+
+            blur-[130px]
+          "
+        />
       </div>
 
       {/* =====================================================
-          DESKTOP EFFECTS
-      ===================================================== */}
-
-      <div className="pointer-events-none absolute inset-0 z-[1] hidden overflow-hidden lg:block">
-
-        <LightTrail
-          delay={0}
-          duration={8}
-          bottom="bottom-[12%]"
-          width="w-56"
-        />
-
-        <LightTrail
-          delay={2.5}
-          duration={9}
-          bottom="bottom-[18%]"
-          width="w-72"
-        />
-
-        <RadarPulse />
-
-        <div className="absolute inset-x-0 bottom-0 h-20 overflow-hidden">
-
-          <div className="absolute inset-x-0 bottom-1 h-px bg-gradient-to-r from-transparent via-cyan-400/30 to-transparent" />
-
-          <AnimatedTruck />
-
-        </div>
-
-      </div>
-
-      {/* =====================================================
-          CONTENT
+          ONE UNIFIED AUTH CANVAS
       ===================================================== */}
 
       <div
         className="
           relative
-          z-10
+
           mx-auto
-          flex
+
+          grid
           w-full
-          max-w-[1280px]
-          flex-col
+          max-w-7xl
+
+          items-center
+
           gap-7
-          px-4
-          py-7
 
-          sm:gap-9
-          sm:px-6
-          sm:py-9
+          px-5
+          py-6
 
-          lg:grid
-          lg:h-full
-          lg:grid-cols-[minmax(0,1fr)_430px]
-          lg:items-center
-          lg:gap-10
-          lg:px-10
-          lg:py-2
+          sm:px-8
+          sm:py-7
 
-          xl:grid-cols-[minmax(0,1fr)_448px]
+          lg:grid-cols-[minmax(0,1fr)_420px]
+          lg:gap-12
+          lg:px-12
+          lg:py-5
+
+          xl:grid-cols-[minmax(0,1fr)_440px]
           xl:gap-16
         "
       >
-
         {/* =================================================
-            HERO
+            LEFT CONTENT
         ================================================= */}
 
-        <motion.section
-          initial={{
-            opacity: 0,
-            x: -30,
-          }}
-          animate={{
-            opacity: 1,
-            x: 0,
-          }}
-          transition={{
-            duration: 0.8,
-          }}
+        <div
           className="
-            relative
             mx-auto
+
             w-full
             max-w-2xl
+
             text-center
 
             lg:mx-0
-            lg:max-w-none
             lg:text-left
           "
         >
-
           {/* BADGE */}
 
-          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/5 px-3.5 py-2 backdrop-blur-md sm:mb-5 sm:px-4">
+          <div
+            className="
+              inline-flex
 
-            <span className="relative flex h-2 w-2">
+              items-center
+              gap-2.5
 
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-cyan-400 opacity-75" />
+              rounded-full
 
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-cyan-400" />
+              border
+              border-cyan-400/20
 
-            </span>
+              bg-cyan-400/[0.06]
 
-            <span className="text-[8px] font-bold uppercase tracking-[0.18em] text-cyan-300 sm:text-[9px] xl:text-[10px]">
+              px-3.5
+              py-2
+            "
+          >
+            <span
+              className="
+                h-1.5
+                w-1.5
+
+                rounded-full
+
+                bg-emerald-500
+              "
+            />
+
+            <span
+              className="
+                text-[8px]
+                font-black
+                uppercase
+                tracking-[0.19em]
+
+                text-cyan-500
+
+                sm:text-[9px]
+              "
+            >
               Secure Recovery Portal
             </span>
-
           </div>
 
           {/* HEADING */}
 
-          <h1 className="text-4xl font-black leading-[1.03] tracking-tight text-white sm:text-5xl lg:text-5xl xl:text-6xl">
+          <h1
+            className="
+              mt-4
 
-            Recover your
+              text-[clamp(2.15rem,4.2vw,3.75rem)]
 
-            <span className="block bg-gradient-to-r from-cyan-300 via-blue-400 to-violet-400 bg-clip-text text-transparent">
-              account access.
+              font-black
+
+              leading-[1.04]
+
+              tracking-[-0.035em]
+            "
+          >
+            <span
+              className="
+                block
+
+                text-[color:var(--bf-text-primary)]
+              "
+            >
+              Recover your
             </span>
 
+            <span
+              className="
+                block
+
+                bg-gradient-to-r
+                from-[#12BFF2]
+                via-[#078EE5]
+                to-[#0AA23B]
+
+                bg-clip-text
+                text-transparent
+              "
+            >
+              account access.
+            </span>
           </h1>
 
           {/* DESCRIPTION */}
 
-          <p className="mx-auto mt-4 max-w-lg text-xs leading-6 text-slate-400 sm:mt-5 sm:text-sm sm:leading-7 lg:mx-0 lg:max-w-md">
+          <p
+            className="
+              mx-auto
+              mt-3.5
 
+              max-w-lg
+
+              text-xs
+              leading-6
+
+              text-[color:var(--bf-text-secondary)]
+
+              sm:text-sm
+              sm:leading-7
+
+              lg:mx-0
+            "
+          >
             Enter your Buddy Fleets Company Code and registered
             email address to securely request a password reset.
-
           </p>
 
-          {/* POINTS */}
+          {/* SUPPORTING POINTS */}
 
-          <div className="mx-auto mt-5 flex max-w-md flex-col items-start gap-2.5 sm:mt-6 lg:mx-0 lg:mt-7">
+          <div
+            className="
+              mx-auto
+              mt-5
 
+              flex
+              max-w-lg
+              flex-col
+
+              gap-2.5
+
+              lg:mx-0
+            "
+          >
             {[
               'Secure company-based verification',
               'Enumeration-safe recovery process',
@@ -832,155 +809,390 @@ export default function ForgotID() {
                 item
               ) => (
                 <div
-                  key={item}
-                  className="flex items-center gap-3 text-left text-[10px] font-medium text-slate-300 sm:text-xs"
-                >
+                  key={
+                    item
+                  }
+                  className="
+                    flex
+                    items-center
+                    gap-3
 
-                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-cyan-400/30 bg-cyan-400/10 text-[9px] text-cyan-300">
-                    ✓
+                    text-left
+
+                    text-[10px]
+                    font-medium
+
+                    text-[color:var(--bf-text-secondary)]
+
+                    sm:text-xs
+                  "
+                >
+                  <span
+                    className="
+                      flex
+                      h-5
+                      w-5
+
+                      shrink-0
+
+                      items-center
+                      justify-center
+
+                      rounded-lg
+
+                      border
+                      border-cyan-400/20
+
+                      bg-cyan-400/[0.06]
+
+                      text-cyan-500
+                    "
+                  >
+                    <CheckIcon
+                      className="
+                        h-3
+                        w-3
+                      "
+                    />
                   </span>
 
-                  {item}
-
+                  <span>
+                    {item}
+                  </span>
                 </div>
               )
             )}
-
           </div>
 
-        </motion.section>
+          {/* SECURITY LINE */}
+
+          <div
+            className="
+              mx-auto
+              mt-5
+
+              flex
+              max-w-lg
+
+              items-center
+              justify-center
+
+              gap-2
+
+              text-[8px]
+              font-semibold
+              uppercase
+              tracking-[0.14em]
+
+              text-[color:var(--bf-text-muted)]
+
+              lg:mx-0
+              lg:justify-start
+            "
+          >
+            <ShieldIcon
+              className="
+                h-3.5
+                w-3.5
+
+                text-emerald-500
+              "
+            />
+
+            Protected Account Recovery
+          </div>
+        </div>
 
         {/* =================================================
-            MOBILE / TABLET TRUCK
+            RECOVERY FORM AREA
         ================================================= */}
 
-        <MobileTruckScene />
+        <div
+          className="
+            relative
 
-        {/* =================================================
-            RECOVERY CARD
-        ================================================= */}
+            mx-auto
 
-        <motion.section
-          initial={{
-            opacity: 0,
-            y: 20,
-            scale: 0.98,
-          }}
-          animate={{
-            opacity: 1,
-            y: 0,
-            scale: 1,
-          }}
-          transition={{
-            duration: 0.7,
-            ease: 'easeOut',
-          }}
-          className="relative mx-auto w-full max-w-[448px] lg:mx-0 lg:max-w-[430px] lg:justify-self-end xl:max-w-[448px]"
+            w-full
+            max-w-[440px]
+
+            lg:mx-0
+            lg:justify-self-end
+          "
         >
+          {/* SOFT OUTER GLOW */}
 
-          {/* GLOW */}
+          <div
+            aria-hidden="true"
+            className="
+              absolute
+              -inset-[1px]
 
-          <div className="absolute -inset-[1px] rounded-[26px] bg-gradient-to-br from-cyan-400/30 via-blue-500/10 to-violet-500/30 blur-xl sm:rounded-[30px]" />
+              rounded-[25px]
 
-          {/* CARD */}
+              bg-gradient-to-br
+              from-cyan-400/18
+              via-blue-500/[0.05]
+              to-emerald-500/14
 
-          <div className="relative overflow-hidden rounded-[26px] border border-white/10 bg-[#07101f]/95 shadow-2xl shadow-black/60 backdrop-blur-2xl sm:rounded-[30px]">
+              blur-xl
+            "
+          />
 
-            {/* TOP EDGE */}
+          {/* FORM SURFACE */}
 
-            <div className="absolute left-0 right-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-400 to-transparent" />
+          <div
+            className="
+              relative
 
-            {/* CARD GLOWS */}
+              overflow-hidden
 
-            <div className="pointer-events-none absolute -right-28 -top-28 h-56 w-56 rounded-full bg-cyan-500/10 blur-[80px]" />
+              rounded-[24px]
 
-            <div className="pointer-events-none absolute -bottom-28 -left-28 h-56 w-56 rounded-full bg-violet-600/10 blur-[80px]" />
+              border
+              border-[color:var(--bf-border)]
 
-            <div className="relative p-4 sm:p-6 lg:p-5 xl:p-6">
+              bg-[var(--bf-surface)]
 
+              shadow-2xl
+              shadow-black/10
+
+              backdrop-blur-xl
+            "
+          >
+            {/* TOP ACCENT */}
+
+            <div
+              className="
+                absolute
+                left-0
+                right-0
+                top-0
+
+                h-px
+
+                bg-gradient-to-r
+                from-transparent
+                via-cyan-400
+                to-transparent
+              "
+            />
+
+            {/* STATIC GLOW */}
+
+            <div
+              aria-hidden="true"
+              className="
+                pointer-events-none
+
+                absolute
+                -right-28
+                -top-28
+
+                h-56
+                w-56
+
+                rounded-full
+
+                bg-cyan-500/[0.055]
+
+                blur-[80px]
+              "
+            />
+
+            <div
+              className="
+                relative
+
+                p-5
+
+                sm:p-6
+              "
+            >
               {!isSubmitted ? (
-
                 <>
-                  {/* =========================================
-                      HEADER
-                  ========================================= */}
+                  {/* =============================================
+                      FORM HEADER
+                  ============================================= */}
 
                   <div className="mb-4">
 
-                    <div className="mb-2 flex items-center gap-1.5">
+                    <div
+                      className="
+                        mb-2
 
-                      <span className="h-1.5 w-8 rounded-full bg-cyan-400" />
+                        flex
+                        items-center
+                        gap-1.5
+                      "
+                    >
+                      <span
+                        className="
+                          h-1.5
+                          w-8
 
-                      <span className="h-1.5 w-3 rounded-full bg-blue-500" />
+                          rounded-full
 
-                      <span className="h-1.5 w-2 rounded-full bg-violet-500" />
+                          bg-[#12BFF2]
+                        "
+                      />
 
+                      <span
+                        className="
+                          h-1.5
+                          w-3
+
+                          rounded-full
+
+                          bg-[#078EE5]
+                        "
+                      />
+
+                      <span
+                        className="
+                          h-1.5
+                          w-2
+
+                          rounded-full
+
+                          bg-[#0AA23B]
+                        "
+                      />
                     </div>
 
-                    <h2 className="text-xl font-black tracking-tight text-white sm:text-2xl lg:text-xl xl:text-2xl">
+                    <h2
+                      className="
+                        text-xl
+                        font-black
+                        tracking-tight
+
+                        text-[color:var(--bf-text-primary)]
+
+                        sm:text-2xl
+                      "
+                    >
                       Forgot Password
                     </h2>
 
-                    <p className="mt-1 text-[10px] leading-4 text-slate-400 sm:text-[11px]">
+                    <p
+                      className="
+                        mt-1
+
+                        text-[10px]
+                        leading-4
+
+                        text-[color:var(--bf-text-muted)]
+
+                        sm:text-[11px]
+                      "
+                    >
                       Enter your company details to request a secure reset link.
                     </p>
-
                   </div>
 
-                  {/* =========================================
+                  {/* =============================================
                       ERROR
-                  ========================================= */}
+                  ============================================= */}
 
                   {errorMessage && (
+                    <div
+                      className="
+                        mb-3
 
-                    <motion.div
-                      initial={{
-                        opacity: 0,
-                        y: -5,
-                      }}
-                      animate={{
-                        opacity: 1,
-                        y: 0,
-                      }}
-                      className="mb-3 rounded-xl border border-red-400/20 bg-red-400/[0.06] px-3 py-2.5"
+                        rounded-xl
+
+                        border
+                        border-red-400/20
+
+                        bg-red-400/[0.06]
+
+                        px-3
+                        py-2.5
+                      "
                       role="alert"
+                      aria-live="polite"
                     >
+                      <div
+                        className="
+                          flex
+                          items-start
+                          gap-2
+                        "
+                      >
+                        <span
+                          className="
+                            mt-[1px]
 
-                      <div className="flex items-start gap-2">
+                            flex
+                            h-4
+                            w-4
 
-                        <span className="mt-[1px] flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-red-400/10 text-[9px] font-black text-red-400">
+                            shrink-0
+
+                            items-center
+                            justify-center
+
+                            rounded-full
+
+                            bg-red-400/10
+
+                            text-[9px]
+                            font-black
+
+                            text-red-500
+                          "
+                        >
                           !
                         </span>
 
-                        <p className="text-[9px] leading-4 text-red-300 sm:text-[10px]">
+                        <p
+                          className="
+                            text-[9px]
+                            leading-4
+
+                            text-red-500
+
+                            sm:text-[10px]
+                          "
+                        >
                           {errorMessage}
                         </p>
-
                       </div>
-
-                    </motion.div>
-
+                    </div>
                   )}
 
-                  {/* =========================================
+                  {/* =============================================
                       FORM
-                  ========================================= */}
+                  ============================================= */}
 
                   <form
                     onSubmit={
                       handleSubmit
                     }
                     noValidate
-                    className="space-y-3"
+                    className="
+                      space-y-3
+                    "
                   >
-
                     {/* COMPANY CODE */}
 
                     <div>
-
                       <label
                         htmlFor="companyCode"
-                        className="mb-1 block text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400"
+                        className="
+                          mb-1
+
+                          block
+
+                          text-[8px]
+                          font-bold
+                          uppercase
+                          tracking-[0.13em]
+
+                          text-[color:var(--bf-text-muted)]
+
+                          sm:text-[9px]
+                        "
                       >
                         Company Code
                       </label>
@@ -991,14 +1203,18 @@ export default function ForgotID() {
                           aria-hidden="true"
                           className="
                             pointer-events-none
+
                             absolute
-                            left-4
+                            left-3.5
                             top-1/2
                             z-10
+
                             -translate-y-1/2
+
                             text-[11px]
                             font-black
-                            text-cyan-400/70
+
+                            text-cyan-500
                           "
                         >
                           #
@@ -1021,30 +1237,38 @@ export default function ForgotID() {
                           onChange={(
                             event
                           ) => {
-
                             setCompanyCode(
                               event.target.value
                             );
 
                             setErrorMessage('');
-
                           }}
                           className={
                             companyCodeInput
                           }
                         />
-
                       </div>
-
                     </div>
 
                     {/* EMAIL */}
 
                     <div>
-
                       <label
                         htmlFor="email"
-                        className="mb-1 block text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400"
+                        className="
+                          mb-1
+
+                          block
+
+                          text-[8px]
+                          font-bold
+                          uppercase
+                          tracking-[0.13em]
+
+                          text-[color:var(--bf-text-muted)]
+
+                          sm:text-[9px]
+                        "
                       >
                         Registered Email
                       </label>
@@ -1055,14 +1279,18 @@ export default function ForgotID() {
                           aria-hidden="true"
                           className="
                             pointer-events-none
+
                             absolute
-                            left-4
+                            left-3.5
                             top-1/2
                             z-10
+
                             -translate-y-1/2
+
                             text-[11px]
                             font-black
-                            text-cyan-400/70
+
+                            text-cyan-500
                           "
                         >
                           @
@@ -1085,65 +1313,87 @@ export default function ForgotID() {
                           onChange={(
                             event
                           ) => {
-
                             setEmail(
                               event.target.value
                             );
 
                             setErrorMessage('');
-
                           }}
                           className={
                             emailInput
                           }
                         />
-
                       </div>
-
                     </div>
 
-                    {/* =========================================
-                        SECURITY INFO
-                    ========================================= */}
+                    {/* SECURITY INFO */}
 
-                    <div className="rounded-xl border border-cyan-400/10 bg-cyan-400/[0.035] p-3">
+                    <div
+                      className="
+                        rounded-xl
 
-                      <div className="flex items-start gap-2.5">
+                        border
+                        border-cyan-400/15
 
-                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-cyan-400/20 bg-cyan-400/10 text-[9px] font-black text-cyan-300">
-                          i
+                        bg-cyan-400/[0.035]
+
+                        p-3
+                      "
+                    >
+                      <div
+                        className="
+                          flex
+                          items-start
+                          gap-2.5
+                        "
+                      >
+                        <span
+                          className="
+                            flex
+                            h-5
+                            w-5
+
+                            shrink-0
+
+                            items-center
+                            justify-center
+
+                            rounded-md
+
+                            border
+                            border-cyan-400/20
+
+                            bg-cyan-400/[0.07]
+
+                            text-cyan-500
+                          "
+                        >
+                          <InfoIcon
+                            className="
+                              h-3
+                              w-3
+                            "
+                          />
                         </span>
 
-                        <p className="text-[8px] leading-4 text-slate-500 sm:text-[9px]">
+                        <p
+                          className="
+                            text-[8px]
+                            leading-4
+
+                            text-[color:var(--bf-text-muted)]
+
+                            sm:text-[9px]
+                          "
+                        >
                           For your security, Buddy Fleets will not reveal whether a particular Company Code or email exists.
                         </p>
-
                       </div>
-
                     </div>
 
-                    {/* =========================================
-                        SUBMIT
-                    ========================================= */}
+                    {/* SUBMIT */}
 
-                    <motion.button
-                      whileHover={
-                        !isLoading &&
-                        cooldown === 0
-                          ? {
-                              y: -1,
-                            }
-                          : {}
-                      }
-                      whileTap={
-                        !isLoading &&
-                        cooldown === 0
-                          ? {
-                              scale:
-                                0.99,
-                            }
-                          : {}
-                      }
+                    <button
                       type="submit"
                       disabled={
                         isLoading ||
@@ -1151,166 +1401,341 @@ export default function ForgotID() {
                       }
                       className="
                         group
-                        relative
+
+                        flex
+                        min-h-11
                         w-full
-                        overflow-hidden
+
+                        items-center
+                        justify-center
+
+                        gap-2
+
                         rounded-xl
+
                         bg-gradient-to-r
-                        from-cyan-400
-                        via-blue-500
-                        to-violet-600
+                        from-[#12BFF2]
+                        via-[#078EE5]
+                        to-[#0AA23B]
+
                         px-4
-                        py-3
+                        py-2.5
+
                         text-xs
                         font-black
+
                         text-white
-                        shadow-xl
-                        shadow-blue-600/20
-                        transition-all
-                        duration-300
 
-                        hover:shadow-cyan-500/20
+                        shadow-lg
+                        shadow-blue-500/10
 
-                        focus:outline-none
-                        focus:ring-4
-                        focus:ring-cyan-400/20
+                        transition
+                        duration-200
+
+                        hover:-translate-y-0.5
+                        hover:shadow-blue-500/20
+
+                        focus-visible:outline-none
+                        focus-visible:ring-2
+                        focus-visible:ring-cyan-400/50
 
                         disabled:cursor-not-allowed
                         disabled:opacity-60
+                        disabled:hover:translate-y-0
 
-                        sm:rounded-2xl
-                        sm:py-3.5
                         sm:text-sm
-
-                        lg:py-3
-                        lg:text-xs
                       "
                     >
+                      {isLoading ? (
+                        <>
+                          <span
+                            className="
+                              h-4
+                              w-4
 
-                      <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
+                              animate-spin
 
-                      <span className="relative flex items-center justify-center gap-2">
+                              rounded-full
 
-                        {isLoading ? (
-                          <>
-
-                            <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-
-                            <span>
-                              Processing Request...
-                            </span>
-
-                          </>
-                        ) : cooldown > 0 ? (
+                              border-2
+                              border-white/30
+                              border-t-white
+                            "
+                          />
 
                           <span>
-                            Try again in {cooldown}s
+                            Processing Request...
+                          </span>
+                        </>
+                      ) : cooldown > 0 ? (
+                        <span>
+                          Try again in {cooldown}s
+                        </span>
+                      ) : (
+                        <>
+                          <span>
+                            Send Reset Link
                           </span>
 
-                        ) : (
-                          <>
+                          <ArrowIcon
+                            className="
+                              h-4
+                              w-4
 
-                            <span>
-                              Send Reset Link
-                            </span>
+                              transition-transform
+                              duration-200
 
-                            <span className="text-base">
-                              →
-                            </span>
-
-                          </>
-                        )}
-
-                      </span>
-
-                    </motion.button>
-
+                              group-hover:translate-x-0.5
+                            "
+                          />
+                        </>
+                      )}
+                    </button>
                   </form>
 
+                  {/* BACK TO LOGIN */}
+
+                  <div
+                    className="
+                      mt-4
+
+                      border-t
+                      border-[color:var(--bf-border)]
+
+                      pt-3
+
+                      text-center
+                    "
+                  >
+                    <Link
+                      to="/login"
+                      className="
+                        text-[9px]
+                        font-bold
+
+                        text-cyan-500
+
+                        transition-colors
+                        duration-200
+
+                        hover:text-cyan-400
+                        hover:underline
+
+                        focus-visible:outline-none
+                        focus-visible:ring-2
+                        focus-visible:ring-cyan-400/30
+
+                        sm:text-[10px]
+                      "
+                    >
+                      ← Back to Login
+                    </Link>
+                  </div>
                 </>
-
               ) : (
-
                 /* =============================================
                    GENERIC SUCCESS
                 ============================================= */
 
-                <motion.div
-                  initial={{
-                    opacity: 0,
-                    y: 10,
-                    scale: 0.97,
-                  }}
-                  animate={{
-                    opacity: 1,
-                    y: 0,
-                    scale: 1,
-                  }}
-                  transition={{
-                    duration: 0.5,
-                  }}
-                  className="py-4 text-center"
-                >
+                <div
+                  className="
+                    py-2
 
+                    text-center
+                  "
+                >
                   {/* ICON */}
 
-                  <motion.div
-                    initial={{
-                      scale: 0,
-                    }}
-                    animate={{
-                      scale: 1,
-                    }}
-                    transition={{
-                      type:
-                        'spring',
+                  <div
+                    className="
+                      mx-auto
 
-                      stiffness:
-                        180,
+                      flex
+                      h-14
+                      w-14
 
-                      delay:
-                        0.1,
-                    }}
-                    className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-emerald-400/30 bg-emerald-400/10 text-xl text-emerald-300 shadow-lg shadow-emerald-500/10"
+                      items-center
+                      justify-center
+
+                      rounded-2xl
+
+                      border
+                      border-emerald-400/25
+
+                      bg-emerald-400/[0.08]
+
+                      text-emerald-500
+                    "
                   >
-                    ✓
-                  </motion.div>
+                    <MailIcon
+                      className="
+                        h-6
+                        w-6
+                      "
+                    />
+                  </div>
 
-                  <h2 className="mt-4 text-xl font-black text-white sm:text-2xl">
+                  <h2
+                    className="
+                      mt-4
+
+                      text-xl
+                      font-black
+
+                      text-[color:var(--bf-text-primary)]
+
+                      sm:text-2xl
+                    "
+                  >
                     Check Your Email
                   </h2>
 
                   {/* GENERIC RESPONSE */}
 
-                  <p className="mx-auto mt-2 max-w-sm text-[10px] leading-5 text-slate-300 sm:text-xs">
+                  <p
+                    className="
+                      mx-auto
+                      mt-2
+
+                      max-w-sm
+
+                      text-[10px]
+                      leading-5
+
+                      text-[color:var(--bf-text-secondary)]
+
+                      sm:text-xs
+                    "
+                  >
                     If the details match an account, a password reset link has been sent to the registered email address.
                   </p>
 
                   {/* SECURITY BOX */}
 
-                  <div className="mt-4 rounded-2xl border border-cyan-400/15 bg-cyan-400/[0.04] p-4 text-left">
+                  <div
+                    className="
+                      mt-4
 
-                    <p className="text-[10px] font-bold text-slate-200 sm:text-[11px]">
+                      rounded-2xl
+
+                      border
+                      border-cyan-400/15
+
+                      bg-cyan-400/[0.04]
+
+                      p-4
+
+                      text-left
+                    "
+                  >
+                    <p
+                      className="
+                        text-[10px]
+                        font-bold
+
+                        text-[color:var(--bf-text-primary)]
+
+                        sm:text-[11px]
+                      "
+                    >
                       Password Reset Security
                     </p>
 
-                    <p className="mt-1.5 text-[9px] leading-4 text-slate-500 sm:text-[10px]">
+                    <p
+                      className="
+                        mt-1.5
+
+                        text-[9px]
+                        leading-4
+
+                        text-[color:var(--bf-text-muted)]
+
+                        sm:text-[10px]
+                      "
+                    >
                       The reset link is valid for 30 minutes and can only be used once.
                     </p>
 
-                    <p className="mt-1 text-[9px] leading-4 text-slate-500 sm:text-[10px]">
+                    <p
+                      className="
+                        mt-1
+
+                        text-[9px]
+                        leading-4
+
+                        text-[color:var(--bf-text-muted)]
+
+                        sm:text-[10px]
+                      "
+                    >
                       Never share your password or password reset link with anyone.
                     </p>
-
                   </div>
 
                   {/* LOGIN */}
 
                   <Link
                     to="/login"
-                    className="mt-5 inline-flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-cyan-400 via-blue-500 to-violet-600 px-5 py-3 text-xs font-black text-white shadow-xl shadow-blue-600/20 transition hover:shadow-cyan-500/20 sm:rounded-2xl sm:py-3.5 sm:text-sm"
+                    className="
+                      group
+
+                      mt-4
+
+                      inline-flex
+                      min-h-11
+                      w-full
+
+                      items-center
+                      justify-center
+
+                      gap-2
+
+                      rounded-xl
+
+                      bg-gradient-to-r
+                      from-[#12BFF2]
+                      via-[#078EE5]
+                      to-[#0AA23B]
+
+                      px-5
+                      py-2.5
+
+                      text-xs
+                      font-black
+
+                      text-white
+
+                      shadow-lg
+                      shadow-blue-500/10
+
+                      transition
+                      duration-200
+
+                      hover:-translate-y-0.5
+                      hover:shadow-blue-500/20
+
+                      focus-visible:outline-none
+                      focus-visible:ring-2
+                      focus-visible:ring-cyan-400/50
+
+                      sm:text-sm
+                    "
                   >
-                    Back to Login →
+                    <span>
+                      Back to Login
+                    </span>
+
+                    <ArrowIcon
+                      className="
+                        h-4
+                        w-4
+
+                        transition-transform
+                        duration-200
+
+                        group-hover:translate-x-0.5
+                      "
+                    />
                   </Link>
 
                   {/* REQUEST AGAIN */}
@@ -1323,60 +1748,47 @@ export default function ForgotID() {
                     onClick={
                       handleTryAgain
                     }
-                    className="mt-3 rounded-lg px-2 py-1 text-[9px] font-bold text-cyan-300 transition hover:bg-white/5 hover:text-cyan-200 hover:underline disabled:cursor-not-allowed disabled:text-slate-600 disabled:no-underline sm:text-[10px]"
-                  >
+                    className="
+                      mt-3
 
+                      rounded-lg
+
+                      px-2
+                      py-1
+
+                      text-[9px]
+                      font-bold
+
+                      text-cyan-500
+
+                      transition-colors
+                      duration-200
+
+                      hover:bg-cyan-400/[0.05]
+                      hover:text-cyan-400
+                      hover:underline
+
+                      focus-visible:outline-none
+                      focus-visible:ring-2
+                      focus-visible:ring-cyan-400/30
+
+                      disabled:cursor-not-allowed
+                      disabled:text-[color:var(--bf-text-muted)]
+                      disabled:no-underline
+
+                      sm:text-[10px]
+                    "
+                  >
                     {cooldown > 0
                       ? `Request again in ${cooldown}s`
                       : 'Request another reset link'}
-
                   </button>
-
-                </motion.div>
-
-              )}
-
-              {/* =================================================
-                  BACK TO LOGIN
-              ================================================= */}
-
-              {!isSubmitted && (
-
-                <div className="mt-4 border-t border-white/[0.07] pt-3 text-center">
-
-                  <Link
-                    to="/login"
-                    className="text-[9px] font-bold text-cyan-300 transition hover:text-cyan-200 hover:underline sm:text-[10px]"
-                  >
-                    ← Back to Login
-                  </Link>
-
                 </div>
-
               )}
-
-              {/* =================================================
-                  SECURITY INDICATOR
-              ================================================= */}
-
-              <div className="mt-3 flex items-center justify-center gap-2">
-
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
-
-                <span className="text-[8px] font-semibold uppercase tracking-[0.16em] text-slate-600">
-                  Protected Account Recovery
-                </span>
-
-              </div>
-
             </div>
-
           </div>
-
-        </motion.section>
-
+        </div>
       </div>
-
     </div>
   );
 }

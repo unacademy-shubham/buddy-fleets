@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, {
+  useState,
+} from 'react';
 
 import {
   Link,
   useNavigate,
 } from 'react-router-dom';
-
-import { motion } from 'framer-motion';
 
 import { supabase } from '../../supabaseClient';
 
@@ -13,10 +13,23 @@ import { supabase } from '../../supabaseClient';
    BUDDY FLEETS
    LOGIN PAGE
 
-   Navbar + Footer:
-   AuthLayout.jsx handles them.
+   WebsiteLayout handles:
+   - Header
+   - Development notice
+   - Footer
+   - Dark / Light theme
 
-   Login Security:
+   DESIGN RULE:
+   - One unified auth canvas
+   - No separate visual sections
+   - Same website theme system
+   - No Framer Motion
+   - No external background image
+   - No truck / radar / chart
+   - No blinking effects
+   - PageSpeed-first
+
+   LOGIN SECURITY:
 
    Company Code
         +
@@ -35,310 +48,122 @@ import { supabase } from '../../supabaseClient';
 
 /* =========================================================
    INPUT STYLES
-
-   Dedicated padding prevents:
-   # / @ / SHOW button overlap.
 ========================================================= */
 
 const inputBase = `
   w-full
+
   rounded-xl
+
   border
-  border-white/10
-  bg-[#101a2c]/85
+  border-[color:var(--bf-border)]
+
+  bg-[var(--bf-page-bg)]
+
   py-2.5
+
   text-xs
-  text-white
+  text-[color:var(--bf-text-primary)]
+
   outline-none
-  transition-all
-  duration-300
 
-  placeholder:text-slate-600
+  transition-colors
+  duration-200
 
-  focus:border-cyan-400/60
-  focus:bg-[#142139]
-  focus:ring-4
-  focus:ring-cyan-400/10
+  placeholder:text-[color:var(--bf-text-muted)]
+
+  hover:border-cyan-400/25
+
+  focus:border-cyan-400/45
+  focus:ring-2
+  focus:ring-cyan-400/[0.07]
 
   disabled:cursor-not-allowed
   disabled:opacity-60
 
-  sm:rounded-2xl
-  sm:py-3
   sm:text-sm
 `;
 
 const companyCodeInput =
-  `${inputBase} pl-11 pr-4 uppercase`;
+  `${inputBase} pl-10 pr-3.5 uppercase`;
 
 const emailInput =
-  `${inputBase} pl-11 pr-4`;
+  `${inputBase} pl-10 pr-3.5`;
 
 const passwordInput =
-  `${inputBase} pl-4 pr-20`;
+  `${inputBase} pl-3.5 pr-20`;
 
 /* =========================================================
-   AMBIENT ORB
+   ICONS
 ========================================================= */
 
-function AmbientOrb({
+function CheckIcon({
   className = '',
 }) {
   return (
-    <motion.div
-      animate={{
-        scale: [
-          1,
-          1.12,
-          1,
-        ],
-
-        opacity: [
-          0.2,
-          0.42,
-          0.2,
-        ],
-      }}
-      transition={{
-        duration: 7,
-        repeat: Infinity,
-        ease: 'easeInOut',
-      }}
-      className={`
-        pointer-events-none
-        absolute
-        rounded-full
-        blur-[110px]
-        ${className}
-      `}
-    />
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+      className={className}
+    >
+      <path
+        d="m5 12 4 4L19 6"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 
-/* =========================================================
-   LIGHT TRAIL
-========================================================= */
-
-function LightTrail({
-  delay = 0,
-  duration = 8,
-  bottom = 'bottom-[15%]',
-  width = 'w-48',
+function ArrowIcon({
+  className = '',
 }) {
   return (
-    <motion.div
-      initial={{
-        x: '-30vw',
-        opacity: 0,
-      }}
-      animate={{
-        x: '130vw',
-
-        opacity: [
-          0,
-          0.35,
-          0.65,
-          0,
-        ],
-      }}
-      transition={{
-        duration,
-        delay,
-        repeat: Infinity,
-        ease: 'linear',
-      }}
-      className={`
-        pointer-events-none
-        absolute
-        left-0
-        ${bottom}
-        h-px
-        ${width}
-        bg-gradient-to-r
-        from-transparent
-        via-cyan-300/50
-        to-transparent
-      `}
-    />
-  );
-}
-
-/* =========================================================
-   TRUCK
-========================================================= */
-
-function Truck() {
-  return (
-    <div className="relative h-16 w-44 sm:h-20 sm:w-56">
-
-      {/* UNDER GLOW */}
-
-      <div className="absolute -bottom-2 left-2 h-5 w-40 rounded-full bg-cyan-400/20 blur-xl sm:w-52" />
-
-      {/* TRAILER */}
-
-      <div className="absolute left-0 top-1 h-11 w-32 rounded-md border border-cyan-300/20 bg-gradient-to-br from-slate-700/80 via-slate-800/80 to-[#07101f] shadow-[0_0_30px_rgba(34,211,238,0.12)] sm:h-14 sm:w-40">
-
-        <div className="absolute left-2 right-2 top-2 h-1 rounded-full bg-cyan-400/40" />
-
-        <div className="absolute left-2 top-5 text-[7px] font-black uppercase tracking-[0.25em] text-slate-500 sm:top-6">
-          BUDDY FLEETS
-        </div>
-
-        <div className="absolute bottom-2 left-2 h-1 w-8 rounded-full bg-blue-400/30" />
-
-        <div className="absolute bottom-2 right-2 h-1 w-12 rounded-full bg-violet-400/30" />
-
-      </div>
-
-      {/* CABIN */}
-
-      <div className="absolute right-0 top-5 h-8 w-12 rounded-r-lg rounded-tl-sm border border-cyan-300/25 bg-gradient-to-br from-cyan-500/30 via-blue-600/30 to-violet-700/30 shadow-[0_0_25px_rgba(34,211,238,0.2)] sm:top-7 sm:h-10 sm:w-14">
-
-        <div className="absolute left-2 top-2 h-3 w-7 rounded-sm border border-cyan-300/20 bg-cyan-300/10 sm:h-4 sm:w-9" />
-
-      </div>
-
-      {/* FRONT LIGHT */}
-
-      <div className="absolute right-[-4px] top-[31px] h-2 w-2 rounded-full bg-cyan-200 shadow-[0_0_14px_rgba(34,211,238,1)] sm:top-[39px]" />
-
-      {/* WHEELS */}
-
-      <div className="absolute bottom-0 left-6 h-6 w-6 rounded-full border-2 border-slate-500 bg-[#020617] sm:left-8 sm:h-7 sm:w-7" />
-
-      <div className="absolute bottom-0 right-6 h-6 w-6 rounded-full border-2 border-slate-500 bg-[#020617] sm:right-7 sm:h-7 sm:w-7" />
-
-      {/* HUBS */}
-
-      <div className="absolute bottom-[7px] left-[35px] h-2 w-2 rounded-full bg-slate-600 sm:bottom-[8px] sm:left-[42px]" />
-
-      <div className="absolute bottom-[7px] right-[35px] h-2 w-2 rounded-full bg-slate-600 sm:bottom-[8px] sm:right-[42px]" />
-
-    </div>
-  );
-}
-
-/* =========================================================
-   ANIMATED TRUCK
-========================================================= */
-
-function AnimatedTruck() {
-  return (
-    <motion.div
-      initial={{
-        x: '-20vw',
-        opacity: 0,
-      }}
-      animate={{
-        x: '120vw',
-
-        opacity: [
-          0,
-          1,
-          1,
-          0,
-        ],
-      }}
-      transition={{
-        duration: 22,
-        repeat: Infinity,
-        repeatDelay: 3,
-        ease: 'linear',
-      }}
-      className="absolute bottom-0 left-0"
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+      className={className}
     >
-      <Truck />
-    </motion.div>
+      <path
+        d="M5 12h14M13 6l6 6-6 6"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 
-/* =========================================================
-   MOBILE / TABLET TRUCK
-========================================================= */
-
-function MobileTruckScene() {
+function ShieldIcon({
+  className = '',
+}) {
   return (
-    <div className="relative h-24 w-full overflow-hidden border-y border-white/[0.04] sm:h-28 lg:hidden">
-
-      <div className="absolute inset-x-0 bottom-2 h-px bg-gradient-to-r from-transparent via-cyan-400/35 to-transparent" />
-
-      <div className="absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-cyan-500/[0.06] to-transparent" />
-
-      <AnimatedTruck />
-
-    </div>
-  );
-}
-
-/* =========================================================
-   RADAR
-========================================================= */
-
-function RadarPulse() {
-  return (
-    <div className="pointer-events-none absolute right-[7%] top-[30%] hidden h-36 w-36 xl:block">
-
-      <motion.div
-        animate={{
-          scale: [
-            0.7,
-            1.4,
-          ],
-
-          opacity: [
-            0.45,
-            0,
-          ],
-        }}
-        transition={{
-          duration: 3,
-          repeat: Infinity,
-          ease: 'easeOut',
-        }}
-        className="absolute inset-0 rounded-full border border-cyan-400/20"
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+      className={className}
+    >
+      <path
+        d="M12 3 19 6v5c0 4.5-2.8 8-7 10-4.2-2-7-5.5-7-10V6l7-3Z"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinejoin="round"
       />
 
-      <motion.div
-        animate={{
-          scale: [
-            0.7,
-            1.4,
-          ],
-
-          opacity: [
-            0.3,
-            0,
-          ],
-        }}
-        transition={{
-          duration: 3,
-          delay: 1.5,
-          repeat: Infinity,
-          ease: 'easeOut',
-        }}
-        className="absolute inset-0 rounded-full border border-cyan-400/15"
+      <path
+        d="m9 12 2 2 4-4"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
       />
-
-      <div className="absolute inset-[20%] rounded-full border border-cyan-400/10" />
-
-      <div className="absolute inset-[38%] rounded-full border border-cyan-400/20 bg-cyan-400/5" />
-
-      <motion.div
-        animate={{
-          rotate: 360,
-        }}
-        transition={{
-          duration: 5,
-          repeat: Infinity,
-          ease: 'linear',
-        }}
-        className="absolute left-1/2 top-1/2 h-[1px] w-1/2 origin-left bg-gradient-to-r from-cyan-400/70 to-transparent"
-      />
-
-      <div className="absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-cyan-300 shadow-[0_0_15px_rgba(34,211,238,1)]" />
-
-    </div>
+    </svg>
   );
 }
 
@@ -386,31 +211,25 @@ export default function Login({
      SAFE LOCAL SIGNOUT
 
      Email/password valid but company verification fail ho
-     jaye to Supabase authenticated session browser me
+     jaye to authenticated Supabase session browser me
      leave nahi karenge.
   ========================================================= */
 
   const clearAuthSession =
     async () => {
-
       try {
-
         await supabase
           .auth
           .signOut({
             scope:
               'local',
           });
-
       } catch (err) {
-
         console.error(
           'Local signout error:',
           err
         );
-
       }
-
     };
 
   /* =========================================================
@@ -421,7 +240,6 @@ export default function Login({
     async (
       event
     ) => {
-
       event.preventDefault();
 
       if (isLoading) {
@@ -452,12 +270,13 @@ export default function Login({
       const cleanPassword =
         password;
 
-      /* COMPANY CODE */
+      /* =====================================================
+         COMPANY CODE
+      ===================================================== */
 
       if (
         !cleanCompanyCode
       ) {
-
         setErrorMessage(
           'Please enter your Company Code.'
         );
@@ -465,7 +284,9 @@ export default function Login({
         return;
       }
 
-      /* EMAIL */
+      /* =====================================================
+         EMAIL
+      ===================================================== */
 
       const emailRegex =
         /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -475,7 +296,6 @@ export default function Login({
           cleanEmail
         )
       ) {
-
         setErrorMessage(
           'Please enter your registered email address.'
         );
@@ -483,12 +303,13 @@ export default function Login({
         return;
       }
 
-      /* PASSWORD */
+      /* =====================================================
+         PASSWORD
+      ===================================================== */
 
       if (
         !cleanPassword
       ) {
-
         setErrorMessage(
           'Please enter your password.'
         );
@@ -501,7 +322,6 @@ export default function Login({
       );
 
       try {
-
         /* =====================================================
            STEP 1
            SUPABASE AUTH
@@ -530,11 +350,9 @@ export default function Login({
           !authData?.user ||
           !authData?.session
         ) {
-
           throw new Error(
             'INVALID_CREDENTIALS'
           );
-
         }
 
         const authUser =
@@ -548,13 +366,11 @@ export default function Login({
           !authUser
             .email_confirmed_at
         ) {
-
           await clearAuthSession();
 
           throw new Error(
             'EMAIL_CONFIRMATION_REQUIRED'
           );
-
         }
 
         /* =====================================================
@@ -584,12 +400,10 @@ export default function Login({
         if (
           profileError
         ) {
-
           console.error(
             'Profile read error:',
             profileError
           );
-
         }
 
         /* =====================================================
@@ -623,12 +437,10 @@ export default function Login({
         if (
           platformAdminError
         ) {
-
           console.error(
             'Platform admin check error:',
             platformAdminError
           );
-
         }
 
         /* =====================================================
@@ -647,18 +459,15 @@ export default function Login({
           cleanCompanyCode ===
           'ADMIN'
         ) {
-
           if (
             !platformAdmin
               ?.is_active
           ) {
-
             await clearAuthSession();
 
             throw new Error(
               'INVALID_CREDENTIALS'
             );
-
           }
 
           const authenticatedUser = {
@@ -736,13 +545,10 @@ export default function Login({
           if (
             onLoginSuccess
           ) {
-
             onLoginSuccess(
               authenticatedUser
             );
-
           } else {
-
             navigate(
               '/dashboard',
               {
@@ -750,7 +556,6 @@ export default function Login({
                   true,
               }
             );
-
           }
 
           return;
@@ -781,16 +586,14 @@ export default function Login({
             .from(
               'companies'
             )
-            .select(
-              `
-                id,
-                company_code,
-                company_name,
-                status,
-                confirmed_at,
-                account_owner_user_id
-              `
-            )
+            .select(`
+              id,
+              company_code,
+              company_name,
+              status,
+              confirmed_at,
+              account_owner_user_id
+            `)
             .eq(
               'company_code',
               cleanCompanyCode
@@ -801,13 +604,11 @@ export default function Login({
           companyError ||
           !company
         ) {
-
           await clearAuthSession();
 
           throw new Error(
             'INVALID_CREDENTIALS'
           );
-
         }
 
         /* =====================================================
@@ -825,16 +626,14 @@ export default function Login({
             .from(
               'company_memberships'
             )
-            .select(
-              `
-                id,
-                company_id,
-                user_id,
-                status,
-                access_scope,
-                joined_at
-              `
-            )
+            .select(`
+              id,
+              company_id,
+              user_id,
+              status,
+              access_scope,
+              joined_at
+            `)
             .eq(
               'company_id',
               company.id
@@ -849,13 +648,11 @@ export default function Login({
           membershipError ||
           !membership
         ) {
-
           await clearAuthSession();
 
           throw new Error(
             'INVALID_CREDENTIALS'
           );
-
         }
 
         /* =====================================================
@@ -866,7 +663,6 @@ export default function Login({
           membership.status !==
           'active'
         ) {
-
           await clearAuthSession();
 
           if (
@@ -875,17 +671,14 @@ export default function Login({
             membership.status ===
               'invited'
           ) {
-
             throw new Error(
               'MEMBERSHIP_PENDING'
             );
-
           }
 
           throw new Error(
             'MEMBERSHIP_DISABLED'
           );
-
         }
 
         /* =====================================================
@@ -896,13 +689,11 @@ export default function Login({
           company.status ===
           'pending_confirmation'
         ) {
-
           await clearAuthSession();
 
           throw new Error(
             'EMAIL_CONFIRMATION_REQUIRED'
           );
-
         }
 
         if (
@@ -911,13 +702,11 @@ export default function Login({
           company.status ===
             'cancelled'
         ) {
-
           await clearAuthSession();
 
           throw new Error(
             'COMPANY_BLOCKED'
           );
-
         }
 
         const allowedStatuses = [
@@ -931,13 +720,11 @@ export default function Login({
             company.status
           )
         ) {
-
           await clearAuthSession();
 
           throw new Error(
             'COMPANY_NOT_AVAILABLE'
           );
-
         }
 
         /* =====================================================
@@ -955,16 +742,14 @@ export default function Login({
             .from(
               'subscriptions'
             )
-            .select(
-              `
-                status,
-                plan_id,
-                trial_start_at,
-                trial_end_at,
-                subscription_start_at,
-                subscription_end_at
-              `
-            )
+            .select(`
+              status,
+              plan_id,
+              trial_start_at,
+              trial_end_at,
+              subscription_start_at,
+              subscription_end_at
+            `)
             .eq(
               'company_id',
               company.id
@@ -974,12 +759,10 @@ export default function Login({
         if (
           subscriptionError
         ) {
-
           console.error(
             'Subscription read error:',
             subscriptionError
           );
-
         }
 
         /* =====================================================
@@ -1009,10 +792,8 @@ export default function Login({
           ).getTime() <=
             Date.now()
         ) {
-
           effectiveCompanyStatus =
             'trial_expired';
-
         }
 
         /* =====================================================
@@ -1116,13 +897,10 @@ export default function Login({
         if (
           onLoginSuccess
         ) {
-
           onLoginSuccess(
             authenticatedUser
           );
-
         } else {
-
           navigate(
             '/dashboard',
             {
@@ -1130,11 +908,8 @@ export default function Login({
                 true,
             }
           );
-
         }
-
       } catch (err) {
-
         console.error(
           'Login error:',
           err
@@ -1151,42 +926,33 @@ export default function Login({
           code ===
           'MEMBERSHIP_PENDING'
         ) {
-
           setErrorMessage(
             'Your company access is not active yet. Please complete verification or contact your administrator.'
           );
-
         } else if (
           code ===
           'MEMBERSHIP_DISABLED'
         ) {
-
           setErrorMessage(
             'Your account access has been disabled. Please contact your administrator.'
           );
-
         } else if (
           code ===
           'EMAIL_CONFIRMATION_REQUIRED'
         ) {
-
           setErrorMessage(
             'Please verify your email address before logging in.'
           );
-
         } else if (
           code ===
             'COMPANY_BLOCKED' ||
           code ===
             'COMPANY_NOT_AVAILABLE'
         ) {
-
           setErrorMessage(
             'This company account is currently unavailable. Please contact Buddy Fleets support.'
           );
-
         } else {
-
           /*
             Wrong Company Code / Email / Password me
             exact failed field reveal nahi karenge.
@@ -1195,17 +961,12 @@ export default function Login({
           setErrorMessage(
             'Invalid company code, email, or password.'
           );
-
         }
-
       } finally {
-
         setIsLoading(
           false
         );
-
       }
-
     };
 
   /* =========================================================
@@ -1216,199 +977,308 @@ export default function Login({
     <div
       className="
         relative
-        min-h-full
-        w-full
-        overflow-x-hidden
-        bg-[#050914]
-        text-white
+        isolate
 
-        lg:h-full
-        lg:min-h-0
-        lg:overflow-hidden
+        flex
+        w-full
+        flex-1
+
+        overflow-hidden
+
+        bg-[var(--bf-page-bg)]
+
+        text-[color:var(--bf-text-primary)]
+
+        transition-colors
+        duration-300
       "
     >
-
       {/* =====================================================
-          BACKGROUND
+          SINGLE UNIFIED BACKGROUND
       ===================================================== */}
 
-      <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
+      <div
+        aria-hidden="true"
+        className="
+          pointer-events-none
 
-        <img
-          src="https://images.unsplash.com/photo-1519003722824-194d4455a60c?q=85&w=2400&auto=format&fit=crop"
-          alt=""
-          aria-hidden="true"
-          className="h-full w-full object-cover object-center opacity-25"
+          absolute
+          inset-0
+          -z-10
+
+          overflow-hidden
+        "
+      >
+        {/* BASE */}
+
+        <div
+          className="
+            absolute
+            inset-0
+
+            bg-[var(--bf-page-bg)]
+          "
         />
-
-        <div className="absolute inset-0 bg-[#050914]/80" />
-
-        <div className="absolute inset-0 bg-gradient-to-r from-[#050914] via-[#050914]/90 to-[#071329]/75" />
-
-        <div className="absolute inset-0 bg-gradient-to-t from-[#050914] via-transparent to-[#050914]/65" />
 
         {/* GRID */}
 
         <div
-          className="absolute inset-0 opacity-[0.06]"
+          className="
+            absolute
+            inset-0
+
+            opacity-[0.035]
+          "
           style={{
             backgroundImage:
-              'linear-gradient(rgba(56,189,248,0.7) 1px, transparent 1px), linear-gradient(90deg, rgba(56,189,248,0.7) 1px, transparent 1px)',
+              'linear-gradient(rgba(100,116,139,.28) 1px, transparent 1px), linear-gradient(90deg, rgba(100,116,139,.28) 1px, transparent 1px)',
 
             backgroundSize:
-              '55px 55px',
+              '72px 72px',
           }}
         />
 
-        {/* COLOR GLOW */}
+        {/* LEFT CYAN GLOW */}
 
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_40%,rgba(6,182,212,0.10),transparent_30%),radial-gradient(circle_at_85%_40%,rgba(124,58,237,0.12),transparent_32%)]" />
+        <div
+          className="
+            absolute
+            -left-48
+            top-[-80px]
 
-        <AmbientOrb className="left-[4%] top-[15%] h-72 w-72 bg-cyan-500/20" />
+            h-[480px]
+            w-[480px]
 
-        <AmbientOrb className="right-[5%] top-[20%] h-80 w-80 bg-violet-600/20" />
+            rounded-full
 
+            bg-cyan-500/[0.065]
+
+            blur-[135px]
+          "
+        />
+
+        {/* RIGHT BLUE GLOW */}
+
+        <div
+          className="
+            absolute
+            -right-52
+            top-[5%]
+
+            h-[500px]
+            w-[500px]
+
+            rounded-full
+
+            bg-blue-500/[0.055]
+
+            blur-[145px]
+          "
+        />
+
+        {/* CENTER GREEN GLOW */}
+
+        <div
+          className="
+            absolute
+            bottom-[-240px]
+            left-[38%]
+
+            h-[420px]
+            w-[420px]
+
+            rounded-full
+
+            bg-emerald-500/[0.04]
+
+            blur-[130px]
+          "
+        />
       </div>
 
       {/* =====================================================
-          DESKTOP EFFECTS
-      ===================================================== */}
+          ONE UNIFIED AUTH CANVAS
 
-      <div className="pointer-events-none absolute inset-0 z-[1] hidden overflow-hidden lg:block">
-
-        <LightTrail
-          delay={0}
-          duration={8}
-          bottom="bottom-[12%]"
-          width="w-56"
-        />
-
-        <LightTrail
-          delay={2.5}
-          duration={9}
-          bottom="bottom-[18%]"
-          width="w-72"
-        />
-
-        <RadarPulse />
-
-        <div className="absolute inset-x-0 bottom-0 h-20 overflow-hidden">
-
-          <div className="absolute inset-x-0 bottom-1 h-px bg-gradient-to-r from-transparent via-cyan-400/30 to-transparent" />
-
-          <AnimatedTruck />
-
-        </div>
-
-      </div>
-
-      {/* =====================================================
-          CONTENT
+          Left content + login form are one composition.
+          No separate visual page sections.
       ===================================================== */}
 
       <div
         className="
           relative
-          z-10
+
           mx-auto
-          flex
+
+          grid
           w-full
-          max-w-[1280px]
-          flex-col
+          max-w-7xl
+
+          items-center
+
           gap-7
-          px-4
-          py-7
 
-          sm:gap-9
-          sm:px-6
-          sm:py-9
+          px-5
+          py-6
 
-          lg:grid
-          lg:h-full
-          lg:grid-cols-[minmax(0,1fr)_430px]
-          lg:items-center
-          lg:gap-10
-          lg:px-10
-          lg:py-2
+          sm:px-8
+          sm:py-7
 
-          xl:grid-cols-[minmax(0,1fr)_448px]
+          lg:grid-cols-[minmax(0,1fr)_420px]
+          lg:gap-12
+          lg:px-12
+          lg:py-5
+
+          xl:grid-cols-[minmax(0,1fr)_440px]
           xl:gap-16
         "
       >
-
         {/* =================================================
-            HERO
+            LEFT CONTENT
         ================================================= */}
 
-        <motion.section
-          initial={{
-            opacity: 0,
-            x: -30,
-          }}
-          animate={{
-            opacity: 1,
-            x: 0,
-          }}
-          transition={{
-            duration: 0.8,
-          }}
+        <div
           className="
-            relative
             mx-auto
+
             w-full
             max-w-2xl
+
             text-center
 
             lg:mx-0
-            lg:max-w-none
             lg:text-left
           "
         >
-
           {/* BADGE */}
 
-          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/5 px-3.5 py-2 backdrop-blur-md sm:mb-5 sm:px-4">
+          <div
+            className="
+              inline-flex
 
-            <span className="relative flex h-2 w-2">
+              items-center
+              gap-2.5
 
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-cyan-400 opacity-75" />
+              rounded-full
 
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-cyan-400" />
+              border
+              border-cyan-400/20
 
-            </span>
+              bg-cyan-400/[0.06]
 
-            <span className="text-[8px] font-bold uppercase tracking-[0.18em] text-cyan-300 sm:text-[9px] xl:text-[10px]">
+              px-3.5
+              py-2
+            "
+          >
+            <span
+              className="
+                h-1.5
+                w-1.5
+
+                rounded-full
+
+                bg-emerald-500
+              "
+            />
+
+            <span
+              className="
+                text-[8px]
+                font-black
+                uppercase
+                tracking-[0.19em]
+
+                text-cyan-500
+
+                sm:text-[9px]
+              "
+            >
               Secure Console Access
             </span>
-
           </div>
 
           {/* HEADING */}
 
-          <h1 className="text-4xl font-black leading-[1.03] tracking-tight text-white sm:text-5xl lg:text-5xl xl:text-6xl">
+          <h1
+            className="
+              mt-4
 
-            Welcome back to
+              text-[clamp(2.15rem,4.2vw,3.75rem)]
 
-            <span className="block bg-gradient-to-r from-cyan-300 via-blue-400 to-violet-400 bg-clip-text text-transparent">
-              command center.
+              font-black
+
+              leading-[1.04]
+
+              tracking-[-0.035em]
+            "
+          >
+            <span
+              className="
+                block
+
+                text-[color:var(--bf-text-primary)]
+              "
+            >
+              Welcome back to
             </span>
 
+            <span
+              className="
+                block
+
+                bg-gradient-to-r
+                from-[#12BFF2]
+                via-[#078EE5]
+                to-[#0AA23B]
+
+                bg-clip-text
+                text-transparent
+              "
+            >
+              command center.
+            </span>
           </h1>
 
           {/* DESCRIPTION */}
 
-          <p className="mx-auto mt-4 max-w-lg text-xs leading-6 text-slate-400 sm:mt-5 sm:text-sm sm:leading-7 lg:mx-0 lg:max-w-md">
+          <p
+            className="
+              mx-auto
+              mt-3.5
 
+              max-w-lg
+
+              text-xs
+              leading-6
+
+              text-[color:var(--bf-text-secondary)]
+
+              sm:text-sm
+              sm:leading-7
+
+              lg:mx-0
+            "
+          >
             Access your fleet operations, compliance,
             workshops and financial information securely
             through your company workspace.
-
           </p>
 
-          {/* POINTS */}
+          {/* SUPPORTING POINTS */}
 
-          <div className="mx-auto mt-5 flex max-w-md flex-col items-start gap-2.5 sm:mt-6 lg:mx-0 lg:mt-7">
+          <div
+            className="
+              mx-auto
+              mt-5
 
+              flex
+              max-w-lg
+              flex-col
+
+              gap-2.5
+
+              lg:mx-0
+            "
+          >
             {[
               'Company-specific secure access',
               'Role & site based permissions',
@@ -1418,150 +1288,392 @@ export default function Login({
                 item
               ) => (
                 <div
-                  key={item}
-                  className="flex items-center gap-3 text-left text-[10px] font-medium text-slate-300 sm:text-xs"
-                >
+                  key={
+                    item
+                  }
+                  className="
+                    flex
+                    items-center
+                    gap-3
 
-                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-cyan-400/30 bg-cyan-400/10 text-[9px] text-cyan-300">
-                    ✓
+                    text-left
+
+                    text-[10px]
+                    font-medium
+
+                    text-[color:var(--bf-text-secondary)]
+
+                    sm:text-xs
+                  "
+                >
+                  <span
+                    className="
+                      flex
+                      h-5
+                      w-5
+
+                      shrink-0
+
+                      items-center
+                      justify-center
+
+                      rounded-lg
+
+                      border
+                      border-cyan-400/20
+
+                      bg-cyan-400/[0.06]
+
+                      text-cyan-500
+                    "
+                  >
+                    <CheckIcon
+                      className="
+                        h-3
+                        w-3
+                      "
+                    />
                   </span>
 
-                  {item}
-
+                  <span>
+                    {item}
+                  </span>
                 </div>
               )
             )}
-
           </div>
 
-        </motion.section>
+          {/* SECURITY LINE */}
+
+          <div
+            className="
+              mx-auto
+              mt-5
+
+              flex
+              max-w-lg
+
+              items-center
+              justify-center
+
+              gap-2
+
+              text-[8px]
+              font-semibold
+              uppercase
+              tracking-[0.14em]
+
+              text-[color:var(--bf-text-muted)]
+
+              lg:mx-0
+              lg:justify-start
+            "
+          >
+            <ShieldIcon
+              className="
+                h-3.5
+                w-3.5
+
+                text-emerald-500
+              "
+            />
+
+            Supabase Secure Authentication
+          </div>
+        </div>
 
         {/* =================================================
-            MOBILE / TABLET TRUCK
+            LOGIN FORM AREA
+
+            Part of same unified canvas.
         ================================================= */}
 
-        <MobileTruckScene />
+        <div
+          className="
+            relative
 
-        {/* =================================================
-            LOGIN CARD
-        ================================================= */}
+            mx-auto
 
-        <motion.section
-          initial={{
-            opacity: 0,
-            y: 20,
-            scale: 0.98,
-          }}
-          animate={{
-            opacity: 1,
-            y: 0,
-            scale: 1,
-          }}
-          transition={{
-            duration: 0.7,
-            ease: 'easeOut',
-          }}
-          className="relative mx-auto w-full max-w-[448px] lg:mx-0 lg:max-w-[430px] lg:justify-self-end xl:max-w-[448px]"
+            w-full
+            max-w-[440px]
+
+            lg:mx-0
+            lg:justify-self-end
+          "
         >
+          {/* SOFT OUTER GLOW */}
 
-          {/* GLOW */}
+          <div
+            aria-hidden="true"
+            className="
+              absolute
+              -inset-[1px]
 
-          <div className="absolute -inset-[1px] rounded-[26px] bg-gradient-to-br from-cyan-400/30 via-blue-500/10 to-violet-500/30 blur-xl sm:rounded-[30px]" />
+              rounded-[25px]
 
-          {/* CARD */}
+              bg-gradient-to-br
+              from-cyan-400/18
+              via-blue-500/[0.05]
+              to-emerald-500/14
 
-          <div className="relative overflow-hidden rounded-[26px] border border-white/10 bg-[#07101f]/95 shadow-2xl shadow-black/60 backdrop-blur-2xl sm:rounded-[30px]">
+              blur-xl
+            "
+          />
 
-            {/* TOP EDGE */}
+          {/* FORM SURFACE */}
 
-            <div className="absolute left-0 right-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-400 to-transparent" />
+          <div
+            className="
+              relative
 
-            {/* CARD GLOWS */}
+              overflow-hidden
 
-            <div className="pointer-events-none absolute -right-28 -top-28 h-56 w-56 rounded-full bg-cyan-500/10 blur-[80px]" />
+              rounded-[24px]
 
-            <div className="pointer-events-none absolute -bottom-28 -left-28 h-56 w-56 rounded-full bg-violet-600/10 blur-[80px]" />
+              border
+              border-[color:var(--bf-border)]
 
-            <div className="relative p-4 sm:p-6 lg:p-5 xl:p-6">
+              bg-[var(--bf-surface)]
 
-              {/* HEADER */}
+              shadow-2xl
+              shadow-black/10
+
+              backdrop-blur-xl
+            "
+          >
+            {/* TOP GRADIENT LINE */}
+
+            <div
+              className="
+                absolute
+                left-0
+                right-0
+                top-0
+
+                h-px
+
+                bg-gradient-to-r
+                from-transparent
+                via-cyan-400
+                to-transparent
+              "
+            />
+
+            {/* STATIC CARD GLOW */}
+
+            <div
+              aria-hidden="true"
+              className="
+                pointer-events-none
+
+                absolute
+                -right-28
+                -top-28
+
+                h-56
+                w-56
+
+                rounded-full
+
+                bg-cyan-500/[0.055]
+
+                blur-[80px]
+              "
+            />
+
+            <div
+              className="
+                relative
+
+                p-5
+
+                sm:p-6
+              "
+            >
+              {/* ===============================================
+                  FORM HEADER
+              =============================================== */}
 
               <div className="mb-4">
 
-                <div className="mb-2 flex items-center gap-1.5">
+                <div
+                  className="
+                    mb-2
 
-                  <span className="h-1.5 w-8 rounded-full bg-cyan-400" />
+                    flex
+                    items-center
+                    gap-1.5
+                  "
+                >
+                  <span
+                    className="
+                      h-1.5
+                      w-8
 
-                  <span className="h-1.5 w-3 rounded-full bg-blue-500" />
+                      rounded-full
 
-                  <span className="h-1.5 w-2 rounded-full bg-violet-500" />
+                      bg-[#12BFF2]
+                    "
+                  />
 
+                  <span
+                    className="
+                      h-1.5
+                      w-3
+
+                      rounded-full
+
+                      bg-[#078EE5]
+                    "
+                  />
+
+                  <span
+                    className="
+                      h-1.5
+                      w-2
+
+                      rounded-full
+
+                      bg-[#0AA23B]
+                    "
+                  />
                 </div>
 
-                <h2 className="text-xl font-black tracking-tight text-white sm:text-2xl lg:text-xl xl:text-2xl">
+                <h2
+                  className="
+                    text-xl
+                    font-black
+                    tracking-tight
+
+                    text-[color:var(--bf-text-primary)]
+
+                    sm:text-2xl
+                  "
+                >
                   Log in to console
                 </h2>
 
-                <p className="mt-1 text-[10px] leading-4 text-slate-400 sm:text-[11px]">
+                <p
+                  className="
+                    mt-1
+
+                    text-[10px]
+                    leading-4
+
+                    text-[color:var(--bf-text-muted)]
+
+                    sm:text-[11px]
+                  "
+                >
                   Enter your Company Code and registered credentials.
                 </p>
-
               </div>
 
-              {/* ERROR */}
+              {/* ===============================================
+                  ERROR
+              =============================================== */}
 
               {errorMessage && (
+                <div
+                  className="
+                    mb-3
 
-                <motion.div
-                  initial={{
-                    opacity: 0,
-                    y: -5,
-                  }}
-                  animate={{
-                    opacity: 1,
-                    y: 0,
-                  }}
-                  className="mb-3 rounded-xl border border-red-400/20 bg-red-400/[0.06] px-3 py-2.5"
+                    rounded-xl
+
+                    border
+                    border-red-400/20
+
+                    bg-red-400/[0.06]
+
+                    px-3
+                    py-2.5
+                  "
                   role="alert"
+                  aria-live="polite"
                 >
+                  <div
+                    className="
+                      flex
+                      items-start
+                      gap-2
+                    "
+                  >
+                    <span
+                      className="
+                        mt-[1px]
 
-                  <div className="flex items-start gap-2">
+                        flex
+                        h-4
+                        w-4
 
-                    <span className="mt-[1px] flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-red-400/10 text-[9px] font-black text-red-400">
+                        shrink-0
+
+                        items-center
+                        justify-center
+
+                        rounded-full
+
+                        bg-red-400/10
+
+                        text-[9px]
+                        font-black
+
+                        text-red-500
+                      "
+                    >
                       !
                     </span>
 
-                    <p className="text-[9px] leading-4 text-red-300 sm:text-[10px]">
+                    <p
+                      className="
+                        text-[9px]
+                        leading-4
+
+                        text-red-500
+
+                        sm:text-[10px]
+                      "
+                    >
                       {errorMessage}
                     </p>
-
                   </div>
-
-                </motion.div>
-
+                </div>
               )}
 
-              {/* =================================================
+              {/* ===============================================
                   FORM
-              ================================================= */}
+              =============================================== */}
 
               <form
                 onSubmit={
                   handleSubmit
                 }
                 noValidate
-                className="space-y-3"
+                className="
+                  space-y-3
+                "
               >
-
                 {/* =============================================
                     COMPANY CODE
                 ============================================= */}
 
                 <div>
-
                   <label
                     htmlFor="companyCode"
-                    className="mb-1 block text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400"
+                    className="
+                      mb-1
+
+                      block
+
+                      text-[8px]
+                      font-bold
+                      uppercase
+                      tracking-[0.13em]
+
+                      text-[color:var(--bf-text-muted)]
+
+                      sm:text-[9px]
+                    "
                   >
                     Company Code
                   </label>
@@ -1572,14 +1684,18 @@ export default function Login({
                       aria-hidden="true"
                       className="
                         pointer-events-none
+
                         absolute
-                        left-4
+                        left-3.5
                         top-1/2
                         z-10
+
                         -translate-y-1/2
+
                         text-[11px]
                         font-black
-                        text-cyan-400/70
+
+                        text-cyan-500
                       "
                     >
                       #
@@ -1602,21 +1718,17 @@ export default function Login({
                       onChange={(
                         event
                       ) => {
-
                         setCompanyCode(
                           event.target.value
                         );
 
                         setErrorMessage('');
-
                       }}
                       className={
                         companyCodeInput
                       }
                     />
-
                   </div>
-
                 </div>
 
                 {/* =============================================
@@ -1624,10 +1736,22 @@ export default function Login({
                 ============================================= */}
 
                 <div>
-
                   <label
                     htmlFor="email"
-                    className="mb-1 block text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400"
+                    className="
+                      mb-1
+
+                      block
+
+                      text-[8px]
+                      font-bold
+                      uppercase
+                      tracking-[0.13em]
+
+                      text-[color:var(--bf-text-muted)]
+
+                      sm:text-[9px]
+                    "
                   >
                     Registered Email
                   </label>
@@ -1638,14 +1762,18 @@ export default function Login({
                       aria-hidden="true"
                       className="
                         pointer-events-none
+
                         absolute
-                        left-4
+                        left-3.5
                         top-1/2
                         z-10
+
                         -translate-y-1/2
+
                         text-[11px]
                         font-black
-                        text-cyan-400/70
+
+                        text-cyan-500
                       "
                     >
                       @
@@ -1668,21 +1796,17 @@ export default function Login({
                       onChange={(
                         event
                       ) => {
-
                         setEmail(
                           event.target.value
                         );
 
                         setErrorMessage('');
-
                       }}
                       className={
                         emailInput
                       }
                     />
-
                   </div>
-
                 </div>
 
                 {/* =============================================
@@ -1690,10 +1814,22 @@ export default function Login({
                 ============================================= */}
 
                 <div>
-
                   <label
                     htmlFor="password"
-                    className="mb-1 block text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400"
+                    className="
+                      mb-1
+
+                      block
+
+                      text-[8px]
+                      font-bold
+                      uppercase
+                      tracking-[0.13em]
+
+                      text-[color:var(--bf-text-muted)]
+
+                      sm:text-[9px]
+                    "
                   >
                     Password
                   </label>
@@ -1719,13 +1855,11 @@ export default function Login({
                       onChange={(
                         event
                       ) => {
-
                         setPassword(
                           event.target.value
                         );
 
                         setErrorMessage('');
-
                       }}
                       className={
                         passwordInput
@@ -1747,25 +1881,34 @@ export default function Login({
                       }
                       className="
                         absolute
-                        right-2.5
+                        right-2
                         top-1/2
+
                         -translate-y-1/2
+
                         rounded-lg
+
                         px-2.5
                         py-1.5
-                        text-[9px]
-                        font-bold
-                        text-slate-500
-                        transition
 
-                        hover:bg-white/5
-                        hover:text-cyan-300
+                        text-[8px]
+                        font-black
 
-                        focus:outline-none
-                        focus:ring-2
-                        focus:ring-cyan-400/20
+                        text-[color:var(--bf-text-muted)]
+
+                        transition-colors
+                        duration-200
+
+                        hover:bg-cyan-400/[0.06]
+                        hover:text-cyan-500
+
+                        focus-visible:outline-none
+                        focus-visible:ring-2
+                        focus-visible:ring-cyan-400/30
 
                         disabled:opacity-50
+
+                        sm:text-[9px]
                       "
                       aria-label={
                         showPassword
@@ -1777,163 +1920,196 @@ export default function Login({
                         ? 'HIDE'
                         : 'SHOW'}
                     </button>
-
                   </div>
 
                   {/* FORGOT PASSWORD */}
 
-                  <div className="mt-2 text-right">
-
+                  <div
+                    className="
+                      mt-1.5
+                      text-right
+                    "
+                  >
                     <Link
                       to="/forgot-password"
-                      className="rounded text-[9px] font-bold text-cyan-400 transition hover:text-cyan-300 hover:underline focus:outline-none focus:ring-2 focus:ring-cyan-400/20 sm:text-[10px]"
+                      className="
+                        rounded
+
+                        text-[9px]
+                        font-bold
+
+                        text-cyan-500
+
+                        transition-colors
+                        duration-200
+
+                        hover:text-cyan-400
+                        hover:underline
+
+                        focus-visible:outline-none
+                        focus-visible:ring-2
+                        focus-visible:ring-cyan-400/30
+
+                        sm:text-[10px]
+                      "
                     >
                       Forgot Password?
                     </Link>
-
                   </div>
-
                 </div>
 
                 {/* =============================================
                     LOGIN BUTTON
                 ============================================= */}
 
-                <motion.button
-                  whileHover={
-                    !isLoading
-                      ? {
-                          y: -1,
-                        }
-                      : {}
-                  }
-                  whileTap={
-                    !isLoading
-                      ? {
-                          scale:
-                            0.99,
-                        }
-                      : {}
-                  }
+                <button
                   type="submit"
                   disabled={
                     isLoading
                   }
                   className="
                     group
-                    relative
+
+                    flex
+                    min-h-11
                     w-full
-                    overflow-hidden
+
+                    items-center
+                    justify-center
+
+                    gap-2
+
                     rounded-xl
+
                     bg-gradient-to-r
-                    from-cyan-400
-                    via-blue-500
-                    to-violet-600
+                    from-[#12BFF2]
+                    via-[#078EE5]
+                    to-[#0AA23B]
+
                     px-4
-                    py-3
+                    py-2.5
+
                     text-xs
                     font-black
+
                     text-white
-                    shadow-xl
-                    shadow-blue-600/20
-                    transition-all
-                    duration-300
 
-                    hover:shadow-cyan-500/20
+                    shadow-lg
+                    shadow-blue-500/10
 
-                    focus:outline-none
-                    focus:ring-4
-                    focus:ring-cyan-400/20
+                    transition
+                    duration-200
+
+                    hover:-translate-y-0.5
+                    hover:shadow-blue-500/20
+
+                    focus-visible:outline-none
+                    focus-visible:ring-2
+                    focus-visible:ring-cyan-400/50
 
                     disabled:cursor-not-allowed
                     disabled:opacity-60
+                    disabled:hover:translate-y-0
 
-                    sm:rounded-2xl
-                    sm:py-3.5
                     sm:text-sm
-
-                    lg:py-3
-                    lg:text-xs
                   "
                 >
+                  {isLoading ? (
+                    <>
+                      <span
+                        className="
+                          h-4
+                          w-4
 
-                  <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
+                          animate-spin
 
-                  <span className="relative flex items-center justify-center gap-2">
+                          rounded-full
 
-                    {isLoading ? (
-                      <>
+                          border-2
+                          border-white/30
+                          border-t-white
+                        "
+                      />
 
-                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                      <span>
+                        Verifying Access...
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <span>
+                        Login
+                      </span>
 
-                        <span>
-                          Verifying Access...
-                        </span>
+                      <ArrowIcon
+                        className="
+                          h-4
+                          w-4
 
-                      </>
-                    ) : (
-                      <>
+                          transition-transform
+                          duration-200
 
-                        <span>
-                          Login
-                        </span>
-
-                        <span className="text-base">
-                          →
-                        </span>
-
-                      </>
-                    )}
-
-                  </span>
-
-                </motion.button>
-
+                          group-hover:translate-x-0.5
+                        "
+                      />
+                    </>
+                  )}
+                </button>
               </form>
 
-              {/* =================================================
-                  SIGNUP
-              ================================================= */}
+              {/* ===============================================
+                  SIGNUP LINK
+              =============================================== */}
 
-              <div className="mt-4 border-t border-white/[0.07] pt-3 text-center">
+              <div
+                className="
+                  mt-4
 
-                <p className="text-[9px] text-slate-500 sm:text-[10px]">
+                  border-t
+                  border-[color:var(--bf-border)]
 
+                  pt-3
+
+                  text-center
+                "
+              >
+                <p
+                  className="
+                    text-[9px]
+
+                    text-[color:var(--bf-text-muted)]
+
+                    sm:text-[10px]
+                  "
+                >
                   New to Buddy Fleets?{' '}
 
                   <Link
                     to="/signup"
-                    className="font-bold text-cyan-300 transition hover:text-cyan-200 hover:underline"
+                    className="
+                      font-bold
+
+                      text-cyan-500
+
+                      transition-colors
+                      duration-200
+
+                      hover:text-cyan-400
+                      hover:underline
+
+                      focus-visible:outline-none
+                      focus-visible:ring-2
+                      focus-visible:ring-cyan-400/30
+                    "
                   >
                     Start your 5-day free trial
                   </Link>
-
                 </p>
-
               </div>
-
-              {/* =================================================
-                  SECURITY
-              ================================================= */}
-
-              <div className="mt-3 flex items-center justify-center gap-2">
-
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
-
-                <span className="text-[8px] font-semibold uppercase tracking-[0.16em] text-slate-600">
-                  Supabase Secure Authentication
-                </span>
-
-              </div>
-
             </div>
-
           </div>
-
-        </motion.section>
-
+        </div>
       </div>
-
     </div>
   );
 }
