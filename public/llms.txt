@@ -1,0 +1,8 @@
+# BuddyFleets
+
+> BuddyFleets is a cloud-based fleet management software for transport businesses to manage vehicles, drivers, trips, dispatch, LR/Bilty, expenses, diesel, maintenance, compliance, documents and fleet reports from one platform.
+
+## Main Links
+- [Home](https://buddyfleets.in)
+- [Features](https://buddyfleets.in/#features)
+- [Pricing](https://buddyfleets.in/#pricing)
