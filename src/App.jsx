@@ -61,8 +61,8 @@ const ResetPassword = lazy(() =>
   import('./pages/Auth/ResetPassword')
 );
 
-const SuperAdminDashboard = lazy(() =>
-  import('./pages/Dashboard/SuperAdminDashboard')
+const DeveloperDashboard = lazy(() =>
+  import('./pages/Dashboard/DeveloperDashboard')
 );
 
 
@@ -1889,7 +1889,7 @@ function PortalRoutes({
                 <FullScreenLoader />
               }
             >
-              <SuperAdminDashboard
+              <DeveloperDashboard
                 currentUser={
                   currentUser
                 }
