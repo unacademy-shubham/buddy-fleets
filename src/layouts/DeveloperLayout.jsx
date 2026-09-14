@@ -1,8 +1,6 @@
 import React, {
   useEffect,
-  useLayoutEffect,
   useMemo,
-  useRef,
   useState,
 } from 'react';
 
@@ -15,6 +13,7 @@ import {
 import {
   Activity,
   BadgeCheck,
+  Bell,
   Blocks,
   Boxes,
   Building2,
@@ -22,89 +21,43 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  Command,
   FileClock,
   Flag,
   Globe2,
+  HelpCircle,
   LayoutDashboard,
   LogOut,
   Menu,
   MessageSquare,
-  Moon,
   PanelsTopLeft,
+  Search,
   ServerCog,
   Settings,
   ShieldCheck,
-  Sun,
   Users,
   Workflow,
   X,
 } from 'lucide-react';
 
-
 /* ============================================================
    BUDDY FLEETS
-   DEVELOPER PORTAL LAYOUT
+   DEVELOPER CPANEL — PROFESSIONAL SINGLE-THEME SHELL
 
-   Route host:
-   developer.buddyfleets.in
-
-   Purpose:
-   - Developer / Super Admin shell
-   - URL-driven navigation
-   - Shared Buddy Fleets theme preference
-   - Responsive sidebar
-   - Dedicated developer portal chrome
+   Design:
+   - Clean enterprise light theme
+   - WordPress / premium SaaS admin density
+   - Compact sidebar + topbar
+   - URL-based navigation
+   - No theme switcher
 ============================================================ */
 
+const SIDEBAR_STORAGE_KEY =
+  'buddy_fleets_developer_sidebar';
 
-/* ============================================================
-   THEME
-============================================================ */
-
-const THEME_STORAGE_KEY =
-  'buddy_fleets_theme';
-
-const THEME_SWITCH_CLASS =
-  'bf-theme-switching';
-
-
-function getInitialTheme() {
-  if (
-    typeof window === 'undefined' ||
-    typeof document === 'undefined'
-  ) {
-    return 'dark';
-  }
-
-  const saved =
-    window.localStorage.getItem(
-      THEME_STORAGE_KEY
-    );
-
-  const theme =
-    saved === 'light' ||
-    saved === 'dark'
-      ? saved
-      : 'dark';
-
-  document.documentElement.dataset.theme =
-    theme;
-
-  document.documentElement.style.colorScheme =
-    theme;
-
-  return theme;
-}
-
-
-/* ============================================================
-   NAVIGATION
-============================================================ */
-
-const NAVIGATION = [
+const NAV_GROUPS = [
   {
     label: 'Control Center',
-
     items: [
       {
         label: 'Overview',
@@ -112,7 +65,6 @@ const NAVIGATION = [
         icon: LayoutDashboard,
         end: true,
       },
-
       {
         label: 'Live Activity',
         to: '/activity',
@@ -120,10 +72,8 @@ const NAVIGATION = [
       },
     ],
   },
-
   {
     label: 'Website',
-
     items: [
       {
         label: 'Website Studio',
@@ -131,13 +81,11 @@ const NAVIGATION = [
         icon: PanelsTopLeft,
         end: true,
       },
-
       {
         label: 'Content & SEO',
         to: '/website/seo',
         icon: Globe2,
       },
-
       {
         label: 'Website Enquiries',
         to: '/website/enquiries',
@@ -145,29 +93,24 @@ const NAVIGATION = [
       },
     ],
   },
-
   {
     label: 'SaaS Platform',
-
     items: [
       {
         label: 'Companies',
         to: '/companies',
         icon: Building2,
       },
-
       {
         label: 'Plans & Entitlements',
         to: '/subscriptions',
         icon: BadgeCheck,
       },
-
       {
         label: 'Module Registry',
         to: '/modules',
         icon: Boxes,
       },
-
       {
         label: 'Team & Roles',
         to: '/team',
@@ -175,10 +118,8 @@ const NAVIGATION = [
       },
     ],
   },
-
   {
     label: 'Developer Studio',
-
     items: [
       {
         label: 'Module Builder',
@@ -186,19 +127,16 @@ const NAVIGATION = [
         icon: Blocks,
         end: true,
       },
-
       {
         label: 'Workflow Builder',
         to: '/developer-studio/workflows',
         icon: Workflow,
       },
-
       {
         label: 'Integrations',
         to: '/integrations',
         icon: Cable,
       },
-
       {
         label: 'Feature Flags',
         to: '/feature-flags',
@@ -206,29 +144,24 @@ const NAVIGATION = [
       },
     ],
   },
-
   {
     label: 'Security & System',
-
     items: [
       {
         label: 'Security Center',
         to: '/security',
         icon: ShieldCheck,
       },
-
       {
         label: 'Audit Logs',
         to: '/audit',
         icon: FileClock,
       },
-
       {
         label: 'Infrastructure',
         to: '/infrastructure',
         icon: ServerCog,
       },
-
       {
         label: 'System Settings',
         to: '/system',
@@ -238,45 +171,47 @@ const NAVIGATION = [
   },
 ];
 
+const ALL_ITEMS =
+  NAV_GROUPS.flatMap(
+    (group) => group.items
+  );
 
-/* ============================================================
-   HELPERS
-============================================================ */
-
-function cx(
-  ...classes
-) {
+function cx(...classes) {
   return classes
     .filter(Boolean)
     .join(' ');
 }
 
+function getInitialSidebar() {
+  if (
+    typeof window ===
+    'undefined'
+  ) {
+    return false;
+  }
 
-function getPageDetails(
+  return (
+    window.localStorage.getItem(
+      SIDEBAR_STORAGE_KEY
+    ) === 'collapsed'
+  );
+}
+
+function getCurrentPage(
   pathname
 ) {
   const exact =
-    NAVIGATION
-      .flatMap(
-        (group) =>
-          group.items
-      )
-      .find(
-        (item) =>
-          item.to ===
-          pathname
-      );
+    ALL_ITEMS.find(
+      (item) =>
+        item.to === pathname
+    );
 
   if (exact) {
     return exact;
   }
 
-  const matches =
-    NAVIGATION
-      .flatMap(
-        (group) =>
-          group.items
-      )
+  const nested =
+    ALL_ITEMS
       .filter(
         (item) =>
           pathname.startsWith(
@@ -290,66 +225,81 @@ function getPageDetails(
       );
 
   return (
-    matches[0] || {
+    nested[0] || {
       label:
-        'Developer Portal',
-
+        'Developer CPanel',
       icon:
         LayoutDashboard,
     }
   );
 }
 
+function getInitials(
+  value
+) {
+  const text =
+    String(
+      value || ''
+    ).trim();
 
-/* ============================================================
-   BRAND
-============================================================ */
+  if (!text) {
+    return 'SA';
+  }
+
+  const parts =
+    text.split(
+      /\s+/
+    );
+
+  if (
+    parts.length === 1
+  ) {
+    return parts[0]
+      .slice(0, 2)
+      .toUpperCase();
+  }
+
+  return (
+    `${parts[0][0]}${
+      parts[
+        parts.length - 1
+      ][0]
+    }`
+  ).toUpperCase();
+}
 
 function Brand({
   collapsed,
 }) {
   return (
     <div
-      className="
-        flex
-        min-w-0
-        items-center
-        gap-3
-      "
+      className={cx(
+        'flex min-w-0 items-center',
+        collapsed
+          ? 'justify-center'
+          : 'gap-3'
+      )}
     >
       <div
         className="
           flex
-          h-11
-          w-11
+          h-9
+          w-9
           shrink-0
           items-center
           justify-center
-          rounded-[14px]
+          rounded-xl
           bg-gradient-to-br
-          from-[#0450A5]
-          via-[#079BE5]
-          to-[#0AA23B]
+          from-[#0878dd]
+          via-[#0a91e7]
+          to-[#13a447]
+          text-[12px]
+          font-black
           text-white
-          shadow-lg
-          shadow-blue-950/20
+          shadow-sm
         "
       >
-        <span
-          className="
-            select-none
-            text-[24px]
-            font-black
-            leading-none
-            tracking-[-0.09em]
-          "
-          style={{
-            transform:
-              'scaleX(1.08)',
-          }}
-        >
-          BF
-        </span>
+        BF
       </div>
 
       {!collapsed && (
@@ -360,62 +310,33 @@ function Brand({
         >
           <div
             className="
-              flex
-              items-center
-              text-[19px]
-              font-black
+              truncate
+              text-[15px]
+              font-extrabold
               tracking-tight
+              text-slate-900
             "
           >
-            <span
-              className="
-                bg-gradient-to-r
-                from-[#12BFF2]
-                to-[#078EE5]
-                bg-clip-text
-                text-transparent
-              "
-            >
-              Buddy
-            </span>
-
-            <span
-              className="
-                ml-1
-                bg-gradient-to-r
-                from-[#19B63F]
-                to-[#07872B]
-                bg-clip-text
-                text-transparent
-              "
-            >
-              Fleets
-            </span>
+            Buddy Fleets
           </div>
 
-          <p
+          <div
             className="
               mt-0.5
-              truncate
-              text-[9px]
-              font-black
+              text-[8px]
+              font-extrabold
               uppercase
-              tracking-[0.19em]
-              text-[var(--bf-dev-muted)]
+              tracking-[0.18em]
+              text-slate-400
             "
           >
             Developer CPanel
-          </p>
+          </div>
         </div>
       )}
     </div>
   );
 }
-
-
-/* ============================================================
-   NAV ITEM
-============================================================ */
 
 function SidebarItem({
   item,
@@ -429,7 +350,9 @@ function SidebarItem({
     <NavLink
       to={item.to}
       end={item.end}
-      onClick={onNavigate}
+      onClick={
+        onNavigate
+      }
       title={
         collapsed
           ? item.label
@@ -443,42 +366,39 @@ function SidebarItem({
             group
             relative
             flex
-            min-h-[44px]
+            min-h-[40px]
             items-center
-            rounded-[14px]
+            rounded-lg
             border
             text-[12px]
-            font-bold
+            font-semibold
             transition
-            duration-200
+            duration-150
             focus-visible:outline-none
             focus-visible:ring-2
-            focus-visible:ring-cyan-400/60
+            focus-visible:ring-blue-400/40
           `,
-
           collapsed
             ? `
                 justify-center
                 px-2
               `
             : `
-                gap-3
-                px-3.5
+                gap-2.5
+                px-3
               `,
-
           isActive
             ? `
-                border-[var(--bf-dev-active-border)]
-                bg-[var(--bf-dev-active-bg)]
-                text-[var(--bf-dev-text)]
-                shadow-sm
+                border-blue-100
+                bg-blue-50
+                text-[#0b65b8]
               `
             : `
                 border-transparent
-                text-[var(--bf-dev-muted)]
-                hover:border-[var(--bf-dev-border)]
-                hover:bg-[var(--bf-dev-hover)]
-                hover:text-[var(--bf-dev-text)]
+                text-slate-600
+                hover:border-slate-200
+                hover:bg-slate-50
+                hover:text-slate-900
               `
         )
       }
@@ -497,24 +417,17 @@ function SidebarItem({
                 w-[3px]
                 -translate-y-1/2
                 rounded-r-full
-                bg-gradient-to-b
-                from-cyan-400
-                to-emerald-400
+                bg-[#1495e5]
               "
             />
           )}
 
           <Icon
-            size={17}
-            strokeWidth={
-              isActive
-                ? 2.25
-                : 1.8
-            }
+            size={16}
             className={
               isActive
-                ? 'text-cyan-500'
-                : ''
+                ? 'text-[#0b84d8]'
+                : 'text-slate-500'
             }
           />
 
@@ -532,9 +445,9 @@ function SidebarItem({
 
               {isActive && (
                 <ChevronRight
-                  size={13}
+                  size={12}
                   className="
-                    text-cyan-500
+                    text-[#0b84d8]
                   "
                 />
               )}
@@ -546,11 +459,6 @@ function SidebarItem({
   );
 }
 
-
-/* ============================================================
-   SIDEBAR
-============================================================ */
-
 function Sidebar({
   collapsed,
   setCollapsed,
@@ -561,7 +469,9 @@ function Sidebar({
     useLocation();
 
   useEffect(() => {
-    setMobileOpen(false);
+    setMobileOpen(
+      false
+    );
   }, [
     location.pathname,
     setMobileOpen,
@@ -572,16 +482,18 @@ function Sidebar({
       {mobileOpen && (
         <button
           type="button"
-          aria-label="Close sidebar overlay"
+          aria-label="Close sidebar"
           onClick={() =>
-            setMobileOpen(false)
+            setMobileOpen(
+              false
+            )
           }
           className="
             fixed
             inset-0
             z-40
-            bg-black/55
-            backdrop-blur-sm
+            bg-slate-950/35
+            backdrop-blur-[1px]
             lg:hidden
           "
         />
@@ -597,54 +509,33 @@ function Sidebar({
             flex
             flex-col
             border-r
-            border-[var(--bf-dev-border)]
-            bg-[var(--bf-dev-sidebar)]
-            shadow-2xl
-            backdrop-blur-2xl
+            border-slate-200
+            bg-white
+            shadow-sm
             transition-[width,transform]
-            duration-300
+            duration-200
           `,
-
           collapsed
-            ? `
-                lg:w-[82px]
-              `
-            : `
-                lg:w-[280px]
-              `,
-
+            ? 'lg:w-[70px]'
+            : 'lg:w-[250px]',
           mobileOpen
-            ? `
-                w-[280px]
-                translate-x-0
-              `
-            : `
-                w-[280px]
-                -translate-x-full
-                lg:translate-x-0
-              `
+            ? 'w-[250px] translate-x-0'
+            : 'w-[250px] -translate-x-full lg:translate-x-0'
         )}
       >
         <div
           className={cx(
             `
               flex
-              h-[72px]
+              h-[62px]
               shrink-0
               items-center
               border-b
-              border-[var(--bf-dev-border)]
+              border-slate-200
             `,
-
             collapsed
-              ? `
-                  justify-center
-                  px-3
-                `
-              : `
-                  justify-between
-                  px-4
-                `
+              ? 'justify-center px-2'
+              : 'justify-between px-4'
           )}
         >
           <Brand
@@ -657,47 +548,46 @@ function Sidebar({
             <button
               type="button"
               onClick={() =>
-                setMobileOpen(false)
+                setMobileOpen(
+                  false
+                )
               }
-              aria-label="Close sidebar"
               className="
                 flex
-                h-9
-                w-9
+                h-8
+                w-8
                 items-center
                 justify-center
-                rounded-xl
+                rounded-lg
                 border
-                border-[var(--bf-dev-border)]
-                text-[var(--bf-dev-muted)]
-                hover:bg-[var(--bf-dev-hover)]
-                hover:text-[var(--bf-dev-text)]
+                border-slate-200
+                text-slate-500
+                hover:bg-slate-50
                 lg:hidden
               "
             >
               <X
-                size={17}
+                size={15}
               />
             </button>
           )}
         </div>
 
-        <div
+        <nav
           className="
             flex-1
             overflow-y-auto
-            overscroll-contain
-            px-3
+            px-2.5
             py-4
             [scrollbar-width:thin]
           "
         >
           <div
             className="
-              space-y-5
+              space-y-4
             "
           >
-            {NAVIGATION.map(
+            {NAV_GROUPS.map(
               (group) => (
                 <div
                   key={
@@ -707,13 +597,13 @@ function Sidebar({
                   {!collapsed && (
                     <p
                       className="
-                        mb-2
-                        px-3
+                        mb-1.5
+                        px-2.5
                         text-[9px]
-                        font-black
+                        font-bold
                         uppercase
-                        tracking-[0.18em]
-                        text-[var(--bf-dev-subtle)]
+                        tracking-[0.15em]
+                        text-slate-400
                       "
                     >
                       {group.label}
@@ -722,7 +612,7 @@ function Sidebar({
 
                   <div
                     className="
-                      space-y-1
+                      space-y-0.5
                     "
                   >
                     {group.items.map(
@@ -750,65 +640,58 @@ function Sidebar({
               )
             )}
           </div>
-        </div>
+        </nav>
 
         <div
           className="
-            hidden
             border-t
-            border-[var(--bf-dev-border)]
-            p-3
-            lg:block
+            border-slate-200
+            bg-slate-50/70
+            p-2.5
           "
         >
           <button
             type="button"
             onClick={() =>
               setCollapsed(
-                (previous) =>
-                  !previous
+                (value) =>
+                  !value
               )
             }
             className={cx(
               `
-                flex
-                h-10
+                hidden
+                h-9
                 w-full
                 items-center
-                rounded-xl
+                rounded-lg
                 border
-                border-[var(--bf-dev-border)]
+                border-slate-200
+                bg-white
                 text-[11px]
-                font-bold
-                text-[var(--bf-dev-muted)]
-                transition
-                hover:bg-[var(--bf-dev-hover)]
-                hover:text-[var(--bf-dev-text)]
+                font-semibold
+                text-slate-600
+                hover:bg-slate-50
+                lg:flex
               `,
-
               collapsed
-                ? `
-                    justify-center
-                  `
-                : `
-                    justify-between
-                    px-3
-                  `
+                ? 'justify-center'
+                : 'justify-between px-3'
             )}
           >
             {!collapsed && (
               <span>
-                Collapse sidebar
+                Collapse menu
               </span>
             )}
 
             {collapsed ? (
               <ChevronRight
-                size={15}
+                size={14}
               />
             ) : (
               <ChevronLeft
-                size={15}
+                size={14}
               />
             )}
           </button>
@@ -818,40 +701,13 @@ function Sidebar({
   );
 }
 
-
-/* ============================================================
-   TOP HEADER
-============================================================ */
-
-function TopHeader({
-  collapsed,
-  setMobileOpen,
-  theme,
-  toggleTheme,
+function UserMenu({
   currentUser,
   onLogout,
 }) {
-  const location =
-    useLocation();
-
-  const page =
-    useMemo(
-      () =>
-        getPageDetails(
-          location.pathname
-        ),
-      [
-        location.pathname,
-      ]
-    );
-
-  const Icon =
-    page.icon ||
-    LayoutDashboard;
-
   const [
-    profileOpen,
-    setProfileOpen,
+    open,
+    setOpen,
   ] =
     useState(false);
 
@@ -865,7 +721,276 @@ function TopHeader({
 
   const displayEmail =
     currentUser?.email ||
-    'Developer Account';
+    'Developer account';
+
+  return (
+    <div
+      className="
+        relative
+      "
+    >
+      <button
+        type="button"
+        onClick={() =>
+          setOpen(
+            (value) =>
+              !value
+          )
+        }
+        className="
+          flex
+          h-10
+          min-w-0
+          items-center
+          gap-2
+          rounded-lg
+          border
+          border-slate-200
+          bg-white
+          px-2
+          hover:bg-slate-50
+          sm:min-w-[195px]
+        "
+      >
+        <div
+          className="
+            flex
+            h-7
+            w-7
+            shrink-0
+            items-center
+            justify-center
+            rounded-lg
+            bg-gradient-to-br
+            from-[#128fe5]
+            to-[#13a447]
+            text-[9px]
+            font-black
+            text-white
+          "
+        >
+          {getInitials(
+            displayName
+          )}
+        </div>
+
+        <div
+          className="
+            hidden
+            min-w-0
+            flex-1
+            text-left
+            sm:block
+          "
+        >
+          <div
+            className="
+              truncate
+              text-[10px]
+              font-bold
+              text-slate-900
+            "
+          >
+            {displayName}
+          </div>
+
+          <div
+            className="
+              mt-0.5
+              text-[8px]
+              font-bold
+              uppercase
+              tracking-[0.07em]
+              text-slate-400
+            "
+          >
+            SUPER_ADMIN
+          </div>
+        </div>
+
+        <ChevronDown
+          size={12}
+          className="
+            hidden
+            text-slate-400
+            sm:block
+          "
+        />
+      </button>
+
+      {open && (
+        <>
+          <button
+            type="button"
+            aria-label="Close user menu"
+            className="
+              fixed
+              inset-0
+              z-40
+            "
+            onClick={() =>
+              setOpen(false)
+            }
+          />
+
+          <div
+            className="
+              absolute
+              right-0
+              top-[46px]
+              z-50
+              w-[270px]
+              overflow-hidden
+              rounded-xl
+              border
+              border-slate-200
+              bg-white
+              shadow-xl
+              shadow-slate-900/10
+            "
+          >
+            <div
+              className="
+                border-b
+                border-slate-200
+                p-4
+              "
+            >
+              <div
+                className="
+                  text-[11px]
+                  font-bold
+                  text-slate-900
+                "
+              >
+                {displayName}
+              </div>
+
+              <div
+                className="
+                  mt-1
+                  truncate
+                  text-[10px]
+                  text-slate-500
+                "
+              >
+                {displayEmail}
+              </div>
+            </div>
+
+            <div
+              className="
+                p-2
+              "
+            >
+              <button
+                type="button"
+                className="
+                  flex
+                  w-full
+                  items-center
+                  gap-2.5
+                  rounded-lg
+                  px-3
+                  py-2.5
+                  text-[11px]
+                  font-medium
+                  text-slate-600
+                  hover:bg-slate-50
+                "
+              >
+                <Settings
+                  size={14}
+                />
+                Account settings
+              </button>
+
+              <button
+                type="button"
+                className="
+                  flex
+                  w-full
+                  items-center
+                  gap-2.5
+                  rounded-lg
+                  px-3
+                  py-2.5
+                  text-[11px]
+                  font-medium
+                  text-slate-600
+                  hover:bg-slate-50
+                "
+              >
+                <HelpCircle
+                  size={14}
+                />
+                Help & documentation
+              </button>
+
+              <div
+                className="
+                  my-1.5
+                  border-t
+                  border-slate-200
+                "
+              />
+
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false);
+                  onLogout?.();
+                }}
+                className="
+                  flex
+                  w-full
+                  items-center
+                  gap-2.5
+                  rounded-lg
+                  px-3
+                  py-2.5
+                  text-[11px]
+                  font-semibold
+                  text-rose-600
+                  hover:bg-rose-50
+                "
+              >
+                <LogOut
+                  size={14}
+                />
+                Sign out
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function TopBar({
+  collapsed,
+  setMobileOpen,
+  currentUser,
+  onLogout,
+}) {
+  const location =
+    useLocation();
+
+  const page =
+    useMemo(
+      () =>
+        getCurrentPage(
+          location.pathname
+        ),
+      [
+        location.pathname,
+      ]
+    );
+
+  const Icon =
+    page.icon ||
+    LayoutDashboard;
 
   return (
     <header
@@ -875,24 +1000,18 @@ function TopHeader({
           right-0
           top-0
           z-30
-          h-[72px]
+          h-[62px]
           border-b
-          border-[var(--bf-dev-border)]
-          bg-[var(--bf-dev-header)]
-          backdrop-blur-2xl
+          border-slate-200
+          bg-white/95
+          shadow-sm
+          backdrop-blur-xl
           transition-[left]
-          duration-300
+          duration-200
         `,
-
         collapsed
-          ? `
-              left-0
-              lg:left-[82px]
-            `
-          : `
-              left-0
-              lg:left-[280px]
-            `
+          ? 'left-0 lg:left-[70px]'
+          : 'left-0 lg:left-[250px]'
       )}
     >
       <div
@@ -900,133 +1019,181 @@ function TopHeader({
           flex
           h-full
           items-center
-          justify-between
           gap-3
-          px-4
-          sm:px-5
-          lg:px-6
+          px-3
+          sm:px-4
+          lg:px-5
         "
       >
+        <button
+          type="button"
+          onClick={() =>
+            setMobileOpen(
+              true
+            )
+          }
+          className="
+            flex
+            h-9
+            w-9
+            items-center
+            justify-center
+            rounded-lg
+            border
+            border-slate-200
+            text-slate-500
+            lg:hidden
+          "
+        >
+          <Menu
+            size={16}
+          />
+        </button>
+
         <div
           className="
             flex
             min-w-0
             items-center
-            gap-3
+            gap-2.5
           "
         >
-          <button
-            type="button"
-            onClick={() =>
-              setMobileOpen(true)
-            }
-            aria-label="Open sidebar"
-            className="
-              flex
-              h-10
-              w-10
-              shrink-0
-              items-center
-              justify-center
-              rounded-xl
-              border
-              border-[var(--bf-dev-border)]
-              bg-[var(--bf-dev-card)]
-              text-[var(--bf-dev-muted)]
-              lg:hidden
-            "
-          >
-            <Menu
-              size={18}
-            />
-          </button>
-
           <div
             className="
               flex
-              min-w-0
+              h-9
+              w-9
+              shrink-0
               items-center
-              gap-3
+              justify-center
+              rounded-lg
+              border
+              border-slate-200
+              bg-slate-50
+              text-[#0b84d8]
+            "
+          >
+            <Icon
+              size={16}
+            />
+          </div>
+
+          <div
+            className="
+              min-w-0
             "
           >
             <div
               className="
-                hidden
-                h-10
-                w-10
-                shrink-0
-                items-center
-                justify-center
-                rounded-xl
-                border
-                border-[var(--bf-dev-border)]
-                bg-[var(--bf-dev-card)]
-                text-cyan-500
-                sm:flex
+                truncate
+                text-[13px]
+                font-bold
+                text-slate-900
               "
             >
-              <Icon
-                size={18}
-              />
+              {page.label}
             </div>
 
             <div
               className="
-                min-w-0
+                mt-0.5
+                hidden
+                text-[9px]
+                text-slate-400
+                sm:block
               "
             >
-              <p
-                className="
-                  truncate
-                  text-[14px]
-                  font-black
-                  text-[var(--bf-dev-text)]
-                  sm:text-[15px]
-                "
-              >
-                {page.label}
-              </p>
-
-              <p
-                className="
-                  mt-0.5
-                  hidden
-                  text-[10px]
-                  font-semibold
-                  text-[var(--bf-dev-subtle)]
-                  sm:block
-                "
-              >
-                Buddy Fleets Platform Control
-              </p>
+              Buddy Fleets Platform Control
             </div>
           </div>
         </div>
 
         <div
           className="
-            flex
-            shrink-0
+            hidden
+            h-6
+            w-px
+            bg-slate-200
+            lg:block
+          "
+        />
+
+        <button
+          type="button"
+          className="
+            hidden
+            h-9
+            min-w-[260px]
+            max-w-[420px]
+            flex-1
             items-center
             gap-2
+            rounded-lg
+            border
+            border-slate-200
+            bg-slate-50
+            px-3
+            text-left
+            text-[11px]
+            text-slate-400
+            hover:bg-white
+            xl:flex
+          "
+        >
+          <Search
+            size={14}
+          />
+
+          <span
+            className="
+              flex-1
+            "
+          >
+            Search companies, modules, settings...
+          </span>
+
+          <span
+            className="
+              rounded
+              border
+              border-slate-200
+              bg-white
+              px-1.5
+              py-0.5
+              font-mono
+              text-[9px]
+              text-slate-400
+            "
+          >
+            /
+          </span>
+        </button>
+
+        <div
+          className="
+            ml-auto
+            flex
+            items-center
+            gap-1.5
           "
         >
           <div
             className="
+              mr-1
               hidden
               items-center
-              gap-2
-              rounded-xl
+              gap-1.5
+              rounded-lg
               border
-              border-emerald-400/15
-              bg-emerald-400/[0.06]
-              px-3
-              py-2
-              text-[9px]
-              font-black
+              border-emerald-200
+              bg-emerald-50
+              px-2.5
+              py-1.5
+              text-[8px]
+              font-bold
               uppercase
-              tracking-[0.12em]
-              text-emerald-500
+              tracking-[0.08em]
+              text-emerald-700
               md:flex
             "
           >
@@ -1036,261 +1203,51 @@ function TopHeader({
                 w-1.5
                 rounded-full
                 bg-emerald-500
-                shadow-[0_0_10px_currentColor]
               "
             />
-
             Production
           </div>
 
-          <button
-            type="button"
-            onClick={
-              toggleTheme
-            }
-            aria-label={
-              theme === 'dark'
-                ? 'Switch to light theme'
-                : 'Switch to dark theme'
-            }
-            title={
-              theme === 'dark'
-                ? 'Light theme'
-                : 'Dark theme'
-            }
-            className="
-              flex
-              h-10
-              w-10
-              items-center
-              justify-center
-              rounded-xl
-              border
-              border-[var(--bf-dev-border)]
-              bg-[var(--bf-dev-card)]
-              text-[var(--bf-dev-muted)]
-              transition
-              hover:border-cyan-400/30
-              hover:text-cyan-500
-              focus-visible:outline-none
-              focus-visible:ring-2
-              focus-visible:ring-cyan-400/60
-            "
-          >
-            {theme === 'dark' ? (
-              <Sun
-                size={17}
-              />
-            ) : (
-              <Moon
-                size={17}
-              />
-            )}
-          </button>
-
-          <div
-            className="
-              relative
-            "
-          >
-            <button
-              type="button"
-              onClick={() =>
-                setProfileOpen(
-                  (previous) =>
-                    !previous
-                )
-              }
-              className="
-                flex
-                h-10
-                items-center
-                gap-2
-                rounded-xl
-                border
-                border-[var(--bf-dev-border)]
-                bg-[var(--bf-dev-card)]
-                px-2
-                text-left
-                transition
-                hover:bg-[var(--bf-dev-hover)]
-                sm:px-3
-              "
-            >
-              <div
+          {[Command, Bell].map(
+            (UtilityIcon, index) => (
+              <button
+                key={index}
+                type="button"
                 className="
                   flex
-                  h-7
-                  w-7
+                  h-9
+                  w-9
                   items-center
                   justify-center
                   rounded-lg
-                  bg-gradient-to-br
-                  from-cyan-500
-                  to-emerald-500
-                  text-[10px]
-                  font-black
-                  text-white
+                  border
+                  border-slate-200
+                  bg-white
+                  text-slate-500
+                  hover:bg-slate-50
+                  hover:text-slate-900
                 "
               >
-                {String(
-                  displayName
-                )
-                  .charAt(0)
-                  .toUpperCase()}
-              </div>
-
-              <div
-                className="
-                  hidden
-                  max-w-[160px]
-                  sm:block
-                "
-              >
-                <p
-                  className="
-                    truncate
-                    text-[11px]
-                    font-black
-                    text-[var(--bf-dev-text)]
-                  "
-                >
-                  {displayName}
-                </p>
-
-                <p
-                  className="
-                    truncate
-                    text-[9px]
-                    text-[var(--bf-dev-subtle)]
-                  "
-                >
-                  SUPER_ADMIN
-                </p>
-              </div>
-
-              <ChevronDown
-                size={13}
-                className="
-                  hidden
-                  text-[var(--bf-dev-subtle)]
-                  sm:block
-                "
-              />
-            </button>
-
-            {profileOpen && (
-              <>
-                <button
-                  type="button"
-                  aria-label="Close profile menu"
-                  onClick={() =>
-                    setProfileOpen(false)
-                  }
-                  className="
-                    fixed
-                    inset-0
-                    z-40
-                  "
+                <UtilityIcon
+                  size={15}
                 />
+              </button>
+            )
+          )}
 
-                <div
-                  className="
-                    absolute
-                    right-0
-                    top-[48px]
-                    z-50
-                    w-[260px]
-                    overflow-hidden
-                    rounded-2xl
-                    border
-                    border-[var(--bf-dev-border)]
-                    bg-[var(--bf-dev-popover)]
-                    shadow-2xl
-                    shadow-black/20
-                    backdrop-blur-2xl
-                  "
-                >
-                  <div
-                    className="
-                      border-b
-                      border-[var(--bf-dev-border)]
-                      p-4
-                    "
-                  >
-                    <p
-                      className="
-                        text-[12px]
-                        font-black
-                        text-[var(--bf-dev-text)]
-                      "
-                    >
-                      {displayName}
-                    </p>
-
-                    <p
-                      className="
-                        mt-1
-                        truncate
-                        text-[10px]
-                        text-[var(--bf-dev-muted)]
-                      "
-                    >
-                      {displayEmail}
-                    </p>
-                  </div>
-
-                  <div
-                    className="
-                      p-2
-                    "
-                  >
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setProfileOpen(
-                          false
-                        );
-
-                        onLogout?.();
-                      }}
-                      className="
-                        flex
-                        w-full
-                        items-center
-                        gap-3
-                        rounded-xl
-                        px-3
-                        py-2.5
-                        text-left
-                        text-[11px]
-                        font-bold
-                        text-rose-500
-                        transition
-                        hover:bg-rose-500/[0.07]
-                      "
-                    >
-                      <LogOut
-                        size={15}
-                      />
-
-                      Sign out
-                    </button>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
+          <UserMenu
+            currentUser={
+              currentUser
+            }
+            onLogout={
+              onLogout
+            }
+          />
         </div>
       </div>
     </header>
   );
 }
-
-
-/* ============================================================
-   LAYOUT
-============================================================ */
 
 export default function DeveloperLayout({
   currentUser,
@@ -1300,7 +1257,9 @@ export default function DeveloperLayout({
     collapsed,
     setCollapsed,
   ] =
-    useState(false);
+    useState(
+      getInitialSidebar
+    );
 
   const [
     mobileOpen,
@@ -1308,323 +1267,91 @@ export default function DeveloperLayout({
   ] =
     useState(false);
 
-  const [
-    theme,
-    setTheme,
-  ] =
-    useState(
-      getInitialTheme
-    );
-
-  const themeFrameOneRef =
-    useRef(null);
-
-  const themeFrameTwoRef =
-    useRef(null);
-
-  const isDark =
-    theme === 'dark';
-
-
-  /* ========================================================
-     APPLY THEME
-  ======================================================== */
-
-  useLayoutEffect(() => {
-    const root =
-      document.documentElement;
-
-    root.dataset.theme =
-      theme;
-
-    root.style.colorScheme =
-      theme;
-
+  useEffect(() => {
     window.localStorage.setItem(
-      THEME_STORAGE_KEY,
-      theme
+      SIDEBAR_STORAGE_KEY,
+      collapsed
+        ? 'collapsed'
+        : 'expanded'
     );
   }, [
-    theme,
+    collapsed,
   ]);
 
-
-  /* ========================================================
-     CLEANUP
-  ======================================================== */
-
-  useEffect(() => {
-    return () => {
-      if (
-        themeFrameOneRef.current
-      ) {
-        window.cancelAnimationFrame(
-          themeFrameOneRef.current
-        );
-      }
-
-      if (
-        themeFrameTwoRef.current
-      ) {
-        window.cancelAnimationFrame(
-          themeFrameTwoRef.current
-        );
-      }
-
-      document.documentElement
-        .classList
-        .remove(
-          THEME_SWITCH_CLASS
-        );
-    };
-  }, []);
-
-
-  /* ========================================================
-     THEME TOGGLE
-  ======================================================== */
-
-  const toggleTheme = () => {
-    const nextTheme =
-      isDark
-        ? 'light'
-        : 'dark';
-
-    const root =
-      document.documentElement;
-
-    if (
-      themeFrameOneRef.current
-    ) {
-      window.cancelAnimationFrame(
-        themeFrameOneRef.current
-      );
-    }
-
-    if (
-      themeFrameTwoRef.current
-    ) {
-      window.cancelAnimationFrame(
-        themeFrameTwoRef.current
-      );
-    }
-
-    root.classList.add(
-      THEME_SWITCH_CLASS
-    );
-
-    root.dataset.theme =
-      nextTheme;
-
-    root.style.colorScheme =
-      nextTheme;
-
-    window.localStorage.setItem(
-      THEME_STORAGE_KEY,
-      nextTheme
-    );
-
-    setTheme(
-      nextTheme
-    );
-
-    themeFrameOneRef.current =
-      window.requestAnimationFrame(
-        () => {
-          themeFrameTwoRef.current =
-            window.requestAnimationFrame(
-              () => {
-                root.classList.remove(
-                  THEME_SWITCH_CLASS
-                );
-
-                themeFrameOneRef.current =
-                  null;
-
-                themeFrameTwoRef.current =
-                  null;
-              }
-            );
-        }
-      );
-  };
-
-
   return (
-    <>
-      <style>
-        {`
-          html.${THEME_SWITCH_CLASS},
-          html.${THEME_SWITCH_CLASS} *,
-          html.${THEME_SWITCH_CLASS} *::before,
-          html.${THEME_SWITCH_CLASS} *::after {
-            transition-property: none !important;
-            transition-duration: 0s !important;
-            transition-delay: 0s !important;
-          }
+    <div
+      className="
+        min-h-screen
+        min-h-[100dvh]
+        bg-[#f5f7fb]
+        font-sans
+        text-slate-900
+      "
+    >
+      <Sidebar
+        collapsed={
+          collapsed
+        }
+        setCollapsed={
+          setCollapsed
+        }
+        mobileOpen={
+          mobileOpen
+        }
+        setMobileOpen={
+          setMobileOpen
+        }
+      />
 
-          html[data-theme='dark'] {
-            --bf-dev-page: #050914;
-            --bf-dev-sidebar: rgba(5, 9, 20, 0.96);
-            --bf-dev-header: rgba(5, 9, 20, 0.88);
-            --bf-dev-card: rgba(255, 255, 255, 0.035);
-            --bf-dev-popover: rgba(8, 14, 27, 0.98);
+      <TopBar
+        collapsed={
+          collapsed
+        }
+        setMobileOpen={
+          setMobileOpen
+        }
+        currentUser={
+          currentUser
+        }
+        onLogout={
+          onLogout
+        }
+      />
 
-            --bf-dev-text: #f8fafc;
-            --bf-dev-muted: #94a3b8;
-            --bf-dev-subtle: #64748b;
-
-            --bf-dev-border: rgba(255, 255, 255, 0.075);
-            --bf-dev-hover: rgba(255, 255, 255, 0.045);
-
-            --bf-dev-active-bg: rgba(14, 165, 233, 0.10);
-            --bf-dev-active-border: rgba(34, 211, 238, 0.20);
-          }
-
-          html[data-theme='light'] {
-            --bf-dev-page: #f4f9fd;
-            --bf-dev-sidebar: rgba(255, 255, 255, 0.96);
-            --bf-dev-header: rgba(255, 255, 255, 0.88);
-            --bf-dev-card: rgba(255, 255, 255, 0.86);
-            --bf-dev-popover: rgba(255, 255, 255, 0.98);
-
-            --bf-dev-text: #0f172a;
-            --bf-dev-muted: #475569;
-            --bf-dev-subtle: #94a3b8;
-
-            --bf-dev-border: rgba(14, 74, 120, 0.10);
-            --bf-dev-hover: rgba(2, 132, 199, 0.055);
-
-            --bf-dev-active-bg: rgba(2, 132, 199, 0.08);
-            --bf-dev-active-border: rgba(2, 132, 199, 0.18);
-          }
-        `}
-      </style>
-
-      <div
-        className="
-          min-h-screen
-          min-h-[100dvh]
-          bg-[var(--bf-dev-page)]
-          font-sans
-          text-[var(--bf-dev-text)]
-          transition-colors
-        "
+      <main
+        className={cx(
+          `
+            relative
+            min-h-[100dvh]
+            pt-[62px]
+            transition-[padding-left]
+            duration-200
+          `,
+          collapsed
+            ? 'lg:pl-[70px]'
+            : 'lg:pl-[250px]'
+        )}
       >
         <div
           className="
-            pointer-events-none
-            fixed
-            inset-0
-            overflow-hidden
+            mx-auto
+            w-full
+            max-w-[1800px]
+            px-4
+            py-5
+            sm:px-5
+            lg:px-6
+            lg:py-6
           "
         >
-          <div
-            className="
-              absolute
-              left-[-180px]
-              top-[-190px]
-              h-[420px]
-              w-[420px]
-              rounded-full
-              bg-cyan-400/[0.055]
-              blur-[120px]
-            "
-          />
-
-          <div
-            className="
-              absolute
-              bottom-[-220px]
-              right-[-200px]
-              h-[520px]
-              w-[520px]
-              rounded-full
-              bg-emerald-400/[0.045]
-              blur-[150px]
-            "
+          <Outlet
+            context={{
+              currentUser,
+              onLogout,
+            }}
           />
         </div>
-
-        <Sidebar
-          collapsed={
-            collapsed
-          }
-          setCollapsed={
-            setCollapsed
-          }
-          mobileOpen={
-            mobileOpen
-          }
-          setMobileOpen={
-            setMobileOpen
-          }
-        />
-
-        <TopHeader
-          collapsed={
-            collapsed
-          }
-          setMobileOpen={
-            setMobileOpen
-          }
-          theme={
-            theme
-          }
-          toggleTheme={
-            toggleTheme
-          }
-          currentUser={
-            currentUser
-          }
-          onLogout={
-            onLogout
-          }
-        />
-
-        <main
-          className={cx(
-            `
-              relative
-              min-h-[100dvh]
-              pt-[72px]
-              transition-[padding-left]
-              duration-300
-            `,
-
-            collapsed
-              ? `
-                  lg:pl-[82px]
-                `
-              : `
-                  lg:pl-[280px]
-                `
-          )}
-        >
-          <div
-            className="
-              mx-auto
-              w-full
-              max-w-[1800px]
-              px-4
-              py-5
-              sm:px-5
-              sm:py-6
-              lg:px-6
-              lg:py-7
-              xl:px-8
-            "
-          >
-            <Outlet
-              context={{
-                currentUser,
-                onLogout,
-                theme,
-              }}
-            />
-          </div>
-        </main>
-      </div>
-    </>
+      </main>
+    </div>
   );
 }
