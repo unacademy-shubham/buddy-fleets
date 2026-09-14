@@ -1,4 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import QRCode from 'npm:qrcode@1.5.4';
 
 /* ============================================================
    BUDDY FLEETS
@@ -28,7 +29,8 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
    - No password handled here
    - No Supabase tokens returned to browser
    - No service-role key exposed
-   - MFA required for EVERY role
+   - MFA is user-controlled / optional at account level
+   - When this gateway verifies MFA, AAL2 is mandatory
 
    Fixed portal architecture:
    - developer.buddyfleets.in
@@ -53,6 +55,10 @@ const HANDOFF_LIFETIME_MS =
 
 const MAX_MFA_CODE_LENGTH =
   6;
+
+
+const TOTP_ISSUER =
+  'Buddy Fleets';
 
 
 /*
@@ -580,6 +586,125 @@ function decodeJwtPayload(
 }
 
 
+
+/* ============================================================
+   AUTHENTICATOR DISPLAY
+
+   Goal:
+   Authenticator entry should identify the product + Buddy Fleets
+   username instead of the user's full name.
+
+   Current Buddy Fleets username authority is the login identity.
+   If a dedicated username is later stored in Auth metadata, it is
+   preferred automatically; email remains the safe fallback.
+
+   TOTP secret/algorithm/digits/period remain standard and only the
+   presentation URI/QR label is customized.
+============================================================ */
+
+function getAuthenticatorUsername(
+  user: Record<
+    string,
+    any
+  > | null
+) {
+  const candidates = [
+    user
+      ?.user_metadata
+      ?.username,
+
+    user
+      ?.app_metadata
+      ?.username,
+
+    user
+      ?.email,
+  ];
+
+  for (
+    const candidate
+    of candidates
+  ) {
+    const value =
+      String(
+        candidate ||
+        ''
+      )
+        .trim();
+
+    if (
+      value &&
+      value.length <=
+        180
+    ) {
+      return value;
+    }
+  }
+
+  return 'user';
+}
+
+
+function buildBuddyFleetsTotpUri({
+  secret,
+  username,
+}: {
+  secret: string;
+  username: string;
+}) {
+  const issuer =
+    TOTP_ISSUER;
+
+  /*
+    RFC-style otpauth label:
+    issuer:account
+
+    Authenticator apps decide the exact visual formatting, but this
+    produces the intended identity:
+    Buddy Fleets : <username>
+  */
+
+  const label =
+    `${issuer}:${username}`;
+
+  const params =
+    new URLSearchParams({
+      secret,
+      issuer,
+      algorithm:
+        'SHA1',
+      digits:
+        '6',
+      period:
+        '30',
+    });
+
+  return (
+    `otpauth://totp/${encodeURIComponent(label)}` +
+    `?${params.toString()}`
+  );
+}
+
+
+async function createBuddyFleetsTotpQr(
+  uri: string
+) {
+  return await QRCode.toDataURL(
+    uri,
+    {
+      errorCorrectionLevel:
+        'M',
+
+      margin:
+        1,
+
+      width:
+        320,
+    }
+  );
+}
+
+
 /* ============================================================
    NETWORK INFORMATION
 ============================================================ */
@@ -998,6 +1123,8 @@ async function restoreAuthSession(
     session:
       sessionResult.session,
     encryptionKey,
+    user:
+      userResult.user,
   };
 }
 
@@ -2050,6 +2177,8 @@ Deno.serve(
       session:
         restoredSession,
       encryptionKey,
+      user:
+        restoredUser,
     } =
       restored;
 
@@ -2275,6 +2404,12 @@ Deno.serve(
       );
 
 
+      const authenticatorUsername =
+        getAuthenticatorUsername(
+          restoredUser
+        );
+
+
       const {
         data:
           enrollment,
@@ -2289,7 +2424,7 @@ Deno.serve(
               'totp',
 
             friendlyName:
-              'Buddy Fleets Authenticator',
+              `Buddy Fleets : ${authenticatorUsername}`,
           });
 
 
@@ -2298,12 +2433,83 @@ Deno.serve(
         !enrollment
           ?.id ||
         !enrollment
-          ?.totp
+          ?.totp ||
+        !enrollment
+          .totp
+          .secret
       ) {
         console.error(
           'MFA enrollment failed:',
           enrollmentError
         );
+
+
+        return jsonResponse(
+          request,
+          503,
+          {
+            ok:
+              false,
+
+            code:
+              'MFA_ENROLLMENT_FAILED',
+          }
+        );
+      }
+
+
+      let buddyFleetsTotpUri:
+        string;
+
+      let buddyFleetsQrCode:
+        string;
+
+
+      try {
+        buddyFleetsTotpUri =
+          buildBuddyFleetsTotpUri({
+            secret:
+              enrollment
+                .totp
+                .secret,
+
+            username:
+              authenticatorUsername,
+          });
+
+        buddyFleetsQrCode =
+          await createBuddyFleetsTotpQr(
+            buddyFleetsTotpUri
+          );
+      } catch (
+        error
+      ) {
+        console.error(
+          'Buddy Fleets MFA QR generation failed:',
+          error
+        );
+
+
+        try {
+          await adminClient
+            .auth
+            .admin
+            .mfa
+            .deleteFactor({
+              userId:
+                flow.user_id,
+
+              id:
+                enrollment.id,
+            });
+        } catch (
+          cleanupError
+        ) {
+          console.error(
+            'Failed MFA enrollment cleanup after QR error:',
+            cleanupError
+          );
+        }
 
 
         return jsonResponse(
@@ -2425,9 +2631,7 @@ Deno.serve(
             'MFA_VERIFY',
 
           qrCode:
-            enrollment
-              .totp
-              .qr_code,
+            buddyFleetsQrCode,
 
           secret:
             enrollment
@@ -2435,9 +2639,10 @@ Deno.serve(
               .secret,
 
           uri:
-            enrollment
-              .totp
-              .uri,
+            buddyFleetsTotpUri,
+
+          authenticatorLabel:
+            `Buddy Fleets : ${authenticatorUsername}`,
         }
       );
     }
