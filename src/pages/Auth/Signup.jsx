@@ -8,6 +8,61 @@ import {
 
 import { supabase } from '../../supabaseClient';
 
+
+/* =========================================================
+   SIGNUP SECURITY HELPERS
+
+   Production email confirmation must always return to the
+   canonical Buddy Fleets website. Local development is the
+   only exception.
+========================================================= */
+
+const PRODUCTION_CONFIRM_URL =
+  'https://buddyfleets.in/confirm';
+
+function getEmailConfirmationRedirectUrl() {
+  if (
+    typeof window ===
+    'undefined'
+  ) {
+    return PRODUCTION_CONFIRM_URL;
+  }
+
+  const host =
+    String(
+      window.location.hostname || ''
+    )
+      .trim()
+      .toLowerCase();
+
+  if (
+    host ===
+      'localhost' ||
+    host ===
+      '127.0.0.1'
+  ) {
+    return `${window.location.origin}/confirm`;
+  }
+
+  return PRODUCTION_CONFIRM_URL;
+}
+
+async function clearUnexpectedSignupSession() {
+  try {
+    await supabase
+      .auth
+      .signOut({
+        scope:
+          'local',
+      });
+  } catch (err) {
+    console.error(
+      'Signup local session cleanup error:',
+      err
+    );
+  }
+}
+
 /* =========================================================
    BUDDY FLEETS
    SIGNUP PAGE
@@ -358,26 +413,48 @@ export default function Signup() {
 
       const cleanCompanyName =
         formData.companyName
-          .trim();
+          .trim()
+          .replace(
+            /\s+/g,
+            ' '
+          );
 
       const cleanFullName =
         formData.yourName
-          .trim();
+          .trim()
+          .replace(
+            /\s+/g,
+            ' '
+          );
 
       const cleanEmail =
         formData.email
           .trim()
           .toLowerCase();
 
+      const cleanMobile =
+        formData.mobile
+          .replace(
+            /\D/g,
+            ''
+          )
+          .slice(
+            0,
+            10
+          );
+
       /* =====================================================
          COMPANY
       ===================================================== */
 
       if (
-        !cleanCompanyName
+        cleanCompanyName.length <
+          2 ||
+        cleanCompanyName.length >
+          120
       ) {
         setError(
-          'Please enter your company name.'
+          'Please enter a valid company name.'
         );
 
         return;
@@ -388,10 +465,13 @@ export default function Signup() {
       ===================================================== */
 
       if (
-        !cleanFullName
+        cleanFullName.length <
+          2 ||
+        cleanFullName.length >
+          100
       ) {
         setError(
-          'Please enter your full name.'
+          'Please enter your valid full name.'
         );
 
         return;
@@ -405,6 +485,8 @@ export default function Signup() {
         /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
       if (
+        cleanEmail.length >
+          254 ||
         !emailRegex.test(
           cleanEmail
         )
@@ -422,7 +504,7 @@ export default function Signup() {
 
       if (
         !/^[0-9]{10}$/.test(
-          formData.mobile
+          cleanMobile
         )
       ) {
         setError(
@@ -476,11 +558,15 @@ export default function Signup() {
               ↓
            Email Confirmation
               ↓
-           BUDDYxxx Company Code
+           ConfirmationPage
               ↓
-           Active Membership
+           Temporary Supabase confirmation session cleared
               ↓
-           5-Day Trial
+           Manual secure login
+              ↓
+           Server-side portal callback
+              ↓
+           HttpOnly Buddy Fleets portal session
         ===================================================== */
 
         const {
@@ -499,7 +585,7 @@ export default function Signup() {
 
               options: {
                 emailRedirectTo:
-                  `${window.location.origin}/confirm`,
+                  getEmailConfirmationRedirectUrl(),
 
                 data: {
                   signup_type:
@@ -512,7 +598,7 @@ export default function Signup() {
                     cleanFullName,
 
                   mobile:
-                    `+91${formData.mobile}`,
+                    `+91${cleanMobile}`,
                 },
               },
             });
@@ -520,15 +606,47 @@ export default function Signup() {
         if (
           signupError
         ) {
-          throw signupError;
+          const status =
+            Number(
+              signupError?.status ||
+              0
+            );
+
+          if (
+            status ===
+              429
+          ) {
+            throw new Error(
+              'TOO_MANY_SIGNUP_ATTEMPTS'
+            );
+          }
+
+          throw new Error(
+            'SIGNUP_FAILED'
+          );
         }
 
         if (
           !data?.user
         ) {
           throw new Error(
-            'Unable to create your account. Please try again.'
+            'SIGNUP_FAILED'
           );
+        }
+
+        /*
+          With email confirmation enabled, signUp should not
+          create a usable browser session.
+
+          If a session is ever returned because of a future
+          Supabase configuration change, clear it immediately.
+          Signup must never become an alternate login path.
+        */
+
+        if (
+          data?.session
+        ) {
+          await clearUnexpectedSignupSession();
         }
 
         setFormData(
@@ -545,7 +663,17 @@ export default function Signup() {
 
             email:
               cleanEmail,
+
+            mobile:
+              cleanMobile,
+
+            password:
+              '',
           })
+        );
+
+        setShowPassword(
+          false
         );
 
         setSubmitted(
@@ -557,16 +685,25 @@ export default function Signup() {
           err
         );
 
-        setError(
-          err?.message ||
-            'Unable to create your account. Please try again.'
-        );
+        if (
+          err?.message ===
+            'TOO_MANY_SIGNUP_ATTEMPTS'
+        ) {
+          setError(
+            'Too many signup attempts. Please wait a little and try again.'
+          );
+        } else {
+          setError(
+            'Unable to create your account right now. If you already have an account, use Login or Forgot Password.'
+          );
+        }
       } finally {
         setLoading(
           false
         );
       }
     };
+
 
   /* =========================================================
      PAGE

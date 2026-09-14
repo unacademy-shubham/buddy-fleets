@@ -244,6 +244,80 @@ export default function ConfirmationPage() {
     useRef(false);
 
   /* =========================================================
+     CLEAR TEMPORARY CONFIRMATION SESSION
+
+     Email confirmation may create a browser-readable Supabase
+     session on buddyfleets.in.
+
+     That temporary session is used ONLY to:
+     - verify the confirmed user
+     - read activation details
+
+     As soon as activation data has been copied into React state,
+     the Supabase browser session is cleared locally.
+
+     The user must then use the normal secure login flow:
+     secure-login
+       ↓
+     server-side /auth/callback
+       ↓
+     HttpOnly __Host-bf_session
+  ========================================================= */
+
+  const clearTemporaryConfirmationSession =
+    async () => {
+      let lastError =
+        null;
+
+      for (
+        let attempt = 0;
+        attempt < 2;
+        attempt += 1
+      ) {
+        try {
+          const {
+            error:
+              signOutError,
+          } =
+            await supabase
+              .auth
+              .signOut({
+                scope:
+                  'local',
+              });
+
+          if (
+            !signOutError
+          ) {
+            return;
+          }
+
+          lastError =
+            signOutError;
+        } catch (err) {
+          lastError =
+            err;
+        }
+
+        if (
+          attempt === 0
+        ) {
+          await sleep(
+            100
+          );
+        }
+      }
+
+      throw (
+        lastError ||
+        new Error(
+          'TEMP_CONFIRMATION_SESSION_CLEAR_FAILED'
+        )
+      );
+    };
+
+
+  /* =========================================================
      AUTH + ACTIVATION DATA
   ========================================================= */
 
@@ -580,6 +654,25 @@ export default function ConfirmationPage() {
             return;
           }
 
+          /*
+            IMPORTANT:
+
+            Activation data is now safely copied in memory.
+            Clear the temporary Supabase browser session BEFORE
+            showing the success state.
+
+            Portal authentication remains separate and will later
+            happen through secure-login + server-side callback.
+          */
+
+          await clearTemporaryConfirmationSession();
+
+          if (
+            cancelled
+          ) {
+            return;
+          }
+
           completedRef.current =
             true;
 
@@ -825,27 +918,31 @@ export default function ConfirmationPage() {
 
   const handleProceedToLogin =
     async () => {
+      /*
+        Normally the temporary confirmation session has already
+        been cleared immediately after successful verification.
+
+        This second cleanup is intentionally idempotent and acts
+        only as a final safety net before entering the secure
+        login flow.
+      */
+
       try {
-        await supabase
-          .auth
-          .signOut({
-            scope:
-              'local',
-          });
+        await clearTemporaryConfirmationSession();
       } catch (err) {
         console.error(
-          'Post-confirmation signout error:',
+          'Post-confirmation final session cleanup error:',
           err
         );
-      } finally {
-        navigate(
-          '/login',
-          {
-            replace:
-              true,
-          }
-        );
       }
+
+      navigate(
+        '/login',
+        {
+          replace:
+            true,
+        }
+      );
     };
 
   /* =========================================================

@@ -65,68 +65,49 @@ const SuperAdminDashboard = lazy(() =>
   import('./pages/Dashboard/SuperAdminDashboard')
 );
 
+
 /* =========================================================
-   LAZY SUPABASE CLIENT
+   FINAL PORTAL ARCHITECTURE
+
+   Main website:
+   buddyfleets.in
+
+   Fixed portals:
+   developer.buddyfleets.in
+   team.buddyfleets.in
+   portal.buddyfleets.in/{companySlug}/...
 
    IMPORTANT:
-
-   Public marketing routes par Supabase SDK initial bundle
-   ke saath load nahi hoga.
-
-   Auth/dashboard runtime ko jab zarurat hogi tabhi
-   separate chunk download hoga.
+   - Browser-side Supabase session restore is intentionally removed.
+   - Portal authentication authority is /api/auth/session.
+   - Company authorization authority is server-side company_id.
+   - URL companySlug is routing identity only.
 ========================================================= */
 
-let supabaseClientPromise = null;
+const MAIN_HOST =
+  'buddyfleets.in';
 
-function getSupabaseClient() {
-  if (!supabaseClientPromise) {
-    supabaseClientPromise = import(
-      './supabaseClient'
-    ).then(
-      (module) => module.supabase
-    );
-  }
+const WWW_HOST =
+  'www.buddyfleets.in';
 
-  return supabaseClientPromise;
-}
+const DEVELOPER_HOST =
+  'developer.buddyfleets.in';
 
-/* =========================================================
-   AUTH RUNTIME ROUTES
+const TEAM_HOST =
+  'team.buddyfleets.in';
 
-   In routes par App-level session restore / auth listener
-   required hai.
+const COMPANY_PORTAL_HOST =
+  'portal.buddyfleets.in';
 
-   Public marketing pages intentionally excluded.
-========================================================= */
+const SECURE_LOGIN_URL =
+  'https://buddyfleets.in/login';
 
-const AUTH_RUNTIME_PATHS = new Set([
-  '/login',
-  '/signup',
-  '/forgot-password',
-  '/confirm',
-  '/reset-password',
-  '/dashboard',
-]);
-
-function requiresAuthRuntime(
-  pathname
-) {
-  if (
-    AUTH_RUNTIME_PATHS.has(
-      pathname
-    )
-  ) {
-    return true;
-  }
-
-  return pathname.startsWith(
-    '/dashboard/'
-  );
-}
 
 /* =========================================================
-   STORAGE KEYS
+   LOCAL APP STORAGE
+
+   These values are UI/runtime helpers only.
+   None of them authorize access.
 ========================================================= */
 
 const LEGACY_SESSION_KEY =
@@ -141,15 +122,523 @@ const LAST_ACTIVITY_KEY =
 const ACTIVE_TAB_KEY =
   'buddy_fleets_active_tab';
 
-/* 30 MINUTES */
+const PORTAL_BOOTSTRAP_KEY =
+  'buddy_fleets_portal_bootstrap';
+
+const PORTAL_BOOTSTRAP_MAX_AGE_MS =
+  15 * 1000;
 
 const INACTIVITY_TIMEOUT_MS =
   30 * 60 * 1000;
 
-/* ACTIVITY WRITE THROTTLE */
-
 const ACTIVITY_THROTTLE_MS =
   15 * 1000;
+
+const PORTAL_SESSION_RETRY_MS =
+  2500;
+
+
+/* =========================================================
+   HOST HELPERS
+========================================================= */
+
+function normalizeHost(
+  value
+) {
+  return String(
+    value || ''
+  )
+    .trim()
+    .toLowerCase()
+    .replace(
+      /:\d+$/,
+      ''
+    );
+}
+
+
+function getCurrentHost() {
+  if (
+    typeof window ===
+    'undefined'
+  ) {
+    return '';
+  }
+
+  return normalizeHost(
+    window.location.hostname
+  );
+}
+
+
+function getPortalTypeFromHost(
+  host
+) {
+  const normalized =
+    normalizeHost(
+      host
+    );
+
+  if (
+    normalized ===
+    DEVELOPER_HOST
+  ) {
+    return 'developer';
+  }
+
+  if (
+    normalized ===
+    TEAM_HOST
+  ) {
+    return 'team';
+  }
+
+  if (
+    normalized ===
+    COMPANY_PORTAL_HOST
+  ) {
+    return 'company';
+  }
+
+  return null;
+}
+
+
+function isMainSiteHost(
+  host
+) {
+  const normalized =
+    normalizeHost(
+      host
+    );
+
+  if (
+    normalized ===
+      MAIN_HOST ||
+    normalized ===
+      WWW_HOST
+  ) {
+    return true;
+  }
+
+  /*
+    Local development / preview falls back to the main-site
+    routing surface. Portal security still remains enforced by
+    the server APIs on the real fixed portal hosts.
+  */
+
+  return (
+    normalized ===
+      'localhost' ||
+    normalized ===
+      '127.0.0.1' ||
+    normalized.endsWith(
+      '.vercel.app'
+    )
+  );
+}
+
+
+function normalizeCompanySlug(
+  value
+) {
+  const slug =
+    String(
+      value || ''
+    )
+      .trim()
+      .toLowerCase();
+
+  if (
+    !/^[a-z0-9]+(?:-[a-z0-9]+)*$/
+      .test(
+        slug
+      )
+  ) {
+    return '';
+  }
+
+  if (
+    slug.length >
+      120
+  ) {
+    return '';
+  }
+
+  return slug;
+}
+
+
+/* =========================================================
+   SAFE JSON
+========================================================= */
+
+async function readJsonSafely(
+  response
+) {
+  const text =
+    await response.text();
+
+  if (!text) {
+    return {};
+  }
+
+  try {
+    return JSON.parse(
+      text
+    );
+  } catch {
+    return {};
+  }
+}
+
+
+/* =========================================================
+   SERVER SESSION API
+========================================================= */
+
+async function fetchPortalSession() {
+  let response;
+
+  try {
+    response =
+      await fetch(
+        '/api/auth/session',
+        {
+          method:
+            'GET',
+
+          credentials:
+            'include',
+
+          cache:
+            'no-store',
+
+          headers: {
+            Accept:
+              'application/json',
+          },
+
+          referrerPolicy:
+            'no-referrer',
+        }
+      );
+  } catch {
+    return {
+      ok:
+        false,
+
+      status:
+        0,
+
+      code:
+        'NETWORK_ERROR',
+    };
+  }
+
+  const data =
+    await readJsonSafely(
+      response
+    );
+
+  return {
+    ok:
+      Boolean(
+        response.ok &&
+        data?.ok
+      ),
+
+    status:
+      response.status,
+
+    code:
+      data?.code ||
+      null,
+
+    currentUser:
+      data?.currentUser ||
+      null,
+
+    session:
+      data?.session ||
+      null,
+  };
+}
+
+
+function isDefinitiveSessionRejection(
+  result
+) {
+  return [
+    401,
+    403,
+    423,
+  ].includes(
+    Number(
+      result?.status ||
+      0
+    )
+  );
+}
+
+
+async function requestPortalLogout() {
+  try {
+    const response =
+      await fetch(
+        '/api/auth/logout',
+        {
+          method:
+            'POST',
+
+          credentials:
+            'include',
+
+          cache:
+            'no-store',
+
+          headers: {
+            Accept:
+              'application/json',
+          },
+
+          referrerPolicy:
+            'no-referrer',
+        }
+      );
+
+    return {
+      ok:
+        response.ok,
+    };
+  } catch {
+    return {
+      ok:
+        false,
+    };
+  }
+}
+
+
+/* =========================================================
+   CURRENT USER / HOST CONSISTENCY
+========================================================= */
+
+function isUserAllowedOnCurrentHost({
+  currentUser,
+  portalType,
+}) {
+  if (
+    !currentUser ||
+    !portalType
+  ) {
+    return false;
+  }
+
+  if (
+    currentUser.portalType !==
+    portalType
+  ) {
+    return false;
+  }
+
+  if (
+    portalType ===
+    'developer'
+  ) {
+    return (
+      currentUser
+        .isPlatformAdmin ===
+      true
+    );
+  }
+
+  if (
+    portalType ===
+    'team'
+  ) {
+    return (
+      currentUser.userType ===
+      'platform_team'
+    );
+  }
+
+  if (
+    portalType ===
+    'company'
+  ) {
+    return Boolean(
+      currentUser.companyId &&
+      normalizeCompanySlug(
+        currentUser.companySlug
+      )
+    );
+  }
+
+  return false;
+}
+
+
+/* =========================================================
+   SAFE POST-LOGIN PORTAL BOOTSTRAP
+
+   UI acceleration only.
+
+   IMPORTANT:
+   - No Supabase token
+   - No refresh token
+   - No cookie value
+   - Server session remains authoritative
+========================================================= */
+
+function consumePortalBootstrap({
+  portalType,
+}) {
+  if (
+    !portalType
+  ) {
+    return null;
+  }
+
+  try {
+    const raw =
+      sessionStorage.getItem(
+        PORTAL_BOOTSTRAP_KEY
+      );
+
+    /*
+      One-time bootstrap.
+      Remove immediately even if validation fails.
+    */
+
+    sessionStorage.removeItem(
+      PORTAL_BOOTSTRAP_KEY
+    );
+
+    if (!raw) {
+      return null;
+    }
+
+    const parsed =
+      JSON.parse(
+        raw
+      );
+
+    const createdAt =
+      Number(
+        parsed?.createdAt ||
+        0
+      );
+
+    const expiresAt =
+      Number(
+        parsed?.expiresAt ||
+        0
+      );
+
+    const now =
+      Date.now();
+
+    if (
+      !Number.isFinite(
+        createdAt
+      ) ||
+      !Number.isFinite(
+        expiresAt
+      ) ||
+      createdAt <= 0 ||
+      expiresAt <= now ||
+      createdAt >
+        now + 5000 ||
+      now - createdAt >
+        PORTAL_BOOTSTRAP_MAX_AGE_MS
+    ) {
+      return null;
+    }
+
+    const currentUser =
+      parsed?.currentUser ||
+      null;
+
+    if (
+      !isUserAllowedOnCurrentHost({
+        currentUser,
+        portalType,
+      })
+    ) {
+      return null;
+    }
+
+    const session =
+      parsed?.session ||
+      null;
+
+    if (
+      session?.portalType &&
+      session.portalType !==
+        portalType
+    ) {
+      return null;
+    }
+
+    if (
+      portalType ===
+      'company'
+    ) {
+      const userSlug =
+        normalizeCompanySlug(
+          currentUser
+            ?.companySlug
+        );
+
+      const sessionSlug =
+        normalizeCompanySlug(
+          session
+            ?.companySlug
+        );
+
+      if (
+        !userSlug ||
+        (
+          sessionSlug &&
+          sessionSlug !==
+            userSlug
+        )
+      ) {
+        return null;
+      }
+    }
+
+    return {
+      currentUser,
+      session,
+      createdAt,
+      expiresAt,
+    };
+  } catch {
+    try {
+      sessionStorage.removeItem(
+        PORTAL_BOOTSTRAP_KEY
+      );
+    } catch {
+      // Non-critical.
+    }
+
+    return null;
+  }
+}
+
+
+function clearPortalBootstrap() {
+  try {
+    sessionStorage.removeItem(
+      PORTAL_BOOTSTRAP_KEY
+    );
+  } catch {
+    // Non-critical.
+  }
+}
+
 
 /* =========================================================
    PAGE CHUNK LOADER
@@ -216,6 +705,7 @@ function PageChunkLoader() {
     </div>
   );
 }
+
 
 /* =========================================================
    FULL SCREEN LOADER
@@ -295,6 +785,7 @@ function FullScreenLoader() {
   );
 }
 
+
 /* =========================================================
    LAZY PAGE WRAPPER
 ========================================================= */
@@ -312,6 +803,7 @@ function LazyPage({
     </Suspense>
   );
 }
+
 
 /* =========================================================
    SCROLL TO TOP
@@ -338,6 +830,7 @@ function ScrollToTop() {
   return null;
 }
 
+
 /* =========================================================
    LEGACY REDIRECTS
 ========================================================= */
@@ -354,6 +847,7 @@ function LegacyConfirmationRedirect() {
   );
 }
 
+
 function LegacyContactRedirect() {
   const location =
     useLocation();
@@ -365,6 +859,7 @@ function LegacyContactRedirect() {
     />
   );
 }
+
 
 function LegacyForgotRedirect() {
   const location =
@@ -378,535 +873,6 @@ function LegacyForgotRedirect() {
   );
 }
 
-/* =========================================================
-   ACTIVE COMPANY STORAGE
-========================================================= */
-
-function getStoredCompanyContext() {
-  try {
-    const raw =
-      localStorage.getItem(
-        ACTIVE_COMPANY_KEY
-      );
-
-    if (!raw) {
-      return null;
-    }
-
-    const parsed =
-      JSON.parse(
-        raw
-      );
-
-    if (
-      !parsed?.companyId ||
-      !parsed?.companyCode
-    ) {
-      return null;
-    }
-
-    return parsed;
-  } catch {
-    return null;
-  }
-}
-
-function saveCompanyContext(
-  user
-) {
-  if (
-    !user?.companyId ||
-    !user?.companyCode
-  ) {
-    localStorage.removeItem(
-      ACTIVE_COMPANY_KEY
-    );
-
-    return;
-  }
-
-  localStorage.setItem(
-    ACTIVE_COMPANY_KEY,
-    JSON.stringify({
-      companyId:
-        user.companyId,
-
-      companyCode:
-        user.companyCode,
-    })
-  );
-}
-
-/* =========================================================
-   PLATFORM ADMIN CONTEXT
-========================================================= */
-
-function createPlatformAdminContext({
-  authUser,
-  profile,
-}) {
-  return {
-    id:
-      authUser.id,
-
-    username:
-      authUser.email,
-
-    email:
-      authUser.email,
-
-    name:
-      profile?.full_name ||
-      authUser.email,
-
-    mobile:
-      profile?.mobile ||
-      null,
-
-    userType:
-      'platform_admin',
-
-    role:
-      'SUPER_ADMIN',
-
-    isPlatformAdmin:
-      true,
-
-    companyId:
-      null,
-
-    companyCode:
-      'ADMIN',
-
-    companyName:
-      'Buddy Fleets',
-
-    companyStatus:
-      'active',
-
-    databaseCompanyStatus:
-      'active',
-
-    confirmedAt:
-      null,
-
-    membershipId:
-      null,
-
-    membershipStatus:
-      null,
-
-    accessScope:
-      'platform',
-
-    isAccountOwner:
-      false,
-
-    subscriptionStatus:
-      null,
-
-    planId:
-      null,
-
-    trialStartAt:
-      null,
-
-    trialEndAt:
-      null,
-
-    subscriptionStartAt:
-      null,
-
-    subscriptionEndAt:
-      null,
-  };
-}
-
-/* =========================================================
-   BUILD AUTHORIZED USER CONTEXT
-
-   Security ordering preserved:
-
-   Supabase Auth
-        ↓
-   Profile
-        ↓
-   Stored company context?
-        ↓
-   YES -> Membership -> Company -> Subscription
-        ↓
-   NO -> Platform Admin
-========================================================= */
-
-async function buildUserContext(
-  authUser,
-  preferredCompanyId = null
-) {
-  if (
-    !authUser?.id
-  ) {
-    return null;
-  }
-
-  if (
-    !authUser.email_confirmed_at
-  ) {
-    return null;
-  }
-
-  const supabase =
-    await getSupabaseClient();
-
-  /* =======================================================
-     PROFILE
-  ======================================================= */
-
-  const {
-    data: profile,
-    error:
-      profileError,
-  } =
-    await supabase
-      .from(
-        'profiles'
-      )
-      .select(
-        'id, full_name, email, mobile'
-      )
-      .eq(
-        'id',
-        authUser.id
-      )
-      .maybeSingle();
-
-  if (
-    profileError
-  ) {
-    console.error(
-      'Profile context error:',
-      profileError
-    );
-  }
-
-  /* =======================================================
-     COMPANY CONTEXT HAS PRIORITY
-  ======================================================= */
-
-  if (
-    preferredCompanyId
-  ) {
-    /* MEMBERSHIP */
-
-    const {
-      data:
-        membership,
-      error:
-        membershipError,
-    } =
-      await supabase
-        .from(
-          'company_memberships'
-        )
-        .select(`
-          id,
-          company_id,
-          user_id,
-          status,
-          access_scope,
-          joined_at
-        `)
-        .eq(
-          'company_id',
-          preferredCompanyId
-        )
-        .eq(
-          'user_id',
-          authUser.id
-        )
-        .maybeSingle();
-
-    if (
-      membershipError ||
-      !membership
-    ) {
-      if (
-        membershipError
-      ) {
-        console.error(
-          'Membership context error:',
-          membershipError
-        );
-      }
-
-      return null;
-    }
-
-    if (
-      membership.status !==
-      'active'
-    ) {
-      return null;
-    }
-
-    /* COMPANY */
-
-    const {
-      data:
-        company,
-      error:
-        companyError,
-    } =
-      await supabase
-        .from(
-          'companies'
-        )
-        .select(`
-          id,
-          company_code,
-          company_name,
-          status,
-          confirmed_at,
-          account_owner_user_id
-        `)
-        .eq(
-          'id',
-          membership.company_id
-        )
-        .maybeSingle();
-
-    if (
-      companyError ||
-      !company
-    ) {
-      if (
-        companyError
-      ) {
-        console.error(
-          'Company context error:',
-          companyError
-        );
-      }
-
-      return null;
-    }
-
-    if (
-      company.status ===
-        'pending_confirmation' ||
-      company.status ===
-        'suspended' ||
-      company.status ===
-        'cancelled'
-    ) {
-      return null;
-    }
-
-    /* SUBSCRIPTION */
-
-    const {
-      data:
-        subscription,
-      error:
-        subscriptionError,
-    } =
-      await supabase
-        .from(
-          'subscriptions'
-        )
-        .select(`
-          status,
-          plan_id,
-          trial_start_at,
-          trial_end_at,
-          subscription_start_at,
-          subscription_end_at
-        `)
-        .eq(
-          'company_id',
-          company.id
-        )
-        .maybeSingle();
-
-    if (
-      subscriptionError
-    ) {
-      console.error(
-        'Subscription context error:',
-        subscriptionError
-      );
-    }
-
-    /* EFFECTIVE TRIAL STATUS */
-
-    let effectiveCompanyStatus =
-      company.status;
-
-    const trialEndAt =
-      subscription
-        ?.trial_end_at ||
-      null;
-
-    if (
-      company.status ===
-        'trial_active' &&
-      trialEndAt &&
-      new Date(
-        trialEndAt
-      ).getTime() <=
-        Date.now()
-    ) {
-      effectiveCompanyStatus =
-        'trial_expired';
-    }
-
-    const allowedStatuses = [
-      'trial_active',
-      'trial_expired',
-      'active',
-    ];
-
-    if (
-      !allowedStatuses.includes(
-        effectiveCompanyStatus
-      )
-    ) {
-      return null;
-    }
-
-    return {
-      id:
-        authUser.id,
-
-      username:
-        authUser.email,
-
-      email:
-        authUser.email,
-
-      name:
-        profile?.full_name ||
-        authUser.email,
-
-      mobile:
-        profile?.mobile ||
-        null,
-
-      userType:
-        'company_user',
-
-      role:
-        'COMPANY_USER',
-
-      isPlatformAdmin:
-        false,
-
-      companyId:
-        company.id,
-
-      companyCode:
-        company.company_code,
-
-      companyName:
-        company.company_name,
-
-      companyStatus:
-        effectiveCompanyStatus,
-
-      databaseCompanyStatus:
-        company.status,
-
-      confirmedAt:
-        company.confirmed_at,
-
-      membershipId:
-        membership.id,
-
-      membershipStatus:
-        membership.status,
-
-      accessScope:
-        membership.access_scope,
-
-      isAccountOwner:
-        company
-          .account_owner_user_id ===
-        authUser.id,
-
-      subscriptionStatus:
-        subscription?.status ||
-        null,
-
-      planId:
-        subscription?.plan_id ||
-        null,
-
-      trialStartAt:
-        subscription
-          ?.trial_start_at ||
-        null,
-
-      trialEndAt,
-
-      subscriptionStartAt:
-        subscription
-          ?.subscription_start_at ||
-        null,
-
-      subscriptionEndAt:
-        subscription
-          ?.subscription_end_at ||
-        null,
-    };
-  }
-
-  /* =======================================================
-     PLATFORM ADMIN
-  ======================================================= */
-
-  const {
-    data:
-      platformAdmin,
-    error:
-      platformAdminError,
-  } =
-    await supabase
-      .from(
-        'platform_admins'
-      )
-      .select(
-        'user_id, is_active'
-      )
-      .eq(
-        'user_id',
-        authUser.id
-      )
-      .eq(
-        'is_active',
-        true
-      )
-      .maybeSingle();
-
-  if (
-    platformAdminError
-  ) {
-    console.error(
-      'Platform admin context error:',
-      platformAdminError
-    );
-  }
-
-  if (
-    platformAdmin
-      ?.is_active
-  ) {
-    return createPlatformAdminContext({
-      authUser,
-      profile,
-    });
-  }
-
-  return null;
-}
 
 /* =========================================================
    COMPANY DASHBOARD TEMPORARY GATE
@@ -1299,36 +1265,827 @@ function CompanyDashboardPending({
   );
 }
 
+
 /* =========================================================
-   AUTH GUEST ROUTE
+   TEAM DASHBOARD TEMPORARY GATE
 ========================================================= */
 
-function AuthGuestRoute({
-  isSessionLoading,
+function TeamDashboardPending({
   currentUser,
-  children,
+  onLogout,
 }) {
+  return (
+    <div
+      className="
+        flex
+        min-h-screen
+        min-h-[100dvh]
+        flex-col
+        bg-[#050914]
+        text-white
+      "
+    >
+      <main
+        className="
+          flex
+          flex-1
+          items-center
+          justify-center
+          px-4
+          py-10
+          sm:px-6
+        "
+      >
+        <div
+          className="
+            w-full
+            max-w-xl
+            rounded-[28px]
+            border
+            border-white/10
+            bg-[#07101f]/95
+            p-6
+            text-center
+            shadow-2xl
+            shadow-black/50
+            sm:p-8
+          "
+        >
+          <div
+            className="
+              mx-auto
+              flex
+              h-14
+              w-14
+              items-center
+              justify-center
+              rounded-2xl
+              bg-gradient-to-br
+              from-cyan-400
+              via-blue-500
+              to-violet-600
+              text-sm
+              font-black
+            "
+          >
+            BF
+          </div>
+
+          <p
+            className="
+              mt-5
+              text-[10px]
+              font-bold
+              uppercase
+              tracking-[0.2em]
+              text-cyan-300
+            "
+          >
+            Secure Team Workspace
+          </p>
+
+          <h1
+            className="
+              mt-2
+              text-2xl
+              font-black
+              sm:text-3xl
+            "
+          >
+            Buddy Fleets Team Portal
+          </h1>
+
+          <p
+            className="
+              mx-auto
+              mt-3
+              max-w-md
+              text-xs
+              leading-6
+              text-slate-400
+              sm:text-sm
+            "
+          >
+            Your secure team authentication is active. The role-aware
+            internal workspace will be connected here in the next
+            development phase.
+          </p>
+
+          <div
+            className="
+              mt-6
+              grid
+              gap-3
+              rounded-2xl
+              border
+              border-white/[0.07]
+              bg-white/[0.025]
+              p-4
+              text-left
+              sm:grid-cols-2
+            "
+          >
+            <div>
+              <p
+                className="
+                  text-[8px]
+                  font-bold
+                  uppercase
+                  tracking-[0.15em]
+                  text-slate-500
+                "
+              >
+                User
+              </p>
+
+              <p
+                className="
+                  mt-1
+                  break-all
+                  text-xs
+                  font-medium
+                  text-slate-300
+                "
+              >
+                {currentUser?.email}
+              </p>
+            </div>
+
+            <div>
+              <p
+                className="
+                  text-[8px]
+                  font-bold
+                  uppercase
+                  tracking-[0.15em]
+                  text-slate-500
+                "
+              >
+                Portal
+              </p>
+
+              <p
+                className="
+                  mt-1
+                  text-xs
+                  font-bold
+                  text-cyan-300
+                "
+              >
+                TEAM
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={
+              onLogout
+            }
+            className="
+              mt-6
+              rounded-xl
+              border
+              border-white/10
+              bg-white/[0.05]
+              px-6
+              py-3
+              text-xs
+              font-bold
+              text-slate-200
+              transition-colors
+              duration-200
+              hover:bg-white/[0.1]
+              hover:text-white
+              focus-visible:outline-none
+              focus-visible:ring-2
+              focus-visible:ring-cyan-400/70
+            "
+          >
+            Logout
+          </button>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+
+/* =========================================================
+   TEMPORARY PORTAL SESSION ERROR
+
+   IMPORTANT:
+   A network / 5xx failure is NOT treated as logout.
+========================================================= */
+
+function PortalSessionUnavailable({
+  onRetry,
+}) {
+  return (
+    <div
+      className="
+        flex
+        min-h-screen
+        min-h-[100dvh]
+        items-center
+        justify-center
+        bg-[#050914]
+        px-4
+        text-white
+      "
+    >
+      <div
+        className="
+          w-full
+          max-w-md
+          rounded-[24px]
+          border
+          border-white/10
+          bg-[#07101f]/95
+          p-6
+          text-center
+          shadow-2xl
+          shadow-black/40
+        "
+      >
+        <div
+          className="
+            mx-auto
+            flex
+            h-12
+            w-12
+            items-center
+            justify-center
+            rounded-2xl
+            bg-gradient-to-br
+            from-cyan-400
+            via-blue-500
+            to-violet-600
+            text-xs
+            font-black
+          "
+        >
+          BF
+        </div>
+
+        <h1
+          className="
+            mt-4
+            text-lg
+            font-black
+          "
+        >
+          Secure session check delayed
+        </h1>
+
+        <p
+          className="
+            mt-2
+            text-xs
+            leading-5
+            text-slate-400
+          "
+        >
+          Your portal session could not be verified right now.
+          You have not been logged out.
+        </p>
+
+        <button
+          type="button"
+          onClick={
+            onRetry
+          }
+          className="
+            mt-5
+            rounded-xl
+            border
+            border-cyan-400/20
+            bg-cyan-400/[0.08]
+            px-5
+            py-2.5
+            text-xs
+            font-bold
+            text-cyan-300
+            hover:bg-cyan-400/[0.12]
+            focus-visible:outline-none
+            focus-visible:ring-2
+            focus-visible:ring-cyan-400/50
+          "
+        >
+          Retry secure check
+        </button>
+      </div>
+    </div>
+  );
+}
+
+
+/* =========================================================
+   EXTERNAL REDIRECT
+========================================================= */
+
+function ExternalRedirect({
+  to,
+}) {
+  useEffect(
+    () => {
+      window.location.replace(
+        to
+      );
+    },
+    [
+      to,
+    ]
+  );
+
+  return (
+    <FullScreenLoader />
+  );
+}
+
+
+/* =========================================================
+   MAIN WEBSITE ROUTES
+========================================================= */
+
+function MainWebsiteRoutes() {
+  return (
+    <Routes>
+      <Route
+        element={
+          <WebsiteLayout />
+        }
+      >
+        <Route
+          path="/"
+          element={
+            <LazyPage>
+              <Home />
+            </LazyPage>
+          }
+        />
+
+        <Route
+          path="/features"
+          element={
+            <LazyPage>
+              <Features />
+            </LazyPage>
+          }
+        />
+
+        <Route
+          path="/pricing"
+          element={
+            <LazyPage>
+              <Pricing />
+            </LazyPage>
+          }
+        />
+
+        <Route
+          path="/about"
+          element={
+            <LazyPage>
+              <AboutUs />
+            </LazyPage>
+          }
+        />
+
+        <Route
+          path="/contact-us"
+          element={
+            <LazyPage>
+              <ContactUs />
+            </LazyPage>
+          }
+        />
+
+        <Route
+          path="/login"
+          element={
+            <LazyPage>
+              <Login />
+            </LazyPage>
+          }
+        />
+
+        <Route
+          path="/signup"
+          element={
+            <LazyPage>
+              <Signup />
+            </LazyPage>
+          }
+        />
+
+        <Route
+          path="/forgot-password"
+          element={
+            <LazyPage>
+              <ForgotID />
+            </LazyPage>
+          }
+        />
+
+        <Route
+          path="/confirm"
+          element={
+            <LazyPage>
+              <ConfirmationPage />
+            </LazyPage>
+          }
+        />
+
+        <Route
+          path="/reset-password"
+          element={
+            <LazyPage>
+              <ResetPassword />
+            </LazyPage>
+          }
+        />
+      </Route>
+
+      <Route
+        path="/contact"
+        element={
+          <LegacyContactRedirect />
+        }
+      />
+
+      <Route
+        path="/forgot-id"
+        element={
+          <LegacyForgotRedirect />
+        }
+      />
+
+      <Route
+        path="/auth/confirmation"
+        element={
+          <LegacyConfirmationRedirect />
+        }
+      />
+
+      <Route
+        path="/auth/callback"
+        element={
+          <Navigate
+            replace
+            to="/login"
+          />
+        }
+      />
+
+      <Route
+        path="/dashboard"
+        element={
+          <Navigate
+            replace
+            to="/login"
+          />
+        }
+      />
+
+      <Route
+        path="*"
+        element={
+          <Navigate
+            replace
+            to="/"
+          />
+        }
+      />
+    </Routes>
+  );
+}
+
+
+/* =========================================================
+   PORTAL ROUTES
+========================================================= */
+
+function PortalRoutes({
+  portalType,
+  currentUser,
+  sessionState,
+  onRetrySession,
+  onLogout,
+  onUserUpdate,
+}) {
+  const location =
+    useLocation();
+
+  const authoritativeCompanySlug =
+    normalizeCompanySlug(
+      currentUser
+        ?.companySlug
+    );
+
+  const pathSegments =
+    location.pathname
+      .split('/')
+      .filter(Boolean);
+
+  const requestedCompanySlug =
+    portalType ===
+      'company'
+      ? normalizeCompanySlug(
+          pathSegments[0]
+        )
+      : '';
+
+
+  /* =======================================================
+     SESSION STATE
+  ======================================================= */
+
   if (
-    isSessionLoading
+    sessionState ===
+      'checking' ||
+    sessionState ===
+      'idle'
   ) {
     return (
-      <PageChunkLoader />
+      <FullScreenLoader />
     );
   }
 
+
   if (
-    currentUser
+    sessionState ===
+    'temporary-error'
   ) {
     return (
-      <Navigate
-        to="/dashboard"
-        replace
+      <PortalSessionUnavailable
+        onRetry={
+          onRetrySession
+        }
       />
     );
   }
 
-  return children;
+
+  if (
+    sessionState ===
+      'unauthenticated' ||
+    !currentUser
+  ) {
+    return (
+      <ExternalRedirect
+        to={
+          SECURE_LOGIN_URL
+        }
+      />
+    );
+  }
+
+
+  if (
+    !isUserAllowedOnCurrentHost({
+      currentUser,
+      portalType,
+    })
+  ) {
+    return (
+      <ExternalRedirect
+        to={
+          SECURE_LOGIN_URL
+        }
+      />
+    );
+  }
+
+
+  /* =======================================================
+     DEVELOPER
+
+     Canonical authenticated route:
+     /dashboard
+  ======================================================= */
+
+  if (
+    portalType ===
+    'developer'
+  ) {
+    return (
+      <Routes>
+        <Route
+          path="/"
+          element={
+            <Navigate
+              replace
+              to="/dashboard"
+            />
+          }
+        />
+
+        <Route
+          path="/dashboard"
+          element={
+            <Suspense
+              fallback={
+                <FullScreenLoader />
+              }
+            >
+              <SuperAdminDashboard
+                currentUser={
+                  currentUser
+                }
+                onLogout={
+                  onLogout
+                }
+                onUserUpdate={
+                  onUserUpdate
+                }
+              />
+            </Suspense>
+          }
+        />
+
+        <Route
+          path="*"
+          element={
+            <Navigate
+              replace
+              to="/dashboard"
+            />
+          }
+        />
+      </Routes>
+    );
+  }
+
+
+  /* =======================================================
+     TEAM
+  ======================================================= */
+
+  if (
+    portalType ===
+    'team'
+  ) {
+    return (
+      <Routes>
+        <Route
+          path="/"
+          element={
+            <Navigate
+              replace
+              to="/dashboard"
+            />
+          }
+        />
+
+        <Route
+          path="/dashboard"
+          element={
+            <TeamDashboardPending
+              currentUser={
+                currentUser
+              }
+              onLogout={
+                onLogout
+              }
+            />
+          }
+        />
+
+        <Route
+          path="*"
+          element={
+            <Navigate
+              replace
+              to="/dashboard"
+            />
+          }
+        />
+      </Routes>
+    );
+  }
+
+
+  /* =======================================================
+     COMPANY
+  ======================================================= */
+
+  if (
+    portalType ===
+    'company'
+  ) {
+    if (
+      !authoritativeCompanySlug
+    ) {
+      return (
+        <ExternalRedirect
+          to={
+            SECURE_LOGIN_URL
+          }
+        />
+      );
+    }
+
+
+    const authoritativeDashboardPath =
+      `/${authoritativeCompanySlug}/dashboard`;
+
+
+    if (
+      location.pathname ===
+      '/'
+    ) {
+      return (
+        <Navigate
+          replace
+          to={
+            authoritativeDashboardPath
+          }
+        />
+      );
+    }
+
+
+    if (
+      requestedCompanySlug !==
+      authoritativeCompanySlug
+    ) {
+      return (
+        <Navigate
+          replace
+          to={
+            authoritativeDashboardPath
+          }
+        />
+      );
+    }
+
+
+    return (
+      <Routes>
+        <Route
+          path="/dashboard"
+          element={
+            <Navigate
+              replace
+              to={
+                authoritativeDashboardPath
+              }
+            />
+          }
+        />
+
+        <Route
+          path="/:companySlug"
+          element={
+            <Navigate
+              replace
+              to={
+                authoritativeDashboardPath
+              }
+            />
+          }
+        />
+
+        <Route
+          path="/:companySlug/dashboard"
+          element={
+            <CompanyDashboardPending
+              currentUser={
+                currentUser
+              }
+              onLogout={
+                onLogout
+              }
+            />
+          }
+        />
+
+        <Route
+          path="*"
+          element={
+            <Navigate
+              replace
+              to={
+                authoritativeDashboardPath
+              }
+            />
+          }
+        />
+      </Routes>
+    );
+  }
+
+
+  return (
+    <ExternalRedirect
+      to={
+        SECURE_LOGIN_URL
+      }
+    />
+  );
 }
+
 
 /* =========================================================
    APP ROUTER
@@ -1338,41 +2095,127 @@ function AppRouter() {
   const location =
     useLocation();
 
-  const authRuntimeRequired =
-    requiresAuthRuntime(
-      location.pathname
+  const currentHost =
+    getCurrentHost();
+
+  const portalType =
+    getPortalTypeFromHost(
+      currentHost
     );
+
+  const mainSite =
+    isMainSiteHost(
+      currentHost
+    );
+
+  /* =========================================================
+     FAST VERIFIED POST-LOGIN BOOTSTRAP
+
+     The server-side /auth/callback has already verified the
+     newly-created HttpOnly session before redirecting here.
+
+     This only avoids showing the second loader.
+
+     Server verification still runs silently in background.
+  ========================================================= */
+
+  const initialBootstrapRef =
+    useRef(
+      undefined
+    );
+
+  if (
+    initialBootstrapRef.current ===
+    undefined
+  ) {
+    initialBootstrapRef.current =
+      consumePortalBootstrap({
+        portalType,
+      });
+  }
+
+  const initialBootstrap =
+    initialBootstrapRef.current;
+
 
   const [
     currentUser,
     setCurrentUser,
-  ] = useState(null);
+  ] = useState(
+    () =>
+      initialBootstrap
+        ?.currentUser ||
+      null
+  );
 
-  /*
-    Intentionally TRUE initially.
-
-    Public website is never blocked by this value.
-
-    Agar visitor public route se login par navigate kare to
-    Login route session restore complete hone tak flash nahi karega.
-  */
 
   const [
-    isSessionLoading,
-    setIsSessionLoading,
-  ] = useState(true);
+    sessionState,
+    setSessionState,
+  ] = useState(
+    () => {
+      if (
+        initialBootstrap
+          ?.currentUser
+      ) {
+        return 'authenticated';
+      }
+
+      return (
+        portalType
+          ? 'checking'
+          : 'idle'
+      );
+    }
+  );
+
+
+  const bootstrapNeedsRevalidationRef =
+    useRef(
+      Boolean(
+        initialBootstrap
+          ?.currentUser
+      )
+    );
+
 
   const currentUserRef =
-    useRef(null);
+    useRef(
+      initialBootstrap
+        ?.currentUser ||
+      null
+    );
+
+  const sessionStateRef =
+    useRef(
+      sessionState
+    );
 
   const inactivityTimerRef =
-    useRef(null);
+    useRef(
+      null
+    );
+
+  const sessionRetryTimerRef =
+    useRef(
+      null
+    );
+
+  const sessionRequestRef =
+    useRef(
+      null
+    );
 
   const lastActivityHandledRef =
-    useRef(0);
+    useRef(
+      0
+    );
 
   const mountedRef =
-    useRef(true);
+    useRef(
+      true
+    );
+
 
   /* =========================================================
      COMPONENT MOUNT STATE
@@ -1386,13 +2229,25 @@ function AppRouter() {
       return () => {
         mountedRef.current =
           false;
+
+        if (
+          sessionRetryTimerRef.current
+        ) {
+          window.clearTimeout(
+            sessionRetryTimerRef.current
+          );
+
+          sessionRetryTimerRef.current =
+            null;
+        }
       };
     },
     []
   );
 
+
   /* =========================================================
-     SYNC CURRENT USER REF
+     SYNC REFS
   ========================================================= */
 
   useEffect(
@@ -1405,31 +2260,50 @@ function AppRouter() {
     ]
   );
 
+
+  useEffect(
+    () => {
+      sessionStateRef.current =
+        sessionState;
+    },
+    [
+      sessionState,
+    ]
+  );
+
+
   /* =========================================================
-     CLEAR LOCAL APP CONTEXT
+     CLEAR LOCAL UI CONTEXT
   ========================================================= */
 
   const clearLocalAppContext =
     useCallback(
       () => {
-        localStorage.removeItem(
-          ACTIVE_COMPANY_KEY
-        );
+        try {
+          localStorage.removeItem(
+            ACTIVE_COMPANY_KEY
+          );
 
-        localStorage.removeItem(
-          LAST_ACTIVITY_KEY
-        );
+          localStorage.removeItem(
+            LAST_ACTIVITY_KEY
+          );
 
-        localStorage.removeItem(
-          ACTIVE_TAB_KEY
-        );
+          localStorage.removeItem(
+            ACTIVE_TAB_KEY
+          );
 
-        localStorage.removeItem(
-          LEGACY_SESSION_KEY
-        );
+          localStorage.removeItem(
+            LEGACY_SESSION_KEY
+          );
+        } catch {
+          // Non-critical.
+        }
+
+        clearPortalBootstrap();
       },
       []
     );
+
 
   /* =========================================================
      LOGOUT
@@ -1451,40 +2325,368 @@ function AppRouter() {
             null;
         }
 
-        setCurrentUser(
-          null
-        );
+        if (
+          sessionRetryTimerRef.current
+        ) {
+          window.clearTimeout(
+            sessionRetryTimerRef.current
+          );
+
+          sessionRetryTimerRef.current =
+            null;
+        }
+
+        await requestPortalLogout();
+
+        clearLocalAppContext();
+
+        if (
+          mountedRef.current
+        ) {
+          setCurrentUser(
+            null
+          );
+
+          setSessionState(
+            'unauthenticated'
+          );
+        }
 
         currentUserRef.current =
           null;
 
-        clearLocalAppContext();
+        sessionStateRef.current =
+          'unauthenticated';
 
-        try {
-          const supabase =
-            await getSupabaseClient();
-
-          await supabase
-            .auth
-            .signOut({
-              scope:
-                'local',
-            });
-        } catch (
-          err
+        if (
+          isAutoTimeout
         ) {
-          console.error(
-            isAutoTimeout
-              ? 'Inactivity logout error:'
-              : 'Logout error:',
-            err
+          console.info(
+            'Buddy Fleets secure session ended due to inactivity.'
           );
         }
+
+        window.location.replace(
+          SECURE_LOGIN_URL
+        );
       },
       [
         clearLocalAppContext,
       ]
     );
+
+
+  /* =========================================================
+     AUTHORITATIVE PORTAL SESSION RESTORE
+  ========================================================= */
+
+  const restorePortalSession =
+    useCallback(
+      async ({
+        showLoader = false,
+
+        preserveAuthenticatedOnTemporaryError =
+          false,
+      } = {}) => {
+        if (
+          !portalType
+        ) {
+          return null;
+        }
+
+
+        if (
+          sessionRequestRef.current
+        ) {
+          return await sessionRequestRef.current;
+        }
+
+
+        if (
+          showLoader &&
+          mountedRef.current
+        ) {
+          setSessionState(
+            'checking'
+          );
+
+          sessionStateRef.current =
+            'checking';
+        }
+
+
+        const requestPromise =
+          (async () => {
+            const result =
+              await fetchPortalSession();
+
+
+            if (
+              !mountedRef.current
+            ) {
+              return null;
+            }
+
+
+            if (
+              result.ok &&
+              result.currentUser &&
+              isUserAllowedOnCurrentHost({
+                currentUser:
+                  result.currentUser,
+
+                portalType,
+              })
+            ) {
+              setCurrentUser(
+                result.currentUser
+              );
+
+              setSessionState(
+                'authenticated'
+              );
+
+              currentUserRef.current =
+                result.currentUser;
+
+              sessionStateRef.current =
+                'authenticated';
+
+              return result.currentUser;
+            }
+
+
+            if (
+              isDefinitiveSessionRejection(
+                result
+              )
+            ) {
+              setCurrentUser(
+                null
+              );
+
+              setSessionState(
+                'unauthenticated'
+              );
+
+              currentUserRef.current =
+                null;
+
+              sessionStateRef.current =
+                'unauthenticated';
+
+              clearPortalBootstrap();
+
+              return null;
+            }
+
+
+            const canPreserveAuthenticatedUi =
+              Boolean(
+                preserveAuthenticatedOnTemporaryError &&
+                currentUserRef.current &&
+                sessionStateRef.current ===
+                  'authenticated'
+              );
+
+
+            if (
+              !canPreserveAuthenticatedUi
+            ) {
+              setSessionState(
+                'temporary-error'
+              );
+
+              sessionStateRef.current =
+                'temporary-error';
+            }
+
+
+            if (
+              sessionRetryTimerRef.current
+            ) {
+              window.clearTimeout(
+                sessionRetryTimerRef.current
+              );
+            }
+
+
+            sessionRetryTimerRef.current =
+              window.setTimeout(
+                () => {
+                  sessionRetryTimerRef.current =
+                    null;
+
+                  restorePortalSession({
+                    showLoader:
+                      false,
+
+                    preserveAuthenticatedOnTemporaryError:
+                      canPreserveAuthenticatedUi,
+                  });
+                },
+                PORTAL_SESSION_RETRY_MS
+              );
+
+
+            return null;
+          })();
+
+
+        sessionRequestRef.current =
+          requestPromise;
+
+
+        try {
+          return await requestPromise;
+        } finally {
+          if (
+            sessionRequestRef.current ===
+            requestPromise
+          ) {
+            sessionRequestRef.current =
+              null;
+          }
+        }
+      },
+      [
+        portalType,
+      ]
+    );
+
+
+  /* =========================================================
+     INITIAL PORTAL SESSION RESTORE
+
+     Fresh login:
+     → dashboard instantly renders from verified bootstrap
+     → server validation runs silently
+
+     Refresh/direct URL:
+     → no bootstrap
+     → server verification happens before protected UI
+  ========================================================= */
+
+  useEffect(
+    () => {
+      if (
+        !portalType
+      ) {
+        setCurrentUser(
+          null
+        );
+
+        setSessionState(
+          'idle'
+        );
+
+        currentUserRef.current =
+          null;
+
+        sessionStateRef.current =
+          'idle';
+
+        return;
+      }
+
+
+      if (
+        bootstrapNeedsRevalidationRef.current
+      ) {
+        bootstrapNeedsRevalidationRef.current =
+          false;
+
+
+        restorePortalSession({
+          showLoader:
+            false,
+
+          preserveAuthenticatedOnTemporaryError:
+            true,
+        });
+
+
+        return;
+      }
+
+
+      restorePortalSession({
+        showLoader:
+          true,
+      });
+    },
+    [
+      portalType,
+      restorePortalSession,
+    ]
+  );
+
+
+  /* =========================================================
+     BROWSER BACK / FORWARD CACHE PROTECTION
+  ========================================================= */
+
+  useEffect(
+    () => {
+      if (
+        !portalType
+      ) {
+        return undefined;
+      }
+
+
+      const handlePageShow =
+        (
+          event
+        ) => {
+          if (
+            event.persisted
+          ) {
+            restorePortalSession({
+              showLoader:
+                true,
+            });
+          }
+        };
+
+
+      window.addEventListener(
+        'pageshow',
+        handlePageShow
+      );
+
+
+      return () => {
+        window.removeEventListener(
+          'pageshow',
+          handlePageShow
+        );
+      };
+    },
+    [
+      portalType,
+      restorePortalSession,
+    ]
+  );
+
+
+  /* =========================================================
+     SESSION REFRESH
+  ========================================================= */
+
+  const refreshCurrentContext =
+    useCallback(
+      async () => {
+        return await restorePortalSession({
+          showLoader:
+            false,
+        });
+      },
+      [
+        restorePortalSession,
+      ]
+    );
+
 
   /* =========================================================
      INACTIVITY LOGOUT
@@ -1512,7 +2714,8 @@ function AppRouter() {
           elapsed;
 
         if (
-          remaining <= 0
+          remaining <=
+          0
         ) {
           handleLogout(
             true
@@ -1536,15 +2739,14 @@ function AppRouter() {
       ]
     );
 
-  /* =========================================================
-     RECORD ACTIVITY
-  ========================================================= */
 
   const recordActivity =
     useCallback(
       () => {
         if (
-          !currentUserRef.current
+          !currentUserRef.current ||
+          sessionStateRef.current !==
+            'authenticated'
         ) {
           return;
         }
@@ -1563,12 +2765,16 @@ function AppRouter() {
         lastActivityHandledRef.current =
           now;
 
-        localStorage.setItem(
-          LAST_ACTIVITY_KEY,
-          String(
-            now
-          )
-        );
+        try {
+          localStorage.setItem(
+            LAST_ACTIVITY_KEY,
+            String(
+              now
+            )
+          );
+        } catch {
+          // Non-critical.
+        }
 
         scheduleInactivityLogout(
           now
@@ -1579,497 +2785,6 @@ function AppRouter() {
       ]
     );
 
-  /* =========================================================
-     REFRESH AUTHORIZED CONTEXT
-  ========================================================= */
-
-  const refreshCurrentContext =
-    useCallback(
-      async () => {
-        try {
-          const supabase =
-            await getSupabaseClient();
-
-          const {
-            data:
-              userResult,
-            error:
-              userError,
-          } =
-            await supabase
-              .auth
-              .getUser();
-
-          if (
-            userError ||
-            !userResult?.user
-          ) {
-            setCurrentUser(
-              null
-            );
-
-            return null;
-          }
-
-          const authUser =
-            userResult.user;
-
-          const storedCompany =
-            getStoredCompanyContext();
-
-          const context =
-            await buildUserContext(
-              authUser,
-              storedCompany?.companyId ||
-                null
-            );
-
-          if (
-            !mountedRef.current
-          ) {
-            return null;
-          }
-
-          if (
-            currentUserRef.current &&
-            !context
-          ) {
-            await handleLogout(
-              false
-            );
-
-            return null;
-          }
-
-          if (
-            context
-          ) {
-            setCurrentUser(
-              context
-            );
-
-            currentUserRef.current =
-              context;
-          }
-
-          return context;
-        } catch (
-          err
-        ) {
-          console.error(
-            'User context refresh error:',
-            err
-          );
-
-          return null;
-        }
-      },
-      [
-        handleLogout,
-      ]
-    );
-
-  /* =========================================================
-     ROUTE-AWARE SESSION RESTORE
-
-     Critical performance change:
-
-     Public routes:
-       /
-       /features
-       /pricing
-       /about
-       /contact-us
-
-     par Supabase client import nahi hoga.
-  ========================================================= */
-
-  useEffect(
-    () => {
-      if (
-        !authRuntimeRequired
-      ) {
-        /*
-          Public website session restore ke liye wait nahi karega.
-
-          TRUE rakhenge so next auth-route navigation par
-          login/signup content premature render na ho.
-        */
-
-        setIsSessionLoading(
-          true
-        );
-
-        return undefined;
-      }
-
-      let cancelled =
-        false;
-
-      setIsSessionLoading(
-        true
-      );
-
-      const restoreSession =
-        async () => {
-          try {
-            localStorage.removeItem(
-              LEGACY_SESSION_KEY
-            );
-
-            const supabase =
-              await getSupabaseClient();
-
-            const {
-              data:
-                sessionData,
-              error:
-                sessionError,
-            } =
-              await supabase
-                .auth
-                .getSession();
-
-            if (
-              cancelled
-            ) {
-              return;
-            }
-
-            if (
-              sessionError
-            ) {
-              throw sessionError;
-            }
-
-            const session =
-              sessionData
-                ?.session;
-
-            if (
-              !session?.user
-            ) {
-              if (
-                mountedRef.current &&
-                !cancelled
-              ) {
-                setCurrentUser(
-                  null
-                );
-
-                currentUserRef.current =
-                  null;
-              }
-
-              return;
-            }
-
-            /* INACTIVITY CHECK */
-
-            const storedActivity =
-              Number(
-                localStorage.getItem(
-                  LAST_ACTIVITY_KEY
-                )
-              );
-
-            if (
-              storedActivity &&
-              Number.isFinite(
-                storedActivity
-              )
-            ) {
-              const elapsed =
-                Date.now() -
-                storedActivity;
-
-              if (
-                elapsed >=
-                INACTIVITY_TIMEOUT_MS
-              ) {
-                await handleLogout(
-                  true
-                );
-
-                return;
-              }
-            }
-
-            /* SERVER USER VERIFICATION */
-
-            const {
-              data:
-                userResult,
-              error:
-                userError,
-            } =
-              await supabase
-                .auth
-                .getUser();
-
-            if (
-              cancelled
-            ) {
-              return;
-            }
-
-            if (
-              userError ||
-              !userResult?.user
-            ) {
-              await handleLogout(
-                false
-              );
-
-              return;
-            }
-
-            const authUser =
-              userResult.user;
-
-            const storedCompany =
-              getStoredCompanyContext();
-
-            const context =
-              await buildUserContext(
-                authUser,
-                storedCompany?.companyId ||
-                  null
-              );
-
-            if (
-              cancelled ||
-              !mountedRef.current
-            ) {
-              return;
-            }
-
-            if (
-              context
-            ) {
-              setCurrentUser(
-                context
-              );
-
-              currentUserRef.current =
-                context;
-
-              const activity =
-                storedActivity &&
-                Number.isFinite(
-                  storedActivity
-                )
-                  ? storedActivity
-                  : Date.now();
-
-              localStorage.setItem(
-                LAST_ACTIVITY_KEY,
-                String(
-                  activity
-                )
-              );
-            } else {
-              setCurrentUser(
-                null
-              );
-
-              currentUserRef.current =
-                null;
-
-              /*
-                Stored company context present tha but
-                authorization ab valid nahi hai.
-              */
-
-              if (
-                storedCompany
-                  ?.companyId
-              ) {
-                localStorage.removeItem(
-                  ACTIVE_COMPANY_KEY
-                );
-
-                localStorage.removeItem(
-                  LAST_ACTIVITY_KEY
-                );
-
-                await supabase
-                  .auth
-                  .signOut({
-                    scope:
-                      'local',
-                  })
-                  .catch(
-                    () => {}
-                  );
-              }
-            }
-          } catch (
-            err
-          ) {
-            console.error(
-              'Session restore error:',
-              err
-            );
-
-            if (
-              mountedRef.current &&
-              !cancelled
-            ) {
-              setCurrentUser(
-                null
-              );
-
-              currentUserRef.current =
-                null;
-            }
-          } finally {
-            if (
-              mountedRef.current &&
-              !cancelled
-            ) {
-              setIsSessionLoading(
-                false
-              );
-            }
-          }
-        };
-
-      restoreSession();
-
-      return () => {
-        cancelled =
-          true;
-      };
-    },
-    [
-      authRuntimeRequired,
-      handleLogout,
-    ]
-  );
-
-  /* =========================================================
-     ROUTE-AWARE SUPABASE AUTH LISTENER
-
-     Public marketing route par listener bhi initialize
-     nahi hoga.
-  ========================================================= */
-
-  useEffect(
-    () => {
-      if (
-        !authRuntimeRequired
-      ) {
-        return undefined;
-      }
-
-      let cancelled =
-        false;
-
-      let subscription =
-        null;
-
-      const setupAuthListener =
-        async () => {
-          const supabase =
-            await getSupabaseClient();
-
-          if (
-            cancelled
-          ) {
-            return;
-          }
-
-          const {
-            data:
-              authListener,
-          } =
-            supabase
-              .auth
-              .onAuthStateChange(
-                (
-                  event,
-                  session
-                ) => {
-                  /* SIGNED OUT */
-
-                  if (
-                    event ===
-                    'SIGNED_OUT'
-                  ) {
-                    window.setTimeout(
-                      () => {
-                        if (
-                          !mountedRef.current
-                        ) {
-                          return;
-                        }
-
-                        setCurrentUser(
-                          null
-                        );
-
-                        currentUserRef.current =
-                          null;
-                      },
-                      0
-                    );
-
-                    return;
-                  }
-
-                  /*
-                    SIGNED_IN event alone authorization nahi deta.
-                  */
-
-                  if (
-                    event ===
-                    'SIGNED_IN'
-                  ) {
-                    return;
-                  }
-
-                  if (
-                    (
-                      event ===
-                        'TOKEN_REFRESHED' ||
-                      event ===
-                        'USER_UPDATED'
-                    ) &&
-                    session?.user &&
-                    currentUserRef.current
-                  ) {
-                    window.setTimeout(
-                      () => {
-                        refreshCurrentContext();
-                      },
-                      0
-                    );
-                  }
-                }
-              );
-
-          subscription =
-            authListener
-              ?.subscription ||
-            null;
-        };
-
-      setupAuthListener();
-
-      return () => {
-        cancelled =
-          true;
-
-        subscription
-          ?.unsubscribe();
-      };
-    },
-    [
-      authRuntimeRequired,
-      refreshCurrentContext,
-    ]
-  );
 
   /* =========================================================
      ACTIVITY LISTENERS
@@ -2078,7 +2793,10 @@ function AppRouter() {
   useEffect(
     () => {
       if (
-        !currentUser
+        !portalType ||
+        !currentUser ||
+        sessionState !==
+          'authenticated'
       ) {
         return undefined;
       }
@@ -2092,27 +2810,48 @@ function AppRouter() {
         'click',
       ];
 
-      const existing =
-        Number(
-          localStorage.getItem(
-            LAST_ACTIVITY_KEY
+      let initialActivity =
+        Date.now();
+
+      try {
+        const existing =
+          Number(
+            localStorage.getItem(
+              LAST_ACTIVITY_KEY
+            )
+          );
+
+        if (
+          existing &&
+          Number.isFinite(
+            existing
           )
+        ) {
+          initialActivity =
+            existing;
+        } else {
+          localStorage.setItem(
+            LAST_ACTIVITY_KEY,
+            String(
+              initialActivity
+            )
+          );
+        }
+      } catch {
+        // Non-critical.
+      }
+
+      if (
+        Date.now() -
+          initialActivity >=
+        INACTIVITY_TIMEOUT_MS
+      ) {
+        handleLogout(
+          true
         );
 
-      const initialActivity =
-        existing &&
-        Number.isFinite(
-          existing
-        )
-          ? existing
-          : Date.now();
-
-      localStorage.setItem(
-        LAST_ACTIVITY_KEY,
-        String(
-          initialActivity
-        )
-      );
+        return undefined;
+      }
 
       scheduleInactivityLogout(
         initialActivity
@@ -2164,62 +2903,14 @@ function AppRouter() {
     },
     [
       currentUser,
+      handleLogout,
+      portalType,
       recordActivity,
       scheduleInactivityLogout,
+      sessionState,
     ]
   );
 
-  /* =========================================================
-     LOGIN SUCCESS
-  ========================================================= */
-
-  const handleLoginSuccess =
-    useCallback(
-      (
-        authenticatedUser
-      ) => {
-        if (
-          !authenticatedUser
-            ?.id
-        ) {
-          return;
-        }
-
-        if (
-          authenticatedUser
-            .isPlatformAdmin
-        ) {
-          localStorage.removeItem(
-            ACTIVE_COMPANY_KEY
-          );
-        } else {
-          saveCompanyContext(
-            authenticatedUser
-          );
-        }
-
-        const now =
-          Date.now();
-
-        localStorage.setItem(
-          LAST_ACTIVITY_KEY,
-          String(
-            now
-          )
-        );
-
-        lastActivityHandledRef.current =
-          now;
-
-        setCurrentUser(
-          authenticatedUser
-        );
-
-        currentUserRef.current =
-          authenticatedUser;
-      },
-      []
-    );
 
   /* =========================================================
      USER UPDATE
@@ -2235,258 +2926,54 @@ function AppRouter() {
       ]
     );
 
+
   /* =========================================================
-     ROUTES
+     ROUTING SURFACES
   ========================================================= */
 
   return (
     <>
       <ScrollToTop />
 
-      <Routes>
-        {/* ===================================================
-            PUBLIC WEBSITE + AUTH
-        =================================================== */}
-
-        <Route
-          element={
-            <WebsiteLayout />
+      {portalType ? (
+        <PortalRoutes
+          portalType={
+            portalType
           }
-        >
-          {/* HOME */}
-
-          <Route
-            path="/"
-            element={
-              <LazyPage>
-                <Home />
-              </LazyPage>
-            }
-          />
-
-          {/* FEATURES */}
-
-          <Route
-            path="/features"
-            element={
-              <LazyPage>
-                <Features />
-              </LazyPage>
-            }
-          />
-
-          {/* PRICING */}
-
-          <Route
-            path="/pricing"
-            element={
-              <LazyPage>
-                <Pricing />
-              </LazyPage>
-            }
-          />
-
-          {/* ABOUT */}
-
-          <Route
-            path="/about"
-            element={
-              <LazyPage>
-                <AboutUs />
-              </LazyPage>
-            }
-          />
-
-          {/* CONTACT */}
-
-          <Route
-            path="/contact-us"
-            element={
-              <LazyPage>
-                <ContactUs />
-              </LazyPage>
-            }
-          />
-
-          {/* LOGIN */}
-
-          <Route
-            path="/login"
-            element={
-              <AuthGuestRoute
-                isSessionLoading={
-                  isSessionLoading
-                }
-                currentUser={
-                  currentUser
-                }
-              >
-                <LazyPage>
-                  <Login
-                    onLoginSuccess={
-                      handleLoginSuccess
-                    }
-                  />
-                </LazyPage>
-              </AuthGuestRoute>
-            }
-          />
-
-          {/* SIGNUP */}
-
-          <Route
-            path="/signup"
-            element={
-              <AuthGuestRoute
-                isSessionLoading={
-                  isSessionLoading
-                }
-                currentUser={
-                  currentUser
-                }
-              >
-                <LazyPage>
-                  <Signup />
-                </LazyPage>
-              </AuthGuestRoute>
-            }
-          />
-
-          {/* FORGOT PASSWORD */}
-
-          <Route
-            path="/forgot-password"
-            element={
-              <AuthGuestRoute
-                isSessionLoading={
-                  isSessionLoading
-                }
-                currentUser={
-                  currentUser
-                }
-              >
-                <LazyPage>
-                  <ForgotID />
-                </LazyPage>
-              </AuthGuestRoute>
-            }
-          />
-
-          {/* CONFIRMATION */}
-
-          <Route
-            path="/confirm"
-            element={
-              <LazyPage>
-                <ConfirmationPage />
-              </LazyPage>
-            }
-          />
-
-          {/* RESET PASSWORD */}
-
-          <Route
-            path="/reset-password"
-            element={
-              <LazyPage>
-                <ResetPassword />
-              </LazyPage>
-            }
-          />
-        </Route>
-
-        {/* LEGACY CONTACT */}
-
-        <Route
-          path="/contact"
-          element={
-            <LegacyContactRedirect />
+          currentUser={
+            currentUser
           }
-        />
-
-        {/* LEGACY FORGOT */}
-
-        <Route
-          path="/forgot-id"
-          element={
-            <LegacyForgotRedirect />
+          sessionState={
+            sessionState
           }
-        />
-
-        {/* LEGACY CONFIRMATION */}
-
-        <Route
-          path="/auth/confirmation"
-          element={
-            <LegacyConfirmationRedirect />
+          onRetrySession={() =>
+            restorePortalSession({
+              showLoader:
+                true,
+            })
           }
-        />
-
-        {/* ===================================================
-            PROTECTED DASHBOARD
-        =================================================== */}
-
-        <Route
-          path="/dashboard"
-          element={
-            isSessionLoading ? (
-              <FullScreenLoader />
-            ) : !currentUser ? (
-              <Navigate
-                to="/login"
-                replace
-              />
-            ) : currentUser
-                .isPlatformAdmin ? (
-              <Suspense
-                fallback={
-                  <FullScreenLoader />
-                }
-              >
-                <SuperAdminDashboard
-                  currentUser={
-                    currentUser
-                  }
-                  onLogout={() =>
-                    handleLogout(
-                      false
-                    )
-                  }
-                  onUserUpdate={
-                    handleUserUpdate
-                  }
-                />
-              </Suspense>
-            ) : (
-              <CompanyDashboardPending
-                currentUser={
-                  currentUser
-                }
-                onLogout={() =>
-                  handleLogout(
-                    false
-                  )
-                }
-              />
+          onLogout={() =>
+            handleLogout(
+              false
             )
           }
-        />
-
-        {/* CATCH ALL */}
-
-        <Route
-          path="*"
-          element={
-            <Navigate
-              to="/"
-              replace
-            />
+          onUserUpdate={
+            handleUserUpdate
           }
         />
-      </Routes>
+      ) : mainSite ? (
+        <MainWebsiteRoutes />
+      ) : (
+        <ExternalRedirect
+          to={
+            `https://${MAIN_HOST}/`
+          }
+        />
+      )}
     </>
   );
 }
+
 
 /* =========================================================
    APP
