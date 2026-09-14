@@ -16,6 +16,7 @@ import {
 } from 'react-router-dom';
 
 import WebsiteLayout from './layouts/WebsiteLayout';
+import DeveloperLayout from './layouts/DeveloperLayout';
 
 /* =========================================================
    ROUTE-LEVEL CODE SPLITTING
@@ -61,8 +62,72 @@ const ResetPassword = lazy(() =>
   import('./pages/Auth/ResetPassword')
 );
 
-const DeveloperDashboard = lazy(() =>
-  import('./pages/Dashboard/DeveloperDashboard')
+const DeveloperOverview = lazy(() =>
+  import('./pages/Developer/DeveloperOverview')
+);
+
+const DeveloperActivity = lazy(() =>
+  import('./pages/Developer/DeveloperActivity')
+);
+
+const DeveloperWebsiteStudio = lazy(() =>
+  import('./pages/Developer/WebsiteStudio')
+);
+
+const DeveloperContentSeo = lazy(() =>
+  import('./pages/Developer/ContentSeo')
+);
+
+const DeveloperWebsiteEnquiries = lazy(() =>
+  import('./pages/Developer/WebsiteEnquiries')
+);
+
+const DeveloperCompanies = lazy(() =>
+  import('./pages/Developer/Companies')
+);
+
+const DeveloperEntitlements = lazy(() =>
+  import('./pages/Developer/Entitlements')
+);
+
+const DeveloperModules = lazy(() =>
+  import('./pages/Developer/Modules')
+);
+
+const DeveloperTeam = lazy(() =>
+  import('./pages/Developer/Team')
+);
+
+const DeveloperStudio = lazy(() =>
+  import('./pages/Developer/DeveloperStudio')
+);
+
+const DeveloperWorkflowBuilder = lazy(() =>
+  import('./pages/Developer/WorkflowBuilder')
+);
+
+const DeveloperIntegrations = lazy(() =>
+  import('./pages/Developer/Integrations')
+);
+
+const DeveloperFeatureFlags = lazy(() =>
+  import('./pages/Developer/FeatureFlags')
+);
+
+const DeveloperSecurity = lazy(() =>
+  import('./pages/Developer/Security')
+);
+
+const DeveloperAudit = lazy(() =>
+  import('./pages/Developer/Audit')
+);
+
+const DeveloperInfrastructure = lazy(() =>
+  import('./pages/Developer/Infrastructure')
+);
+
+const DeveloperSystem = lazy(() =>
+  import('./pages/Developer/System')
 );
 
 
@@ -1861,8 +1926,10 @@ function PortalRoutes({
   /* =======================================================
      DEVELOPER
 
-     Canonical authenticated route:
-     /dashboard
+     Routed Developer CPanel:
+     - URL-driven navigation
+     - Dedicated DeveloperLayout shell
+     - Secure server session remains authoritative
   ======================================================= */
 
   if (
@@ -1882,27 +1949,170 @@ function PortalRoutes({
         />
 
         <Route
-          path="/dashboard"
           element={
-            <Suspense
-              fallback={
-                <FullScreenLoader />
+            <DeveloperLayout
+              currentUser={
+                currentUser
               }
-            >
-              <DeveloperDashboard
-                currentUser={
-                  currentUser
-                }
-                onLogout={
-                  onLogout
-                }
-                onUserUpdate={
-                  onUserUpdate
-                }
-              />
-            </Suspense>
+              onLogout={
+                onLogout
+              }
+            />
           }
-        />
+        >
+          <Route
+            path="dashboard"
+            element={
+              <LazyPage>
+                <DeveloperOverview />
+              </LazyPage>
+            }
+          />
+
+          <Route
+            path="activity"
+            element={
+              <LazyPage>
+                <DeveloperActivity />
+              </LazyPage>
+            }
+          />
+
+          <Route
+            path="website"
+            element={
+              <LazyPage>
+                <DeveloperWebsiteStudio />
+              </LazyPage>
+            }
+          />
+
+          <Route
+            path="website/seo"
+            element={
+              <LazyPage>
+                <DeveloperContentSeo />
+              </LazyPage>
+            }
+          />
+
+          <Route
+            path="website/enquiries"
+            element={
+              <LazyPage>
+                <DeveloperWebsiteEnquiries />
+              </LazyPage>
+            }
+          />
+
+          <Route
+            path="companies"
+            element={
+              <LazyPage>
+                <DeveloperCompanies />
+              </LazyPage>
+            }
+          />
+
+          <Route
+            path="subscriptions"
+            element={
+              <LazyPage>
+                <DeveloperEntitlements />
+              </LazyPage>
+            }
+          />
+
+          <Route
+            path="modules"
+            element={
+              <LazyPage>
+                <DeveloperModules />
+              </LazyPage>
+            }
+          />
+
+          <Route
+            path="team"
+            element={
+              <LazyPage>
+                <DeveloperTeam />
+              </LazyPage>
+            }
+          />
+
+          <Route
+            path="developer-studio"
+            element={
+              <LazyPage>
+                <DeveloperStudio />
+              </LazyPage>
+            }
+          />
+
+          <Route
+            path="developer-studio/workflows"
+            element={
+              <LazyPage>
+                <DeveloperWorkflowBuilder />
+              </LazyPage>
+            }
+          />
+
+          <Route
+            path="integrations"
+            element={
+              <LazyPage>
+                <DeveloperIntegrations />
+              </LazyPage>
+            }
+          />
+
+          <Route
+            path="feature-flags"
+            element={
+              <LazyPage>
+                <DeveloperFeatureFlags />
+              </LazyPage>
+            }
+          />
+
+          <Route
+            path="security"
+            element={
+              <LazyPage>
+                <DeveloperSecurity />
+              </LazyPage>
+            }
+          />
+
+          <Route
+            path="audit"
+            element={
+              <LazyPage>
+                <DeveloperAudit />
+              </LazyPage>
+            }
+          />
+
+          <Route
+            path="infrastructure"
+            element={
+              <LazyPage>
+                <DeveloperInfrastructure />
+              </LazyPage>
+            }
+          />
+
+          <Route
+            path="system"
+            element={
+              <LazyPage>
+                <DeveloperSystem />
+              </LazyPage>
+            }
+          />
+        </Route>
 
         <Route
           path="*"
