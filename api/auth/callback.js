@@ -2066,17 +2066,53 @@ export default async function handler(
     );
   }
 
+  /*
+    Performance:
+    Supabase user verification and profile lookup are independent,
+    so run them in parallel. Security decisions remain unchanged.
+  */
+
+  let verifiedUserResult;
+  let profile;
+
+  try {
+    [
+      verifiedUserResult,
+      profile,
+    ] =
+      await Promise.all([
+        supabaseAdmin
+          .auth
+          .getUser(
+            accessToken
+          ),
+
+        getProfile(
+          handoff.user_id
+        ),
+      ]);
+  } catch (
+    error
+  ) {
+    console.error(
+      'Callback user/profile verification failed:',
+      error?.message
+    );
+
+    return redirectToLogin(
+      res,
+      true
+    );
+  }
+
   const {
     data:
       verifiedUser,
     error:
       verifiedUserError,
   } =
-    await supabaseAdmin
-      .auth
-      .getUser(
-        accessToken
-      );
+    verifiedUserResult ||
+    {};
 
   if (
     verifiedUserError ||
@@ -2087,27 +2123,6 @@ export default async function handler(
       .id !==
       handoff.user_id
   ) {
-    return redirectToLogin(
-      res,
-      true
-    );
-  }
-
-  let profile;
-
-  try {
-    profile =
-      await getProfile(
-        handoff.user_id
-      );
-  } catch (
-    error
-  ) {
-    console.error(
-      'Callback profile lookup failed:',
-      error?.message
-    );
-
     return redirectToLogin(
       res,
       true

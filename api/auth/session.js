@@ -2514,15 +2514,6 @@ export default async function handler(
 
 
   /* ========================================================
-     UPDATE LAST-SEEN
-  ======================================================== */
-
-  await touchSession(
-    securitySession.id
-  );
-
-
-  /* ========================================================
      SAFE CURRENT USER
   ======================================================== */
 
@@ -2545,47 +2536,56 @@ export default async function handler(
 
 
   /* ========================================================
-     SUCCESS AUDIT
+     LAST-SEEN + SUCCESS AUDIT
+
+     Both writes are independent after verification succeeds.
+     Running them together removes one serial database wait.
   ======================================================== */
 
-  await writeSecurityEvent({
-    userId:
-      securitySession
-        .user_id,
+  await Promise.all([
+    touchSession(
+      securitySession.id
+    ),
 
-    companyId:
-      securitySession
-        .company_id,
+    writeSecurityEvent({
+      userId:
+        securitySession
+          .user_id,
 
-    eventType:
-      'PORTAL_SESSION_VERIFIED',
+      companyId:
+        securitySession
+          .company_id,
 
-    portalType:
-      securitySession
-        .portal_type,
+      eventType:
+        'PORTAL_SESSION_VERIFIED',
 
-    ipAddress:
-      currentIp,
+      portalType:
+        securitySession
+          .portal_type,
 
-    userAgent:
-      currentUserAgent,
+      ipAddress:
+        currentIp,
 
-    metadata: {
-      host:
-        requestHost,
+      userAgent:
+        currentUserAgent,
 
-      company_slug:
-        currentUser
-          ?.companySlug ||
-        null,
+      metadata: {
+        host:
+          requestHost,
 
-      mfa_enabled:
-        mfaEnabled,
+        company_slug:
+          currentUser
+            ?.companySlug ||
+          null,
 
-      session_aal:
-        verifiedAuth.aal,
-    },
-  });
+        mfa_enabled:
+          mfaEnabled,
+
+        session_aal:
+          verifiedAuth.aal,
+      },
+    }),
+  ]);
 
 
   /* ========================================================

@@ -1156,52 +1156,54 @@ export default async function handler(
 
 
   /* ========================================================
-     BEST-EFFORT SUPABASE AUTH REVOCATION
+     BEST-EFFORT UPSTREAM REVOCATION + AUDIT
+
+     The Buddy Fleets application session has already been
+     authoritatively revoked above and the cookie is marked for
+     deletion. These two remaining operations are independent,
+     so run them concurrently instead of serially.
   ======================================================== */
 
-  await revokeSupabaseAuthSession(
-    authSessionSnapshot
-  );
+  await Promise.all([
+    revokeSupabaseAuthSession(
+      authSessionSnapshot
+    ),
 
+    writeSecurityEvent({
+      userId:
+        securitySession
+          .user_id,
 
-  /* ========================================================
-     AUDIT
-  ======================================================== */
+      companyId:
+        securitySession
+          .company_id,
 
-  await writeSecurityEvent({
-    userId:
-      securitySession
-        .user_id,
+      eventType:
+        'PORTAL_LOGOUT',
 
-    companyId:
-      securitySession
-        .company_id,
+      portalType:
+        securitySession
+          .portal_type,
 
-    eventType:
-      'PORTAL_LOGOUT',
+      ipAddress:
+        getClientIp(
+          req
+        ),
 
-    portalType:
-      securitySession
-        .portal_type,
+      userAgent:
+        getUserAgent(
+          req
+        ),
 
-    ipAddress:
-      getClientIp(
-        req
-      ),
+      metadata: {
+        host:
+          requestHost,
 
-    userAgent:
-      getUserAgent(
-        req
-      ),
-
-    metadata: {
-      host:
-        requestHost,
-
-      security_session_id:
-        securitySession.id,
-    },
-  });
+        security_session_id:
+          securitySession.id,
+      },
+    }),
+  ]);
 
 
   /* ========================================================
