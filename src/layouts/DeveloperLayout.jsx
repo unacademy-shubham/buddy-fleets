@@ -1,7 +1,5 @@
 import React, {
-  useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -26,151 +24,82 @@ import {
   ChevronLeft,
   ChevronRight,
   Circle,
-  CircleHelp,
-  Command,
-  ContactRound,
   FileClock,
-  FileText,
   Flag,
   Globe2,
-  History,
-  Inbox,
-  KeyRound,
   LayoutDashboard,
-  LifeBuoy,
-  LockKeyhole,
   LogOut,
   Mail,
+  Maximize2,
   Menu,
-  MessageCircle,
   MessageSquare,
-  Monitor,
   Moon,
-  MoreHorizontal,
   PanelsTopLeft,
   Search,
   ServerCog,
   Settings,
   ShieldCheck,
   SlidersHorizontal,
-  Sparkles,
   Sun,
   User,
-  UserCog,
   Users,
   Workflow,
   X,
-  Zap,
 } from 'lucide-react';
 
 /* ============================================================
-   BUDDY FLEETS
-   DEVELOPER CPANEL — SPLITE-INSPIRED PREMIUM ADMIN SHELL
+   BUDDY FLEETS DEVELOPER CPANEL
+   SPLITE-STYLE SHELL — GEOMETRY + WORKFLOW MATCH
 
-   File:
-   src/layouts/DeveloperLayout.jsx
-
-   IMPORTANT
-   ----------------------------------------------------------------
-   - Buddy Fleets content + routing only.
-   - Visual workflow inspired by premium admin templates.
-   - No auth authority is moved to the browser.
-   - Existing secure App.jsx / /api/auth/session architecture remains.
-   - This component only controls portal UI/chrome.
+   Key principles:
+   - Left sidebar workflow mirrors classic premium admin templates:
+     brand -> centered profile -> collapsible parent menus -> child links
+   - Header is a single horizontal utility bar.
+   - Header and sidebar colors can shift independently.
+   - Light/Dark affects the content area, not layout geometry.
+   - Right drawer provides Recent / Contacts / Settings.
+   - Existing secure auth remains outside this component.
 ============================================================ */
 
 
 /* ============================================================
-   STORAGE KEYS
+   CONSTANTS
 ============================================================ */
+
+const SIDEBAR_W = 250;
+const SIDEBAR_COLLAPSED_W = 72;
+const HEADER_H = 66;
+const RIGHT_DRAWER_W = 302;
 
 const STORAGE = {
-  theme:
-    'buddy_fleets_dev_theme',
-
-  primary:
-    'buddy_fleets_dev_primary',
-
-  background:
-    'buddy_fleets_dev_background',
-
-  menuStyle:
-    'buddy_fleets_dev_menu_style',
-
-  headerStyle:
-    'buddy_fleets_dev_header_style',
-
-  sidebarCollapsed:
-    'buddy_fleets_dev_sidebar_collapsed',
-
-  rightPanelTab:
-    'buddy_fleets_dev_right_panel_tab',
-
-  direction:
-    'buddy_fleets_dev_direction',
-
-  compactMode:
-    'buddy_fleets_dev_compact_mode',
+  theme: 'bf_dev_theme',
+  primary: 'bf_dev_primary',
+  sidebar: 'bf_dev_sidebar_style',
+  header: 'bf_dev_header_style',
+  collapsed: 'bf_dev_sidebar_collapsed',
+  drawerTab: 'bf_dev_drawer_tab',
 };
-
-
-/* ============================================================
-   LAYOUT CONSTANTS
-
-   Proportions intentionally kept compact and admin-like.
-============================================================ */
-
-const DIMENSIONS = {
-  sidebarExpanded:
-    250,
-
-  sidebarCollapsed:
-    72,
-
-  headerHeight:
-    66,
-
-  rightPanelWidth:
-    302,
-
-  navItemHeight:
-    42,
-
-  sidebarIcon:
-    17,
-
-  headerIcon:
-    18,
-};
-
-
-/* ============================================================
-   PRIMARY COLOR PRESETS
-============================================================ */
 
 const PRIMARY_PRESETS = [
   {
     id: 'indigo',
     label: 'Indigo',
-    value: '#5553DF',
-    strong: '#4845D2',
-    soft: '#EEEDFF',
-    rgb: '85 83 223',
+    value: '#5652DE',
+    strong: '#4945CC',
+    rgb: '86 82 222',
   },
   {
-    id: 'blue',
+    id: 'buddy-blue',
     label: 'Buddy Blue',
-    value: '#0B84D8',
-    strong: '#0871BB',
-    soft: '#EAF6FE',
-    rgb: '11 132 216',
+    value: '#1689E5',
+    strong: '#0F73C3',
+    rgb: '22 137 229',
   },
   {
     id: 'violet',
     label: 'Violet',
     value: '#7C3AED',
     strong: '#6D28D9',
-    soft: '#F3E8FF',
     rgb: '124 58 237',
   },
   {
@@ -178,7 +107,6 @@ const PRIMARY_PRESETS = [
     label: 'Cyan',
     value: '#0891B2',
     strong: '#0E7490',
-    soft: '#ECFEFF',
     rgb: '8 145 178',
   },
   {
@@ -186,7 +114,6 @@ const PRIMARY_PRESETS = [
     label: 'Emerald',
     value: '#059669',
     strong: '#047857',
-    soft: '#ECFDF5',
     rgb: '5 150 105',
   },
   {
@@ -194,1045 +121,501 @@ const PRIMARY_PRESETS = [
     label: 'Orange',
     value: '#EA580C',
     strong: '#C2410C',
-    soft: '#FFF7ED',
     rgb: '234 88 12',
   },
-  {
-    id: 'rose',
-    label: 'Rose',
-    value: '#E11D48',
-    strong: '#BE123C',
-    soft: '#FFF1F2',
-    rgb: '225 29 72',
-  },
 ];
 
 
 /* ============================================================
-   BACKGROUND PRESETS
+   SIDEBAR TREE
 ============================================================ */
 
-const BACKGROUND_PRESETS = [
+const MENU_TREE = [
   {
-    id: 'soft',
-    label: 'Soft',
-    light: '#F4F6FA',
-    dark: '#0F1725',
-  },
-  {
-    id: 'cool',
-    label: 'Cool',
-    light: '#F1F5F9',
-    dark: '#111827',
-  },
-  {
-    id: 'bluegray',
-    label: 'Blue Gray',
-    light: '#EFF3F8',
-    dark: '#101827',
-  },
-  {
-    id: 'neutral',
-    label: 'Neutral',
-    light: '#F5F5F5',
-    dark: '#16181D',
-  },
-];
-
-
-/* ============================================================
-   LEFT NAVIGATION
-============================================================ */
-
-const NAV_GROUPS = [
-  {
-    label: 'Control Center',
-
-    items: [
+    id: 'dashboard',
+    label: 'Dashboard',
+    icon: LayoutDashboard,
+    children: [
       {
         label: 'Overview',
         to: '/dashboard',
-        icon: LayoutDashboard,
         end: true,
       },
-
       {
         label: 'Live Activity',
         to: '/activity',
-        icon: Activity,
       },
     ],
   },
 
   {
+    id: 'website',
     label: 'Website',
-
-    items: [
+    icon: Globe2,
+    children: [
       {
         label: 'Website Studio',
         to: '/website',
-        icon: PanelsTopLeft,
         end: true,
       },
-
       {
         label: 'Content & SEO',
         to: '/website/seo',
-        icon: Globe2,
       },
-
       {
         label: 'Website Enquiries',
         to: '/website/enquiries',
-        icon: MessageSquare,
       },
     ],
   },
 
   {
+    id: 'platform',
     label: 'SaaS Platform',
-
-    items: [
+    icon: Building2,
+    children: [
       {
         label: 'Companies',
         to: '/companies',
-        icon: Building2,
       },
-
       {
         label: 'Plans & Entitlements',
         to: '/subscriptions',
-        icon: BadgeCheck,
       },
-
       {
         label: 'Module Registry',
         to: '/modules',
-        icon: Boxes,
       },
-
       {
         label: 'Team & Roles',
         to: '/team',
-        icon: Users,
       },
     ],
   },
 
   {
+    id: 'studio',
     label: 'Developer Studio',
-
-    items: [
+    icon: Blocks,
+    children: [
       {
         label: 'Module Builder',
         to: '/developer-studio',
-        icon: Blocks,
         end: true,
       },
-
       {
         label: 'Workflow Builder',
         to: '/developer-studio/workflows',
-        icon: Workflow,
       },
-
       {
         label: 'Integrations',
         to: '/integrations',
-        icon: Cable,
       },
-
       {
         label: 'Feature Flags',
         to: '/feature-flags',
-        icon: Flag,
       },
     ],
   },
 
   {
+    id: 'security',
     label: 'Security & System',
-
-    items: [
+    icon: ShieldCheck,
+    children: [
       {
         label: 'Security Center',
         to: '/security',
-        icon: ShieldCheck,
       },
-
       {
         label: 'Audit Logs',
         to: '/audit',
-        icon: FileClock,
       },
-
       {
         label: 'Infrastructure',
         to: '/infrastructure',
-        icon: ServerCog,
       },
-
       {
         label: 'System Settings',
         to: '/system',
-        icon: Settings,
       },
     ],
   },
 ];
 
-const ALL_NAV_ITEMS =
-  NAV_GROUPS.flatMap(
-    (group) =>
-      group.items
-  );
-
 
 /* ============================================================
-   HEADER MOCK DATA
-
-   These are UI shell examples only.
-   Real API wiring can replace these arrays later.
+   MOCK SHELL CONTENT
 ============================================================ */
 
-const MESSAGE_ITEMS = [
+const RECENT = [
   {
-    id: 'm1',
-    name: 'Platform Support',
-    initials: 'PS',
-    text: 'New company onboarding request is ready for review.',
-    time: '12 min',
-    unread: true,
-  },
-  {
-    id: 'm2',
-    name: 'Sales Team',
-    initials: 'ST',
-    text: 'Enterprise plan enquiry moved to technical review.',
-    time: '1 hr',
-    unread: true,
-  },
-  {
-    id: 'm3',
-    name: 'System Bot',
-    initials: 'SB',
-    text: 'Deployment checklist completed successfully.',
-    time: '3 hr',
-    unread: false,
-  },
-  {
-    id: 'm4',
-    name: 'Website Lead',
-    initials: 'WL',
-    text: 'New website enquiry has been assigned.',
-    time: 'Today',
-    unread: false,
-  },
-];
-
-const NOTIFICATION_ITEMS = [
-  {
-    id: 'n1',
-    title: 'Secure session verified',
-    meta: 'Developer portal · 8 minutes ago',
-    icon: ShieldCheck,
-    tone: 'success',
-  },
-  {
-    id: 'n2',
-    title: 'New company created',
-    meta: 'Tenant provisioning · 42 minutes ago',
-    icon: Building2,
-    tone: 'primary',
-  },
-  {
-    id: 'n3',
-    title: 'Trial expiry approaching',
-    meta: '1 company · 5 hours ago',
-    icon: History,
-    tone: 'warning',
-  },
-  {
-    id: 'n4',
-    title: 'Module rollout updated',
-    meta: 'Feature flags · Today',
-    icon: Flag,
-    tone: 'violet',
-  },
-];
-
-const RECENT_ITEMS = [
-  {
-    id: 'r1',
     title: 'Security policy updated',
-    text: 'Developer MFA defaults were reviewed.',
+    text: 'Developer security defaults reviewed.',
     time: '14:20',
     icon: ShieldCheck,
-    tone: 'success',
   },
   {
-    id: 'r2',
     title: 'Company access changed',
-    text: 'Entitlement configuration updated.',
+    text: 'Plan entitlement configuration updated.',
     time: '13:10',
     icon: BadgeCheck,
-    tone: 'primary',
   },
   {
-    id: 'r3',
     title: 'Website publish completed',
-    text: 'Production website release finished.',
+    text: 'Public website deployment finished.',
     time: '11:48',
     icon: Globe2,
-    tone: 'violet',
   },
   {
-    id: 'r4',
     title: 'Audit export generated',
     text: 'Admin activity export is available.',
     time: '09:20',
-    icon: FileText,
-    tone: 'warning',
+    icon: FileClock,
   },
 ];
 
-const CONTACT_ITEMS = [
+const CONTACTS = [
   {
-    id: 'c1',
     name: 'Platform Owner',
     role: 'Super Admin',
-    status: 'online',
+    state: 'online',
     initials: 'PO',
   },
   {
-    id: 'c2',
     name: 'Support Admin',
     role: 'Customer Support',
-    status: 'online',
+    state: 'online',
     initials: 'SA',
   },
   {
-    id: 'c3',
     name: 'Sales Admin',
-    role: 'Sales Team',
-    status: 'away',
+    role: 'Sales',
+    state: 'away',
     initials: 'SA',
   },
   {
-    id: 'c4',
     name: 'Operations',
     role: 'Platform Team',
-    status: 'offline',
+    state: 'offline',
     initials: 'OP',
   },
 ];
 
+const MESSAGES = [
+  {
+    name: 'Platform Support',
+    text: 'New company onboarding request is ready for review.',
+    time: '12 min',
+    initials: 'PS',
+  },
+  {
+    name: 'Sales Team',
+    text: 'Enterprise plan enquiry moved to technical review.',
+    time: '1 hr',
+    initials: 'ST',
+  },
+  {
+    name: 'System Bot',
+    text: 'Deployment checklist completed successfully.',
+    time: '3 hr',
+    initials: 'SB',
+  },
+  {
+    name: 'Website Lead',
+    text: 'New website enquiry has been assigned.',
+    time: 'Today',
+    initials: 'WL',
+  },
+];
+
+const NOTIFICATIONS = [
+  {
+    title: 'Secure session verified',
+    meta: 'Developer portal · 8 minutes ago',
+    icon: ShieldCheck,
+  },
+  {
+    title: 'New company created',
+    meta: 'Tenant provisioning · 42 minutes ago',
+    icon: Building2,
+  },
+  {
+    title: 'Trial expiry approaching',
+    meta: '1 company · 5 hours ago',
+    icon: Flag,
+  },
+  {
+    title: 'Module rollout updated',
+    meta: 'Feature flags · Today',
+    icon: Boxes,
+  },
+];
+
 
 /* ============================================================
-   GENERIC HELPERS
+   HELPERS
 ============================================================ */
 
-function cx(
-  ...classes
-) {
-  return classes
-    .filter(Boolean)
-    .join(' ');
+function cx(...items) {
+  return items.filter(Boolean).join(' ');
 }
 
-
-function safeReadStorage(
-  key,
-  fallback = ''
-) {
-  if (
-    typeof window ===
-    'undefined'
-  ) {
-    return fallback;
-  }
-
+function readStorage(key, fallback) {
   try {
-    return (
-      window.localStorage.getItem(
-        key
-      ) ?? fallback
-    );
+    return window.localStorage.getItem(key) ?? fallback;
   } catch {
     return fallback;
   }
 }
 
-
-function safeWriteStorage(
-  key,
-  value
-) {
-  if (
-    typeof window ===
-    'undefined'
-  ) {
-    return;
-  }
-
+function writeStorage(key, value) {
   try {
-    window.localStorage.setItem(
-      key,
-      String(value)
-    );
+    window.localStorage.setItem(key, String(value));
   } catch {
-    // Non-critical UI persistence failure.
+    // UI preference persistence is non-critical.
   }
 }
 
-
-function getInitialTheme() {
-  const stored =
-    safeReadStorage(
-      STORAGE.theme,
-      'dark'
-    );
-
-  return (
-    stored === 'light' ||
-    stored === 'dark'
-  )
-    ? stored
-    : 'dark';
-}
-
-
-function getInitialPrimary() {
-  const stored =
-    safeReadStorage(
-      STORAGE.primary,
-      'indigo'
-    );
-
-  return (
-    PRIMARY_PRESETS.some(
-      (item) =>
-        item.id === stored
-    )
-  )
-    ? stored
-    : 'indigo';
-}
-
-
-function getInitialBackground() {
-  const stored =
-    safeReadStorage(
-      STORAGE.background,
-      'soft'
-    );
-
-  return (
-    BACKGROUND_PRESETS.some(
-      (item) =>
-        item.id === stored
-    )
-  )
-    ? stored
-    : 'soft';
-}
-
-
-function getInitialMenuStyle() {
-  const stored =
-    safeReadStorage(
-      STORAGE.menuStyle,
-      'dark'
-    );
-
-  return [
-    'light',
-    'dark',
-    'color',
-    'gradient',
-  ].includes(stored)
-    ? stored
-    : 'dark';
-}
-
-
-function getInitialHeaderStyle() {
-  const stored =
-    safeReadStorage(
-      STORAGE.headerStyle,
-      'color'
-    );
-
-  return [
-    'light',
-    'dark',
-    'color',
-    'gradient',
-  ].includes(stored)
-    ? stored
-    : 'color';
-}
-
-
-function getInitialSidebarCollapsed() {
-  return (
-    safeReadStorage(
-      STORAGE.sidebarCollapsed,
-      'false'
-    ) === 'true'
-  );
-}
-
-
-function getInitialRightTab() {
-  const stored =
-    safeReadStorage(
-      STORAGE.rightPanelTab,
-      'recent'
-    );
-
-  return [
-    'recent',
-    'contacts',
-    'settings',
-  ].includes(stored)
-    ? stored
-    : 'recent';
-}
-
-
-function getInitialDirection() {
-  return (
-    safeReadStorage(
-      STORAGE.direction,
-      'ltr'
-    ) === 'rtl'
-  )
-    ? 'rtl'
-    : 'ltr';
-}
-
-
-function getInitialCompactMode() {
-  return (
-    safeReadStorage(
-      STORAGE.compactMode,
-      'false'
-    ) === 'true'
-  );
-}
-
-
-function getPageDetails(
-  pathname
-) {
-  const exact =
-    ALL_NAV_ITEMS.find(
-      (item) =>
-        item.to ===
-        pathname
-    );
-
-  if (exact) {
-    return exact;
-  }
-
-  const nested =
-    ALL_NAV_ITEMS
-      .filter(
-        (item) =>
-          pathname.startsWith(
-            `${item.to}/`
-          )
-      )
-      .sort(
-        (a, b) =>
-          b.to.length -
-          a.to.length
-      );
-
-  return (
-    nested[0] || {
-      label:
-        'Developer CPanel',
-      icon:
-        LayoutDashboard,
-    }
-  );
-}
-
-
-function getInitials(
-  value
-) {
-  const text =
-    String(
-      value || ''
-    )
-      .trim()
-      .replace(
-        /\s+/g,
-        ' '
-      );
+function getInitials(value) {
+  const text = String(value || '').trim();
 
   if (!text) {
     return 'SA';
   }
 
-  const parts =
-    text.split(' ');
+  const parts = text.split(/\s+/);
 
-  if (
-    parts.length === 1
-  ) {
-    return parts[0]
-      .slice(0, 2)
-      .toUpperCase();
+  if (parts.length === 1) {
+    return parts[0].slice(0, 2).toUpperCase();
   }
 
-  return (
-    `${parts[0][0]}${
-      parts[
-        parts.length - 1
-      ][0]
-    }`
-  ).toUpperCase();
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
 }
 
+function pathIsInside(pathname, menu) {
+  return menu.children.some((child) => {
+    if (child.end) {
+      return pathname === child.to;
+    }
 
-/* ============================================================
-   THEME TOKEN BUILDER
-============================================================ */
+    return (
+      pathname === child.to ||
+      pathname.startsWith(`${child.to}/`)
+    );
+  });
+}
 
-function buildThemeTokens({
+function buildVars({
   theme,
   primaryId,
-  backgroundId,
-  menuStyle,
+  sidebarStyle,
   headerStyle,
-  compactMode,
 }) {
   const primary =
     PRIMARY_PRESETS.find(
-      (item) =>
-        item.id ===
-        primaryId
-    ) ||
-    PRIMARY_PRESETS[0];
+      (item) => item.id === primaryId
+    ) || PRIMARY_PRESETS[0];
 
-  const background =
-    BACKGROUND_PRESETS.find(
-      (item) =>
-        item.id ===
-        backgroundId
-    ) ||
-    BACKGROUND_PRESETS[0];
+  const dark = theme === 'dark';
 
-  const isDark =
-    theme === 'dark';
+  let sidebarBg = dark ? '#1B2737' : '#FFFFFF';
+  let sidebarText = dark ? '#F1F5F9' : '#66748A';
+  let sidebarMuted = dark ? '#8D9DB2' : '#94A3B8';
+  let sidebarBorder = dark ? '#2B3A4E' : '#E4E9F0';
 
-  const pageBackground =
-    isDark
-      ? background.dark
-      : background.light;
-
-  const darkSurface =
-    '#1B2636';
-
-  const darkSurface2 =
-    '#121C2B';
-
-  const lightSurface =
-    '#FFFFFF';
-
-  const textPrimary =
-    isDark
-      ? '#EAF1F8'
-      : '#1E293B';
-
-  const textSecondary =
-    isDark
-      ? '#9BAAC0'
-      : '#64748B';
-
-  const border =
-    isDark
-      ? '#2B394B'
-      : '#E1E7EF';
-
-  let sidebarBackground =
-    isDark
-      ? '#1A2636'
-      : lightSurface;
-
-  let sidebarText =
-    isDark
-      ? '#E7EEF8'
-      : '#52627A';
-
-  let sidebarMuted =
-    isDark
-      ? '#8594AA'
-      : '#8A98AC';
-
-  let sidebarBorder =
-    isDark
-      ? '#2A394D'
-      : '#E2E8F0';
-
-  if (
-    menuStyle ===
-    'light'
-  ) {
-    sidebarBackground =
-      '#FFFFFF';
-
-    sidebarText =
-      '#52627A';
-
-    sidebarMuted =
-      '#8A98AC';
-
-    sidebarBorder =
-      '#E2E8F0';
+  if (sidebarStyle === 'dark') {
+    sidebarBg = '#1B2737';
+    sidebarText = '#F1F5F9';
+    sidebarMuted = '#8D9DB2';
+    sidebarBorder = '#2B3A4E';
   }
 
-  if (
-    menuStyle ===
-    'dark'
-  ) {
-    sidebarBackground =
-      '#1A2636';
-
-    sidebarText =
-      '#E7EEF8';
-
-    sidebarMuted =
-      '#8798AE';
-
-    sidebarBorder =
-      '#2A394D';
+  if (sidebarStyle === 'light') {
+    sidebarBg = '#FFFFFF';
+    sidebarText = '#66748A';
+    sidebarMuted = '#94A3B8';
+    sidebarBorder = '#E4E9F0';
   }
 
-  if (
-    menuStyle ===
-    'color'
-  ) {
-    sidebarBackground =
-      primary.strong;
-
-    sidebarText =
-      '#FFFFFF';
-
-    sidebarMuted =
-      'rgba(255,255,255,.68)';
-
-    sidebarBorder =
-      'rgba(255,255,255,.13)';
+  if (sidebarStyle === 'color') {
+    sidebarBg = primary.strong;
+    sidebarText = '#FFFFFF';
+    sidebarMuted = 'rgba(255,255,255,.70)';
+    sidebarBorder = 'rgba(255,255,255,.14)';
   }
 
-  if (
-    menuStyle ===
-    'gradient'
-  ) {
-    sidebarBackground =
-      `linear-gradient(180deg, ${primary.strong} 0%, #1A2636 100%)`;
-
-    sidebarText =
-      '#FFFFFF';
-
-    sidebarMuted =
-      'rgba(255,255,255,.7)';
-
-    sidebarBorder =
-      'rgba(255,255,255,.12)';
+  if (sidebarStyle === 'gradient') {
+    sidebarBg = `linear-gradient(180deg, ${primary.strong} 0%, #1B2737 100%)`;
+    sidebarText = '#FFFFFF';
+    sidebarMuted = 'rgba(255,255,255,.70)';
+    sidebarBorder = 'rgba(255,255,255,.14)';
   }
 
-  let headerBackground =
-    isDark
-      ? darkSurface2
-      : '#FFFFFF';
+  let headerBg = primary.value;
+  let headerText = '#FFFFFF';
+  let headerMuted = 'rgba(255,255,255,.80)';
+  let headerBorder = 'rgba(255,255,255,.16)';
 
-  let headerText =
-    isDark
-      ? '#EDF3FB'
-      : '#334155';
-
-  let headerMuted =
-    isDark
-      ? '#A1B0C4'
-      : '#718096';
-
-  let headerBorder =
-    border;
-
-  if (
-    headerStyle ===
-    'light'
-  ) {
-    headerBackground =
-      '#FFFFFF';
-
-    headerText =
-      '#334155';
-
-    headerMuted =
-      '#718096';
-
-    headerBorder =
-      '#E2E8F0';
+  if (headerStyle === 'light') {
+    headerBg = '#FFFFFF';
+    headerText = '#334155';
+    headerMuted = '#64748B';
+    headerBorder = '#E4E9F0';
   }
 
-  if (
-    headerStyle ===
-    'dark'
-  ) {
-    headerBackground =
-      '#1A2636';
-
-    headerText =
-      '#FFFFFF';
-
-    headerMuted =
-      '#B5C0CF';
-
-    headerBorder =
-      '#2A394D';
+  if (headerStyle === 'dark') {
+    headerBg = '#1B2737';
+    headerText = '#FFFFFF';
+    headerMuted = '#AAB5C4';
+    headerBorder = '#2B3A4E';
   }
 
-  if (
-    headerStyle ===
-    'color'
-  ) {
-    headerBackground =
-      primary.value;
-
-    headerText =
-      '#FFFFFF';
-
-    headerMuted =
-      'rgba(255,255,255,.78)';
-
-    headerBorder =
-      'rgba(255,255,255,.14)';
+  if (headerStyle === 'color') {
+    headerBg = primary.value;
+    headerText = '#FFFFFF';
+    headerMuted = 'rgba(255,255,255,.80)';
+    headerBorder = 'rgba(255,255,255,.16)';
   }
 
-  if (
-    headerStyle ===
-    'gradient'
-  ) {
-    headerBackground =
-      `linear-gradient(90deg, ${primary.strong}, ${primary.value})`;
-
-    headerText =
-      '#FFFFFF';
-
-    headerMuted =
-      'rgba(255,255,255,.78)';
-
-    headerBorder =
-      'rgba(255,255,255,.14)';
+  if (headerStyle === 'gradient') {
+    headerBg = `linear-gradient(90deg, ${primary.strong}, ${primary.value})`;
+    headerText = '#FFFFFF';
+    headerMuted = 'rgba(255,255,255,.80)';
+    headerBorder = 'rgba(255,255,255,.16)';
   }
 
   return {
-    primary,
-    background,
-    pageBackground,
-    isDark,
+    '--bf-primary': primary.value,
+    '--bf-primary-strong': primary.strong,
+    '--bf-primary-rgb': primary.rgb,
 
-    css: {
-      '--bf-dev-primary':
-        primary.value,
+    '--bf-page':
+      dark
+        ? '#101827'
+        : '#F1F3F7',
 
-      '--bf-dev-primary-strong':
-        primary.strong,
+    '--bf-surface':
+      dark
+        ? '#1B2737'
+        : '#FFFFFF',
 
-      '--bf-dev-primary-soft':
-        primary.soft,
+    '--bf-surface-2':
+      dark
+        ? '#162131'
+        : '#F8FAFC',
 
-      '--bf-dev-primary-rgb':
-        primary.rgb,
+    '--bf-surface-3':
+      dark
+        ? '#243145'
+        : '#EEF2F7',
 
-      '--bf-dev-page-bg':
-        pageBackground,
+    '--bf-text':
+      dark
+        ? '#EAF1F8'
+        : '#1F2937',
 
-      '--bf-dev-surface':
-        isDark
-          ? darkSurface
-          : lightSurface,
+    '--bf-text-2':
+      dark
+        ? '#A5B2C4'
+        : '#64748B',
 
-      '--bf-dev-surface-2':
-        isDark
-          ? darkSurface2
-          : '#F8FAFC',
+    '--bf-text-3':
+      dark
+        ? '#76869C'
+        : '#94A3B8',
 
-      '--bf-dev-surface-3':
-        isDark
-          ? '#202C3D'
-          : '#F1F5F9',
+    '--bf-border':
+      dark
+        ? '#2C3A4D'
+        : '#E1E7EF',
 
-      '--bf-dev-text':
-        textPrimary,
+    '--bf-sidebar-bg':
+      sidebarBg,
 
-      '--bf-dev-text-2':
-        textSecondary,
+    '--bf-sidebar-text':
+      sidebarText,
 
-      '--bf-dev-text-3':
-        isDark
-          ? '#748399'
-          : '#94A3B8',
+    '--bf-sidebar-muted':
+      sidebarMuted,
 
-      '--bf-dev-border':
-        border,
+    '--bf-sidebar-border':
+      sidebarBorder,
 
-      '--bf-dev-border-soft':
-        isDark
-          ? '#243247'
-          : '#EDF1F6',
+    '--bf-header-bg':
+      headerBg,
 
-      '--bf-dev-success':
-        '#22C55E',
+    '--bf-header-text':
+      headerText,
 
-      '--bf-dev-warning':
-        '#F59E0B',
+    '--bf-header-muted':
+      headerMuted,
 
-      '--bf-dev-danger':
-        '#EF4444',
+    '--bf-header-border':
+      headerBorder,
 
-      '--bf-dev-violet':
-        '#A855F7',
+    '--bf-sidebar-width':
+      `${SIDEBAR_W}px`,
 
-      '--bf-dev-sidebar-bg':
-        sidebarBackground,
+    '--bf-sidebar-collapsed':
+      `${SIDEBAR_COLLAPSED_W}px`,
 
-      '--bf-dev-sidebar-text':
-        sidebarText,
+    '--bf-header-height':
+      `${HEADER_H}px`,
 
-      '--bf-dev-sidebar-muted':
-        sidebarMuted,
-
-      '--bf-dev-sidebar-border':
-        sidebarBorder,
-
-      '--bf-dev-header-bg':
-        headerBackground,
-
-      '--bf-dev-header-text':
-        headerText,
-
-      '--bf-dev-header-muted':
-        headerMuted,
-
-      '--bf-dev-header-border':
-        headerBorder,
-
-      '--bf-dev-radius':
-        compactMode
-          ? '7px'
-          : '10px',
-
-      '--bf-dev-card-radius':
-        compactMode
-          ? '8px'
-          : '11px',
-
-      '--bf-dev-shadow':
-        isDark
-          ? '0 10px 30px rgba(0,0,0,.18)'
-          : '0 7px 20px rgba(15,23,42,.07)',
-
-      '--bf-dev-sidebar-expanded':
-        `${DIMENSIONS.sidebarExpanded}px`,
-
-      '--bf-dev-sidebar-collapsed':
-        `${DIMENSIONS.sidebarCollapsed}px`,
-
-      '--bf-dev-header-height':
-        `${DIMENSIONS.headerHeight}px`,
-
-      '--bf-dev-right-panel-width':
-        `${DIMENSIONS.rightPanelWidth}px`,
-    },
+    '--bf-drawer-width':
+      `${RIGHT_DRAWER_W}px`,
   };
 }
 
 
 /* ============================================================
-   GLOBAL CSS
+   GLOBAL STYLE
 ============================================================ */
 
-function DeveloperGlobalStyles() {
+function GlobalStyle() {
   return (
     <style>
       {`
-        .bf-dev-root,
-        .bf-dev-root * {
+        .bf-dev-shell,
+        .bf-dev-shell * {
           box-sizing: border-box;
         }
 
-        .bf-dev-root {
-          background: var(--bf-dev-page-bg);
-          color: var(--bf-dev-text);
-        }
-
-        .bf-dev-root button,
-        .bf-dev-root input,
-        .bf-dev-root select,
-        .bf-dev-root textarea {
-          font: inherit;
-        }
-
-        .bf-dev-root ::selection {
-          background: rgb(var(--bf-dev-primary-rgb) / .2);
+        .bf-dev-shell {
+          min-height: 100dvh;
+          background: var(--bf-page);
+          color: var(--bf-text);
         }
 
         .bf-dev-scroll {
           scrollbar-width: thin;
-          scrollbar-color:
-            rgb(var(--bf-dev-primary-rgb) / .35)
-            transparent;
+          scrollbar-color: rgb(var(--bf-primary-rgb) / .35) transparent;
         }
 
         .bf-dev-scroll::-webkit-scrollbar {
-          width: 7px;
-          height: 7px;
-        }
-
-        .bf-dev-scroll::-webkit-scrollbar-track {
-          background: transparent;
+          width: 6px;
+          height: 6px;
         }
 
         .bf-dev-scroll::-webkit-scrollbar-thumb {
-          background: rgb(var(--bf-dev-primary-rgb) / .28);
           border-radius: 999px;
+          background: rgb(var(--bf-primary-rgb) / .32);
         }
 
-        .bf-dev-scroll::-webkit-scrollbar-thumb:hover {
-          background: rgb(var(--bf-dev-primary-rgb) / .45);
+        .bf-dev-pop {
+          animation: bfDevPop .12s ease-out;
         }
 
-        .bf-dev-sidebar-bg {
-          background: var(--bf-dev-sidebar-bg);
-        }
+        @keyframes bfDevPop {
+          from {
+            opacity: 0;
+            transform: translateY(-4px);
+          }
 
-        .bf-dev-header-bg {
-          background: var(--bf-dev-header-bg);
-        }
-
-        .bf-dev-theme-dot {
-          box-shadow:
-            0 0 0 2px var(--bf-dev-surface),
-            0 0 0 3px var(--bf-dev-border);
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-          .bf-dev-root *,
-          .bf-dev-root *::before,
-          .bf-dev-root *::after {
-            scroll-behavior: auto !important;
-            animation-duration: .01ms !important;
-            animation-iteration-count: 1 !important;
-            transition-duration: .01ms !important;
+          to {
+            opacity: 1;
+            transform: translateY(0);
           }
         }
       `}
@@ -1251,57 +634,41 @@ function Brand({
   return (
     <div
       className={cx(
-        `
-          flex
-          min-w-0
-          items-center
-        `,
+        'flex min-w-0 items-center',
         collapsed
-          ? `
-              justify-center
-            `
-          : `
-              gap-3
-            `
+          ? 'justify-center'
+          : 'gap-3'
       )}
     >
       <div
         className="
           flex
-          h-10
-          w-10
+          h-9
+          w-9
           shrink-0
           items-center
           justify-center
-          rounded-[11px]
+          rounded-lg
           bg-gradient-to-br
-          from-[#078EE5]
-          via-[#0B7FD1]
-          to-[#0AA23B]
-          text-[13px]
+          from-sky-500
+          to-emerald-500
+          text-[12px]
           font-black
-          tracking-[-0.07em]
           text-white
-          shadow-lg
-          shadow-black/10
         "
       >
         BF
       </div>
 
       {!collapsed && (
-        <div
-          className="
-            min-w-0
-          "
-        >
+        <div className="min-w-0">
           <div
             className="
               truncate
-              text-[18px]
+              text-[19px]
               font-black
               tracking-[-0.03em]
-              text-[var(--bf-dev-sidebar-text)]
+              text-[var(--bf-sidebar-text)]
             "
           >
             Buddy Fleets
@@ -1310,12 +677,11 @@ function Brand({
           <div
             className="
               mt-0.5
-              truncate
               text-[8px]
               font-extrabold
               uppercase
               tracking-[0.18em]
-              text-[var(--bf-dev-sidebar-muted)]
+              text-[var(--bf-sidebar-muted)]
             "
           >
             Developer CPanel
@@ -1328,179 +694,135 @@ function Brand({
 
 
 /* ============================================================
-   SIDEBAR ITEM
+   SIDEBAR PARENT ITEM
 ============================================================ */
 
-function SidebarItem({
-  item,
+function ParentMenuItem({
+  menu,
+  expanded,
+  onToggle,
   collapsed,
-  onNavigate,
-  compactMode,
+  active,
 }) {
-  const Icon =
-    item.icon;
+  const Icon = menu.icon;
 
   return (
-    <NavLink
-      to={item.to}
-      end={item.end}
-      onClick={
-        onNavigate
-      }
+    <button
+      type="button"
+      onClick={onToggle}
       title={
         collapsed
-          ? item.label
+          ? menu.label
           : undefined
       }
-      className={({
-        isActive,
-      }) =>
+      className={cx(
+        `
+          group
+          relative
+          flex
+          h-[44px]
+          w-full
+          items-center
+          rounded-md
+          text-[13px]
+          font-medium
+          transition
+          duration-150
+        `,
+        collapsed
+          ? 'justify-center'
+          : 'gap-3 px-3',
+        active
+          ? 'text-[var(--bf-primary)]'
+          : 'text-[var(--bf-sidebar-text)] hover:bg-[rgb(var(--bf-primary-rgb)/.06)]'
+      )}
+    >
+      <Icon
+        size={17}
+        className={cx(
+          'shrink-0',
+          active
+            ? 'text-[var(--bf-primary)]'
+            : 'text-[var(--bf-sidebar-muted)]'
+        )}
+      />
+
+      {!collapsed && (
+        <>
+          <span className="min-w-0 flex-1 truncate text-left">
+            {menu.label}
+          </span>
+
+          <ChevronDown
+            size={13}
+            className={cx(
+              'shrink-0 text-[var(--bf-sidebar-muted)] transition-transform',
+              expanded && 'rotate-180'
+            )}
+          />
+        </>
+      )}
+    </button>
+  );
+}
+
+
+/* ============================================================
+   SIDEBAR CHILD LINK
+============================================================ */
+
+function ChildLink({
+  child,
+  collapsed,
+}) {
+  return (
+    <NavLink
+      to={child.to}
+      end={child.end}
+      className={({ isActive }) =>
         cx(
           `
-            group
             relative
             flex
+            min-h-[33px]
             items-center
-            rounded-[var(--bf-dev-radius)]
-            text-[13px]
-            font-medium
-            outline-none
-            transition-colors
+            text-[12px]
+            transition
             duration-150
-            focus-visible:ring-2
-            focus-visible:ring-[rgb(var(--bf-dev-primary-rgb)/.42)]
           `,
-          compactMode
-            ? `
-                min-h-[36px]
-              `
-            : `
-                min-h-[42px]
-              `,
           collapsed
-            ? `
-                justify-center
-                px-2
-              `
-            : `
-                gap-3
-                px-3
-              `
+            ? 'justify-center'
+            : 'pl-[38px] pr-2',
+          isActive
+            ? 'font-semibold text-[var(--bf-primary)]'
+            : 'text-[var(--bf-sidebar-text)] hover:text-[var(--bf-primary)]'
         )
       }
     >
-      {({
-        isActive,
-      }) => (
+      {({ isActive }) => (
         <>
           <span
             className={cx(
               `
                 absolute
-                inset-0
-                rounded-[var(--bf-dev-radius)]
-                transition
+                h-[5px]
+                w-[5px]
+                rounded-full
+                border
               `,
+              collapsed
+                ? 'left-1/2 -translate-x-1/2'
+                : 'left-[18px]',
               isActive
-                ? `
-                    bg-[rgb(var(--bf-dev-primary-rgb)/.12)]
-                  `
-                : `
-                    bg-transparent
-                    group-hover:bg-[rgb(var(--bf-dev-primary-rgb)/.07)]
-                  `
-            )}
-          />
-
-          {isActive && (
-            <span
-              className="
-                absolute
-                bottom-[7px]
-                left-0
-                top-[7px]
-                w-[3px]
-                rounded-r-full
-                bg-[var(--bf-dev-primary)]
-              "
-            />
-          )}
-
-          <Icon
-            size={
-              DIMENSIONS.sidebarIcon
-            }
-            strokeWidth={
-              isActive
-                ? 2.15
-                : 1.8
-            }
-            className={cx(
-              `
-                relative
-                z-[1]
-                shrink-0
-              `,
-              isActive
-                ? `
-                    text-[var(--bf-dev-primary)]
-                  `
-                : `
-                    text-[var(--bf-dev-sidebar-muted)]
-                    group-hover:text-[var(--bf-dev-sidebar-text)]
-                  `
+                ? 'border-[var(--bf-primary)] bg-[var(--bf-primary)]'
+                : 'border-[var(--bf-sidebar-muted)]'
             )}
           />
 
           {!collapsed && (
-            <>
-              <span
-                className={cx(
-                  `
-                    relative
-                    z-[1]
-                    min-w-0
-                    flex-1
-                    truncate
-                  `,
-                  isActive
-                    ? `
-                        font-semibold
-                        text-[var(--bf-dev-primary)]
-                      `
-                    : `
-                        text-[var(--bf-dev-sidebar-text)]
-                      `
-                )}
-              >
-                {item.label}
-              </span>
-
-              <ChevronRight
-                size={12}
-                className={cx(
-                  `
-                    relative
-                    z-[1]
-                    shrink-0
-                    transition
-                  `,
-                  isActive
-                    ? `
-                        translate-x-0
-                        opacity-100
-                        text-[var(--bf-dev-primary)]
-                      `
-                    : `
-                        -translate-x-1
-                        opacity-0
-                        text-[var(--bf-dev-sidebar-muted)]
-                        group-hover:translate-x-0
-                        group-hover:opacity-100
-                      `
-                )}
-              />
-            </>
+            <span className="truncate">
+              {child.label}
+            </span>
           )}
         </>
       )}
@@ -1518,12 +840,48 @@ function Sidebar({
   setCollapsed,
   mobileOpen,
   setMobileOpen,
-  compactMode,
 }) {
-  const location =
-    useLocation();
+  const location = useLocation();
+
+  const initialExpanded = useMemo(() => {
+    const result = {};
+
+    MENU_TREE.forEach((menu) => {
+      result[menu.id] =
+        pathIsInside(
+          location.pathname,
+          menu
+        );
+    });
+
+    return result;
+  }, []);
+
+  const [
+    expanded,
+    setExpanded,
+  ] =
+    useState(
+      initialExpanded
+    );
 
   useEffect(() => {
+    MENU_TREE.forEach((menu) => {
+      if (
+        pathIsInside(
+          location.pathname,
+          menu
+        )
+      ) {
+        setExpanded(
+          (prev) => ({
+            ...prev,
+            [menu.id]: true,
+          })
+        );
+      }
+    });
+
     setMobileOpen(false);
   }, [
     location.pathname,
@@ -1535,7 +893,7 @@ function Sidebar({
       {mobileOpen && (
         <button
           type="button"
-          aria-label="Close navigation overlay"
+          aria-label="Close sidebar"
           onClick={() =>
             setMobileOpen(false)
           }
@@ -1543,8 +901,7 @@ function Sidebar({
             fixed
             inset-0
             z-40
-            bg-slate-950/55
-            backdrop-blur-[2px]
+            bg-slate-950/45
             lg:hidden
           "
         />
@@ -1553,7 +910,6 @@ function Sidebar({
       <aside
         className={cx(
           `
-            bf-dev-sidebar-bg
             fixed
             inset-y-0
             left-0
@@ -1561,50 +917,33 @@ function Sidebar({
             flex
             flex-col
             border-r
-            border-[var(--bf-dev-sidebar-border)]
-            shadow-[0_0_0_1px_rgba(0,0,0,.01)]
+            border-[var(--bf-sidebar-border)]
+            bg-[var(--bf-sidebar-bg)]
             transition-[width,transform]
             duration-200
             ease-out
           `,
           collapsed
-            ? `
-                lg:w-[var(--bf-dev-sidebar-collapsed)]
-              `
-            : `
-                lg:w-[var(--bf-dev-sidebar-expanded)]
-              `,
+            ? 'lg:w-[var(--bf-sidebar-collapsed)]'
+            : 'lg:w-[var(--bf-sidebar-width)]',
           mobileOpen
-            ? `
-                w-[var(--bf-dev-sidebar-expanded)]
-                translate-x-0
-              `
-            : `
-                w-[var(--bf-dev-sidebar-expanded)]
-                -translate-x-full
-                lg:translate-x-0
-              `
+            ? 'w-[var(--bf-sidebar-width)] translate-x-0'
+            : 'w-[var(--bf-sidebar-width)] -translate-x-full lg:translate-x-0'
         )}
       >
         <div
           className={cx(
             `
               flex
-              h-[var(--bf-dev-header-height)]
+              h-[var(--bf-header-height)]
               shrink-0
               items-center
               border-b
-              border-[var(--bf-dev-sidebar-border)]
+              border-[var(--bf-sidebar-border)]
             `,
             collapsed
-              ? `
-                  justify-center
-                  px-2
-                `
-              : `
-                  justify-between
-                  px-5
-                `
+              ? 'justify-center px-2'
+              : 'px-5'
           )}
         >
           <Brand
@@ -1612,33 +951,6 @@ function Sidebar({
               collapsed
             }
           />
-
-          {!collapsed && (
-            <button
-              type="button"
-              aria-label="Close sidebar"
-              onClick={() =>
-                setMobileOpen(false)
-              }
-              className="
-                flex
-                h-8
-                w-8
-                items-center
-                justify-center
-                rounded-md
-                text-[var(--bf-dev-sidebar-muted)]
-                transition
-                hover:bg-[rgb(var(--bf-dev-primary-rgb)/.08)]
-                hover:text-[var(--bf-dev-sidebar-text)]
-                lg:hidden
-              "
-            >
-              <X
-                size={16}
-              />
-            </button>
-          )}
         </div>
 
         {!collapsed && (
@@ -1646,86 +958,70 @@ function Sidebar({
             className="
               shrink-0
               border-b
-              border-[var(--bf-dev-sidebar-border)]
-              px-5
-              py-4
+              border-[var(--bf-sidebar-border)]
+              py-7
+              text-center
             "
           >
             <div
               className="
+                relative
+                mx-auto
                 flex
+                h-16
+                w-16
                 items-center
-                gap-3
+                justify-center
+                rounded-full
+                border
+                border-[var(--bf-sidebar-border)]
+                bg-[rgb(var(--bf-primary-rgb)/.10)]
+                text-[13px]
+                font-black
+                text-[var(--bf-primary)]
               "
             >
-              <div
+              SA
+
+              <span
                 className="
-                  relative
-                  flex
-                  h-12
-                  w-12
-                  shrink-0
-                  items-center
-                  justify-center
+                  absolute
+                  right-1
+                  top-1
+                  h-3
+                  w-3
                   rounded-full
-                  border
-                  border-[var(--bf-dev-sidebar-border)]
-                  bg-[rgb(var(--bf-dev-primary-rgb)/.10)]
-                  text-[12px]
-                  font-black
-                  text-[var(--bf-dev-primary)]
+                  border-2
+                  border-[var(--bf-sidebar-bg)]
+                  bg-emerald-500
                 "
-              >
-                SA
+              />
+            </div>
 
-                <span
-                  className="
-                    absolute
-                    right-[1px]
-                    top-[1px]
-                    h-3
-                    w-3
-                    rounded-full
-                    border-2
-                    border-[var(--bf-dev-sidebar-bg)]
-                    bg-emerald-500
-                  "
-                />
-              </div>
+            <div
+              className="
+                mt-3
+                text-[13px]
+                font-bold
+                text-[var(--bf-sidebar-text)]
+              "
+            >
+              Super Admin
+            </div>
 
-              <div
-                className="
-                  min-w-0
-                "
-              >
-                <div
-                  className="
-                    truncate
-                    text-[13px]
-                    font-bold
-                    text-[var(--bf-dev-sidebar-text)]
-                  "
-                >
-                  Super Admin
-                </div>
-
-                <div
-                  className="
-                    mt-0.5
-                    truncate
-                    text-[10px]
-                    text-[var(--bf-dev-sidebar-muted)]
-                  "
-                >
-                  Platform Developer
-                </div>
-              </div>
+            <div
+              className="
+                mt-0.5
+                text-[10px]
+                text-[var(--bf-sidebar-muted)]
+              "
+            >
+              Platform Developer
             </div>
           </div>
         )}
 
         <nav
-          aria-label="Developer portal navigation"
           className="
             bf-dev-scroll
             flex-1
@@ -1734,63 +1030,74 @@ function Sidebar({
             py-4
           "
         >
-          <div
-            className="
-              space-y-5
-            "
-          >
-            {NAV_GROUPS.map(
-              (group) => (
-                <section
-                  key={
-                    group.label
-                  }
-                >
-                  {!collapsed && (
-                    <p
-                      className="
-                        mb-1.5
-                        px-3
-                        text-[9px]
-                        font-extrabold
-                        uppercase
-                        tracking-[0.14em]
-                        text-[var(--bf-dev-sidebar-muted)]
-                      "
-                    >
-                      {group.label}
-                    </p>
-                  )}
+          <div className="space-y-1">
+            {MENU_TREE.map(
+              (menu) => {
+                const active =
+                  pathIsInside(
+                    location.pathname,
+                    menu
+                  );
 
-                  <div
-                    className="
-                      space-y-1
-                    "
-                  >
-                    {group.items.map(
-                      (item) => (
-                        <SidebarItem
-                          key={
-                            item.to
-                          }
-                          item={
-                            item
-                          }
-                          collapsed={
-                            collapsed
-                          }
-                          compactMode={
-                            compactMode
-                          }
-                          onNavigate={() =>
-                            setMobileOpen(false)
-                          }
-                        />
-                      )
+                const isExpanded =
+                  expanded[
+                    menu.id
+                  ];
+
+                return (
+                  <div key={menu.id}>
+                    <ParentMenuItem
+                      menu={menu}
+                      collapsed={
+                        collapsed
+                      }
+                      expanded={
+                        isExpanded
+                      }
+                      active={
+                        active
+                      }
+                      onToggle={() =>
+                        setExpanded(
+                          (prev) => ({
+                            ...prev,
+                            [menu.id]:
+                              !prev[
+                                menu.id
+                              ],
+                          })
+                        )
+                      }
+                    />
+
+                    {!collapsed &&
+                      isExpanded && (
+                      <div
+                        className="
+                          mb-1
+                          mt-0.5
+                        "
+                      >
+                        {menu.children.map(
+                          (child) => (
+                            <ChildLink
+                              key={
+                                child.to
+                              }
+                              child={
+                                child
+                              }
+                              collapsed={
+                                false
+                              }
+                            />
+                          )
+                        )}
+                      </div>
                     )}
                   </div>
-                </section>
-              )
+                );
+              }
             )}
           </div>
         </nav>
@@ -1799,7 +1106,7 @@ function Sidebar({
           className="
             shrink-0
             border-t
-            border-[var(--bf-dev-sidebar-border)]
+            border-[var(--bf-sidebar-border)]
             p-3
           "
         >
@@ -1807,33 +1114,28 @@ function Sidebar({
             type="button"
             onClick={() =>
               setCollapsed(
-                (previous) =>
-                  !previous
+                (prev) =>
+                  !prev
               )
             }
             className={cx(
               `
                 hidden
-                h-10
+                h-9
                 w-full
                 items-center
-                rounded-[var(--bf-dev-radius)]
+                rounded-md
                 text-[11px]
                 font-semibold
-                text-[var(--bf-dev-sidebar-muted)]
+                text-[var(--bf-sidebar-muted)]
                 transition
-                hover:bg-[rgb(var(--bf-dev-primary-rgb)/.08)]
-                hover:text-[var(--bf-dev-sidebar-text)]
+                hover:bg-[rgb(var(--bf-primary-rgb)/.06)]
+                hover:text-[var(--bf-sidebar-text)]
                 lg:flex
               `,
               collapsed
-                ? `
-                    justify-center
-                  `
-                : `
-                    justify-between
-                    px-3
-                  `
+                ? 'justify-center'
+                : 'justify-between px-3'
             )}
           >
             {!collapsed && (
@@ -1844,11 +1146,11 @@ function Sidebar({
 
             {collapsed ? (
               <ChevronRight
-                size={15}
+                size={14}
               />
             ) : (
               <ChevronLeft
-                size={15}
+                size={14}
               />
             )}
           </button>
@@ -1860,24 +1162,22 @@ function Sidebar({
 
 
 /* ============================================================
-   GENERIC HEADER ICON BUTTON
+   HEADER ICON
 ============================================================ */
 
-function HeaderIconButton({
+function HeaderIcon({
   label,
   children,
   onClick,
-  active,
   badge,
+  active,
 }) {
   return (
     <button
       type="button"
       aria-label={label}
       title={label}
-      onClick={
-        onClick
-      }
+      onClick={onClick}
       className={cx(
         `
           relative
@@ -1887,20 +1187,14 @@ function HeaderIconButton({
           items-center
           justify-center
           rounded-md
-          text-[var(--bf-dev-header-muted)]
+          text-[var(--bf-header-muted)]
           transition
           duration-150
-          hover:bg-white/10
-          hover:text-[var(--bf-dev-header-text)]
-          focus-visible:outline-none
-          focus-visible:ring-2
-          focus-visible:ring-white/35
+          hover:bg-black/10
+          hover:text-[var(--bf-header-text)]
         `,
         active &&
-          `
-            bg-white/10
-            text-[var(--bf-dev-header-text)]
-          `
+          'bg-black/10 text-[var(--bf-header-text)]'
       )}
     >
       {children}
@@ -1909,17 +1203,16 @@ function HeaderIconButton({
         <span
           className="
             absolute
-            right-[1px]
-            top-[1px]
-            min-w-[16px]
+            -right-0.5
+            -top-0.5
+            min-w-[15px]
             rounded-full
             bg-rose-500
             px-1
-            py-[1px]
             text-center
             text-[8px]
             font-bold
-            leading-[14px]
+            leading-[15px]
             text-white
           "
         >
@@ -1932,65 +1225,34 @@ function HeaderIconButton({
 
 
 /* ============================================================
-   DROPDOWN SHELL
+   HEADER POPOVER SHELL
 ============================================================ */
 
-function HeaderDropdown({
+function Popover({
   children,
-  width = 350,
-  align = 'right',
+  width,
 }) {
   return (
     <div
-      className={cx(
-        `
-          absolute
-          top-[calc(100%+8px)]
-          z-[80]
-          overflow-hidden
-          rounded-[10px]
-          border
-          border-[var(--bf-dev-border)]
-          bg-[var(--bf-dev-surface)]
-          shadow-[var(--bf-dev-shadow)]
-        `,
-        align === 'right'
-          ? `
-              right-0
-            `
-          : `
-              left-0
-            `
-      )}
+      className="
+        bf-dev-pop
+        absolute
+        right-0
+        top-[calc(100%+8px)]
+        z-[80]
+        overflow-hidden
+        rounded-md
+        border
+        border-[var(--bf-border)]
+        bg-[var(--bf-surface)]
+        shadow-2xl
+      "
       style={{
         width,
         maxWidth:
           'calc(100vw - 24px)',
       }}
     >
-      <div
-        className={cx(
-          `
-            absolute
-            -top-[6px]
-            h-3
-            w-3
-            rotate-45
-            border-l
-            border-t
-            border-[var(--bf-dev-border)]
-            bg-[var(--bf-dev-surface)]
-          `,
-          align === 'right'
-            ? `
-                right-6
-              `
-            : `
-                left-6
-              `
-        )}
-      />
-
       {children}
     </div>
   );
@@ -1998,25 +1260,21 @@ function HeaderDropdown({
 
 
 /* ============================================================
-   MESSAGE DROPDOWN
+   MESSAGES POPOVER
 ============================================================ */
 
-function MessagesDropdown({
-  onClose,
-}) {
+function MessagesPopover() {
   return (
-    <HeaderDropdown
+    <Popover
       width={385}
     >
       <div
         className="
-          relative
-          z-[1]
           flex
           items-center
           justify-between
           border-b
-          border-[var(--bf-dev-border)]
+          border-[var(--bf-border)]
           px-4
           py-3
         "
@@ -2025,7 +1283,7 @@ function MessagesDropdown({
           className="
             text-[12px]
             font-bold
-            text-[var(--bf-dev-text)]
+            text-[var(--bf-text)]
           "
         >
           New Messages
@@ -2035,12 +1293,12 @@ function MessagesDropdown({
           type="button"
           className="
             rounded-full
-            bg-[rgb(var(--bf-dev-primary-rgb)/.12)]
+            bg-[rgb(var(--bf-primary-rgb)/.12)]
             px-2
             py-1
             text-[8px]
             font-bold
-            text-[var(--bf-dev-primary)]
+            text-[var(--bf-primary)]
           "
         >
           Mark all as read
@@ -2049,29 +1307,23 @@ function MessagesDropdown({
 
       <div
         className="
-          bf-dev-scroll
-          max-h-[345px]
+          max-h-[330px]
           overflow-y-auto
         "
       >
-        {MESSAGE_ITEMS.map(
+        {MESSAGES.map(
           (item) => (
-            <button
+            <div
               key={
-                item.id
+                item.name
               }
-              type="button"
               className="
                 flex
-                w-full
                 gap-3
                 border-b
-                border-[var(--bf-dev-border-soft)]
+                border-[var(--bf-border)]
                 px-4
                 py-3
-                text-left
-                transition
-                hover:bg-[rgb(var(--bf-dev-primary-rgb)/.05)]
               "
             >
               <div
@@ -2084,29 +1336,27 @@ function MessagesDropdown({
                   items-center
                   justify-center
                   rounded-full
-                  bg-[rgb(var(--bf-dev-primary-rgb)/.12)]
+                  bg-[rgb(var(--bf-primary-rgb)/.12)]
                   text-[10px]
                   font-black
-                  text-[var(--bf-dev-primary)]
+                  text-[var(--bf-primary)]
                 "
               >
                 {item.initials}
 
-                {item.unread && (
-                  <span
-                    className="
-                      absolute
-                      bottom-0
-                      right-0
-                      h-2.5
-                      w-2.5
-                      rounded-full
-                      border-2
-                      border-[var(--bf-dev-surface)]
-                      bg-emerald-500
-                    "
-                  />
-                )}
+                <span
+                  className="
+                    absolute
+                    bottom-0
+                    right-0
+                    h-2.5
+                    w-2.5
+                    rounded-full
+                    border-2
+                    border-[var(--bf-surface)]
+                    bg-emerald-500
+                  "
+                />
               </div>
 
               <div
@@ -2123,98 +1373,80 @@ function MessagesDropdown({
                     gap-3
                   "
                 >
-                  <div
+                  <span
                     className="
-                      truncate
                       text-[11px]
                       font-bold
-                      text-[var(--bf-dev-text)]
+                      text-[var(--bf-text)]
                     "
                   >
                     {item.name}
-                  </div>
+                  </span>
 
-                  <div
+                  <span
                     className="
                       shrink-0
                       text-[9px]
-                      text-[var(--bf-dev-text-3)]
+                      text-[var(--bf-text-3)]
                     "
                   >
                     {item.time}
-                  </div>
+                  </span>
                 </div>
 
                 <div
                   className="
                     mt-1
-                    line-clamp-2
                     text-[10px]
                     leading-5
-                    text-[var(--bf-dev-text-2)]
+                    text-[var(--bf-text-2)]
                   "
                 >
                   {item.text}
                 </div>
               </div>
-            </button>
+            </div>
           )
         )}
       </div>
 
-      <div
-        className="
-          p-3
-        "
-      >
+      <div className="p-3">
         <button
           type="button"
-          onClick={
-            onClose
-          }
           className="
-            flex
             h-10
             w-full
-            items-center
-            justify-center
             rounded-md
-            bg-[var(--bf-dev-primary)]
+            bg-[var(--bf-primary)]
             text-[11px]
             font-bold
             text-white
-            transition
-            hover:bg-[var(--bf-dev-primary-strong)]
           "
         >
           View All
         </button>
       </div>
-    </HeaderDropdown>
+    </Popover>
   );
 }
 
 
 /* ============================================================
-   NOTIFICATION DROPDOWN
+   NOTIFICATIONS POPOVER
 ============================================================ */
 
-function NotificationsDropdown({
-  onClose,
-}) {
+function NotificationsPopover() {
   return (
-    <HeaderDropdown
+    <Popover
       width={330}
     >
       <div
         className="
-          relative
-          z-[1]
           flex
           items-center
           justify-between
           border-b
-          border-[var(--bf-dev-border)]
+          border-[var(--bf-border)]
           px-4
           py-3
         "
@@ -2223,7 +1455,7 @@ function NotificationsDropdown({
           className="
             text-[12px]
             font-bold
-            text-[var(--bf-dev-text)]
+            text-[var(--bf-text)]
           "
         >
           Notifications
@@ -2233,190 +1465,138 @@ function NotificationsDropdown({
           type="button"
           className="
             rounded-full
-            bg-[rgb(var(--bf-dev-primary-rgb)/.12)]
+            bg-[rgb(var(--bf-primary-rgb)/.12)]
             px-2
             py-1
             text-[8px]
             font-bold
-            text-[var(--bf-dev-primary)]
+            text-[var(--bf-primary)]
           "
         >
           Mark all as read
         </button>
       </div>
 
-      <div
-        className="
-          bf-dev-scroll
-          max-h-[335px]
-          overflow-y-auto
-        "
-      >
-        {NOTIFICATION_ITEMS.map(
-          (item) => {
-            const Icon =
-              item.icon;
+      {NOTIFICATIONS.map(
+        (item) => {
+          const Icon =
+            item.icon;
 
-            return (
+          return (
+            <div
+              key={
+                item.title
+              }
+              className="
+                flex
+                items-center
+                gap-3
+                border-b
+                border-[var(--bf-border)]
+                px-4
+                py-3
+              "
+            >
               <div
-                key={
-                  item.id
-                }
                 className="
                   flex
-                  items-start
-                  gap-3
-                  border-b
-                  border-[var(--bf-dev-border-soft)]
-                  px-4
-                  py-3
+                  h-9
+                  w-9
+                  items-center
+                  justify-center
+                  rounded-full
+                  bg-[rgb(var(--bf-primary-rgb)/.12)]
+                  text-[var(--bf-primary)]
+                "
+              >
+                <Icon
+                  size={15}
+                />
+              </div>
+
+              <div
+                className="
+                  min-w-0
+                  flex-1
                 "
               >
                 <div
                   className="
-                    flex
-                    h-9
-                    w-9
-                    shrink-0
-                    items-center
-                    justify-center
-                    rounded-full
-                    bg-[rgb(var(--bf-dev-primary-rgb)/.12)]
-                    text-[var(--bf-dev-primary)]
+                    text-[11px]
+                    font-semibold
+                    text-[var(--bf-text)]
                   "
                 >
-                  <Icon
-                    size={15}
-                  />
+                  {item.title}
                 </div>
 
                 <div
                   className="
-                    min-w-0
-                    flex-1
+                    mt-1
+                    text-[9px]
+                    text-[var(--bf-text-3)]
                   "
                 >
-                  <div
-                    className="
-                      text-[11px]
-                      font-semibold
-                      text-[var(--bf-dev-text)]
-                    "
-                  >
-                    {item.title}
-                  </div>
-
-                  <div
-                    className="
-                      mt-1
-                      text-[9px]
-                      text-[var(--bf-dev-text-3)]
-                    "
-                  >
-                    {item.meta}
-                  </div>
+                  {item.meta}
                 </div>
-
-                <button
-                  type="button"
-                  aria-label="Dismiss notification"
-                  className="
-                    mt-0.5
-                    text-[var(--bf-dev-text-3)]
-                    hover:text-[var(--bf-dev-text)]
-                  "
-                >
-                  <X
-                    size={13}
-                  />
-                </button>
               </div>
-            );
-          }
-        )}
-      </div>
 
-      <div
-        className="
-          p-3
-        "
-      >
+              <X
+                size={13}
+                className="
+                  text-[var(--bf-text-3)]
+                "
+              />
+            </div>
+          );
+        }
+      )}
+
+      <div className="p-3">
         <button
           type="button"
-          onClick={
-            onClose
-          }
           className="
-            flex
             h-10
             w-full
-            items-center
-            justify-center
             rounded-md
-            bg-[var(--bf-dev-primary)]
+            bg-[var(--bf-primary)]
             text-[11px]
             font-bold
             text-white
-            transition
-            hover:bg-[var(--bf-dev-primary-strong)]
           "
         >
           View All
         </button>
       </div>
-    </HeaderDropdown>
+    </Popover>
   );
 }
 
 
 /* ============================================================
-   PROFILE DROPDOWN
+   PROFILE POPOVER
 ============================================================ */
 
-function ProfileDropdown({
+function ProfilePopover({
   currentUser,
   onLogout,
-  onClose,
 }) {
-  const displayName =
+  const name =
     currentUser?.name ||
     currentUser?.fullName ||
     currentUser?.username ||
-    currentUser?.email
-      ?.split('@')[0] ||
+    currentUser?.email?.split('@')[0] ||
     'Super Admin';
 
-  const displayEmail =
-    currentUser?.email ||
-    'Developer Account';
-
-  const menu = [
-    {
-      label: 'Profile',
-      icon: User,
-    },
-    {
-      label: 'Settings',
-      icon: Settings,
-    },
-    {
-      label: 'Security',
-      icon: LockKeyhole,
-    },
-    {
-      label: 'Activity',
-      icon: Activity,
-    },
-  ];
-
   return (
-    <HeaderDropdown
+    <Popover
       width={250}
     >
       <div
         className="
-          px-4
-          py-4
+          border-b
+          border-[var(--bf-border)]
+          p-4
           text-center
         "
       >
@@ -2429,106 +1609,86 @@ function ProfileDropdown({
             items-center
             justify-center
             rounded-full
-            bg-[rgb(var(--bf-dev-primary-rgb)/.12)]
+            bg-[rgb(var(--bf-primary-rgb)/.12)]
             text-[12px]
             font-black
-            text-[var(--bf-dev-primary)]
+            text-[var(--bf-primary)]
           "
         >
-          {getInitials(
-            displayName
-          )}
+          {getInitials(name)}
         </div>
 
         <div
           className="
             mt-2
-            truncate
-            text-[14px]
+            text-[13px]
             font-bold
-            text-[var(--bf-dev-text)]
+            text-[var(--bf-text)]
           "
         >
-          {displayName}
+          {name}
         </div>
 
         <div
           className="
             mt-0.5
-            truncate
             text-[9px]
-            text-[var(--bf-dev-text-3)]
+            text-[var(--bf-text-3)]
           "
         >
-          {displayEmail}
+          SUPER_ADMIN
         </div>
       </div>
 
-      <div
-        className="
-          border-t
-          border-[var(--bf-dev-border)]
-          p-2
-        "
-      >
-        {menu.map(
-          (item) => {
-            const Icon =
-              item.icon;
-
-            return (
-              <button
-                key={
-                  item.label
-                }
-                type="button"
-                onClick={
-                  onClose
-                }
+      <div className="p-2">
+        {[
+          ['Profile', User],
+          ['Settings', Settings],
+          ['Security', ShieldCheck],
+          ['Activity', Activity],
+        ].map(
+          ([label, Icon]) => (
+            <button
+              key={label}
+              type="button"
+              className="
+                flex
+                w-full
+                items-center
+                gap-3
+                rounded-md
+                px-3
+                py-2.5
+                text-[11px]
+                text-[var(--bf-text-2)]
+                hover:bg-[rgb(var(--bf-primary-rgb)/.06)]
+              "
+            >
+              <Icon
+                size={14}
                 className="
-                  flex
-                  w-full
-                  items-center
-                  gap-3
-                  rounded-md
-                  px-3
-                  py-2.5
-                  text-left
-                  text-[11px]
-                  font-medium
-                  text-[var(--bf-dev-text-2)]
-                  transition
-                  hover:bg-[rgb(var(--bf-dev-primary-rgb)/.06)]
-                  hover:text-[var(--bf-dev-text)]
+                  text-[var(--bf-primary)]
                 "
-              >
-                <Icon
-                  size={15}
-                  className="
-                    text-[var(--bf-dev-primary)]
-                  "
-                />
+              />
 
-                {item.label}
-              </button>
-            );
-          }
+              {label}
+            </button>
+          )
         )}
-      </div>
 
-      <div
-        className="
-          border-t
-          border-[var(--bf-dev-border)]
-          p-2
-        "
-      >
+        <div
+          className="
+            my-1
+            border-t
+            border-[var(--bf-border)]
+          "
+        />
+
         <button
           type="button"
-          onClick={() => {
-            onClose?.();
-            onLogout?.();
-          }}
+          onClick={
+            onLogout
+          }
           className="
             flex
             w-full
@@ -2537,31 +1697,29 @@ function ProfileDropdown({
             rounded-md
             px-3
             py-2.5
-            text-left
             text-[11px]
             font-semibold
             text-rose-500
-            transition
             hover:bg-rose-500/10
           "
         >
           <LogOut
-            size={15}
+            size={14}
           />
 
           Sign out
         </button>
       </div>
-    </HeaderDropdown>
+    </Popover>
   );
 }
 
 
 /* ============================================================
-   TOP HEADER
+   HEADER
 ============================================================ */
 
-function TopBar({
+function Header({
   collapsed,
   setCollapsed,
   setMobileOpen,
@@ -2569,156 +1727,119 @@ function TopBar({
   onLogout,
   theme,
   setTheme,
-  openPanel,
-  setOpenPanel,
-  openRightPanel,
-  setOpenRightPanel,
+  openPopover,
+  setOpenPopover,
+  drawerOpen,
+  setDrawerOpen,
 }) {
-  const location =
-    useLocation();
-
-  const page =
-    useMemo(
-      () =>
-        getPageDetails(
-          location.pathname
-        ),
-      [
-        location.pathname,
-      ]
-    );
-
-  const PageIcon =
-    page.icon ||
-    LayoutDashboard;
-
-  const dropdownRootRef =
+  const rootRef =
     useRef(null);
 
   useEffect(() => {
-    if (!openPanel) {
+    if (!openPopover) {
       return undefined;
     }
 
-    const handlePointer = (
+    const outside = (
       event
     ) => {
       if (
-        dropdownRootRef.current &&
-        !dropdownRootRef.current.contains(
+        rootRef.current &&
+        !rootRef.current.contains(
           event.target
         )
       ) {
-        setOpenPanel(null);
+        setOpenPopover(null);
       }
     };
 
-    const handleKey = (
+    const esc = (
       event
     ) => {
       if (
         event.key ===
         'Escape'
       ) {
-        setOpenPanel(null);
+        setOpenPopover(null);
       }
     };
 
     document.addEventListener(
       'mousedown',
-      handlePointer
+      outside
     );
 
     document.addEventListener(
       'keydown',
-      handleKey
+      esc
     );
 
     return () => {
       document.removeEventListener(
         'mousedown',
-        handlePointer
+        outside
       );
 
       document.removeEventListener(
         'keydown',
-        handleKey
+        esc
       );
     };
   }, [
-    openPanel,
-    setOpenPanel,
+    openPopover,
+    setOpenPopover,
   ]);
 
-  const togglePanel =
-    useCallback(
-      (panel) => {
-        setOpenRightPanel(false);
-
-        setOpenPanel(
-          (current) =>
-            current === panel
-              ? null
-              : panel
-        );
-      },
-      [
-        setOpenPanel,
-        setOpenRightPanel,
-      ]
-    );
-
-  const displayName =
+  const name =
     currentUser?.name ||
     currentUser?.fullName ||
     currentUser?.username ||
-    currentUser?.email
-      ?.split('@')[0] ||
+    currentUser?.email?.split('@')[0] ||
     'Super Admin';
+
+  const togglePopover =
+    (id) => {
+      setDrawerOpen(false);
+
+      setOpenPopover(
+        (current) =>
+          current === id
+            ? null
+            : id
+      );
+    };
 
   return (
     <header
       className={cx(
         `
-          bf-dev-header-bg
           fixed
           right-0
           top-0
           z-30
-          h-[var(--bf-dev-header-height)]
+          h-[var(--bf-header-height)]
           border-b
-          border-[var(--bf-dev-header-border)]
+          border-[var(--bf-header-border)]
+          bg-[var(--bf-header-bg)]
           transition-[left]
           duration-200
-          ease-out
         `,
         collapsed
-          ? `
-              left-0
-              lg:left-[var(--bf-dev-sidebar-collapsed)]
-            `
-          : `
-              left-0
-              lg:left-[var(--bf-dev-sidebar-expanded)]
-            `
+          ? 'left-0 lg:left-[var(--bf-sidebar-collapsed)]'
+          : 'left-0 lg:left-[var(--bf-sidebar-width)]'
       )}
     >
       <div
-        ref={
-          dropdownRootRef
-        }
+        ref={rootRef}
         className="
           flex
           h-full
           items-center
-          gap-2
-          px-3
-          sm:px-4
-          lg:px-5
+          px-4
         "
       >
-        <HeaderIconButton
-          label="Toggle sidebar"
+        <HeaderIcon
+          label="Toggle menu"
           onClick={() => {
             if (
               window.innerWidth <
@@ -2727,129 +1848,38 @@ function TopBar({
               setMobileOpen(true);
             } else {
               setCollapsed(
-                (previous) =>
-                  !previous
+                (prev) =>
+                  !prev
               );
             }
           }}
         >
-          <Menu
-            size={
-              DIMENSIONS.headerIcon
-            }
-          />
-        </HeaderIconButton>
+          <Menu size={18} />
+        </HeaderIcon>
 
         <div
           className="
+            ml-4
             hidden
-            min-w-0
             items-center
-            gap-2.5
+            gap-1.5
+            text-[11px]
+            font-semibold
+            text-[var(--bf-header-text)]
             md:flex
           "
         >
-          <div
+          <span>
+            Developer
+          </span>
+
+          <ChevronDown
+            size={12}
             className="
-              flex
-              h-8
-              w-8
-              items-center
-              justify-center
-              rounded-md
-              bg-white/10
-              text-[var(--bf-dev-header-text)]
+              text-[var(--bf-header-muted)]
             "
-          >
-            <PageIcon
-              size={15}
-            />
-          </div>
-
-          <div
-            className="
-              min-w-0
-            "
-          >
-            <div
-              className="
-                truncate
-                text-[12px]
-                font-bold
-                text-[var(--bf-dev-header-text)]
-              "
-            >
-              {page.label}
-            </div>
-
-            <div
-              className="
-                mt-0.5
-                text-[8px]
-                text-[var(--bf-dev-header-muted)]
-              "
-            >
-              Developer Platform
-            </div>
-          </div>
-        </div>
-
-        <div
-          className="
-            hidden
-            h-6
-            w-px
-            bg-[var(--bf-dev-header-border)]
-            xl:block
-          "
-        />
-
-        <button
-          type="button"
-          className="
-            hidden
-            min-w-[240px]
-            max-w-[420px]
-            flex-1
-            items-center
-            gap-2
-            rounded-md
-            bg-white/10
-            px-3
-            py-2
-            text-left
-            text-[10px]
-            text-[var(--bf-dev-header-muted)]
-            transition
-            hover:bg-white/15
-            xl:flex
-          "
-        >
-          <Search
-            size={14}
           />
-
-          <span
-            className="
-              flex-1
-            "
-          >
-            Search companies, modules, settings...
-          </span>
-
-          <span
-            className="
-              rounded
-              bg-black/10
-              px-1.5
-              py-0.5
-              font-mono
-              text-[8px]
-            "
-          >
-            /
-          </span>
-        </button>
+        </div>
 
         <div
           className="
@@ -2859,12 +1889,16 @@ function TopBar({
             gap-1
           "
         >
-          <HeaderIconButton
-            label={
-              theme === 'dark'
-                ? 'Switch to light theme'
-                : 'Switch to dark theme'
-            }
+          <HeaderIcon
+            label="Fullscreen"
+          >
+            <Maximize2
+              size={17}
+            />
+          </HeaderIcon>
+
+          <HeaderIcon
+            label="Theme"
             onClick={() =>
               setTheme(
                 theme === 'dark'
@@ -2874,121 +1908,69 @@ function TopBar({
             }
           >
             {theme === 'dark' ? (
-              <Sun
-                size={
-                  DIMENSIONS.headerIcon
-                }
-              />
+              <Sun size={18} />
             ) : (
-              <Moon
-                size={
-                  DIMENSIONS.headerIcon
-                }
-              />
+              <Moon size={18} />
             )}
-          </HeaderIconButton>
+          </HeaderIcon>
 
-          <div
-            className="
-              relative
-            "
+          <HeaderIcon
+            label="Search"
           >
-            <HeaderIconButton
+            <Search size={18} />
+          </HeaderIcon>
+
+          <div className="relative">
+            <HeaderIcon
               label="Notifications"
               badge={4}
               active={
-                openPanel ===
+                openPopover ===
                 'notifications'
               }
               onClick={() =>
-                togglePanel(
+                togglePopover(
                   'notifications'
                 )
               }
             >
-              <Bell
-                size={
-                  DIMENSIONS.headerIcon
-                }
-              />
-            </HeaderIconButton>
+              <Bell size={18} />
+            </HeaderIcon>
 
-            {openPanel ===
+            {openPopover ===
               'notifications' && (
-              <NotificationsDropdown
-                onClose={() =>
-                  setOpenPanel(null)
-                }
-              />
+              <NotificationsPopover />
             )}
           </div>
 
-          <div
-            className="
-              relative
-            "
-          >
-            <HeaderIconButton
+          <div className="relative">
+            <HeaderIcon
               label="Messages"
               badge={3}
               active={
-                openPanel ===
+                openPopover ===
                 'messages'
               }
               onClick={() =>
-                togglePanel(
+                togglePopover(
                   'messages'
                 )
               }
             >
-              <Mail
-                size={
-                  DIMENSIONS.headerIcon
-                }
-              />
-            </HeaderIconButton>
+              <Mail size={18} />
+            </HeaderIcon>
 
-            {openPanel ===
+            {openPopover ===
               'messages' && (
-              <MessagesDropdown
-                onClose={() =>
-                  setOpenPanel(null)
-                }
-              />
+              <MessagesPopover />
             )}
           </div>
 
-          <HeaderIconButton
-            label="Open right panel"
-            active={
-              openRightPanel
-            }
-            onClick={() => {
-              setOpenPanel(null);
-
-              setOpenRightPanel(
-                (previous) =>
-                  !previous
-              );
-            }}
-          >
-            <SlidersHorizontal
-              size={
-                DIMENSIONS.headerIcon
-              }
-            />
-          </HeaderIconButton>
-
-          <div
-            className="
-              relative
-              ml-1
-            "
-          >
+          <div className="relative ml-1">
             <button
               type="button"
               onClick={() =>
-                togglePanel(
+                togglePopover(
                   'profile'
                 )
               }
@@ -2999,14 +1981,39 @@ function TopBar({
                 gap-2
                 rounded-md
                 px-1.5
-                text-[var(--bf-dev-header-text)]
-                transition
-                hover:bg-white/10
-                focus-visible:outline-none
-                focus-visible:ring-2
-                focus-visible:ring-white/30
+                text-[var(--bf-header-text)]
+                hover:bg-black/10
               "
             >
+              <div
+                className="
+                  hidden
+                  max-w-[150px]
+                  text-right
+                  xl:block
+                "
+              >
+                <div
+                  className="
+                    truncate
+                    text-[11px]
+                    font-semibold
+                  "
+                >
+                  {name}
+                </div>
+
+                <div
+                  className="
+                    mt-0.5
+                    text-[8px]
+                    text-[var(--bf-header-muted)]
+                  "
+                >
+                  SUPER_ADMIN
+                </div>
+              </div>
+
               <div
                 className="
                   flex
@@ -3023,65 +2030,50 @@ function TopBar({
                   text-white
                 "
               >
-                {getInitials(
-                  displayName
-                )}
-              </div>
-
-              <div
-                className="
-                  hidden
-                  max-w-[150px]
-                  text-left
-                  xl:block
-                "
-              >
-                <div
-                  className="
-                    truncate
-                    text-[11px]
-                    font-semibold
-                  "
-                >
-                  {displayName}
-                </div>
-
-                <div
-                  className="
-                    mt-0.5
-                    text-[8px]
-                    text-[var(--bf-dev-header-muted)]
-                  "
-                >
-                  SUPER_ADMIN
-                </div>
+                {getInitials(name)}
               </div>
 
               <ChevronDown
                 size={12}
                 className="
                   hidden
-                  text-[var(--bf-dev-header-muted)]
+                  text-[var(--bf-header-muted)]
                   xl:block
                 "
               />
             </button>
 
-            {openPanel ===
+            {openPopover ===
               'profile' && (
-              <ProfileDropdown
+              <ProfilePopover
                 currentUser={
                   currentUser
                 }
                 onLogout={
                   onLogout
                 }
-                onClose={() =>
-                  setOpenPanel(null)
-                }
               />
             )}
           </div>
+
+          <HeaderIcon
+            label="Open customizer"
+            active={
+              drawerOpen
+            }
+            onClick={() => {
+              setOpenPopover(null);
+
+              setDrawerOpen(
+                (prev) =>
+                  !prev
+              );
+            }}
+          >
+            <Settings
+              size={18}
+            />
+          </HeaderIcon>
         </div>
       </div>
     </header>
@@ -3090,45 +2082,32 @@ function TopBar({
 
 
 /* ============================================================
-   SWITCH COMPONENT
+   TOGGLE
 ============================================================ */
 
-function ToggleSwitch({
-  checked,
+function Switch({
+  value,
   onChange,
-  label,
 }) {
   return (
     <button
       type="button"
       role="switch"
-      aria-checked={
-        checked
-      }
-      aria-label={
-        label
-      }
+      aria-checked={value}
       onClick={() =>
-        onChange(
-          !checked
-        )
+        onChange(!value)
       }
       className={cx(
         `
           relative
           h-[22px]
           w-[38px]
-          shrink-0
           rounded-full
           transition
         `,
-        checked
-          ? `
-              bg-[var(--bf-dev-primary)]
-            `
-          : `
-              bg-[var(--bf-dev-surface-3)]
-            `
+        value
+          ? 'bg-[var(--bf-primary)]'
+          : 'bg-[var(--bf-surface-3)]'
       )}
     >
       <span
@@ -3140,16 +2119,12 @@ function ToggleSwitch({
             w-4
             rounded-full
             bg-white
-            shadow-sm
+            shadow
             transition
           `,
-          checked
-            ? `
-                left-[19px]
-              `
-            : `
-                left-[3px]
-              `
+          value
+            ? 'left-[19px]'
+            : 'left-[3px]'
         )}
       />
     </button>
@@ -3158,25 +2133,61 @@ function ToggleSwitch({
 
 
 /* ============================================================
-   CUSTOMIZER ROWS
+   RIGHT DRAWER SETTINGS ROW
 ============================================================ */
 
-function SettingsSectionTitle({
+function SettingRow({
+  label,
+  selected,
+  onClick,
+}) {
+  return (
+    <div
+      className="
+        flex
+        items-center
+        justify-between
+        px-4
+        py-2.5
+      "
+    >
+      <span
+        className="
+          text-[11px]
+          text-[var(--bf-text-2)]
+        "
+      >
+        {label}
+      </span>
+
+      <Switch
+        value={
+          selected
+        }
+        onChange={
+          onClick
+        }
+      />
+    </div>
+  );
+}
+
+function SectionTitle({
   children,
 }) {
   return (
     <div
       className="
         border-y
-        border-[var(--bf-dev-border)]
-        bg-[var(--bf-dev-surface-2)]
+        border-[var(--bf-border)]
+        bg-[var(--bf-surface-2)]
         px-4
         py-2.5
         text-[10px]
-        font-extrabold
+        font-bold
         uppercase
-        tracking-[0.08em]
-        text-[var(--bf-dev-text-2)]
+        tracking-[0.06em]
+        text-[var(--bf-text-2)]
       "
     >
       {children}
@@ -3185,56 +2196,14 @@ function SettingsSectionTitle({
 }
 
 
-function SettingsToggleRow({
-  label,
-  checked,
-  onChange,
-}) {
-  return (
-    <div
-      className="
-        flex
-        items-center
-        justify-between
-        gap-3
-        px-4
-        py-2.5
-      "
-    >
-      <div
-        className="
-          text-[11px]
-          font-medium
-          text-[var(--bf-dev-text-2)]
-        "
-      >
-        {label}
-      </div>
-
-      <ToggleSwitch
-        checked={
-          checked
-        }
-        onChange={
-          onChange
-        }
-        label={
-          label
-        }
-      />
-    </div>
-  );
-}
-
-
 /* ============================================================
-   RIGHT PANEL — RECENT
+   RIGHT DRAWER TABS
 ============================================================ */
 
 function RecentTab() {
   return (
     <div>
-      {RECENT_ITEMS.map(
+      {RECENT.map(
         (item) => {
           const Icon =
             item.icon;
@@ -3242,13 +2211,13 @@ function RecentTab() {
           return (
             <div
               key={
-                item.id
+                item.title
               }
               className="
                 flex
                 gap-3
                 border-b
-                border-[var(--bf-dev-border)]
+                border-[var(--bf-border)]
                 px-4
                 py-4
               "
@@ -3258,25 +2227,17 @@ function RecentTab() {
                   flex
                   h-10
                   w-10
-                  shrink-0
                   items-center
                   justify-center
                   rounded-full
-                  bg-[rgb(var(--bf-dev-primary-rgb)/.12)]
-                  text-[var(--bf-dev-primary)]
+                  bg-[rgb(var(--bf-primary-rgb)/.12)]
+                  text-[var(--bf-primary)]
                 "
               >
-                <Icon
-                  size={16}
-                />
+                <Icon size={16} />
               </div>
 
-              <div
-                className="
-                  min-w-0
-                  flex-1
-                "
-              >
+              <div className="min-w-0 flex-1">
                 <div
                   className="
                     flex
@@ -3285,25 +2246,24 @@ function RecentTab() {
                     gap-3
                   "
                 >
-                  <div
+                  <span
                     className="
                       text-[11px]
                       font-semibold
-                      text-[var(--bf-dev-text)]
+                      text-[var(--bf-text)]
                     "
                   >
                     {item.title}
-                  </div>
+                  </span>
 
-                  <div
+                  <span
                     className="
-                      shrink-0
                       text-[9px]
-                      text-[var(--bf-dev-text-3)]
+                      text-[var(--bf-text-3)]
                     "
                   >
                     {item.time}
-                  </div>
+                  </span>
                 </div>
 
                 <div
@@ -3311,7 +2271,7 @@ function RecentTab() {
                     mt-1
                     text-[10px]
                     leading-5
-                    text-[var(--bf-dev-text-2)]
+                    text-[var(--bf-text-2)]
                   "
                 >
                   {item.text}
@@ -3325,26 +2285,21 @@ function RecentTab() {
   );
 }
 
-
-/* ============================================================
-   RIGHT PANEL — CONTACTS
-============================================================ */
-
 function ContactsTab() {
   return (
     <div>
-      {CONTACT_ITEMS.map(
+      {CONTACTS.map(
         (item) => (
           <div
             key={
-              item.id
+              item.name
             }
             className="
               flex
               items-center
               gap-3
               border-b
-              border-[var(--bf-dev-border)]
+              border-[var(--bf-border)]
               px-4
               py-3.5
             "
@@ -3355,14 +2310,13 @@ function ContactsTab() {
                 flex
                 h-10
                 w-10
-                shrink-0
                 items-center
                 justify-center
                 rounded-full
-                bg-[rgb(var(--bf-dev-primary-rgb)/.12)]
+                bg-[rgb(var(--bf-primary-rgb)/.12)]
                 text-[10px]
                 font-black
-                text-[var(--bf-dev-primary)]
+                text-[var(--bf-primary)]
               "
             >
               {item.initials}
@@ -3371,43 +2325,31 @@ function ContactsTab() {
                 className={cx(
                   `
                     absolute
-                    bottom-[1px]
-                    right-[1px]
+                    bottom-0
+                    right-0
                     h-2.5
                     w-2.5
                     rounded-full
                     border-2
-                    border-[var(--bf-dev-surface)]
+                    border-[var(--bf-surface)]
                   `,
-                  item.status ===
+                  item.state ===
                     'online'
-                    ? `
-                        bg-emerald-500
-                      `
-                    : item.status ===
+                    ? 'bg-emerald-500'
+                    : item.state ===
                         'away'
-                      ? `
-                          bg-amber-500
-                        `
-                      : `
-                          bg-slate-400
-                        `
+                      ? 'bg-amber-500'
+                      : 'bg-slate-400'
                 )}
               />
             </div>
 
-            <div
-              className="
-                min-w-0
-                flex-1
-              "
-            >
+            <div className="min-w-0 flex-1">
               <div
                 className="
-                  truncate
                   text-[11px]
                   font-semibold
-                  text-[var(--bf-dev-text)]
+                  text-[var(--bf-text)]
                 "
               >
                 {item.name}
@@ -3416,52 +2358,20 @@ function ContactsTab() {
               <div
                 className="
                   mt-0.5
-                  truncate
                   text-[9px]
-                  text-[var(--bf-dev-text-3)]
+                  text-[var(--bf-text-3)]
                 "
               >
                 {item.role}
               </div>
             </div>
 
-            <button
-              type="button"
+            <MessageSquare
+              size={15}
               className="
-                flex
-                h-8
-                w-8
-                items-center
-                justify-center
-                rounded-md
-                text-[var(--bf-dev-text-3)]
-                hover:bg-[rgb(var(--bf-dev-primary-rgb)/.08)]
-                hover:text-[var(--bf-dev-primary)]
+                text-[var(--bf-text-3)]
               "
-            >
-              <MessageCircle
-                size={15}
-              />
-            </button>
-
-            <button
-              type="button"
-              className="
-                flex
-                h-8
-                w-8
-                items-center
-                justify-center
-                rounded-md
-                text-[var(--bf-dev-text-3)]
-                hover:bg-[rgb(var(--bf-dev-primary-rgb)/.08)]
-                hover:text-[var(--bf-dev-text)]
-              "
-            >
-              <MoreHorizontal
-                size={15}
-              />
-            </button>
+            />
           </div>
         )
       )}
@@ -3469,144 +2379,61 @@ function ContactsTab() {
   );
 }
 
-
-/* ============================================================
-   RIGHT PANEL — SETTINGS / THEME CUSTOMIZER
-============================================================ */
-
 function SettingsTab({
   theme,
   setTheme,
-
   primaryId,
   setPrimaryId,
-
-  backgroundId,
-  setBackgroundId,
-
-  menuStyle,
-  setMenuStyle,
-
+  sidebarStyle,
+  setSidebarStyle,
   headerStyle,
   setHeaderStyle,
-
-  direction,
-  setDirection,
-
-  compactMode,
-  setCompactMode,
 }) {
   return (
-    <div
-      className="
-        pb-6
-      "
-    >
-      <SettingsSectionTitle>
-        Direction
-      </SettingsSectionTitle>
-
-      <SettingsToggleRow
-        label="LTR"
-        checked={
-          direction ===
-          'ltr'
-        }
-        onChange={() =>
-          setDirection(
-            'ltr'
-          )
-        }
-      />
-
-      <SettingsToggleRow
-        label="RTL"
-        checked={
-          direction ===
-          'rtl'
-        }
-        onChange={() =>
-          setDirection(
-            'rtl'
-          )
-        }
-      />
-
-      <SettingsSectionTitle>
-        Navigation Style
-      </SettingsSectionTitle>
-
-      <SettingsToggleRow
-        label="Vertical Menu"
-        checked
-        onChange={() => {}}
-      />
-
-      <SettingsToggleRow
-        label="Compact Menu Density"
-        checked={
-          compactMode
-        }
-        onChange={
-          setCompactMode
-        }
-      />
-
-      <SettingsSectionTitle>
+    <div className="pb-6">
+      <SectionTitle>
         Theme Style
-      </SettingsSectionTitle>
+      </SectionTitle>
 
-      <SettingsToggleRow
+      <SettingRow
         label="Light Theme"
-        checked={
-          theme ===
-          'light'
+        selected={
+          theme === 'light'
         }
-        onChange={() =>
-          setTheme(
-            'light'
-          )
+        onClick={() =>
+          setTheme('light')
         }
       />
 
-      <SettingsToggleRow
+      <SettingRow
         label="Dark Theme"
-        checked={
-          theme ===
-          'dark'
+        selected={
+          theme === 'dark'
         }
-        onChange={() =>
-          setTheme(
-            'dark'
-          )
+        onClick={() =>
+          setTheme('dark')
         }
       />
 
-      <SettingsSectionTitle>
+      <SectionTitle>
         Theme Colors
-      </SettingsSectionTitle>
+      </SectionTitle>
 
-      <div
-        className="
-          px-4
-          py-4
-        "
-      >
+      <div className="px-4 py-4">
         <div
           className="
             text-[11px]
-            font-medium
-            text-[var(--bf-dev-text-2)]
+            text-[var(--bf-text-2)]
           "
         >
-          Primary Color
+          Theme Primary
         </div>
 
         <div
           className="
             mt-3
             grid
-            grid-cols-7
+            grid-cols-6
             gap-2
           "
         >
@@ -3620,7 +2447,6 @@ function SettingsTab({
                 title={
                   preset.label
                 }
-                aria-label={`Use ${preset.label} accent`}
                 onClick={() =>
                   setPrimaryId(
                     preset.id
@@ -3628,14 +2454,15 @@ function SettingsTab({
                 }
                 className={cx(
                   `
-                    bf-dev-theme-dot
                     relative
-                    h-7
-                    w-7
+                    h-8
                     rounded-md
-                    transition
-                    hover:scale-105
-                  `
+                    border
+                    border-[var(--bf-border)]
+                  `,
+                  primaryId ===
+                    preset.id &&
+                    'ring-2 ring-[var(--bf-primary)]'
                 )}
                 style={{
                   background:
@@ -3662,267 +2489,89 @@ function SettingsTab({
         </div>
       </div>
 
-      <div
-        className="
-          border-t
-          border-[var(--bf-dev-border)]
-          px-4
-          py-4
-        "
-      >
-        <div
-          className="
-            text-[11px]
-            font-medium
-            text-[var(--bf-dev-text-2)]
-          "
-        >
-          Theme Background
-        </div>
-
-        <div
-          className="
-            mt-3
-            grid
-            grid-cols-4
-            gap-2
-          "
-        >
-          {BACKGROUND_PRESETS.map(
-            (preset) => (
-              <button
-                key={
-                  preset.id
-                }
-                type="button"
-                title={
-                  preset.label
-                }
-                onClick={() =>
-                  setBackgroundId(
-                    preset.id
-                  )
-                }
-                className={cx(
-                  `
-                    relative
-                    h-8
-                    rounded-md
-                    border
-                    border-[var(--bf-dev-border)]
-                    transition
-                  `,
-                  backgroundId ===
-                    preset.id &&
-                    `
-                      ring-2
-                      ring-[var(--bf-dev-primary)]
-                    `
-                )}
-                style={{
-                  background:
-                    theme === 'dark'
-                      ? preset.dark
-                      : preset.light,
-                }}
-              />
-            )
-          )}
-        </div>
-      </div>
-
-      <SettingsSectionTitle>
+      <SectionTitle>
         Menu Styles
-      </SettingsSectionTitle>
+      </SectionTitle>
 
       {[
-        [
-          'light',
-          'Light Menu',
-        ],
-        [
-          'color',
-          'Color Menu',
-        ],
-        [
-          'dark',
-          'Dark Menu',
-        ],
-        [
-          'gradient',
-          'Gradient Menu',
-        ],
+        ['light', 'Light Menu'],
+        ['color', 'Color Menu'],
+        ['dark', 'Dark Menu'],
+        ['gradient', 'Gradient Menu'],
       ].map(
-        ([
-          id,
-          label,
-        ]) => (
-          <SettingsToggleRow
+        ([id, label]) => (
+          <SettingRow
             key={id}
             label={label}
-            checked={
-              menuStyle ===
+            selected={
+              sidebarStyle ===
               id
             }
-            onChange={() =>
-              setMenuStyle(id)
+            onClick={() =>
+              setSidebarStyle(
+                id
+              )
             }
           />
         )
       )}
 
-      <SettingsSectionTitle>
+      <SectionTitle>
         Header Styles
-      </SettingsSectionTitle>
+      </SectionTitle>
 
       {[
-        [
-          'light',
-          'Light Header',
-        ],
-        [
-          'color',
-          'Color Header',
-        ],
-        [
-          'dark',
-          'Dark Header',
-        ],
-        [
-          'gradient',
-          'Gradient Header',
-        ],
+        ['light', 'Light Header'],
+        ['color', 'Color Header'],
+        ['dark', 'Dark Header'],
+        ['gradient', 'Gradient Header'],
       ].map(
-        ([
-          id,
-          label,
-        ]) => (
-          <SettingsToggleRow
+        ([id, label]) => (
+          <SettingRow
             key={id}
             label={label}
-            checked={
+            selected={
               headerStyle ===
               id
             }
-            onChange={() =>
-              setHeaderStyle(id)
+            onClick={() =>
+              setHeaderStyle(
+                id
+              )
             }
           />
         )
       )}
-
-      <SettingsSectionTitle>
-        CPanel Preferences
-      </SettingsSectionTitle>
-
-      <div
-        className="
-          px-4
-          py-4
-        "
-      >
-        <button
-          type="button"
-          className="
-            flex
-            h-10
-            w-full
-            items-center
-            justify-center
-            gap-2
-            rounded-md
-            bg-[var(--bf-dev-primary)]
-            text-[10px]
-            font-bold
-            text-white
-            transition
-            hover:bg-[var(--bf-dev-primary-strong)]
-          "
-        >
-          <Sparkles
-            size={14}
-          />
-
-          Apply Buddy Fleets Preset
-        </button>
-      </div>
     </div>
   );
 }
 
 
 /* ============================================================
-   RIGHT PANEL
+   RIGHT DRAWER
 ============================================================ */
 
-function RightPanel({
+function RightDrawer({
   open,
   onClose,
   activeTab,
   setActiveTab,
-
   theme,
   setTheme,
-
   primaryId,
   setPrimaryId,
-
-  backgroundId,
-  setBackgroundId,
-
-  menuStyle,
-  setMenuStyle,
-
+  sidebarStyle,
+  setSidebarStyle,
   headerStyle,
   setHeaderStyle,
-
-  direction,
-  setDirection,
-
-  compactMode,
-  setCompactMode,
 }) {
-  useEffect(() => {
-    if (!open) {
-      return undefined;
-    }
-
-    const handleKey = (
-      event
-    ) => {
-      if (
-        event.key ===
-        'Escape'
-      ) {
-        onClose();
-      }
-    };
-
-    document.addEventListener(
-      'keydown',
-      handleKey
-    );
-
-    return () => {
-      document.removeEventListener(
-        'keydown',
-        handleKey
-      );
-    };
-  }, [
-    open,
-    onClose,
-  ]);
-
   return (
     <>
       {open && (
         <button
           type="button"
-          aria-label="Close right panel overlay"
-          onClick={
-            onClose
-          }
+          aria-label="Close drawer overlay"
+          onClick={onClose}
           className="
             fixed
             inset-0
@@ -3941,51 +2590,34 @@ function RightPanel({
             right-0
             top-0
             z-[70]
-            w-[var(--bf-dev-right-panel-width)]
+            w-[var(--bf-drawer-width)]
             border-l
-            border-[var(--bf-dev-border)]
-            bg-[var(--bf-dev-surface)]
-            shadow-[-18px_0_38px_rgba(0,0,0,.12)]
+            border-[var(--bf-border)]
+            bg-[var(--bf-surface)]
+            shadow-[-18px_0_40px_rgba(0,0,0,.14)]
             transition-transform
             duration-200
-            ease-out
           `,
           open
-            ? `
-                translate-x-0
-              `
-            : `
-                translate-x-full
-              `
+            ? 'translate-x-0'
+            : 'translate-x-full'
         )}
       >
         <div
           className="
             flex
-            h-[var(--bf-dev-header-height)]
+            h-[var(--bf-header-height)]
             items-center
             border-b
-            border-[var(--bf-dev-border)]
+            border-[var(--bf-border)]
           "
         >
           {[
-            [
-              'recent',
-              'Recent',
-            ],
-            [
-              'contacts',
-              'Contacts',
-            ],
-            [
-              'settings',
-              'Settings',
-            ],
+            ['recent', 'Recent'],
+            ['contacts', 'Contacts'],
+            ['settings', 'Settings'],
           ].map(
-            ([
-              id,
-              label,
-            ]) => (
+            ([id, label]) => (
               <button
                 key={id}
                 type="button"
@@ -4002,17 +2634,11 @@ function RightPanel({
                     justify-center
                     text-[11px]
                     font-semibold
-                    transition
                   `,
                   activeTab ===
                     id
-                    ? `
-                        text-[var(--bf-dev-primary)]
-                      `
-                    : `
-                        text-[var(--bf-dev-text-2)]
-                        hover:text-[var(--bf-dev-text)]
-                      `
+                    ? 'text-[var(--bf-primary)]'
+                    : 'text-[var(--bf-text-2)]'
                 )}
               >
                 {label}
@@ -4026,7 +2652,7 @@ function RightPanel({
                       left-4
                       right-4
                       h-[2px]
-                      bg-[var(--bf-dev-primary)]
+                      bg-[var(--bf-primary)]
                     "
                   />
                 )}
@@ -4036,10 +2662,7 @@ function RightPanel({
 
           <button
             type="button"
-            onClick={
-              onClose
-            }
-            aria-label="Close right panel"
+            onClick={onClose}
             className="
               mr-2
               flex
@@ -4048,21 +2671,18 @@ function RightPanel({
               items-center
               justify-center
               rounded-md
-              text-[var(--bf-dev-text-3)]
-              hover:bg-[rgb(var(--bf-dev-primary-rgb)/.08)]
-              hover:text-[var(--bf-dev-text)]
+              text-[var(--bf-text-3)]
+              hover:bg-[rgb(var(--bf-primary-rgb)/.06)]
             "
           >
-            <X
-              size={15}
-            />
+            <X size={15} />
           </button>
         </div>
 
         <div
           className="
             bf-dev-scroll
-            h-[calc(100dvh-var(--bf-dev-header-height))]
+            h-[calc(100dvh-var(--bf-header-height))]
             overflow-y-auto
           "
         >
@@ -4091,35 +2711,17 @@ function RightPanel({
               setPrimaryId={
                 setPrimaryId
               }
-              backgroundId={
-                backgroundId
+              sidebarStyle={
+                sidebarStyle
               }
-              setBackgroundId={
-                setBackgroundId
-              }
-              menuStyle={
-                menuStyle
-              }
-              setMenuStyle={
-                setMenuStyle
+              setSidebarStyle={
+                setSidebarStyle
               }
               headerStyle={
                 headerStyle
               }
               setHeaderStyle={
                 setHeaderStyle
-              }
-              direction={
-                direction
-              }
-              setDirection={
-                setDirection
-              }
-              compactMode={
-                compactMode
-              }
-              setCompactMode={
-                setCompactMode
               }
             />
           )}
@@ -4131,70 +2733,7 @@ function RightPanel({
 
 
 /* ============================================================
-   CONTENT AREA
-============================================================ */
-
-function ContentArea({
-  collapsed,
-  rightPanelOpen,
-  children,
-}) {
-  return (
-    <main
-      className={cx(
-        `
-          relative
-          min-h-[100dvh]
-          pt-[var(--bf-dev-header-height)]
-          transition-[padding-left,padding-right]
-          duration-200
-          ease-out
-        `,
-        collapsed
-          ? `
-              lg:pl-[var(--bf-dev-sidebar-collapsed)]
-            `
-          : `
-              lg:pl-[var(--bf-dev-sidebar-expanded)]
-            `,
-        rightPanelOpen
-          ? `
-              2xl:pr-[var(--bf-dev-right-panel-width)]
-            `
-          : `
-              pr-0
-            `
-      )}
-    >
-      <div
-        className="
-          min-h-[calc(100dvh-var(--bf-dev-header-height))]
-          bg-[var(--bf-dev-page-bg)]
-        "
-      >
-        <div
-          className="
-            mx-auto
-            w-full
-            max-w-[1760px]
-            px-4
-            py-5
-            sm:px-5
-            lg:px-6
-            lg:py-6
-            xl:px-7
-          "
-        >
-          {children}
-        </div>
-      </div>
-    </main>
-  );
-}
-
-
-/* ============================================================
-   ROOT LAYOUT
+   ROOT
 ============================================================ */
 
 export default function DeveloperLayout({
@@ -4206,7 +2745,11 @@ export default function DeveloperLayout({
     setTheme,
   ] =
     useState(
-      getInitialTheme
+      () =>
+        readStorage(
+          STORAGE.theme,
+          'dark'
+        )
     );
 
   const [
@@ -4214,23 +2757,23 @@ export default function DeveloperLayout({
     setPrimaryId,
   ] =
     useState(
-      getInitialPrimary
+      () =>
+        readStorage(
+          STORAGE.primary,
+          'indigo'
+        )
     );
 
   const [
-    backgroundId,
-    setBackgroundId,
+    sidebarStyle,
+    setSidebarStyle,
   ] =
     useState(
-      getInitialBackground
-    );
-
-  const [
-    menuStyle,
-    setMenuStyle,
-  ] =
-    useState(
-      getInitialMenuStyle
+      () =>
+        readStorage(
+          STORAGE.sidebar,
+          'dark'
+        )
     );
 
   const [
@@ -4238,7 +2781,11 @@ export default function DeveloperLayout({
     setHeaderStyle,
   ] =
     useState(
-      getInitialHeaderStyle
+      () =>
+        readStorage(
+          STORAGE.header,
+          'color'
+        )
     );
 
   const [
@@ -4246,7 +2793,11 @@ export default function DeveloperLayout({
     setCollapsed,
   ] =
     useState(
-      getInitialSidebarCollapsed
+      () =>
+        readStorage(
+          STORAGE.collapsed,
+          'false'
+        ) === 'true'
     );
 
   const [
@@ -4256,205 +2807,100 @@ export default function DeveloperLayout({
     useState(false);
 
   const [
-    openPanel,
-    setOpenPanel,
+    openPopover,
+    setOpenPopover,
   ] =
     useState(null);
 
   const [
-    openRightPanel,
-    setOpenRightPanel,
+    drawerOpen,
+    setDrawerOpen,
   ] =
     useState(false);
 
   const [
-    rightPanelTab,
-    setRightPanelTab,
+    drawerTab,
+    setDrawerTab,
   ] =
     useState(
-      getInitialRightTab
+      () =>
+        readStorage(
+          STORAGE.drawerTab,
+          'settings'
+        )
     );
 
-  const [
-    direction,
-    setDirection,
-  ] =
-    useState(
-      getInitialDirection
-    );
-
-  const [
-    compactMode,
-    setCompactMode,
-  ] =
-    useState(
-      getInitialCompactMode
-    );
-
-  const themeTokens =
+  const vars =
     useMemo(
       () =>
-        buildThemeTokens({
+        buildVars({
           theme,
           primaryId,
-          backgroundId,
-          menuStyle,
+          sidebarStyle,
           headerStyle,
-          compactMode,
         }),
       [
         theme,
         primaryId,
-        backgroundId,
-        menuStyle,
+        sidebarStyle,
         headerStyle,
-        compactMode,
       ]
     );
 
-
-  /* ========================================================
-     APPLY THEME TOKENS
-  ======================================================== */
-
-  useLayoutEffect(() => {
-    const root =
-      document.documentElement;
-
-    root.style.colorScheme =
-      theme;
-
-    root.dir =
-      direction;
-
-    safeWriteStorage(
+  useEffect(() => {
+    writeStorage(
       STORAGE.theme,
       theme
     );
 
-    safeWriteStorage(
+    writeStorage(
       STORAGE.primary,
       primaryId
     );
 
-    safeWriteStorage(
-      STORAGE.background,
-      backgroundId
+    writeStorage(
+      STORAGE.sidebar,
+      sidebarStyle
     );
 
-    safeWriteStorage(
-      STORAGE.menuStyle,
-      menuStyle
-    );
-
-    safeWriteStorage(
-      STORAGE.headerStyle,
+    writeStorage(
+      STORAGE.header,
       headerStyle
     );
 
-    safeWriteStorage(
-      STORAGE.sidebarCollapsed,
+    writeStorage(
+      STORAGE.collapsed,
       collapsed
     );
 
-    safeWriteStorage(
-      STORAGE.rightPanelTab,
-      rightPanelTab
+    writeStorage(
+      STORAGE.drawerTab,
+      drawerTab
     );
 
-    safeWriteStorage(
-      STORAGE.direction,
-      direction
-    );
-
-    safeWriteStorage(
-      STORAGE.compactMode,
-      compactMode
-    );
+    document.documentElement.style.colorScheme =
+      theme;
   }, [
     theme,
     primaryId,
-    backgroundId,
-    menuStyle,
+    sidebarStyle,
     headerStyle,
     collapsed,
-    rightPanelTab,
-    direction,
-    compactMode,
+    drawerTab,
   ]);
-
-
-  /* ========================================================
-     CLOSE HEADER DROPDOWNS ON ROUTE CHANGE
-  ======================================================== */
-
-  const location =
-    useLocation();
-
-  useEffect(() => {
-    setOpenPanel(null);
-    setMobileOpen(false);
-  }, [
-    location.pathname,
-  ]);
-
-
-  /* ========================================================
-     BODY OVERFLOW FOR MOBILE DRAWERS
-  ======================================================== */
-
-  useEffect(() => {
-    if (
-      typeof document ===
-      'undefined'
-    ) {
-      return undefined;
-    }
-
-    const shouldLock =
-      window.innerWidth <
-        1024 &&
-      (
-        mobileOpen ||
-        openRightPanel
-      );
-
-    if (
-      shouldLock
-    ) {
-      document.body.style.overflow =
-        'hidden';
-    }
-
-    return () => {
-      document.body.style.overflow =
-        '';
-    };
-  }, [
-    mobileOpen,
-    openRightPanel,
-  ]);
-
 
   return (
     <>
-      <DeveloperGlobalStyles />
+      <GlobalStyle />
 
       <div
         className="
-          bf-dev-root
+          bf-dev-shell
           min-h-screen
           min-h-[100dvh]
-          w-full
-          overflow-x-clip
           font-sans
         "
-        style={
-          themeTokens.css
-        }
-        dir={
-          direction
-        }
+        style={vars}
       >
         <Sidebar
           collapsed={
@@ -4469,12 +2915,9 @@ export default function DeveloperLayout({
           setMobileOpen={
             setMobileOpen
           }
-          compactMode={
-            compactMode
-          }
         />
 
-        <TopBar
+        <Header
           collapsed={
             collapsed
           }
@@ -4496,32 +2939,32 @@ export default function DeveloperLayout({
           setTheme={
             setTheme
           }
-          openPanel={
-            openPanel
+          openPopover={
+            openPopover
           }
-          setOpenPanel={
-            setOpenPanel
+          setOpenPopover={
+            setOpenPopover
           }
-          openRightPanel={
-            openRightPanel
+          drawerOpen={
+            drawerOpen
           }
-          setOpenRightPanel={
-            setOpenRightPanel
+          setDrawerOpen={
+            setDrawerOpen
           }
         />
 
-        <RightPanel
+        <RightDrawer
           open={
-            openRightPanel
+            drawerOpen
           }
           onClose={() =>
-            setOpenRightPanel(false)
+            setDrawerOpen(false)
           }
           activeTab={
-            rightPanelTab
+            drawerTab
           }
           setActiveTab={
-            setRightPanelTab
+            setDrawerTab
           }
           theme={
             theme
@@ -4535,17 +2978,11 @@ export default function DeveloperLayout({
           setPrimaryId={
             setPrimaryId
           }
-          backgroundId={
-            backgroundId
+          sidebarStyle={
+            sidebarStyle
           }
-          setBackgroundId={
-            setBackgroundId
-          }
-          menuStyle={
-            menuStyle
-          }
-          setMenuStyle={
-            setMenuStyle
+          setSidebarStyle={
+            setSidebarStyle
           }
           headerStyle={
             headerStyle
@@ -4553,52 +2990,39 @@ export default function DeveloperLayout({
           setHeaderStyle={
             setHeaderStyle
           }
-          direction={
-            direction
-          }
-          setDirection={
-            setDirection
-          }
-          compactMode={
-            compactMode
-          }
-          setCompactMode={
-            setCompactMode
-          }
         />
 
-        <ContentArea
-          collapsed={
+        <main
+          className={cx(
+            `
+              min-h-[100dvh]
+              pt-[var(--bf-header-height)]
+              transition-[padding-left]
+              duration-200
+            `,
             collapsed
-          }
-          rightPanelOpen={
-            openRightPanel
-          }
+              ? 'lg:pl-[var(--bf-sidebar-collapsed)]'
+              : 'lg:pl-[var(--bf-sidebar-width)]'
+          )}
         >
-          <Outlet
-            context={{
-              currentUser,
-              onLogout,
-
-              theme,
-              primaryId,
-              backgroundId,
-              menuStyle,
-              headerStyle,
-              compactMode,
-
-              openThemeCustomizer: () => {
-                setRightPanelTab(
-                  'settings'
-                );
-
-                setOpenRightPanel(
-                  true
-                );
-              },
-            }}
-          />
-        </ContentArea>
+          <div
+            className="
+              min-h-[calc(100dvh-var(--bf-header-height))]
+              bg-[var(--bf-page)]
+            "
+          >
+            <Outlet
+              context={{
+                currentUser,
+                onLogout,
+                theme,
+                primaryId,
+                sidebarStyle,
+                headerStyle,
+              }}
+            />
+          </div>
+        </main>
       </div>
     </>
   );
