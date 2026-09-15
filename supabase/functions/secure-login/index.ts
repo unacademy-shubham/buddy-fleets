@@ -1683,6 +1683,40 @@ Deno.serve(
       );
 
 
+    /*
+      TEMPORARY LOGIN PERFORMANCE DIAGNOSTICS
+
+      Successful password-login responses expose stage durations via
+      Server-Timing. Authentication/security decisions are unchanged.
+    */
+    const requestStartedAt =
+      performance.now();
+
+    const timings:
+      Record<
+        string,
+        number
+      > =
+      {};
+
+    const stageStart =
+      () =>
+        performance.now();
+
+    const stageEnd =
+      (
+        name: string,
+        startedAt: number
+      ) => {
+        timings[name] =
+          Math.max(
+            0,
+            performance.now() -
+              startedAt
+          );
+      };
+
+
     /* ========================================================
        PREFLIGHT
     ======================================================== */
@@ -1961,11 +1995,19 @@ Deno.serve(
        RATE LIMIT
     ======================================================== */
 
+    const rateLimitStartedAt =
+      stageStart();
+
     try {
       await enforceRateLimit({
         ipAddress,
         emailHash,
       });
+
+      stageEnd(
+        'rate_limit',
+        rateLimitStartedAt
+      );
     } catch (
       error
     ) {
@@ -2037,6 +2079,9 @@ Deno.serve(
       null;
 
 
+    const auditResolveStartedAt =
+      stageStart();
+
     try {
       const [
         ,
@@ -2067,6 +2112,11 @@ Deno.serve(
 
       resolvedUserId =
         userIdResult;
+
+      stageEnd(
+        'audit_resolve',
+        auditResolveStartedAt
+      );
     } catch (
       error
     ) {
@@ -2097,6 +2147,9 @@ Deno.serve(
     if (
       resolvedUserId
     ) {
+      const preSecurityStartedAt =
+        stageStart();
+
       try {
         await ensureUserSecurityRow(
           resolvedUserId
@@ -2135,6 +2188,11 @@ Deno.serve(
             request
           );
         }
+
+        stageEnd(
+          'pre_security',
+          preSecurityStartedAt
+        );
       } catch (
         error
       ) {
@@ -2189,6 +2247,9 @@ Deno.serve(
        Never stored or logged.
     ======================================================== */
 
+    const passwordAuthStartedAt =
+      stageStart();
+
     const {
       data:
         authData,
@@ -2201,6 +2262,11 @@ Deno.serve(
           email,
           password,
         });
+
+    stageEnd(
+      'password_auth',
+      passwordAuthStartedAt
+    );
 
 
     /* ========================================================
@@ -2328,6 +2394,9 @@ Deno.serve(
       null;
 
 
+    const postSecurityStartedAt =
+      stageStart();
+
     try {
       await ensureUserSecurityRow(
         authUser.id
@@ -2372,6 +2441,11 @@ Deno.serve(
           request
         );
       }
+
+      stageEnd(
+        'post_security',
+        postSecurityStartedAt
+      );
     } catch (
       error
     ) {
@@ -2457,6 +2531,9 @@ Deno.serve(
       null;
 
 
+    const portalResolutionStartedAt =
+      stageStart();
+
     try {
       const [
         ,
@@ -2489,6 +2566,11 @@ Deno.serve(
 
       portal =
         portalResult;
+
+      stageEnd(
+        'portal_resolution',
+        portalResolutionStartedAt
+      );
     } catch (
       error
     ) {
@@ -2729,6 +2811,9 @@ Deno.serve(
         );
 
 
+        const securitySessionStartedAt =
+          stageStart();
+
         const {
           data:
             securitySessionId,
@@ -2762,6 +2847,11 @@ Deno.serve(
               }
             );
 
+        stageEnd(
+          'security_session',
+          securitySessionStartedAt
+        );
+
 
         if (
           securitySessionError ||
@@ -2778,6 +2868,9 @@ Deno.serve(
           );
         }
 
+
+        const handoffStartedAt =
+          stageStart();
 
         const handoff =
           await createDirectPortalHandoff({
@@ -2798,6 +2891,14 @@ Deno.serve(
             userAgent,
           });
 
+        stageEnd(
+          'handoff',
+          handoffStartedAt
+        );
+
+
+        const successAuditStartedAt =
+          stageStart();
 
         await insertSecurityEvent({
           userId:
@@ -2839,30 +2940,60 @@ Deno.serve(
           },
         });
 
-
-        return jsonResponse(
-          request,
-          200,
-          {
-            ok:
-              true,
-
-            nextStep:
-              'PORTAL_HANDOFF',
-
-            targetHost:
-              portal.targetHost,
-
-            handoffCode:
-              handoff.handoffCode,
-
-            expiresIn:
-              Math.floor(
-                HANDOFF_LIFETIME_MS /
-                  1000
-              ),
-          }
+        stageEnd(
+          'success_audit',
+          successAuditStartedAt
         );
+
+        timings.total =
+          Math.max(
+            0,
+            performance.now() -
+              requestStartedAt
+          );
+
+        const successResponse =
+          jsonResponse(
+            request,
+            200,
+            {
+              ok:
+                true,
+
+              nextStep:
+                'PORTAL_HANDOFF',
+
+              targetHost:
+                portal.targetHost,
+
+              handoffCode:
+                handoff.handoffCode,
+
+              expiresIn:
+                Math.floor(
+                  HANDOFF_LIFETIME_MS /
+                    1000
+                ),
+            }
+          );
+
+        successResponse.headers.set(
+          'Server-Timing',
+          [
+            `rate_limit;dur=${timings.rate_limit || 0}`,
+            `audit_resolve;dur=${timings.audit_resolve || 0}`,
+            `pre_security;dur=${timings.pre_security || 0}`,
+            `password_auth;dur=${timings.password_auth || 0}`,
+            `post_security;dur=${timings.post_security || 0}`,
+            `portal_resolution;dur=${timings.portal_resolution || 0}`,
+            `security_session;dur=${timings.security_session || 0}`,
+            `handoff;dur=${timings.handoff || 0}`,
+            `success_audit;dur=${timings.success_audit || 0}`,
+            `total;dur=${timings.total || 0}`,
+          ].join(', ')
+        );
+
+        return successResponse;
       } catch (
         error
       ) {
