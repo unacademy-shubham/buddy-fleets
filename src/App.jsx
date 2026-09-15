@@ -2123,7 +2123,7 @@ function PortalRoutes({
           />
 
           <Route
-            path="activity"
+            path="dashboard/live-activity"
             element={
               <LazyPage>
                 <DeveloperActivity />
@@ -2132,7 +2132,7 @@ function PortalRoutes({
           />
 
           <Route
-            path="website"
+            path="website/website-studio"
             element={
               <LazyPage>
                 <DeveloperWebsiteStudio />
@@ -2141,7 +2141,7 @@ function PortalRoutes({
           />
 
           <Route
-            path="website/seo"
+            path="website/content-seo"
             element={
               <LazyPage>
                 <DeveloperContentSeo />
@@ -2150,7 +2150,7 @@ function PortalRoutes({
           />
 
           <Route
-            path="website/enquiries"
+            path="website/website-enquiries"
             element={
               <LazyPage>
                 <DeveloperWebsiteEnquiries />
@@ -2159,7 +2159,7 @@ function PortalRoutes({
           />
 
           <Route
-            path="companies"
+            path="saas-platform/companies"
             element={
               <LazyPage>
                 <DeveloperCompanies />
@@ -2168,7 +2168,7 @@ function PortalRoutes({
           />
 
           <Route
-            path="subscriptions"
+            path="saas-platform/plans-entitlements"
             element={
               <LazyPage>
                 <DeveloperEntitlements />
@@ -2177,7 +2177,7 @@ function PortalRoutes({
           />
 
           <Route
-            path="modules"
+            path="saas-platform/module-registry"
             element={
               <LazyPage>
                 <DeveloperModules />
@@ -2186,7 +2186,7 @@ function PortalRoutes({
           />
 
           <Route
-            path="team"
+            path="saas-platform/team-roles"
             element={
               <LazyPage>
                 <DeveloperTeam />
@@ -2204,7 +2204,7 @@ function PortalRoutes({
           />
 
           <Route
-            path="developer-studio/workflows"
+            path="developer-studio/workflow-builder"
             element={
               <LazyPage>
                 <DeveloperWorkflowBuilder />
@@ -2213,7 +2213,7 @@ function PortalRoutes({
           />
 
           <Route
-            path="integrations"
+            path="developer-studio/integrations"
             element={
               <LazyPage>
                 <DeveloperIntegrations />
@@ -2222,7 +2222,7 @@ function PortalRoutes({
           />
 
           <Route
-            path="feature-flags"
+            path="developer-studio/feature-flags"
             element={
               <LazyPage>
                 <DeveloperFeatureFlags />
@@ -2231,7 +2231,7 @@ function PortalRoutes({
           />
 
           <Route
-            path="security"
+            path="security-system/security-center"
             element={
               <LazyPage>
                 <DeveloperSecurity />
@@ -2240,7 +2240,7 @@ function PortalRoutes({
           />
 
           <Route
-            path="audit"
+            path="security-system/audit-logs"
             element={
               <LazyPage>
                 <DeveloperAudit />
@@ -2249,7 +2249,7 @@ function PortalRoutes({
           />
 
           <Route
-            path="infrastructure"
+            path="security-system/infrastructure"
             element={
               <LazyPage>
                 <DeveloperInfrastructure />
@@ -2258,7 +2258,7 @@ function PortalRoutes({
           />
 
           <Route
-            path="system"
+            path="security-system/system-settings"
             element={
               <LazyPage>
                 <DeveloperSystem />
@@ -2276,7 +2276,7 @@ function PortalRoutes({
           ===================================================== */}
 
           <Route
-            path="companies/trials-renewals"
+            path="saas-platform/companies/trials-renewals"
             element={
               <LazyPage>
                 <DeveloperTrialsRenewals />
@@ -2285,7 +2285,7 @@ function PortalRoutes({
           />
 
           <Route
-            path="companies/overrides"
+            path="saas-platform/companies/company-overrides"
             element={
               <LazyPage>
                 <DeveloperCompanyOverrides />
@@ -2294,7 +2294,7 @@ function PortalRoutes({
           />
 
           <Route
-            path="subscriptions/plans"
+            path="saas-platform/plans-entitlements/plans"
             element={
               <LazyPage>
                 <DeveloperPlans />
@@ -2303,7 +2303,7 @@ function PortalRoutes({
           />
 
           <Route
-            path="subscriptions/limits-access"
+            path="saas-platform/plans-entitlements/limits-access"
             element={
               <LazyPage>
                 <DeveloperLimitsAccess />
@@ -2312,7 +2312,7 @@ function PortalRoutes({
           />
 
           <Route
-            path="subscriptions/renewal-policy"
+            path="saas-platform/plans-entitlements/renewal-policy"
             element={
               <LazyPage>
                 <DeveloperRenewalPolicy />
@@ -2321,7 +2321,7 @@ function PortalRoutes({
           />
 
           <Route
-            path="modules/registry"
+            path="saas-platform/module-registry/modules"
             element={
               <LazyPage>
                 <DeveloperModuleRegistryPage />
@@ -2330,7 +2330,7 @@ function PortalRoutes({
           />
 
           <Route
-            path="modules/dependencies"
+            path="saas-platform/module-registry/dependencies"
             element={
               <LazyPage>
                 <DeveloperModuleDependencies />
@@ -2339,7 +2339,7 @@ function PortalRoutes({
           />
 
           <Route
-            path="modules/rollout-state"
+            path="saas-platform/module-registry/rollout-state"
             element={
               <LazyPage>
                 <DeveloperModuleRolloutState />
@@ -2348,7 +2348,7 @@ function PortalRoutes({
           />
 
           <Route
-            path="team/members"
+            path="saas-platform/team-roles/team-members"
             element={
               <LazyPage>
                 <DeveloperTeamMembers />
@@ -2357,7 +2357,7 @@ function PortalRoutes({
           />
 
           <Route
-            path="team/roles-permissions"
+            path="saas-platform/team-roles/roles-permissions"
             element={
               <LazyPage>
                 <DeveloperRolesPermissions />
@@ -2366,7 +2366,7 @@ function PortalRoutes({
           />
 
           <Route
-            path="team/portal-access"
+            path="saas-platform/team-roles/portal-access"
             element={
               <LazyPage>
                 <DeveloperPortalAccess />
@@ -2384,7 +2384,7 @@ function PortalRoutes({
           />
 
           <Route
-            path="developer-studio/schemas-fields"
+            path="developer-studio/module-builder/schemas-fields"
             element={
               <LazyPage>
                 <DeveloperSchemasFields />
@@ -2393,7 +2393,7 @@ function PortalRoutes({
           />
 
           <Route
-            path="developer-studio/views-forms"
+            path="developer-studio/module-builder/views-forms"
             element={
               <LazyPage>
                 <DeveloperViewsForms />
@@ -2402,7 +2402,7 @@ function PortalRoutes({
           />
 
           <Route
-            path="developer-studio/permissions"
+            path="developer-studio/module-builder/permissions"
             element={
               <LazyPage>
                 <DeveloperModulePermissions />
@@ -2411,7 +2411,7 @@ function PortalRoutes({
           />
 
           <Route
-            path="developer-studio/publish-rollback"
+            path="developer-studio/module-builder/publish-rollback"
             element={
               <LazyPage>
                 <DeveloperPublishRollback />
@@ -2429,7 +2429,7 @@ function PortalRoutes({
           />
 
           <Route
-            path="developer-studio/workflows/triggers"
+            path="developer-studio/workflow-builder/triggers"
             element={
               <LazyPage>
                 <DeveloperWorkflowTriggers />
@@ -2438,7 +2438,7 @@ function PortalRoutes({
           />
 
           <Route
-            path="developer-studio/workflows/conditions"
+            path="developer-studio/workflow-builder/conditions"
             element={
               <LazyPage>
                 <DeveloperWorkflowConditions />
@@ -2447,7 +2447,7 @@ function PortalRoutes({
           />
 
           <Route
-            path="developer-studio/workflows/approvals"
+            path="developer-studio/workflow-builder/approvals"
             element={
               <LazyPage>
                 <DeveloperWorkflowApprovals />
@@ -2456,7 +2456,7 @@ function PortalRoutes({
           />
 
           <Route
-            path="developer-studio/workflows/actions"
+            path="developer-studio/workflow-builder/actions"
             element={
               <LazyPage>
                 <DeveloperWorkflowActions />
@@ -2465,7 +2465,7 @@ function PortalRoutes({
           />
 
           <Route
-            path="integrations/providers"
+            path="developer-studio/integrations/providers"
             element={
               <LazyPage>
                 <DeveloperIntegrationProviders />
@@ -2474,7 +2474,7 @@ function PortalRoutes({
           />
 
           <Route
-            path="integrations/webhooks"
+            path="developer-studio/integrations/webhooks"
             element={
               <LazyPage>
                 <DeveloperWebhooks />
@@ -2483,7 +2483,7 @@ function PortalRoutes({
           />
 
           <Route
-            path="integrations/api-health"
+            path="developer-studio/integrations/api-health"
             element={
               <LazyPage>
                 <DeveloperApiHealth />
@@ -2492,7 +2492,7 @@ function PortalRoutes({
           />
 
           <Route
-            path="security/center"
+            path="security-system/security-center/overview"
             element={
               <LazyPage>
                 <DeveloperSecurityCenterPage />
@@ -2501,7 +2501,7 @@ function PortalRoutes({
           />
 
           <Route
-            path="security/auth-sessions"
+            path="security-system/security-center/auth-sessions"
             element={
               <LazyPage>
                 <DeveloperAuthSessions />
@@ -2510,7 +2510,7 @@ function PortalRoutes({
           />
 
           <Route
-            path="security/mfa-locks"
+            path="security-system/security-center/mfa-locks"
             element={
               <LazyPage>
                 <DeveloperMfaLocks />
@@ -2519,7 +2519,7 @@ function PortalRoutes({
           />
 
           <Route
-            path="security/privileged-access"
+            path="security-system/security-center/privileged-access"
             element={
               <LazyPage>
                 <DeveloperPrivilegedAccess />
@@ -2528,7 +2528,7 @@ function PortalRoutes({
           />
 
           <Route
-            path="security/events"
+            path="security-system/security-center/security-events"
             element={
               <LazyPage>
                 <DeveloperSecurityEvents />
@@ -2537,7 +2537,7 @@ function PortalRoutes({
           />
 
           <Route
-            path="infrastructure/service-health"
+            path="security-system/infrastructure/service-health"
             element={
               <LazyPage>
                 <DeveloperServiceHealth />
@@ -2546,7 +2546,7 @@ function PortalRoutes({
           />
 
           <Route
-            path="infrastructure/deployments"
+            path="security-system/infrastructure/deployments"
             element={
               <LazyPage>
                 <DeveloperDeployments />
@@ -2555,7 +2555,7 @@ function PortalRoutes({
           />
 
           <Route
-            path="infrastructure/database-apis"
+            path="security-system/infrastructure/database-apis"
             element={
               <LazyPage>
                 <DeveloperDatabaseApis />
@@ -2564,7 +2564,7 @@ function PortalRoutes({
           />
 
           <Route
-            path="system/platform-defaults"
+            path="security-system/system-settings/platform-defaults"
             element={
               <LazyPage>
                 <DeveloperPlatformDefaults />
@@ -2573,7 +2573,7 @@ function PortalRoutes({
           />
 
           <Route
-            path="system/notifications"
+            path="security-system/system-settings/notifications"
             element={
               <LazyPage>
                 <DeveloperNotifications />
@@ -2582,7 +2582,7 @@ function PortalRoutes({
           />
 
           <Route
-            path="system/retention-privacy"
+            path="security-system/system-settings/retention-privacy"
             element={
               <LazyPage>
                 <DeveloperRetentionPrivacy />
@@ -2591,10 +2591,74 @@ function PortalRoutes({
           />
 
           <Route
-            path="system/api-policy"
+            path="security-system/system-settings/api-policy"
             element={
               <LazyPage>
                 <DeveloperApiPolicy />
+              </LazyPage>
+            }
+          />
+
+          {/* Missing hierarchy URLs backed by existing parent pages. */}
+          <Route
+            path="website/website-studio/page-builder"
+            element={
+              <LazyPage>
+                <DeveloperWebsiteStudio />
+              </LazyPage>
+            }
+          />
+
+          <Route
+            path="website/website-studio/media-assets"
+            element={
+              <LazyPage>
+                <DeveloperWebsiteStudio />
+              </LazyPage>
+            }
+          />
+
+          <Route
+            path="website/website-studio/release-workflow"
+            element={
+              <LazyPage>
+                <DeveloperWebsiteStudio />
+              </LazyPage>
+            }
+          />
+
+          <Route
+            path="website/content-seo/metadata"
+            element={
+              <LazyPage>
+                <DeveloperContentSeo />
+              </LazyPage>
+            }
+          />
+
+          <Route
+            path="website/content-seo/indexing"
+            element={
+              <LazyPage>
+                <DeveloperContentSeo />
+              </LazyPage>
+            }
+          />
+
+          <Route
+            path="website/content-seo/ai-discoverability"
+            element={
+              <LazyPage>
+                <DeveloperContentSeo />
+              </LazyPage>
+            }
+          />
+
+          <Route
+            path="saas-platform/companies/all-companies"
+            element={
+              <LazyPage>
+                <DeveloperCompanies />
               </LazyPage>
             }
           />

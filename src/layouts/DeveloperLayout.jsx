@@ -242,7 +242,7 @@ const MENU_TREE = [
       },
       {
         label: 'Live Activity',
-        to: '/activity',
+        to: '/dashboard/live-activity',
       },
     ],
   },
@@ -254,44 +254,43 @@ const MENU_TREE = [
     children: [
       {
         label: 'Website Studio',
-        to: '/website',
-        end: true,
+        to: '/website/website-studio',
         children: [
           {
             label: 'Page Builder',
-            to: '/website',
+            to: '/website/website-studio/page-builder',
           },
           {
             label: 'Media & Assets',
-            to: '/website',
+            to: '/website/website-studio/media-assets',
           },
           {
             label: 'Release Workflow',
-            to: '/website',
+            to: '/website/website-studio/release-workflow',
           },
         ],
       },
       {
         label: 'Content & SEO',
-        to: '/website/seo',
+        to: '/website/content-seo',
         children: [
           {
             label: 'Metadata',
-            to: '/website/seo',
+            to: '/website/content-seo/metadata',
           },
           {
             label: 'Indexing',
-            to: '/website/seo',
+            to: '/website/content-seo/indexing',
           },
           {
             label: 'AI Discoverability',
-            to: '/website/seo',
+            to: '/website/content-seo/ai-discoverability',
           },
         ],
       },
       {
         label: 'Website Enquiries',
-        to: '/website/enquiries',
+        to: '/website/website-enquiries',
       },
     ],
   },
@@ -303,73 +302,73 @@ const MENU_TREE = [
     children: [
       {
         label: 'Companies',
-        to: '/companies',
+        to: '/saas-platform/companies',
         children: [
           {
             label: 'All Companies',
-            to: '/companies',
+            to: '/saas-platform/companies/all-companies',
           },
           {
             label: 'Trials & Renewals',
-            to: '/companies/trials-renewals',
+            to: '/saas-platform/companies/trials-renewals',
           },
           {
             label: 'Company Overrides',
-            to: '/companies/overrides',
+            to: '/saas-platform/companies/company-overrides',
           },
         ],
       },
       {
         label: 'Plans & Entitlements',
-        to: '/subscriptions',
+        to: '/saas-platform/plans-entitlements',
         children: [
           {
             label: 'Plans',
-            to: '/subscriptions/plans',
+            to: '/saas-platform/plans-entitlements/plans',
           },
           {
             label: 'Limits & Access',
-            to: '/subscriptions/limits-access',
+            to: '/saas-platform/plans-entitlements/limits-access',
           },
           {
             label: 'Renewal Policy',
-            to: '/subscriptions/renewal-policy',
+            to: '/saas-platform/plans-entitlements/renewal-policy',
           },
         ],
       },
       {
         label: 'Module Registry',
-        to: '/modules',
+        to: '/saas-platform/module-registry',
         children: [
           {
             label: 'Modules',
-            to: '/modules/registry',
+            to: '/saas-platform/module-registry/modules',
           },
           {
             label: 'Dependencies',
-            to: '/modules/dependencies',
+            to: '/saas-platform/module-registry/dependencies',
           },
           {
             label: 'Rollout State',
-            to: '/modules/rollout-state',
+            to: '/saas-platform/module-registry/rollout-state',
           },
         ],
       },
       {
         label: 'Team & Roles',
-        to: '/team',
+        to: '/saas-platform/team-roles',
         children: [
           {
             label: 'Team Members',
-            to: '/team/members',
+            to: '/saas-platform/team-roles/team-members',
           },
           {
             label: 'Roles & Permissions',
-            to: '/team/roles-permissions',
+            to: '/saas-platform/team-roles/roles-permissions',
           },
           {
             label: 'Portal Access',
-            to: '/team/portal-access',
+            to: '/saas-platform/team-roles/portal-access',
           },
         ],
       },
@@ -383,70 +382,69 @@ const MENU_TREE = [
     children: [
       {
         label: 'Module Builder',
-        to: '/developer-studio',
-        end: true,
+        to: '/developer-studio/module-builder',
         children: [
           {
             label: 'Schemas & Fields',
-            to: '/developer-studio/schemas-fields',
+            to: '/developer-studio/module-builder/schemas-fields',
           },
           {
             label: 'Views & Forms',
-            to: '/developer-studio/views-forms',
+            to: '/developer-studio/module-builder/views-forms',
           },
           {
             label: 'Permissions',
-            to: '/developer-studio/permissions',
+            to: '/developer-studio/module-builder/permissions',
           },
           {
             label: 'Publish & Rollback',
-            to: '/developer-studio/publish-rollback',
+            to: '/developer-studio/module-builder/publish-rollback',
           },
         ],
       },
       {
         label: 'Workflow Builder',
-        to: '/developer-studio/workflows',
+        to: '/developer-studio/workflow-builder',
         children: [
           {
             label: 'Triggers',
-            to: '/developer-studio/workflows/triggers',
+            to: '/developer-studio/workflow-builder/triggers',
           },
           {
             label: 'Conditions',
-            to: '/developer-studio/workflows/conditions',
+            to: '/developer-studio/workflow-builder/conditions',
           },
           {
             label: 'Approvals',
-            to: '/developer-studio/workflows/approvals',
+            to: '/developer-studio/workflow-builder/approvals',
           },
           {
             label: 'Actions',
-            to: '/developer-studio/workflows/actions',
+            to: '/developer-studio/workflow-builder/actions',
           },
         ],
       },
       {
         label: 'Integrations',
-        to: '/integrations',
+        to: '/developer-studio/integrations',
         children: [
           {
             label: 'Providers',
-            to: '/integrations/providers',
+            to: '/developer-studio/integrations/providers',
           },
           {
             label: 'Webhooks',
-            to: '/integrations/webhooks',
+            to: '/developer-studio/integrations/webhooks',
           },
           {
             label: 'API Health',
-            to: '/integrations/api-health',
+            to: '/developer-studio/integrations/api-health',
           },
         ],
       },
       {
         label: 'Feature Flags',
-        to: '/feature-flags',
+        to: '/developer-studio/feature-flags',
       },
     ],
   },
@@ -458,67 +456,67 @@ const MENU_TREE = [
     children: [
       {
         label: 'Security Center',
-        to: '/security',
+        to: '/security-system/security-center',
         children: [
           {
             label: 'Auth & Sessions',
-            to: '/security/auth-sessions',
+            to: '/security-system/security-center/auth-sessions',
           },
           {
             label: 'MFA & Locks',
-            to: '/security/mfa-locks',
+            to: '/security-system/security-center/mfa-locks',
           },
           {
             label: 'Privileged Access',
-            to: '/security/privileged-access',
+            to: '/security-system/security-center/privileged-access',
           },
           {
             label: 'Security Events',
-            to: '/security/events',
+            to: '/security-system/security-center/security-events',
           },
         ],
       },
       {
         label: 'Audit Logs',
-        to: '/audit',
+        to: '/security-system/audit-logs',
       },
       {
         label: 'Infrastructure',
-        to: '/infrastructure',
+        to: '/security-system/infrastructure',
         children: [
           {
             label: 'Service Health',
-            to: '/infrastructure/service-health',
+            to: '/security-system/infrastructure/service-health',
           },
           {
             label: 'Deployments',
-            to: '/infrastructure/deployments',
+            to: '/security-system/infrastructure/deployments',
           },
           {
             label: 'Database & APIs',
-            to: '/infrastructure/database-apis',
+            to: '/security-system/infrastructure/database-apis',
           },
         ],
       },
       {
         label: 'System Settings',
-        to: '/system',
+        to: '/security-system/system-settings',
         children: [
           {
             label: 'Platform Defaults',
-            to: '/system/platform-defaults',
+            to: '/security-system/system-settings/platform-defaults',
           },
           {
             label: 'Notifications',
-            to: '/system/notifications',
+            to: '/security-system/system-settings/notifications',
           },
           {
             label: 'Retention & Privacy',
-            to: '/system/retention-privacy',
+            to: '/security-system/system-settings/retention-privacy',
           },
           {
             label: 'API Policy',
-            to: '/system/api-policy',
+            to: '/security-system/system-settings/api-policy',
           },
         ],
       },
