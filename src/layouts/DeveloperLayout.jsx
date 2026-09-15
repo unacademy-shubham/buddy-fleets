@@ -802,18 +802,18 @@ function buildVars({
 
   const text =
     dark
-      ? '#E7EEF8'
-      : '#1F2937';
+      ? '#F1F5F9'
+      : '#20283A';
 
   const text2 =
     dark
-      ? '#A2B0C3'
-      : '#67758B';
+      ? '#B6C2D2'
+      : '#667085';
 
   const text3 =
     dark
-      ? '#78879B'
-      : '#96A2B5';
+      ? '#8F9CAF'
+      : '#8793A8';
 
   const border =
     dark
@@ -838,7 +838,7 @@ function buildVars({
   let sidebarText =
     dark
       ? '#EEF3F8'
-      : '#66748B';
+      : '#61708A';
 
   let sidebarMuted =
     dark
@@ -862,7 +862,7 @@ function buildVars({
       '#FFFFFF';
 
     sidebarText =
-      '#66748B';
+      '#61708A';
 
     sidebarMuted =
       '#97A3B5';
@@ -1303,6 +1303,74 @@ function GlobalStyle() {
             var(--bf-border);
         }
 
+        /*
+          Reference typography scale.
+          The existing DeveloperWorkspace uses many 8–13px utility
+          classes; these overrides keep the same layout while making
+          the dashboard readable like the reference theme.
+        */
+        .bf-dev-shell .text-\\[8px\\] {
+          font-size: 10px !important;
+          line-height: 1.35 !important;
+        }
+
+        .bf-dev-shell .text-\\[9px\\] {
+          font-size: 11px !important;
+          line-height: 1.4 !important;
+        }
+
+        .bf-dev-shell .text-\\[10px\\] {
+          font-size: 12px !important;
+          line-height: 1.45 !important;
+        }
+
+        .bf-dev-shell .text-\\[11px\\] {
+          font-size: 13px !important;
+          line-height: 1.45 !important;
+        }
+
+        .bf-dev-shell .text-\\[12px\\] {
+          font-size: 13px !important;
+          line-height: 1.45 !important;
+        }
+
+        .bf-dev-shell .text-\\[13px\\] {
+          font-size: 14px !important;
+          line-height: 1.45 !important;
+        }
+
+        .bf-dev-popover-surface {
+          background: var(--bf-surface);
+          color: var(--bf-text);
+          box-shadow: 0 12px 32px rgba(15, 23, 42, .18);
+        }
+
+        .bf-dev-popover-arrow {
+          position: absolute;
+          top: -7px;
+          right: 22px;
+          width: 14px;
+          height: 14px;
+          transform: rotate(45deg);
+          background: var(--bf-surface);
+          border-left: 1px solid var(--bf-border);
+          border-top: 1px solid var(--bf-border);
+        }
+
+        .bf-dev-sidebar-flyout {
+          z-index: 140 !important;
+          overflow: visible !important;
+        }
+
+        .bf-dev-sidebar-flyout-host {
+          overflow: visible !important;
+        }
+
+        .bf-dev-profile-email {
+          overflow-wrap: anywhere;
+          word-break: break-word;
+        }
+
         .bf-dev-scroll {
           scrollbar-width: thin;
           scrollbar-color:
@@ -1388,8 +1456,8 @@ function Brand({
       <div
         className="
           flex
-          h-9
-          w-9
+          h-10
+          w-10
           shrink-0
           items-center
           justify-center
@@ -1617,8 +1685,8 @@ function SidebarProfile({
             className="
               bf-dev-online-dot
               absolute
-              right-0
-              top-0
+              -right-0.5
+              -top-0.5
               h-2.5
               w-2.5
               rounded-full
@@ -1666,8 +1734,8 @@ function SidebarProfile({
           className="
             bf-dev-online-dot
             absolute
-            right-1
-            top-1
+            -right-0.5
+            -top-0.5
             h-3
             w-3
             rounded-full
@@ -1718,10 +1786,11 @@ function SidebarFlyout({
   return (
     <div
       className="
+        bf-dev-sidebar-flyout
         absolute
         left-full
         top-0
-        z-[90]
+        z-[140]
         min-w-[210px]
         overflow-hidden
         rounded-r-md
@@ -2105,8 +2174,9 @@ function Sidebar({
             fixed
             inset-y-0
             left-0
-            z-50
+            z-[60]
             flex
+            overflow-visible
             border-r
             border-[var(--bf-sidebar-border)]
             transition-[width,transform]
@@ -2416,11 +2486,7 @@ function Sidebar({
             >
               <Brand
                 collapsed={
-                  !visuallyExpanded &&
-                  !(
-                    isHoverMenu &&
-                    !isHoverStyleOne
-                  )
+                  !visuallyExpanded
                 }
               />
             </div>
@@ -2448,13 +2514,20 @@ function Sidebar({
 
 
             <nav
-              className="
-                bf-dev-scroll
-                flex-1
-                overflow-y-auto
-                px-3
-                py-4
-              "
+              className={cx(
+                `
+                  bf-dev-scroll
+                  flex-1
+                  px-3
+                  py-4
+                `,
+                (
+                  isIconText ||
+                  isHoverMenu
+                )
+                  ? 'bf-dev-sidebar-flyout-host overflow-visible'
+                  : 'overflow-y-auto'
+              )}
             >
               {isIconText ? (
                 <div
@@ -2648,26 +2721,6 @@ function Sidebar({
                 </div>
               )}
             </nav>
-
-
-            {(
-              visuallyExpanded ||
-              isIconText
-            ) && (
-              <div
-                className="
-                  shrink-0
-                  border-t
-                  border-[var(--bf-sidebar-border)]
-                  px-4
-                  py-3
-                  text-[9px]
-                  text-[var(--bf-sidebar-muted)]
-                "
-              >
-                Buddy Fleets Platform
-              </div>
-            )}
           </div>
         )}
       </aside>
@@ -2997,29 +3050,44 @@ function HeaderIcon({
 function Popover({
   children,
   width,
+  align = 'right',
 }) {
   return (
     <div
-      className="
-        bf-dev-pop
-        absolute
-        right-0
-        top-[calc(100%+8px)]
-        z-[80]
-        overflow-hidden
-        rounded-md
-        border
-        border-[var(--bf-border)]
-        bg-[var(--bf-surface)]
-        shadow-2xl
-      "
+      className={cx(
+        `
+          bf-dev-pop
+          absolute
+          top-[calc(100%+10px)]
+          z-[120]
+        `,
+        align === 'left'
+          ? 'left-0'
+          : 'right-0'
+      )}
       style={{
         width,
         maxWidth:
           'calc(100vw - 24px)',
       }}
     >
-      {children}
+      <span
+        className="
+          bf-dev-popover-arrow
+        "
+      />
+
+      <div
+        className="
+          bf-dev-popover-surface
+          overflow-hidden
+          rounded-md
+          border
+          border-[var(--bf-border)]
+        "
+      >
+        {children}
+      </div>
     </div>
   );
 }
@@ -3032,7 +3100,7 @@ function Popover({
 function MessagesPopover() {
   return (
     <Popover
-      width={385}
+      width={405}
     >
       <div
         className="
@@ -3041,15 +3109,15 @@ function MessagesPopover() {
           justify-between
           border-b
           border-[var(--bf-border)]
-          px-4
-          py-3
+          px-5
+          py-4
         "
       >
         <div
           className="
-            text-[12px]
-            font-bold
-            text-[var(--bf-text)]
+            text-[13px]
+            font-semibold
+            text-[var(--bf-primary)]
           "
         >
           New Messages
@@ -3059,12 +3127,12 @@ function MessagesPopover() {
           type="button"
           className="
             rounded-full
-            bg-[rgb(var(--bf-primary-rgb)/.12)]
-            px-2
+            bg-fuchsia-500
+            px-2.5
             py-1
-            text-[8px]
+            text-[10px]
             font-bold
-            text-[var(--bf-primary)]
+            text-white
           "
         >
           Mark all as read
@@ -3073,15 +3141,16 @@ function MessagesPopover() {
 
       <div
         className="
-          max-h-[330px]
+          bf-dev-scroll
+          max-h-[335px]
           overflow-y-auto
         "
       >
         {MESSAGES.map(
-          (item) => (
+          (item, index) => (
             <div
               key={
-                item.name
+                `${item.name}-${item.time}`
               }
               className="
                 flex
@@ -3096,14 +3165,14 @@ function MessagesPopover() {
                 className="
                   relative
                   flex
-                  h-10
-                  w-10
+                  h-11
+                  w-11
                   shrink-0
                   items-center
                   justify-center
                   rounded-full
                   bg-[rgb(var(--bf-primary-rgb)/.12)]
-                  text-[10px]
+                  text-[11px]
                   font-black
                   text-[var(--bf-primary)]
                 "
@@ -3141,8 +3210,9 @@ function MessagesPopover() {
                 >
                   <span
                     className="
-                      text-[11px]
-                      font-bold
+                      truncate
+                      text-[13px]
+                      font-semibold
                       text-[var(--bf-text)]
                     "
                   >
@@ -3152,7 +3222,7 @@ function MessagesPopover() {
                   <span
                     className="
                       shrink-0
-                      text-[9px]
+                      text-[11px]
                       text-[var(--bf-text-3)]
                     "
                   >
@@ -3162,8 +3232,9 @@ function MessagesPopover() {
 
                 <div
                   className="
-                    mt-1
-                    text-[10px]
+                    mt-0.5
+                    line-clamp-2
+                    text-[12px]
                     leading-5
                     text-[var(--bf-text-2)]
                   "
@@ -3171,21 +3242,44 @@ function MessagesPopover() {
                   {item.text}
                 </div>
               </div>
+
+              {index === 0 && (
+                <span
+                  className="
+                    self-center
+                    rounded-full
+                    bg-emerald-500
+                    px-2
+                    py-0.5
+                    text-[10px]
+                    font-bold
+                    text-white
+                  "
+                >
+                  2
+                </span>
+              )}
             </div>
           )
         )}
       </div>
 
-      <div className="p-3">
+      <div
+        className="
+          border-t
+          border-[var(--bf-border)]
+          p-4
+        "
+      >
         <button
           type="button"
           className="
-            h-10
+            h-11
             w-full
             rounded-md
             bg-[var(--bf-primary)]
-            text-[11px]
-            font-bold
+            text-[13px]
+            font-semibold
             text-white
           "
         >
@@ -3204,7 +3298,7 @@ function MessagesPopover() {
 function NotificationsPopover() {
   return (
     <Popover
-      width={330}
+      width={360}
     >
       <div
         className="
@@ -3213,15 +3307,15 @@ function NotificationsPopover() {
           justify-between
           border-b
           border-[var(--bf-border)]
-          px-4
-          py-3
+          px-5
+          py-4
         "
       >
         <div
           className="
-            text-[12px]
-            font-bold
-            text-[var(--bf-text)]
+            text-[13px]
+            font-semibold
+            text-[var(--bf-primary)]
           "
         >
           Notifications
@@ -3231,103 +3325,119 @@ function NotificationsPopover() {
           type="button"
           className="
             rounded-full
-            bg-[rgb(var(--bf-primary-rgb)/.12)]
-            px-2
+            bg-fuchsia-500
+            px-2.5
             py-1
-            text-[8px]
+            text-[10px]
             font-bold
-            text-[var(--bf-primary)]
+            text-white
           "
         >
           Mark all as read
         </button>
       </div>
 
-      {NOTIFICATIONS.map(
-        (item) => {
-          const Icon =
-            item.icon;
+      <div
+        className="
+          bf-dev-scroll
+          max-h-[340px]
+          overflow-y-auto
+        "
+      >
+        {NOTIFICATIONS.map(
+          (item) => {
+            const Icon =
+              item.icon;
 
-          return (
-            <div
-              key={
-                item.title
-              }
-              className="
-                flex
-                items-center
-                gap-3
-                border-b
-                border-[var(--bf-border)]
-                px-4
-                py-3
-              "
-            >
+            return (
               <div
+                key={
+                  item.title
+                }
                 className="
                   flex
-                  h-9
-                  w-9
                   items-center
-                  justify-center
-                  rounded-full
-                  bg-[rgb(var(--bf-primary-rgb)/.12)]
-                  text-[var(--bf-primary)]
-                "
-              >
-                <Icon
-                  size={15}
-                />
-              </div>
-
-              <div
-                className="
-                  min-w-0
-                  flex-1
+                  gap-3
+                  border-b
+                  border-[var(--bf-border)]
+                  px-4
+                  py-3
                 "
               >
                 <div
                   className="
-                    text-[11px]
-                    font-semibold
-                    text-[var(--bf-text)]
+                    flex
+                    h-10
+                    w-10
+                    shrink-0
+                    items-center
+                    justify-center
+                    rounded-full
+                    bg-[rgb(var(--bf-primary-rgb)/.12)]
+                    text-[var(--bf-primary)]
                   "
                 >
-                  {item.title}
+                  <Icon
+                    size={16}
+                  />
                 </div>
 
                 <div
                   className="
-                    mt-1
-                    text-[9px]
+                    min-w-0
+                    flex-1
+                  "
+                >
+                  <div
+                    className="
+                      text-[13px]
+                      font-semibold
+                      text-[var(--bf-text)]
+                    "
+                  >
+                    {item.title}
+                  </div>
+
+                  <div
+                    className="
+                      mt-1
+                      text-[11px]
+                      text-[var(--bf-text-3)]
+                    "
+                  >
+                    {item.meta}
+                  </div>
+                </div>
+
+                <X
+                  size={14}
+                  className="
+                    shrink-0
                     text-[var(--bf-text-3)]
                   "
-                >
-                  {item.meta}
-                </div>
+                />
               </div>
+            );
+          }
+        )}
+      </div>
 
-              <X
-                size={13}
-                className="
-                  text-[var(--bf-text-3)]
-                "
-              />
-            </div>
-          );
-        }
-      )}
-
-      <div className="p-3">
+      <div
+        className="
+          border-t
+          border-[var(--bf-border)]
+          p-4
+        "
+      >
         <button
           type="button"
           className="
-            h-10
+            h-11
             w-full
             rounded-md
             bg-[var(--bf-primary)]
-            text-[11px]
-            font-bold
+            text-[13px]
+            font-semibold
             text-white
           "
         >
@@ -3343,108 +3453,355 @@ function NotificationsPopover() {
    PROFILE POPOVER
 ============================================================ */
 
-function ProfilePopover({
+function SearchPopover() {
+  const inputRef =
+    useRef(null);
+
+  const [
+    query,
+    setQuery,
+  ] =
+    useState('');
+
+
+  useEffect(() => {
+    const timer =
+      window.setTimeout(
+        () => {
+          inputRef.current?.focus();
+        },
+        50
+      );
+
+    return () =>
+      window.clearTimeout(
+        timer
+      );
+  }, []);
+
+
+  const submitSearch =
+    (event) => {
+      event.preventDefault();
+
+      /*
+        Shell search UI is intentionally route-agnostic.
+        The input remains ready for future global-search wiring.
+      */
+    };
+
+
+  return (
+    <Popover
+      width={315}
+    >
+      <form
+        onSubmit={
+          submitSearch
+        }
+        className="
+          p-3
+        "
+      >
+        <div
+          className="
+            flex
+            overflow-hidden
+            rounded-md
+            border
+            border-[var(--bf-border)]
+            bg-[var(--bf-surface)]
+          "
+        >
+          <input
+            ref={
+              inputRef
+            }
+            value={
+              query
+            }
+            onChange={(
+              event
+            ) =>
+              setQuery(
+                event.target.value
+              )
+            }
+            type="search"
+            placeholder="Search....."
+            className="
+              h-11
+              min-w-0
+              flex-1
+              bg-transparent
+              px-4
+              text-[13px]
+              text-[var(--bf-text)]
+              outline-none
+              placeholder:text-[var(--bf-text-3)]
+            "
+          />
+
+          <button
+            type="submit"
+            aria-label="Search"
+            className="
+              flex
+              h-11
+              w-12
+              shrink-0
+              items-center
+              justify-center
+              bg-[var(--bf-primary)]
+              text-white
+            "
+          >
+            <Search
+              size={18}
+            />
+          </button>
+        </div>
+      </form>
+    </Popover>
+  );
+}
+
+
+function UserAvatar({
   currentUser,
-  onLogout,
+  size = 'md',
+  showStatus = false,
 }) {
   const name =
     currentUser?.name ||
     currentUser?.fullName ||
-    currentUser?.username ||
-    currentUser?.email?.split('@')[0] ||
     'Super Admin';
+
+  const avatarUrl =
+    currentUser?.avatar_url ||
+    currentUser?.avatarUrl ||
+    currentUser?.photoURL ||
+    currentUser?.photoUrl ||
+    currentUser?.image ||
+    null;
+
+  const sizeClass =
+    size === 'lg'
+      ? 'h-14 w-14'
+      : size === 'sm'
+        ? 'h-9 w-9'
+        : 'h-10 w-10';
+
+
+  return (
+    <div
+      className={cx(
+        `
+          relative
+          flex
+          shrink-0
+          items-center
+          justify-center
+          overflow-visible
+          rounded-full
+          border
+          border-[var(--bf-border)]
+          bg-[rgb(var(--bf-primary-rgb)/.12)]
+          font-black
+          text-[var(--bf-primary)]
+        `,
+        sizeClass
+      )}
+    >
+      {avatarUrl ? (
+        <img
+          src={
+            avatarUrl
+          }
+          alt={
+            name
+          }
+          className="
+            h-full
+            w-full
+            rounded-full
+            object-cover
+          "
+        />
+      ) : (
+        <span>
+          {getInitials(
+            name
+          )}
+        </span>
+      )}
+
+      {showStatus && (
+        <span
+          className="
+            bf-dev-online-dot
+            absolute
+            -right-0.5
+            -top-0.5
+            h-2.5
+            w-2.5
+            rounded-full
+            border-2
+            border-[var(--bf-surface)]
+            bg-emerald-500
+          "
+        />
+      )}
+    </div>
+  );
+}
+
+
+function ProfilePopover({
+  currentUser,
+  onLogout,
+}) {
+  const displayName =
+    currentUser?.name ||
+    currentUser?.fullName ||
+    'Super Admin';
+
+  const email =
+    currentUser?.email ||
+    '';
+
+  const rows = [
+    [
+      'Profile',
+      User,
+    ],
+
+    [
+      'Settings',
+      Settings,
+    ],
+
+    [
+      'Mails',
+      Mail,
+    ],
+
+    [
+      'Friends',
+      Users,
+    ],
+
+    [
+      'Activity',
+      Activity,
+    ],
+  ];
+
 
   return (
     <Popover
-      width={250}
+      width={300}
     >
       <div
         className="
           border-b
           border-[var(--bf-border)]
-          p-4
+          px-5
+          py-4
           text-center
         "
       >
         <div
           className="
-            mx-auto
             flex
-            h-12
-            w-12
-            items-center
             justify-center
-            rounded-full
-            bg-[rgb(var(--bf-primary-rgb)/.12)]
-            text-[12px]
-            font-black
-            text-[var(--bf-primary)]
           "
         >
-          {getInitials(name)}
+          <UserAvatar
+            currentUser={
+              currentUser
+            }
+            size="lg"
+            showStatus
+          />
         </div>
 
         <div
           className="
-            mt-2
-            text-[13px]
-            font-bold
+            mt-3
+            text-[15px]
+            font-semibold
             text-[var(--bf-text)]
           "
         >
-          {name}
+          {displayName}
         </div>
 
-        <div
-          className="
-            mt-0.5
-            text-[9px]
-            text-[var(--bf-text-3)]
-          "
-        >
-          SUPER_ADMIN
-        </div>
+        {email && (
+          <div
+            className="
+              bf-dev-profile-email
+              mx-auto
+              mt-1
+              max-w-[250px]
+              text-[11px]
+              text-[var(--bf-text-3)]
+            "
+          >
+            {email}
+          </div>
+        )}
       </div>
 
-      <div className="p-2">
-        {[
-          ['Profile', User],
-          ['Settings', Settings],
-          ['Security', ShieldCheck],
-          ['Activity', Activity],
-        ].map(
-          ([label, Icon]) => (
+      <div
+        className="
+          py-2
+        "
+      >
+        {rows.map(
+          ([
+            label,
+            Icon,
+          ]) => (
             <button
-              key={label}
+              key={
+                label
+              }
               type="button"
               className="
                 flex
                 w-full
                 items-center
                 gap-3
-                rounded-md
-                px-3
-                py-2.5
-                text-[11px]
+                px-5
+                py-3
+                text-left
+                text-[13px]
+                font-medium
                 text-[var(--bf-text-2)]
+                transition
                 hover:bg-[rgb(var(--bf-primary-rgb)/.06)]
+                hover:text-[var(--bf-primary)]
               "
             >
               <Icon
-                size={14}
+                size={16}
                 className="
+                  shrink-0
                   text-[var(--bf-primary)]
                 "
               />
 
-              {label}
+              <span>
+                {label}
+              </span>
             </button>
           )
         )}
 
         <div
           className="
-            my-1
+            my-2
             border-t
             border-[var(--bf-border)]
           "
@@ -3460,20 +3817,28 @@ function ProfilePopover({
             w-full
             items-center
             gap-3
-            rounded-md
-            px-3
-            py-2.5
-            text-[11px]
-            font-semibold
-            text-rose-500
+            px-5
+            py-3
+            text-left
+            text-[13px]
+            font-medium
+            text-[var(--bf-text-2)]
+            transition
             hover:bg-rose-500/10
+            hover:text-rose-500
           "
         >
           <LogOut
-            size={14}
+            size={16}
+            className="
+              shrink-0
+              text-[var(--bf-primary)]
+            "
           />
 
-          Sign out
+          <span>
+            Sign out
+          </span>
         </button>
       </div>
     </Popover>
@@ -3627,8 +3992,6 @@ function Header({
   const name =
     currentUser?.name ||
     currentUser?.fullName ||
-    currentUser?.username ||
-    currentUser?.email?.split('@')[0] ||
     'Super Admin';
 
 
@@ -3833,7 +4196,7 @@ function Header({
             }
           >
             <Menu
-              size={18}
+              size={19}
             />
           </HeaderIcon>
         )}
@@ -3862,7 +4225,7 @@ function Header({
               hidden
               items-center
               gap-1.5
-              text-[11px]
+              text-[13px]
               font-semibold
               text-[var(--bf-header-text)]
               md:flex
@@ -3890,7 +4253,7 @@ function Header({
             ml-auto
             flex
             items-center
-            gap-1
+            gap-2
           "
         >
           <HeaderIcon
@@ -3905,11 +4268,11 @@ function Header({
           >
             {fullscreen ? (
               <Minimize2
-                size={18}
+                size={19}
               />
             ) : (
               <Maximize2
-                size={18}
+                size={19}
               />
             )}
           </HeaderIcon>
@@ -3930,23 +4293,43 @@ function Header({
             {config.theme ===
               'dark' ? (
               <Sun
-                size={18}
+                size={19}
               />
             ) : (
               <Moon
-                size={18}
+                size={19}
               />
             )}
           </HeaderIcon>
 
 
-          <HeaderIcon
-            label="Search"
+          <div
+            className="
+              relative
+            "
           >
-            <Search
-              size={18}
-            />
-          </HeaderIcon>
+            <HeaderIcon
+              label="Search"
+              active={
+                openPopover ===
+                'search'
+              }
+              onClick={() =>
+                togglePopover(
+                  'search'
+                )
+              }
+            >
+              <Search
+                size={19}
+              />
+            </HeaderIcon>
+
+            {openPopover ===
+              'search' && (
+              <SearchPopover />
+            )}
+          </div>
 
 
           <div
@@ -3968,7 +4351,7 @@ function Header({
               }
             >
               <Bell
-                size={18}
+                size={19}
               />
             </HeaderIcon>
 
@@ -3998,7 +4381,7 @@ function Header({
               }
             >
               <Mail
-                size={18}
+                size={19}
               />
             </HeaderIcon>
 
@@ -4024,79 +4407,36 @@ function Header({
               }
               className="
                 flex
-                h-10
+                h-11
                 items-center
-                gap-2
+                gap-2.5
                 rounded-md
-                px-1.5
+                px-2
                 text-[var(--bf-header-text)]
                 transition
                 hover:bg-black/10
               "
             >
-              <div
+              <span
                 className="
                   hidden
-                  max-w-[150px]
-                  text-right
+                  max-w-[145px]
+                  truncate
+                  text-[13px]
+                  font-semibold
                   xl:block
                 "
               >
-                <div
-                  className="
-                    truncate
-                    text-[11px]
-                    font-semibold
-                  "
-                >
-                  {name}
-                </div>
+                {name}
+              </span>
 
-                <div
-                  className="
-                    mt-0.5
-                    text-[8px]
-                    text-[var(--bf-header-muted)]
-                  "
-                >
-                  SUPER_ADMIN
-                </div>
-              </div>
-
-              <div
-                className="
-                  relative
-                  flex
-                  h-8
-                  w-8
-                  items-center
-                  justify-center
-                  rounded-full
-                  border
-                  border-white/20
-                  bg-white/15
-                  text-[9px]
-                  font-black
-                  text-white
-                "
-              >
-                {getInitials(
-                  name
-                )}
-
-                <span
-                  className="
-                    bf-dev-online-dot
-                    absolute
-                    right-0
-                    top-0
-                    h-2
-                    w-2
-                    rounded-full
-                    bg-emerald-400
-                  "
-                />
-              </div>
+              <UserAvatar
+                currentUser={
+                  currentUser
+                }
+                size="sm"
+                showStatus
+              />
 
               <ChevronDown
                 size={12}
@@ -4143,7 +4483,7 @@ function Header({
             }}
           >
             <AlignJustify
-              size={18}
+              size={19}
             />
           </HeaderIcon>
 
@@ -4169,7 +4509,7 @@ function Header({
             }}
           >
             <Settings
-              size={18}
+              size={19}
               className="
                 bf-dev-gear
               "
@@ -6139,23 +6479,22 @@ function DeveloperFooter() {
         border-t
         border-[var(--bf-border)]
         bg-[var(--bf-surface)]
-        px-4
+        px-5
         py-4
         text-center
-        text-[10px]
+        text-[13px]
         text-[var(--bf-text-2)]
       "
     >
       <div
         className="
           flex
-          flex-col
+          flex-wrap
           items-center
           justify-center
-          gap-1
-          sm:flex-row
-          sm:flex-wrap
-          sm:gap-2
+          gap-x-1.5
+          gap-y-1
+          leading-5
         "
       >
         <span>
@@ -6167,7 +6506,7 @@ function DeveloperFooter() {
           target="_blank"
           rel="noreferrer"
           className="
-            font-bold
+            font-semibold
             text-[var(--bf-primary)]
             transition
             hover:underline
@@ -6182,19 +6521,13 @@ function DeveloperFooter() {
 
         <span
           className="
-            hidden
             text-[var(--bf-text-3)]
-            sm:inline
           "
         >
           •
         </span>
 
-        <span
-          className="
-            font-semibold
-          "
-        >
+        <span>
           DESIGNED BY
         </span>
 
@@ -6203,7 +6536,7 @@ function DeveloperFooter() {
           target="_blank"
           rel="noreferrer"
           className="
-            font-bold
+            font-semibold
             text-[var(--bf-primary)]
             transition
             hover:underline
