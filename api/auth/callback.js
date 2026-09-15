@@ -5,6 +5,7 @@ import {
 } from 'node:crypto';
 
 import { createClient } from '@supabase/supabase-js';
+import { waitUntil } from '@vercel/functions';
 
 /* ============================================================
    BUDDY FLEETS
@@ -2398,55 +2399,65 @@ export default async function handler(
       jwtAal,
   };
 
-  const auditStartedAt =
-    startStage();
+  /*
+    SUCCESS AUDIT
 
-  await writeSecurityEvent({
-    userId:
-      handoff.user_id,
+    The Buddy Fleets HTTP session is already fully finalized above.
+    Logging this successful audit event must not delay the user's
+    dashboard navigation, so let Vercel keep the function alive after
+    the response while this non-authoritative write completes.
+  */
 
-    companyId:
-      handoff.company_id,
+  waitUntil(
+    writeSecurityEvent({
+      userId:
+        handoff.user_id,
 
-    eventType:
-      'PORTAL_HTTP_SESSION_CREATED',
+      companyId:
+        handoff.company_id,
 
-    portalType:
-      handoff.portal_type,
+      eventType:
+        'PORTAL_HTTP_SESSION_CREATED',
 
-    ipAddress,
+      portalType:
+        handoff.portal_type,
 
-    userAgent,
+      ipAddress,
 
-    metadata: {
-      target_host:
-        requestHost,
+      userAgent,
 
-      company_slug:
-        authorization
-          .companySlug ||
-        null,
+      metadata: {
+        target_host:
+          requestHost,
 
-      security_session_id:
-        securitySession.id,
+        company_slug:
+          authorization
+            .companySlug ||
+          null,
 
-      mfa_enabled:
-        mfaEnabled,
+        security_session_id:
+          securitySession.id,
 
-      session_aal:
-        jwtAal,
+        mfa_enabled:
+          mfaEnabled,
 
-      http_session_expires_at:
-        httpSessionExpiresAt,
+        session_aal:
+          jwtAal,
 
-      callback_mode:
-        'server_direct',
-    },
-  });
+        http_session_expires_at:
+          httpSessionExpiresAt,
 
-  endStage(
-    'audit',
-    auditStartedAt
+        callback_mode:
+          'server_direct',
+      },
+    }).catch(
+      (error) => {
+        console.error(
+          'Background callback audit failed:',
+          error?.message
+        );
+      }
+    )
   );
 
   callbackTimings.total =
@@ -2465,7 +2476,7 @@ export default async function handler(
       `user_profile;dur=${callbackTimings.user_profile || 0}`,
       `encrypt;dur=${callbackTimings.encrypt || 0}`,
       `finalize;dur=${callbackTimings.finalize || 0}`,
-      `audit;dur=${callbackTimings.audit || 0}`,
+      'audit;desc="background"',
       `total;dur=${callbackTimings.total || 0}`,
     ].join(', ')
   );
