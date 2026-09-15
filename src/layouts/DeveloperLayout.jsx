@@ -311,11 +311,11 @@ const MENU_TREE = [
           },
           {
             label: 'Trials & Renewals',
-            to: '/companies',
+            to: '/companies/trials-renewals',
           },
           {
             label: 'Company Overrides',
-            to: '/companies',
+            to: '/companies/overrides',
           },
         ],
       },
@@ -325,15 +325,15 @@ const MENU_TREE = [
         children: [
           {
             label: 'Plans',
-            to: '/subscriptions',
+            to: '/subscriptions/plans',
           },
           {
             label: 'Limits & Access',
-            to: '/subscriptions',
+            to: '/subscriptions/limits-access',
           },
           {
             label: 'Renewal Policy',
-            to: '/subscriptions',
+            to: '/subscriptions/renewal-policy',
           },
         ],
       },
@@ -343,15 +343,15 @@ const MENU_TREE = [
         children: [
           {
             label: 'Modules',
-            to: '/modules',
+            to: '/modules/registry',
           },
           {
             label: 'Dependencies',
-            to: '/modules',
+            to: '/modules/dependencies',
           },
           {
             label: 'Rollout State',
-            to: '/modules',
+            to: '/modules/rollout-state',
           },
         ],
       },
@@ -361,15 +361,15 @@ const MENU_TREE = [
         children: [
           {
             label: 'Team Members',
-            to: '/team',
+            to: '/team/members',
           },
           {
             label: 'Roles & Permissions',
-            to: '/team',
+            to: '/team/roles-permissions',
           },
           {
             label: 'Portal Access',
-            to: '/team',
+            to: '/team/portal-access',
           },
         ],
       },
@@ -388,19 +388,19 @@ const MENU_TREE = [
         children: [
           {
             label: 'Schemas & Fields',
-            to: '/developer-studio',
+            to: '/developer-studio/schemas-fields',
           },
           {
             label: 'Views & Forms',
-            to: '/developer-studio',
+            to: '/developer-studio/views-forms',
           },
           {
             label: 'Permissions',
-            to: '/developer-studio',
+            to: '/developer-studio/permissions',
           },
           {
             label: 'Publish & Rollback',
-            to: '/developer-studio',
+            to: '/developer-studio/publish-rollback',
           },
         ],
       },
@@ -410,19 +410,19 @@ const MENU_TREE = [
         children: [
           {
             label: 'Triggers',
-            to: '/developer-studio/workflows',
+            to: '/developer-studio/workflows/triggers',
           },
           {
             label: 'Conditions',
-            to: '/developer-studio/workflows',
+            to: '/developer-studio/workflows/conditions',
           },
           {
             label: 'Approvals',
-            to: '/developer-studio/workflows',
+            to: '/developer-studio/workflows/approvals',
           },
           {
             label: 'Actions',
-            to: '/developer-studio/workflows',
+            to: '/developer-studio/workflows/actions',
           },
         ],
       },
@@ -432,15 +432,15 @@ const MENU_TREE = [
         children: [
           {
             label: 'Providers',
-            to: '/integrations',
+            to: '/integrations/providers',
           },
           {
             label: 'Webhooks',
-            to: '/integrations',
+            to: '/integrations/webhooks',
           },
           {
             label: 'API Health',
-            to: '/integrations',
+            to: '/integrations/api-health',
           },
         ],
       },
@@ -462,19 +462,19 @@ const MENU_TREE = [
         children: [
           {
             label: 'Auth & Sessions',
-            to: '/security',
+            to: '/security/auth-sessions',
           },
           {
             label: 'MFA & Locks',
-            to: '/security',
+            to: '/security/mfa-locks',
           },
           {
             label: 'Privileged Access',
-            to: '/security',
+            to: '/security/privileged-access',
           },
           {
             label: 'Security Events',
-            to: '/security',
+            to: '/security/events',
           },
         ],
       },
@@ -488,15 +488,15 @@ const MENU_TREE = [
         children: [
           {
             label: 'Service Health',
-            to: '/infrastructure',
+            to: '/infrastructure/service-health',
           },
           {
             label: 'Deployments',
-            to: '/infrastructure',
+            to: '/infrastructure/deployments',
           },
           {
             label: 'Database & APIs',
-            to: '/infrastructure',
+            to: '/infrastructure/database-apis',
           },
         ],
       },
@@ -506,19 +506,19 @@ const MENU_TREE = [
         children: [
           {
             label: 'Platform Defaults',
-            to: '/system',
+            to: '/system/platform-defaults',
           },
           {
             label: 'Notifications',
-            to: '/system',
+            to: '/system/notifications',
           },
           {
             label: 'Retention & Privacy',
-            to: '/system',
+            to: '/system/retention-privacy',
           },
           {
             label: 'API Policy',
-            to: '/system',
+            to: '/system/api-policy',
           },
         ],
       },
