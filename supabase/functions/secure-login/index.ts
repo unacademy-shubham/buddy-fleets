@@ -669,58 +669,50 @@ async function enforceRateLimit({
     ).toISOString();
 
 
-  if (ipAddress) {
-    const {
-      count,
-      error,
-    } =
-      await adminClient
-        .from(
-          'security_events'
-        )
-        .select(
-          'id',
-          {
-            count:
-              'exact',
+  /*
+    Both counters are independent. Run them together instead of
+    paying two sequential database round-trips on every login.
+  */
 
-            head:
-              true,
-          }
-        )
-        .eq(
-          'event_type',
-          'LOGIN_REQUEST'
-        )
-        .eq(
-          'ip_address',
-          ipAddress
-        )
-        .gte(
-          'created_at',
-          ipWindowStart
-        );
+  const ipCountPromise =
+    ipAddress
+      ? adminClient
+          .from(
+            'security_events'
+          )
+          .select(
+            'id',
+            {
+              count:
+                'exact',
 
-    if (error) {
-      throw error;
-    }
+              head:
+                true,
+            }
+          )
+          .eq(
+            'event_type',
+            'LOGIN_REQUEST'
+          )
+          .eq(
+            'ip_address',
+            ipAddress
+          )
+          .gte(
+            'created_at',
+            ipWindowStart
+          )
+      : Promise.resolve({
+          count:
+            0,
 
-    if (
-      (count || 0) >=
-      IP_RATE_LIMIT_MAX
-    ) {
-      throw new RateLimitError();
-    }
-  }
+          error:
+            null,
+        });
 
 
-  const {
-    count:
-      emailCount,
-    error:
-      emailCountError,
-  } =
-    await adminClient
+  const emailCountPromise =
+    adminClient
       .from(
         'security_events'
       )
@@ -751,14 +743,35 @@ async function enforceRateLimit({
       );
 
 
-  if (emailCountError) {
-    throw emailCountError;
+  const [
+    ipResult,
+    emailResult,
+  ] =
+    await Promise.all([
+      ipCountPromise,
+      emailCountPromise,
+    ]);
+
+
+  if (
+    ipResult.error
+  ) {
+    throw ipResult.error;
   }
 
 
   if (
-    (emailCount || 0) >=
-    EMAIL_RATE_LIMIT_MAX
+    emailResult.error
+  ) {
+    throw emailResult.error;
+  }
+
+
+  if (
+    (ipResult.count || 0) >=
+      IP_RATE_LIMIT_MAX ||
+    (emailResult.count || 0) >=
+      EMAIL_RATE_LIMIT_MAX
   ) {
     throw new RateLimitError();
   }
@@ -1543,26 +1556,9 @@ async function createDirectPortalHandoff({
     );
   }
 
-  const accessEncrypted =
-    await encryptSecret(
-      session.access_token,
-      encryptionKey
-    );
-
-  const refreshEncrypted =
-    await encryptSecret(
-      session.refresh_token,
-      encryptionKey
-    );
-
   const handoffCode =
     createRandomCode(
       32
-    );
-
-  const handoffCodeHash =
-    await sha256Hex(
-      handoffCode
     );
 
   const expiresAt =
@@ -1571,9 +1567,36 @@ async function createDirectPortalHandoff({
         HANDOFF_LIFETIME_MS
     ).toISOString();
 
-  await revokePreviousHandoffs(
-    userId
-  );
+
+  /*
+    Token encryption, handoff hashing, and revoking older pending
+    handoffs are independent. Do them in one parallel stage.
+  */
+
+  const [
+    accessEncrypted,
+    refreshEncrypted,
+    handoffCodeHash,
+  ] =
+    await Promise.all([
+      encryptSecret(
+        session.access_token,
+        encryptionKey
+      ),
+
+      encryptSecret(
+        session.refresh_token,
+        encryptionKey
+      ),
+
+      sha256Hex(
+        handoffCode
+      ),
+
+      revokePreviousHandoffs(
+        userId
+      ),
+    ]);
 
   const {
     error:
@@ -1906,15 +1929,19 @@ Deno.serve(
 
 
     try {
-      emailHash =
-        await sha256Hex(
-          email
-        );
+      [
+        emailHash,
+        deviceIdHash,
+      ] =
+        await Promise.all([
+          sha256Hex(
+            email
+          ),
 
-      deviceIdHash =
-        await sha256Hex(
-          deviceId
-        );
+          sha256Hex(
+            deviceId
+          ),
+        ]);
     } catch {
       return jsonResponse(
         request,
@@ -1999,31 +2026,10 @@ Deno.serve(
 
 
     /* ========================================================
-       AUDIT LOGIN REQUEST
+       AUDIT LOGIN REQUEST + RESOLVE USER
 
-       Password / email plaintext NOT logged.
-    ======================================================== */
-
-    await insertSecurityEvent({
-      eventType:
-        'LOGIN_REQUEST',
-
-      ipAddress,
-
-      userAgent,
-
-      metadata: {
-        email_hash:
-          emailHash,
-
-        company_code:
-          companyCode,
-      },
-    });
-
-
-    /* ========================================================
-       RESOLVE USER BEFORE PASSWORD ATTEMPT
+       These operations are independent. The audit helper already
+       handles its own insert failure without exposing credentials.
     ======================================================== */
 
     let resolvedUserId:
@@ -2032,10 +2038,35 @@ Deno.serve(
 
 
     try {
+      const [
+        ,
+        userIdResult,
+      ] =
+        await Promise.all([
+          insertSecurityEvent({
+            eventType:
+              'LOGIN_REQUEST',
+
+            ipAddress,
+
+            userAgent,
+
+            metadata: {
+              email_hash:
+                emailHash,
+
+              company_code:
+                companyCode,
+            },
+          }),
+
+          resolveUserId(
+            email
+          ),
+        ]);
+
       resolvedUserId =
-        await resolveUserId(
-          email
-        );
+        userIdResult;
     } catch (
       error
     ) {
@@ -2287,20 +2318,30 @@ Deno.serve(
        This protects even if pre-auth lookup ever failed.
     ======================================================== */
 
+    let postAuthSecurity:
+      Awaited<
+        ReturnType<
+          typeof getUserSecurity
+        >
+      > |
+      null =
+      null;
+
+
     try {
       await ensureUserSecurityRow(
         authUser.id
       );
 
 
-      const security =
+      postAuthSecurity =
         await getUserSecurity(
           authUser.id
         );
 
 
       if (
-        security
+        postAuthSecurity
           ?.is_locked
       ) {
         await authClient
@@ -2404,65 +2445,11 @@ Deno.serve(
 
 
     /* ========================================================
-       PASSWORD WAS CORRECT
+       PASSWORD SUCCESS + PORTAL RESOLUTION
 
-       Reset failed-password counter.
-       Full LOGIN_SUCCESS comes only after MFA.
-    ======================================================== */
-
-    try {
-      await clearFailedPasswordAttempts(
-        authUser.id
-      );
-
-
-      await insertSecurityEvent({
-        userId:
-          authUser.id,
-
-        eventType:
-          'PASSWORD_VERIFIED',
-
-        ipAddress,
-
-        userAgent,
-      });
-    } catch (
-      error
-    ) {
-      console.error(
-        'Password-success security update failed:',
-        error
-      );
-
-
-      await authClient
-        .auth
-        .signOut({
-          scope:
-            'local',
-        })
-        .catch(
-          () => {}
-        );
-
-
-      return jsonResponse(
-        request,
-        503,
-        {
-          ok:
-            false,
-
-          code:
-            'SECURITY_SERVICE_UNAVAILABLE',
-        }
-      );
-    }
-
-
-    /* ========================================================
-       ROLE / TENANT / PORTAL RESOLUTION
+       Resetting the failed-attempt counter, recording the password
+       audit, and resolving portal authorization are independent
+       after the second lock check succeeds. Run them concurrently.
     ======================================================== */
 
     let portal:
@@ -2471,17 +2458,42 @@ Deno.serve(
 
 
     try {
+      const [
+        ,
+        ,
+        portalResult,
+      ] =
+        await Promise.all([
+          clearFailedPasswordAttempts(
+            authUser.id
+          ),
+
+          insertSecurityEvent({
+            userId:
+              authUser.id,
+
+            eventType:
+              'PASSWORD_VERIFIED',
+
+            ipAddress,
+
+            userAgent,
+          }),
+
+          resolvePortal({
+            companyCode,
+            userId:
+              authUser.id,
+          }),
+        ]);
+
       portal =
-        await resolvePortal({
-          companyCode,
-          userId:
-            authUser.id,
-        });
+        portalResult;
     } catch (
       error
     ) {
       console.error(
-        'Portal resolution failed:',
+        'Post-password authorization/update failed:',
         error
       );
 
@@ -2649,53 +2661,10 @@ Deno.serve(
        Login NEVER auto-enrolls a factor.
     ======================================================== */
 
-    let mfaEnabled =
-      false;
-
-
-    try {
-      const security =
-        await getUserSecurity(
-          authUser.id
-        );
-
-
-      mfaEnabled =
-        security
-          ?.mfa_enabled ===
-        true;
-    } catch (
-      error
-    ) {
-      console.error(
-        'MFA preference lookup failed:',
-        error
-      );
-
-
-      await authClient
-        .auth
-        .signOut({
-          scope:
-            'local',
-        })
-        .catch(
-          () => {}
-        );
-
-
-      return jsonResponse(
-        request,
-        503,
-        {
-          ok:
-            false,
-
-          code:
-            'SECURITY_SERVICE_UNAVAILABLE',
-        }
-      );
-    }
+    const mfaEnabled =
+      postAuthSecurity
+        ?.mfa_enabled ===
+      true;
 
 
     /* ========================================================
