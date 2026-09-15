@@ -84,9 +84,9 @@ const PRIMARY_PRESETS = [
   {
     id: 'indigo',
     label: 'Indigo',
-    value: '#5652DE',
-    strong: '#4945CC',
-    rgb: '86 82 222',
+    value: '#5551D7',
+    strong: '#4946C7',
+    rgb: '85 81 215',
   },
   {
     id: 'buddy-blue',
@@ -417,121 +417,271 @@ function buildVars({
       (item) => item.id === primaryId
     ) || PRIMARY_PRESETS[0];
 
-  const dark = theme === 'dark';
+  const dark =
+    theme === 'dark';
 
-  let sidebarBg = dark ? '#1B2737' : '#FFFFFF';
-  let sidebarText = dark ? '#F1F5F9' : '#66748A';
-  let sidebarMuted = dark ? '#8D9DB2' : '#94A3B8';
-  let sidebarBorder = dark ? '#2B3A4E' : '#E4E9F0';
+  /*
+     Reference palette measured from the supplied Splite screenshots:
+     Primary header/title band ≈ RGB(85,81,215) -> #5551D7
+     Dark sidebar/card         ≈ RGB(27,36,51)  -> #1B2433
+     Dark page canvas          ≈ RGB(14,25,41)  -> #0E1929
+     Dark divider              ≈ RGB(50,58,72)  -> #323A48
+     Light cards/sidebar       -> #FFFFFF
+     Light page canvas         ≈ #ECECF3
+  */
+
+  const darkSidebar =
+    '#1B2433';
+
+  const darkPage =
+    '#0E1929';
+
+  const darkBorder =
+    '#323A48';
+
+  const lightPage =
+    '#ECECF3';
+
+  let sidebarBg =
+    dark
+      ? darkSidebar
+      : '#FFFFFF';
+
+  let sidebarSolid =
+    dark
+      ? darkSidebar
+      : '#FFFFFF';
+
+  let sidebarText =
+    dark
+      ? '#F4F7FB'
+      : '#65738A';
+
+  let sidebarMuted =
+    dark
+      ? '#8D9AB0'
+      : '#94A0B3';
+
+  let sidebarBorder =
+    dark
+      ? darkBorder
+      : '#EBEBEB';
 
   if (sidebarStyle === 'dark') {
-    sidebarBg = '#1B2737';
-    sidebarText = '#F1F5F9';
-    sidebarMuted = '#8D9DB2';
-    sidebarBorder = '#2B3A4E';
+    sidebarBg =
+      darkSidebar;
+
+    sidebarSolid =
+      darkSidebar;
+
+    sidebarText =
+      '#F4F7FB';
+
+    sidebarMuted =
+      '#8D9AB0';
+
+    sidebarBorder =
+      darkBorder;
   }
 
   if (sidebarStyle === 'light') {
-    sidebarBg = '#FFFFFF';
-    sidebarText = '#66748A';
-    sidebarMuted = '#94A3B8';
-    sidebarBorder = '#E4E9F0';
+    sidebarBg =
+      '#FFFFFF';
+
+    sidebarSolid =
+      '#FFFFFF';
+
+    sidebarText =
+      '#65738A';
+
+    sidebarMuted =
+      '#9AA6B8';
+
+    sidebarBorder =
+      '#EBEBEB';
   }
 
   if (sidebarStyle === 'color') {
-    sidebarBg = primary.strong;
-    sidebarText = '#FFFFFF';
-    sidebarMuted = 'rgba(255,255,255,.70)';
-    sidebarBorder = 'rgba(255,255,255,.14)';
+    sidebarBg =
+      primary.value;
+
+    sidebarSolid =
+      primary.value;
+
+    sidebarText =
+      '#FFFFFF';
+
+    sidebarMuted =
+      'rgba(255,255,255,.70)';
+
+    sidebarBorder =
+      'rgba(255,255,255,.16)';
   }
 
   if (sidebarStyle === 'gradient') {
-    sidebarBg = `linear-gradient(180deg, ${primary.strong} 0%, #1B2737 100%)`;
-    sidebarText = '#FFFFFF';
-    sidebarMuted = 'rgba(255,255,255,.70)';
-    sidebarBorder = 'rgba(255,255,255,.14)';
+    sidebarBg =
+      `linear-gradient(180deg, ${primary.value} 0%, ${primary.strong} 52%, ${darkSidebar} 100%)`;
+
+    sidebarSolid =
+      primary.strong;
+
+    sidebarText =
+      '#FFFFFF';
+
+    sidebarMuted =
+      'rgba(255,255,255,.70)';
+
+    sidebarBorder =
+      'rgba(255,255,255,.15)';
   }
 
-  let headerBg = primary.value;
-  let headerText = '#FFFFFF';
-  let headerMuted = 'rgba(255,255,255,.80)';
-  let headerBorder = 'rgba(255,255,255,.16)';
+  let headerBg =
+    primary.value;
+
+  let headerText =
+    '#FFFFFF';
+
+  let headerMuted =
+    'rgba(255,255,255,.80)';
+
+  let headerBorder =
+    'rgba(255,255,255,.15)';
 
   if (headerStyle === 'light') {
-    headerBg = '#FFFFFF';
-    headerText = '#334155';
-    headerMuted = '#64748B';
-    headerBorder = '#E4E9F0';
+    headerBg =
+      '#FFFFFF';
+
+    headerText =
+      '#334155';
+
+    headerMuted =
+      '#64748B';
+
+    headerBorder =
+      '#E7EAF0';
   }
 
   if (headerStyle === 'dark') {
-    headerBg = '#1B2737';
-    headerText = '#FFFFFF';
-    headerMuted = '#AAB5C4';
-    headerBorder = '#2B3A4E';
+    headerBg =
+      darkSidebar;
+
+    headerText =
+      '#FFFFFF';
+
+    headerMuted =
+      '#AAB5C4';
+
+    headerBorder =
+      darkBorder;
   }
 
   if (headerStyle === 'color') {
-    headerBg = primary.value;
-    headerText = '#FFFFFF';
-    headerMuted = 'rgba(255,255,255,.80)';
-    headerBorder = 'rgba(255,255,255,.16)';
+    headerBg =
+      primary.value;
+
+    headerText =
+      '#FFFFFF';
+
+    headerMuted =
+      'rgba(255,255,255,.80)';
+
+    headerBorder =
+      'rgba(255,255,255,.15)';
   }
 
   if (headerStyle === 'gradient') {
-    headerBg = `linear-gradient(90deg, ${primary.strong}, ${primary.value})`;
-    headerText = '#FFFFFF';
-    headerMuted = 'rgba(255,255,255,.80)';
-    headerBorder = 'rgba(255,255,255,.16)';
+    headerBg =
+      `linear-gradient(90deg, ${primary.value} 0%, ${primary.strong} 100%)`;
+
+    headerText =
+      '#FFFFFF';
+
+    headerMuted =
+      'rgba(255,255,255,.82)';
+
+    headerBorder =
+      'rgba(255,255,255,.15)';
   }
 
+  const page =
+    dark
+      ? darkPage
+      : lightPage;
+
+  const surface =
+    dark
+      ? darkSidebar
+      : '#FFFFFF';
+
+  const surface2 =
+    dark
+      ? '#172131'
+      : '#F8F9FC';
+
+  const surface3 =
+    dark
+      ? '#263247'
+      : '#F0F2F7';
+
+  const text =
+    dark
+      ? '#E4EDF7'
+      : '#1F2937';
+
+  const text2 =
+    dark
+      ? '#9AA9BE'
+      : '#69778E';
+
+  const text3 =
+    dark
+      ? '#74849A'
+      : '#9AA6B7';
+
+  const border =
+    dark
+      ? darkBorder
+      : '#E4E7EE';
+
   return {
-    '--bf-primary': primary.value,
-    '--bf-primary-strong': primary.strong,
-    '--bf-primary-rgb': primary.rgb,
+    '--bf-primary':
+      primary.value,
+
+    '--bf-primary-strong':
+      primary.strong,
+
+    '--bf-primary-rgb':
+      primary.rgb,
 
     '--bf-page':
-      dark
-        ? '#101827'
-        : '#F1F3F7',
+      page,
 
     '--bf-surface':
-      dark
-        ? '#1B2737'
-        : '#FFFFFF',
+      surface,
 
     '--bf-surface-2':
-      dark
-        ? '#162131'
-        : '#F8FAFC',
+      surface2,
 
     '--bf-surface-3':
-      dark
-        ? '#243145'
-        : '#EEF2F7',
+      surface3,
 
     '--bf-text':
-      dark
-        ? '#EAF1F8'
-        : '#1F2937',
+      text,
 
     '--bf-text-2':
-      dark
-        ? '#A5B2C4'
-        : '#64748B',
+      text2,
 
     '--bf-text-3':
-      dark
-        ? '#76869C'
-        : '#94A3B8',
+      text3,
 
     '--bf-border':
-      dark
-        ? '#2C3A4D'
-        : '#E1E7EF',
+      border,
 
     '--bf-sidebar-bg':
       sidebarBg,
+
+    '--bf-sidebar-solid':
+      sidebarSolid,
 
     '--bf-sidebar-text':
       sidebarText,
@@ -565,9 +715,57 @@ function buildVars({
 
     '--bf-drawer-width':
       `${RIGHT_DRAWER_W}px`,
+
+    '--bf-dev-primary':
+      primary.value,
+
+    '--bf-dev-primary-strong':
+      primary.strong,
+
+    '--bf-dev-primary-rgb':
+      primary.rgb,
+
+    '--bf-dev-page-bg':
+      page,
+
+    '--bf-dev-surface':
+      surface,
+
+    '--bf-dev-surface-2':
+      surface2,
+
+    '--bf-dev-surface-3':
+      surface3,
+
+    '--bf-dev-text':
+      text,
+
+    '--bf-dev-text-2':
+      text2,
+
+    '--bf-dev-text-3':
+      text3,
+
+    '--bf-dev-border':
+      border,
+
+    '--bf-dev-border-soft':
+      dark
+        ? '#263245'
+        : '#EEF0F5',
+
+    '--bf-dev-radius':
+      '4px',
+
+    '--bf-dev-card-radius':
+      '5px',
+
+    '--bf-dev-shadow':
+      dark
+        ? '0 1px 2px rgba(0,0,0,.18)'
+        : '0 1px 3px rgba(15,23,42,.07)',
   };
 }
-
 
 /* ============================================================
    GLOBAL STYLE
@@ -918,7 +1116,6 @@ function Sidebar({
             flex-col
             border-r
             border-[var(--bf-sidebar-border)]
-            bg-[var(--bf-sidebar-bg)]
             transition-[width,transform]
             duration-200
             ease-out
@@ -930,6 +1127,9 @@ function Sidebar({
             ? 'w-[var(--bf-sidebar-width)] translate-x-0'
             : 'w-[var(--bf-sidebar-width)] -translate-x-full lg:translate-x-0'
         )}
+        style={{
+          background: 'var(--bf-sidebar-bg)',
+        }}
       >
         <div
           className={cx(
@@ -992,7 +1192,7 @@ function Sidebar({
                   w-3
                   rounded-full
                   border-2
-                  border-[var(--bf-sidebar-bg)]
+                  border-[var(--bf-sidebar-solid)]
                   bg-emerald-500
                 "
               />
@@ -1820,7 +2020,6 @@ function Header({
           h-[var(--bf-header-height)]
           border-b
           border-[var(--bf-header-border)]
-          bg-[var(--bf-header-bg)]
           transition-[left]
           duration-200
         `,

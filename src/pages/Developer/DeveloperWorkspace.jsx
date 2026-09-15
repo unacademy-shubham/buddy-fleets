@@ -238,15 +238,60 @@ function Page({
   children,
 }) {
   return (
-    <div
-      className="
-        bf-dev-workspace
-        space-y-5
-        text-[var(--bf-dev-text)]
-      "
-    >
-      {children}
-    </div>
+    <>
+      <style>
+        {`
+          .bf-dev-workspace {
+            min-height: calc(100dvh - var(--bf-header-height, 66px));
+            background: var(--bf-dev-page-bg);
+            color: var(--bf-dev-text);
+            overflow-x: hidden;
+          }
+
+          .bf-dev-workspace > * + * {
+            margin-top: 24px;
+          }
+
+          .bf-dev-workspace > :not(.bf-dev-page-band) {
+            margin-left: 24px;
+            margin-right: 24px;
+          }
+
+          .bf-dev-workspace > .bf-dev-page-band + * {
+            position: relative;
+            z-index: 2;
+            margin-top: -22px;
+          }
+
+          .bf-dev-workspace > :last-child {
+            margin-bottom: 24px;
+          }
+
+          @media (max-width: 767px) {
+            .bf-dev-workspace > :not(.bf-dev-page-band) {
+              margin-left: 14px;
+              margin-right: 14px;
+            }
+
+            .bf-dev-workspace > .bf-dev-page-band + * {
+              margin-top: -14px;
+            }
+
+            .bf-dev-workspace > * + * {
+              margin-top: 16px;
+            }
+          }
+        `}
+      </style>
+
+      <div
+        className="
+          bf-dev-workspace
+        "
+      >
+        {children}
+      </div>
+    </>
   );
 }
 
@@ -259,33 +304,19 @@ function PageHeader({
   return (
     <section
       className="
+        bf-dev-page-band
         relative
+        min-h-[104px]
         overflow-hidden
-        rounded-[var(--bf-dev-card-radius)]
-        border
-        border-[rgb(var(--bf-dev-primary-rgb)/.20)]
         bg-[var(--bf-dev-primary)]
-        px-5
-        py-5
+        px-6
+        pb-8
+        pt-6
         text-white
-        shadow-[var(--bf-dev-shadow)]
-        sm:px-6
+        sm:px-7
+        lg:px-8
       "
     >
-      <div
-        className="
-          pointer-events-none
-          absolute
-          -right-16
-          -top-20
-          h-48
-          w-48
-          rounded-full
-          bg-white/10
-          blur-2xl
-        "
-      />
-
       <div
         className="
           relative
@@ -294,33 +325,22 @@ function PageHeader({
           flex-col
           gap-4
           lg:flex-row
-          lg:items-end
+          lg:items-start
           lg:justify-between
         "
       >
-        <div className="min-w-0">
-          {eyebrow && (
-            <div
-              className="
-                text-[9px]
-                font-extrabold
-                uppercase
-                tracking-[0.16em]
-                text-white/70
-              "
-            >
-              {eyebrow}
-            </div>
-          )}
-
+        <div
+          className="
+            min-w-0
+          "
+        >
           <h1
             className="
-              mt-1.5
               text-[25px]
-              font-extrabold
-              tracking-[-0.025em]
+              font-semibold
+              tracking-[-0.02em]
               text-white
-              sm:text-[29px]
+              sm:text-[27px]
             "
           >
             {title}
@@ -330,10 +350,10 @@ function PageHeader({
             <p
               className="
                 mt-1.5
-                max-w-4xl
-                text-[11px]
+                max-w-3xl
+                text-[10px]
                 leading-5
-                text-white/75
+                text-white/72
               "
             >
               {description}
@@ -341,19 +361,45 @@ function PageHeader({
           )}
         </div>
 
-        {actions && (
+        <div
+          className="
+            flex
+            shrink-0
+            flex-col
+            items-start
+            gap-2
+            lg:items-end
+          "
+        >
           <div
             className="
-              flex
-              shrink-0
-              flex-wrap
-              items-center
-              gap-2
+              text-[10px]
+              font-medium
+              text-white/80
             "
           >
-            {actions}
+            Developer
+            <span className="mx-2 text-white/35">
+              /
+            </span>
+            <span className="text-white">
+              {eyebrow || title}
+            </span>
           </div>
-        )}
+
+          {actions && (
+            <div
+              className="
+                flex
+                flex-wrap
+                items-center
+                gap-2
+              "
+            >
+              {actions}
+            </div>
+          )}
+        </div>
       </div>
     </section>
   );
@@ -367,11 +413,11 @@ function Card({
     <section
       className={cx(
         `
-          rounded-[var(--bf-dev-card-radius)]
+          rounded-[5px]
           border
           border-[var(--bf-dev-border)]
           bg-[var(--bf-dev-surface)]
-          shadow-[var(--bf-dev-shadow)]
+          shadow-[0_1px_2px_rgba(0,0,0,.04)]
         `,
         className
       )}
@@ -395,7 +441,7 @@ function Button({
     success:
       'border-emerald-500 bg-emerald-500 text-white hover:bg-emerald-600',
     danger:
-      'border-rose-500/20 bg-rose-500/10 text-rose-500 hover:bg-rose-500/15',
+      'border-rose-500/25 bg-rose-500/10 text-rose-500 hover:bg-rose-500/15',
   };
 
   return (
@@ -405,14 +451,14 @@ function Button({
       className={cx(
         `
           inline-flex
-          min-h-[36px]
+          min-h-[32px]
           items-center
           justify-center
-          gap-2
-          rounded-[var(--bf-dev-radius)]
+          gap-1.5
+          rounded-[4px]
           border
           px-3
-          py-2
+          py-1.5
           text-[10px]
           font-semibold
           transition
@@ -425,9 +471,7 @@ function Button({
       )}
     >
       {Icon && (
-        <Icon
-          size={14}
-        />
+        <Icon size={13} />
       )}
 
       {children}
@@ -492,31 +536,61 @@ function MetricCard({
 }) {
   const accentStyles = {
     blue:
-      'bg-[rgb(var(--bf-dev-primary-rgb)/.11)] text-[var(--bf-dev-primary)]',
+      'bg-[var(--bf-dev-primary)] text-white',
     green:
-      'bg-emerald-500/10 text-emerald-500',
+      'bg-emerald-500 text-white',
     violet:
-      'bg-violet-500/10 text-violet-500',
+      'bg-fuchsia-500 text-white',
     amber:
-      'bg-amber-500/10 text-amber-500',
+      'bg-orange-400 text-white',
   };
 
   return (
-    <Card className="p-4">
+    <Card
+      className="
+        min-h-[118px]
+        px-5
+        py-5
+      "
+    >
       <div
         className="
           flex
-          items-start
-          justify-between
+          h-full
+          items-center
           gap-4
         "
       >
-        <div className="min-w-0">
+        <div
+          className={cx(
+            `
+              flex
+              h-11
+              w-11
+              shrink-0
+              items-center
+              justify-center
+              rounded-[5px]
+            `,
+            accentStyles[accent]
+          )}
+        >
+          <Icon
+            size={19}
+          />
+        </div>
+
+        <div
+          className="
+            min-w-0
+            flex-1
+          "
+        >
           <div
             className="
-              text-[10px]
-              font-semibold
-              text-[var(--bf-dev-text-2)]
+              text-[13px]
+              font-medium
+              text-[var(--bf-dev-text)]
             "
           >
             {label}
@@ -524,11 +598,12 @@ function MetricCard({
 
           <div
             className="
-              mt-1.5
+              mt-0.5
               truncate
-              text-[25px]
-              font-extrabold
-              tracking-[-0.03em]
+              text-[24px]
+              font-semibold
+              leading-none
+              tracking-[-0.02em]
               text-[var(--bf-dev-text)]
             "
           >
@@ -537,31 +612,14 @@ function MetricCard({
 
           <div
             className="
-              mt-1.5
-              text-[9px]
-              leading-4
+              mt-2
+              truncate
+              text-[10px]
               text-[var(--bf-dev-text-3)]
             "
           >
             {note}
           </div>
-        </div>
-
-        <div
-          className={cx(
-            `
-              flex
-              h-10
-              w-10
-              shrink-0
-              items-center
-              justify-center
-              rounded-[9px]
-            `,
-            accentStyles[accent]
-          )}
-        >
-          <Icon size={18} />
         </div>
       </div>
     </Card>
@@ -577,20 +635,21 @@ function CardHeader({
     <div
       className="
         flex
+        min-h-[55px]
         items-center
         justify-between
         gap-3
         border-b
         border-[var(--bf-dev-border)]
-        px-4
-        py-3.5
+        px-5
+        py-3
       "
     >
       <div>
         <div
           className="
-            text-[12px]
-            font-bold
+            text-[15px]
+            font-medium
             text-[var(--bf-dev-text)]
           "
         >
@@ -622,8 +681,8 @@ function OverviewSection({
     <Page>
       <PageHeader
         eyebrow="Developer Control Center"
-        title="Platform overview"
-        description="Central view of Buddy Fleets companies, users, platform modules, security and operational activity."
+        title="Developer Dashboard"
+        description="Platform companies, access, modules, security and operational health."
         actions={
           <Button
             icon={RefreshCcw}
