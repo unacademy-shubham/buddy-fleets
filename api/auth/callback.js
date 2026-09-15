@@ -600,6 +600,56 @@ async function getHandoff(
   return data;
 }
 
+/* ============================================================
+   FAST CALLBACK CONTEXT V2
+
+   One service-role RPC returns the handoff, user security state,
+   active security session, profile and portal authorization context.
+
+   This removes several HTTP/PostgREST round-trips while preserving
+   the same checks. Supabase Auth getUser() and atomic session finalization
+   remain separate authoritative checks.
+============================================================ */
+
+async function getFastCallbackContext(
+  handoffCode
+) {
+  const handoffHash =
+    sha256Hex(
+      handoffCode
+    );
+
+  const {
+    data,
+    error,
+  } =
+    await supabaseAdmin
+      .rpc(
+        'bf_get_portal_callback_context_v2',
+        {
+          p_handoff_code_hash:
+            handoffHash,
+        }
+      );
+
+  if (
+    error
+  ) {
+    throw error;
+  }
+
+  if (
+    !data ||
+    typeof data !==
+      'object'
+  ) {
+    return null;
+  }
+
+  return data;
+}
+
+
 async function getUserSecurity(
   userId
 ) {
@@ -1724,20 +1774,18 @@ export default async function handler(
       req
     );
 
-  let handoff;
-
+  let callbackContext;
 
   try {
-    handoff =
-      await getHandoff(
+    callbackContext =
+      await getFastCallbackContext(
         handoffCode
       );
-
   } catch (
     error
   ) {
     console.error(
-      'Callback handoff lookup failed:',
+      'Callback context lookup failed:',
       error?.message
     );
 
@@ -1746,6 +1794,11 @@ export default async function handler(
       true
     );
   }
+
+  const handoff =
+    callbackContext
+      ?.handoff ||
+    null;
 
   if (
     !handoff
@@ -1870,44 +1923,25 @@ export default async function handler(
     );
   }
 
-  let security;
-  let authorization;
-  let securitySession;
+  const security =
+    callbackContext
+      ?.security ||
+    null;
 
+  const authorization =
+    callbackContext
+      ?.authorization ||
+    null;
 
-  try {
-    [
-      security,
-      authorization,
-      securitySession,
-    ] =
-      await Promise.all([
-        getUserSecurity(
-          handoff.user_id
-        ),
+  const securitySession =
+    callbackContext
+      ?.security_session ||
+    null;
 
-        verifyPortalAuthorization(
-          handoff
-        ),
-
-        getSecuritySession(
-          handoff
-        ),
-      ]);
-
-  } catch (
-    error
-  ) {
-    console.error(
-      'Callback security verification failed:',
-      error?.message
-    );
-
-    return redirectToLogin(
-      res,
-      true
-    );
-  }
+  const profile =
+    callbackContext
+      ?.profile ||
+    null;
 
   if (
     !security ||
@@ -2074,37 +2108,24 @@ export default async function handler(
   }
 
   /*
-    Performance:
-    Supabase user verification and profile lookup are independent,
-    so run them in parallel. Security decisions remain unchanged.
+    Authoritative Supabase Auth verification remains mandatory.
+    Profile data was already fetched inside the single callback-context RPC.
   */
 
   let verifiedUserResult;
-  let profile;
-
 
   try {
-    [
-      verifiedUserResult,
-      profile,
-    ] =
-      await Promise.all([
-        supabaseAdmin
-          .auth
-          .getUser(
-            accessToken
-          ),
-
-        getProfile(
-          handoff.user_id
-        ),
-      ]);
-
+    verifiedUserResult =
+      await supabaseAdmin
+        .auth
+        .getUser(
+          accessToken
+        );
   } catch (
     error
   ) {
     console.error(
-      'Callback user/profile verification failed:',
+      'Callback user verification failed:',
       error?.message
     );
 
