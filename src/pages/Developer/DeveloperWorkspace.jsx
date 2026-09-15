@@ -436,6 +436,8 @@ function Button({
   const styles = {
     default:
       'border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] text-[var(--bf-dev-text-2)] hover:bg-[var(--bf-dev-surface-2)] hover:text-[var(--bf-dev-text)]',
+    header:
+      'border-[#111827] bg-[#111827] text-white hover:border-[#1F2937] hover:bg-[#1F2937] hover:text-white',
     primary:
       'border-[var(--bf-dev-primary)] bg-[var(--bf-dev-primary)] text-white hover:bg-[var(--bf-dev-primary-strong)]',
     success:
@@ -674,6 +676,102 @@ function CardHeader({
   );
 }
 
+
+function FeatureMatrix({
+  title,
+  subtitle,
+  items,
+}) {
+  return (
+    <Card>
+      <CardHeader
+        title={title}
+        subtitle={subtitle}
+      />
+
+      <div
+        className="
+          grid
+          gap-3
+          p-4
+          md:grid-cols-2
+          xl:grid-cols-3
+        "
+      >
+        {items.map(
+          ({
+            title: itemTitle,
+            text,
+            icon: Icon,
+            status = 'active',
+          }) => (
+            <div
+              key={itemTitle}
+              className="
+                rounded-lg
+                border
+                border-[var(--bf-dev-border)]
+                bg-[var(--bf-dev-surface-2)]
+                p-4
+              "
+            >
+              <div
+                className="
+                  flex
+                  items-start
+                  justify-between
+                  gap-3
+                "
+              >
+                <div
+                  className="
+                    flex
+                    h-9
+                    w-9
+                    shrink-0
+                    items-center
+                    justify-center
+                    rounded-lg
+                    bg-[rgb(var(--bf-dev-primary-rgb)/.10)]
+                    text-[var(--bf-dev-primary)]
+                  "
+                >
+                  <Icon size={16} />
+                </div>
+
+                <Status status={status} />
+              </div>
+
+              <div
+                className="
+                  mt-3
+                  text-[12px]
+                  font-bold
+                  text-[var(--bf-dev-text)]
+                "
+              >
+                {itemTitle}
+              </div>
+
+              <div
+                className="
+                  mt-1
+                  text-[10px]
+                  leading-5
+                  text-[var(--bf-dev-text-2)]
+                "
+              >
+                {text}
+              </div>
+            </div>
+          )
+        )}
+      </div>
+    </Card>
+  );
+}
+
+
 function OverviewSection({
   onNavigate,
 }) {
@@ -686,6 +784,7 @@ function OverviewSection({
         actions={
           <Button
             icon={RefreshCcw}
+            variant="header"
           >
             Refresh snapshot
           </Button>
@@ -963,6 +1062,86 @@ function OverviewSection({
           </div>
         </Card>
       </div>
+
+
+      <FeatureMatrix
+        title="Developer control plane"
+        subtitle="Core Super Admin capabilities available from the Developer CPanel"
+        items={[
+          {
+            title: 'Tenant lifecycle',
+            text: 'Create, activate, trial, suspend, reactivate and retire customer companies.',
+            icon: Building2,
+            status: 'active',
+          },
+          {
+            title: 'Plans & billing controls',
+            text: 'Plans, entitlements, trials, renewal windows, overrides and future billing hooks.',
+            icon: Gauge,
+            status: 'active',
+          },
+          {
+            title: 'Users, roles & access',
+            text: 'Platform admins, internal team accounts, role assignments and portal access.',
+            icon: UserCog,
+            status: 'active',
+          },
+          {
+            title: 'Authentication & sessions',
+            text: 'Secure login, sessions, account locks, MFA state and privileged re-auth controls.',
+            icon: LockKeyhole,
+            status: 'active',
+          },
+          {
+            title: 'Module registry',
+            text: 'Register modules, features, lifecycle state, dependencies and company rollout.',
+            icon: Boxes,
+            status: 'active',
+          },
+          {
+            title: 'Feature flags & releases',
+            text: 'Staged rollouts, company targeting, beta gates, release history and rollback controls.',
+            icon: Flag,
+            status: 'active',
+          },
+          {
+            title: 'Developer Studio',
+            text: 'Module builder, workflow builder, schemas, permissions and controlled publishing.',
+            icon: Code2,
+            status: 'active',
+          },
+          {
+            title: 'Integrations & webhooks',
+            text: 'Supabase, Vercel, messaging, GPS providers, APIs, webhooks, retries and health.',
+            icon: Cable,
+            status: 'active',
+          },
+          {
+            title: 'Website Studio',
+            text: 'Public pages, SEO metadata, enquiries, media, releases and rollback workflow.',
+            icon: PanelsTopLeft,
+            status: 'active',
+          },
+          {
+            title: 'Audit & compliance',
+            text: 'Privileged action trail, exports, retention, security events and compliance evidence.',
+            icon: FileText,
+            status: 'active',
+          },
+          {
+            title: 'Infrastructure health',
+            text: 'Portal availability, Edge Functions, APIs, database, deployments and environment health.',
+            icon: ServerCog,
+            status: 'active',
+          },
+          {
+            title: 'Global system settings',
+            text: 'Platform identity, tenant defaults, notifications, retention and API policy.',
+            icon: Settings,
+            status: 'active',
+          },
+        ]}
+      />
 
       <Card>
         <CardHeader
@@ -2249,34 +2428,40 @@ function EntitlementsSection() {
       }
       cards={[
         {
-          title:
-            'Starter',
-          text:
-            'Core fleet operations with controlled limits and essential modules.',
-          icon:
-            BadgeCheck,
-          status:
-            'active',
+          title: 'Starter',
+          text: 'Core fleet operations with controlled limits and essential modules.',
+          icon: BadgeCheck,
+          status: 'active',
         },
         {
-          title:
-            'Growth',
-          text:
-            'Operations, finance and compliance for growing fleet businesses.',
-          icon:
-            BadgeCheck,
-          status:
-            'active',
+          title: 'Growth',
+          text: 'Operations, finance and compliance for growing fleet businesses.',
+          icon: BadgeCheck,
+          status: 'active',
         },
         {
-          title:
-            'Enterprise',
-          text:
-            'Full platform access with advanced controls and custom limits.',
-          icon:
-            BadgeCheck,
-          status:
-            'active',
+          title: 'Enterprise',
+          text: 'Full platform access with advanced controls and custom limits.',
+          icon: BadgeCheck,
+          status: 'active',
+        },
+        {
+          title: 'Trial policy',
+          text: 'Trial duration, grace period, conversion rules and expiry handling.',
+          icon: FileClock,
+          status: 'active',
+        },
+        {
+          title: 'Company overrides',
+          text: 'Per-company module, feature, limit and entitlement exceptions.',
+          icon: SlidersHorizontal,
+          status: 'active',
+        },
+        {
+          title: 'Renewal controls',
+          text: 'Renewal windows, expiry actions, suspension policy and future billing integration.',
+          icon: RefreshCcw,
+          status: 'active',
         },
       ]}
     />
@@ -2987,14 +3172,28 @@ function SecuritySection() {
             'active',
         },
         {
-          title:
-            'Account lock protection',
-          text:
-            'Automatic protection against repeated login failures.',
-          icon:
-            ShieldAlert,
-          status:
-            'active',
+          title: 'Account lock protection',
+          text: 'Automatic protection against repeated login failures.',
+          icon: ShieldAlert,
+          status: 'active',
+        },
+        {
+          title: 'Session inventory',
+          text: 'Review active developer, team and company portal sessions and revoke access.',
+          icon: MonitorCog,
+          status: 'active',
+        },
+        {
+          title: 'Privileged access',
+          text: 'Strict authorization boundary for Super Admin and high-risk operations.',
+          icon: UserCog,
+          status: 'active',
+        },
+        {
+          title: 'Security events',
+          text: 'Authentication anomalies, lockouts, session changes and sensitive actions.',
+          icon: Bell,
+          status: 'active',
         },
       ]}
     />
@@ -3213,12 +3412,24 @@ function SettingsSection() {
             Database,
         },
         {
-          title:
-            'API platform',
-          text:
-            'Versioning, idempotency, rate limits and external access.',
-          icon:
-            Cable,
+          title: 'API platform',
+          text: 'Versioning, idempotency, rate limits and external access.',
+          icon: Cable,
+        },
+        {
+          title: 'Environment controls',
+          text: 'Production, staging and development configuration boundaries.',
+          icon: ServerCog,
+        },
+        {
+          title: 'Maintenance mode',
+          text: 'Controlled maintenance windows, portal notices and emergency restrictions.',
+          icon: Wrench,
+        },
+        {
+          title: 'Backup & recovery',
+          text: 'Backup visibility, restore readiness, recovery policy and verification.',
+          icon: Database,
         },
       ]}
     />

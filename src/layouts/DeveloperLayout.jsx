@@ -256,10 +256,38 @@ const MENU_TREE = [
         label: 'Website Studio',
         to: '/website',
         end: true,
+        children: [
+          {
+            label: 'Page Builder',
+            to: '/website',
+          },
+          {
+            label: 'Media & Assets',
+            to: '/website',
+          },
+          {
+            label: 'Release Workflow',
+            to: '/website',
+          },
+        ],
       },
       {
         label: 'Content & SEO',
         to: '/website/seo',
+        children: [
+          {
+            label: 'Metadata',
+            to: '/website/seo',
+          },
+          {
+            label: 'Indexing',
+            to: '/website/seo',
+          },
+          {
+            label: 'AI Discoverability',
+            to: '/website/seo',
+          },
+        ],
       },
       {
         label: 'Website Enquiries',
@@ -276,18 +304,74 @@ const MENU_TREE = [
       {
         label: 'Companies',
         to: '/companies',
+        children: [
+          {
+            label: 'All Companies',
+            to: '/companies',
+          },
+          {
+            label: 'Trials & Renewals',
+            to: '/companies',
+          },
+          {
+            label: 'Company Overrides',
+            to: '/companies',
+          },
+        ],
       },
       {
         label: 'Plans & Entitlements',
         to: '/subscriptions',
+        children: [
+          {
+            label: 'Plans',
+            to: '/subscriptions',
+          },
+          {
+            label: 'Limits & Access',
+            to: '/subscriptions',
+          },
+          {
+            label: 'Renewal Policy',
+            to: '/subscriptions',
+          },
+        ],
       },
       {
         label: 'Module Registry',
         to: '/modules',
+        children: [
+          {
+            label: 'Modules',
+            to: '/modules',
+          },
+          {
+            label: 'Dependencies',
+            to: '/modules',
+          },
+          {
+            label: 'Rollout State',
+            to: '/modules',
+          },
+        ],
       },
       {
         label: 'Team & Roles',
         to: '/team',
+        children: [
+          {
+            label: 'Team Members',
+            to: '/team',
+          },
+          {
+            label: 'Roles & Permissions',
+            to: '/team',
+          },
+          {
+            label: 'Portal Access',
+            to: '/team',
+          },
+        ],
       },
     ],
   },
@@ -301,14 +385,64 @@ const MENU_TREE = [
         label: 'Module Builder',
         to: '/developer-studio',
         end: true,
+        children: [
+          {
+            label: 'Schemas & Fields',
+            to: '/developer-studio',
+          },
+          {
+            label: 'Views & Forms',
+            to: '/developer-studio',
+          },
+          {
+            label: 'Permissions',
+            to: '/developer-studio',
+          },
+          {
+            label: 'Publish & Rollback',
+            to: '/developer-studio',
+          },
+        ],
       },
       {
         label: 'Workflow Builder',
         to: '/developer-studio/workflows',
+        children: [
+          {
+            label: 'Triggers',
+            to: '/developer-studio/workflows',
+          },
+          {
+            label: 'Conditions',
+            to: '/developer-studio/workflows',
+          },
+          {
+            label: 'Approvals',
+            to: '/developer-studio/workflows',
+          },
+          {
+            label: 'Actions',
+            to: '/developer-studio/workflows',
+          },
+        ],
       },
       {
         label: 'Integrations',
         to: '/integrations',
+        children: [
+          {
+            label: 'Providers',
+            to: '/integrations',
+          },
+          {
+            label: 'Webhooks',
+            to: '/integrations',
+          },
+          {
+            label: 'API Health',
+            to: '/integrations',
+          },
+        ],
       },
       {
         label: 'Feature Flags',
@@ -325,6 +459,24 @@ const MENU_TREE = [
       {
         label: 'Security Center',
         to: '/security',
+        children: [
+          {
+            label: 'Auth & Sessions',
+            to: '/security',
+          },
+          {
+            label: 'MFA & Locks',
+            to: '/security',
+          },
+          {
+            label: 'Privileged Access',
+            to: '/security',
+          },
+          {
+            label: 'Security Events',
+            to: '/security',
+          },
+        ],
       },
       {
         label: 'Audit Logs',
@@ -333,10 +485,42 @@ const MENU_TREE = [
       {
         label: 'Infrastructure',
         to: '/infrastructure',
+        children: [
+          {
+            label: 'Service Health',
+            to: '/infrastructure',
+          },
+          {
+            label: 'Deployments',
+            to: '/infrastructure',
+          },
+          {
+            label: 'Database & APIs',
+            to: '/infrastructure',
+          },
+        ],
       },
       {
         label: 'System Settings',
         to: '/system',
+        children: [
+          {
+            label: 'Platform Defaults',
+            to: '/system',
+          },
+          {
+            label: 'Notifications',
+            to: '/system',
+          },
+          {
+            label: 'Retention & Privacy',
+            to: '/system',
+          },
+          {
+            label: 'API Policy',
+            to: '/system',
+          },
+        ],
       },
     ],
   },
@@ -670,28 +854,57 @@ function getInitials(value) {
 }
 
 
+function nodeMatchesPath(
+  pathname,
+  node
+) {
+  const ownMatch =
+    node?.to
+      ? (
+          node.end
+            ? pathname === node.to
+            : (
+                pathname === node.to ||
+                pathname.startsWith(
+                  `${node.to}/`
+                )
+              )
+        )
+      : false;
+
+  if (ownMatch) {
+    return true;
+  }
+
+  return Array.isArray(
+    node?.children
+  )
+    ? node.children.some(
+        (child) =>
+          nodeMatchesPath(
+            pathname,
+            child
+          )
+      )
+    : false;
+}
+
+
 function pathIsInside(
   pathname,
   menu
 ) {
-  return menu.children.some(
-    (child) => {
-      if (child.end) {
-        return (
-          pathname ===
-          child.to
-        );
-      }
-
-      return (
-        pathname ===
-          child.to ||
-        pathname.startsWith(
-          `${child.to}/`
-        )
-      );
-    }
-  );
+  return Array.isArray(
+    menu?.children
+  )
+    ? menu.children.some(
+        (child) =>
+          nodeMatchesPath(
+            pathname,
+            child
+          )
+      )
+    : false;
 }
 
 
@@ -1258,7 +1471,8 @@ function GlobalStyle() {
         }
 
         .bf-dev-online-dot {
-          position: relative;
+          position: absolute !important;
+          z-index: 2;
           isolation: isolate;
         }
 
@@ -1269,6 +1483,7 @@ function GlobalStyle() {
           z-index: -1;
           border-radius: 999px;
           background: rgba(34, 197, 94, .34);
+          pointer-events: none;
           animation:
             bfOnlineRadar
             1.8s
@@ -1612,60 +1827,190 @@ function ParentMenuItem({
 function ChildLink({
   child,
   collapsed,
+  depth = 0,
 }) {
+  const location =
+    useLocation();
+
+  const [
+    expanded,
+    setExpanded,
+  ] =
+    useState(
+      nodeMatchesPath(
+        location.pathname,
+        child
+      )
+    );
+
+  useEffect(() => {
+    if (
+      nodeMatchesPath(
+        location.pathname,
+        child
+      )
+    ) {
+      setExpanded(
+        true
+      );
+    }
+  }, [
+    location.pathname,
+    child,
+  ]);
+
+  const hasChildren =
+    Array.isArray(
+      child.children
+    ) &&
+    child.children.length > 0;
+
+  if (
+    collapsed
+  ) {
+    return (
+      <NavLink
+        to={child.to}
+        end={child.end}
+        title={child.label}
+        className="
+          bf-dev-sidebar-child
+          relative
+          flex
+          min-h-[33px]
+          items-center
+          justify-center
+          text-[12px]
+          text-[var(--bf-sidebar-text)]
+          transition
+          hover:text-[var(--bf-primary)]
+        "
+      >
+        <span
+          className="
+            h-[5px]
+            w-[5px]
+            rounded-full
+            border
+            border-current
+          "
+        />
+      </NavLink>
+    );
+  }
+
   return (
-    <NavLink
-      to={child.to}
-      end={child.end}
-      className={({ isActive }) =>
-        cx(
-          `
-            bf-dev-sidebar-child
-            relative
-            flex
-            min-h-[33px]
-            items-center
-            text-[12px]
-            transition
-            duration-150
-          `,
-          collapsed
-            ? 'justify-center'
-            : 'pl-[38px] pr-2',
-          isActive
-            ? 'font-semibold text-[var(--bf-primary)]'
-            : 'text-[var(--bf-sidebar-text)] hover:text-[var(--bf-primary)]'
-        )
-      }
-    >
-      {({ isActive }) => (
-        <>
-          <span
-            className={cx(
+    <div>
+      <div
+        className="
+          relative
+          flex
+          min-h-[33px]
+          items-center
+        "
+        style={{
+          paddingLeft:
+            `${38 + depth * 16}px`,
+        }}
+      >
+        <NavLink
+          to={child.to}
+          end={child.end}
+          className={({ isActive }) =>
+            cx(
               `
-                absolute
-                h-[5px]
-                w-[5px]
-                rounded-full
-                border
+                bf-dev-sidebar-child
+                relative
+                flex
+                min-h-[33px]
+                min-w-0
+                flex-1
+                items-center
+                pr-2
+                text-[12px]
+                transition
+                duration-150
               `,
-              collapsed
-                ? 'left-1/2 -translate-x-1/2'
-                : 'left-[18px]',
-              isActive
-                ? 'border-[var(--bf-primary)] bg-[var(--bf-primary)]'
-                : 'border-[var(--bf-sidebar-muted)]'
-            )}
+              (
+                isActive ||
+                nodeMatchesPath(
+                  location.pathname,
+                  child
+                )
+              )
+                ? 'font-semibold text-[var(--bf-primary)]'
+                : 'text-[var(--bf-sidebar-text)] hover:text-[var(--bf-primary)]'
+            )
+          }
+        >
+          <span
+            className="
+              absolute
+              -left-[20px]
+              h-[5px]
+              w-[5px]
+              rounded-full
+              border
+              border-current
+            "
           />
 
-          {!collapsed && (
-            <span className="truncate">
-              {child.label}
-            </span>
-          )}
-        </>
-      )}
-    </NavLink>
+          <span className="truncate">
+            {child.label}
+          </span>
+        </NavLink>
+
+        {hasChildren && (
+          <button
+            type="button"
+            aria-label={`Toggle ${child.label}`}
+            onClick={() =>
+              setExpanded(
+                (current) =>
+                  !current
+              )
+            }
+            className="
+              mr-1
+              flex
+              h-7
+              w-7
+              shrink-0
+              items-center
+              justify-center
+              rounded-md
+              text-[var(--bf-sidebar-muted)]
+              hover:text-[var(--bf-primary)]
+            "
+          >
+            <ChevronDown
+              size={12}
+              className={cx(
+                'transition-transform',
+                expanded &&
+                  'rotate-180'
+              )}
+            />
+          </button>
+        )}
+      </div>
+
+      {hasChildren &&
+        expanded && (
+          <div>
+            {child.children.map(
+              (grandchild) => (
+                <ChildLink
+                  key={`${grandchild.label}-${grandchild.to}`}
+                  child={grandchild}
+                  collapsed={false}
+                  depth={depth + 1}
+                />
+              )
+            )}
+          </div>
+        )}
+    </div>
   );
 }
 
@@ -1795,6 +2140,81 @@ function SidebarProfile({
 }
 
 
+function FlyoutNode({
+  child,
+  depth = 0,
+}) {
+  const hasChildren =
+    Array.isArray(
+      child.children
+    ) &&
+    child.children.length > 0;
+
+  return (
+    <div>
+      <NavLink
+        to={child.to}
+        end={child.end}
+        className={({ isActive }) =>
+          cx(
+            `
+              flex
+              items-center
+              gap-2
+              px-4
+              py-2.5
+              text-[11px]
+              transition
+              hover:bg-[rgb(var(--bf-primary-rgb)/.06)]
+              hover:text-[var(--bf-primary)]
+            `,
+            isActive
+              ? 'font-semibold text-[var(--bf-primary)]'
+              : 'text-[var(--bf-text-2)]'
+          )
+        }
+        style={{
+          paddingLeft:
+            `${16 + depth * 16}px`,
+        }}
+      >
+        <span
+          className="
+            h-[5px]
+            w-[5px]
+            rounded-full
+            border
+            border-current
+          "
+        />
+
+        {child.label}
+      </NavLink>
+
+      {hasChildren && (
+        <div
+          className="
+            border-l
+            border-[var(--bf-border)]
+            bg-[var(--bf-surface-2)]
+          "
+        >
+          {child.children.map(
+            (grandchild) => (
+              <FlyoutNode
+                key={`${grandchild.label}-${grandchild.to}`}
+                child={grandchild}
+                depth={depth + 1}
+              />
+            )
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 function SidebarFlyout({
   menu,
   visible,
@@ -1847,46 +2267,10 @@ function SidebarFlyout({
       >
         {menu.children.map(
           (child) => (
-            <NavLink
-              key={
-                child.to
-              }
-              to={
-                child.to
-              }
-              end={
-                child.end
-              }
-              className={({ isActive }) =>
-                cx(
-                  `
-                    flex
-                    items-center
-                    gap-2
-                    px-4
-                    py-2.5
-                    text-[11px]
-                    transition
-                    hover:text-[var(--bf-primary)]
-                  `,
-                  isActive
-                    ? 'font-semibold text-[var(--bf-primary)]'
-                    : 'text-[var(--bf-text-2)]'
-                )
-              }
-            >
-              <span
-                className="
-                  h-[5px]
-                  w-[5px]
-                  rounded-full
-                  border
-                  border-current
-                "
-              />
-
-              {child.label}
-            </NavLink>
+            <FlyoutNode
+              key={`${child.label}-${child.to}`}
+              child={child}
+            />
           )
         )}
       </div>
@@ -2948,47 +3332,10 @@ function HorizontalNavigation({
                   >
                     {menu.children.map(
                       (child) => (
-                        <NavLink
-                          key={
-                            child.to
-                          }
-                          to={
-                            child.to
-                          }
-                          end={
-                            child.end
-                          }
-                          className={({ isActive }) =>
-                            cx(
-                              `
-                                flex
-                                items-center
-                                gap-2
-                                px-4
-                                py-2.5
-                                text-[11px]
-                                transition
-                                hover:bg-[rgb(var(--bf-primary-rgb)/.06)]
-                                hover:text-[var(--bf-primary)]
-                              `,
-                              isActive
-                                ? 'font-semibold text-[var(--bf-primary)]'
-                                : 'text-[var(--bf-text-2)]'
-                            )
-                          }
-                        >
-                          <span
-                            className="
-                              h-[5px]
-                              w-[5px]
-                              rounded-full
-                              border
-                              border-current
-                            "
-                          />
-
-                          {child.label}
-                        </NavLink>
+                        <FlyoutNode
+                          key={`${child.label}-${child.to}`}
+                          child={child}
+                        />
                       )
                     )}
                   </div>
@@ -4459,7 +4806,6 @@ function Header({
                   currentUser
                 }
                 size="sm"
-                showStatus
               />
 
               <ChevronDown
