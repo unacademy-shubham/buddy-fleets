@@ -52,6 +52,7 @@ import {
 } from 'lucide-react';
 
 import {
+  useLocation,
   useNavigate,
 } from 'react-router-dom';
 
@@ -438,6 +439,8 @@ function Button({
       'border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] text-[var(--bf-dev-text-2)] hover:bg-[var(--bf-dev-surface-2)] hover:text-[var(--bf-dev-text)]',
     header:
       'border-[#111827] bg-[#111827] text-white hover:border-[#1F2937] hover:bg-[#1F2937] hover:text-white',
+    pageBand:
+      'border-white/30 bg-white/12 text-white hover:border-white/45 hover:bg-white/20 hover:text-white',
     primary:
       'border-[var(--bf-dev-primary)] bg-[var(--bf-dev-primary)] text-white hover:bg-[var(--bf-dev-primary-strong)]',
     success:
@@ -1505,6 +1508,7 @@ function WebsiteStudioSection() {
         actions={
           <>
             <Button
+              variant="pageBand"
               icon={
                 MonitorCog
               }
@@ -1774,6 +1778,350 @@ function WebsiteStudioSection() {
   );
 }
 
+
+function PageBuilderSection() {
+  return (
+    <Page>
+      <PageHeader
+        eyebrow="Website Studio / Page Builder"
+        title="Page Builder"
+        description="Build and organize public Buddy Fleets website pages, reusable sections and conversion-focused content."
+        actions={
+          <>
+            <Button
+              variant="pageBand"
+              icon={MonitorCog}
+            >
+              Preview
+            </Button>
+
+            <Button
+              variant="primary"
+              icon={Rocket}
+            >
+              Save draft
+            </Button>
+          </>
+        }
+      />
+
+      <div
+        className="
+          grid
+          gap-4
+          xl:grid-cols-[300px_1fr]
+        "
+      >
+        <Card>
+          <CardHeader
+            title="Website pages"
+            subtitle="Select a page to edit"
+            action={
+              <Button icon={Plus}>
+                Page
+              </Button>
+            }
+          />
+
+          <div className="space-y-1 p-2.5">
+            {WEBSITE_PAGES.map(
+              (page) => (
+                <button
+                  key={page.path}
+                  type="button"
+                  className="
+                    flex
+                    w-full
+                    items-center
+                    justify-between
+                    gap-3
+                    rounded-lg
+                    border
+                    border-[var(--bf-dev-border)]
+                    bg-[var(--bf-dev-surface)]
+                    px-3
+                    py-3
+                    text-left
+                    transition
+                    hover:bg-[var(--bf-dev-surface-2)]
+                  "
+                >
+                  <div>
+                    <div className="text-[11px] font-semibold text-[var(--bf-dev-text)]">
+                      {page.name}
+                    </div>
+                    <div className="mt-0.5 text-[9px] text-[var(--bf-dev-text-3)]">
+                      {page.path}
+                    </div>
+                  </div>
+
+                  <ChevronRight
+                    size={14}
+                    className="text-[var(--bf-dev-text-3)]"
+                  />
+                </button>
+              )
+            )}
+          </div>
+        </Card>
+
+        <div className="space-y-4">
+          <Card>
+            <CardHeader
+              title="Page canvas"
+              subtitle="Reusable blocks available for the selected page"
+            />
+
+            <div
+              className="
+                grid
+                gap-3
+                p-4
+                md:grid-cols-2
+                xl:grid-cols-3
+              "
+            >
+              {[
+                ['Hero Section', 'Headline, supporting copy, CTA and hero media.', AppWindow],
+                ['Feature Grid', 'Product capability cards and module highlights.', Blocks],
+                ['Trust Section', 'Customer proof, platform stats and testimonials.', BadgeCheck],
+                ['Pricing Block', 'Plan cards, feature comparison and offer copy.', Gauge],
+                ['CTA Block', 'Conversion-focused call-to-action section.', Rocket],
+                ['Footer Block', 'Navigation, legal links and company information.', FileText],
+              ].map(([title, text, Icon]) => (
+                <button
+                  key={title}
+                  type="button"
+                  className="
+                    rounded-lg
+                    border
+                    border-[var(--bf-dev-border)]
+                    bg-[var(--bf-dev-surface)]
+                    p-4
+                    text-left
+                    transition
+                    hover:bg-[var(--bf-dev-surface-2)]
+                  "
+                >
+                  <Icon
+                    size={17}
+                    className="text-[var(--bf-dev-primary)]"
+                  />
+                  <div className="mt-3 text-[11px] font-bold text-[var(--bf-dev-text)]">
+                    {title}
+                  </div>
+                  <div className="mt-1 text-[10px] leading-5 text-[var(--bf-dev-text-2)]">
+                    {text}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </Card>
+
+          <Card>
+            <CardHeader
+              title="Builder status"
+              subtitle="Draft changes are isolated from the live website"
+            />
+
+            <div className="grid gap-3 p-4 sm:grid-cols-3">
+              {[
+                ['Draft pages', '3', PencilRuler],
+                ['Reusable blocks', '18', Blocks],
+                ['Published pages', '5', CheckCircle2],
+              ].map(([label, value, Icon]) => (
+                <div
+                  key={label}
+                  className="
+                    rounded-lg
+                    border
+                    border-[var(--bf-dev-border)]
+                    bg-[var(--bf-dev-surface-2)]
+                    p-4
+                  "
+                >
+                  <Icon
+                    size={16}
+                    className="text-[var(--bf-dev-primary)]"
+                  />
+                  <div className="mt-3 text-[20px] font-semibold text-[var(--bf-dev-text)]">
+                    {value}
+                  </div>
+                  <div className="mt-1 text-[9px] text-[var(--bf-dev-text-3)]">
+                    {label}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </div>
+      </div>
+    </Page>
+  );
+}
+
+
+function MediaAssetsSection() {
+  return (
+    <GenericCardsPage
+      eyebrow="Website Studio / Media & Assets"
+      title="Media & Assets"
+      description="Manage public website images, brand files and reusable visual assets from one controlled library."
+      action={
+        <Button
+          variant="primary"
+          icon={Plus}
+        >
+          Upload asset
+        </Button>
+      }
+      cards={[
+        {
+          title: 'Media Library',
+          text: 'Website images, illustrations, screenshots and uploaded media files.',
+          icon: AppWindow,
+          status: 'active',
+        },
+        {
+          title: 'Brand Assets',
+          text: 'Logos, favicons, social graphics and approved Buddy Fleets brand resources.',
+          icon: BadgeCheck,
+          status: 'active',
+        },
+        {
+          title: 'Asset Optimization',
+          text: 'Review dimensions, file size, responsive usage and delivery readiness.',
+          icon: Gauge,
+          status: 'active',
+        },
+        {
+          title: 'Usage References',
+          text: 'See where each asset is currently used across public website pages.',
+          icon: Network,
+        },
+        {
+          title: 'Archive',
+          text: 'Retire old website assets without immediately deleting historical references.',
+          icon: FileClock,
+        },
+        {
+          title: 'Delivery Health',
+          text: 'Track missing resources and public asset delivery issues.',
+          icon: Cloud,
+          status: 'active',
+        },
+      ]}
+    />
+  );
+}
+
+
+function ReleaseWorkflowSection() {
+  return (
+    <Page>
+      <PageHeader
+        eyebrow="Website Studio / Release Workflow"
+        title="Release Workflow"
+        description="Move website changes through draft, preview, publish and rollback with controlled release visibility."
+        actions={
+          <Button
+            variant="primary"
+            icon={Rocket}
+          >
+            Create release
+          </Button>
+        }
+      />
+
+      <div className="grid gap-4 lg:grid-cols-4">
+        {[
+          ['Draft', 'Changes being prepared before review.', PencilRuler, 'active'],
+          ['Preview', 'Review changes in a non-public preview state.', MonitorCog, 'active'],
+          ['Publish', 'Approved release promoted to the live website.', Rocket, 'production'],
+          ['Rollback', 'Restore a previous stable website release.', RefreshCcw, 'planned'],
+        ].map(([title, text, Icon, status], index) => (
+          <Card
+            key={title}
+            className="p-4"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div
+                className="
+                  flex
+                  h-10
+                  w-10
+                  items-center
+                  justify-center
+                  rounded-lg
+                  bg-[rgb(var(--bf-dev-primary-rgb)/.10)]
+                  text-[var(--bf-dev-primary)]
+                "
+              >
+                <Icon size={17} />
+              </div>
+
+              <span className="text-[9px] font-bold text-[var(--bf-dev-text-3)]">
+                0{index + 1}
+              </span>
+            </div>
+
+            <div className="mt-4 text-[12px] font-bold text-[var(--bf-dev-text)]">
+              {title}
+            </div>
+            <div className="mt-1.5 text-[10px] leading-5 text-[var(--bf-dev-text-2)]">
+              {text}
+            </div>
+            <div className="mt-4">
+              <Status status={status} />
+            </div>
+          </Card>
+        ))}
+      </div>
+
+      <Card>
+        <CardHeader
+          title="Release checklist"
+          subtitle="Controls to verify before a public website release"
+        />
+
+        <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-3">
+          {[
+            ['Content review', 'Confirm public copy and CTA changes.', FileText],
+            ['SEO review', 'Validate metadata and indexing impact.', Search],
+            ['Responsive review', 'Check desktop and mobile presentation.', MonitorCog],
+            ['Asset health', 'Verify images and public resources.', Cloud],
+            ['Route health', 'Validate public website routes.', Globe2],
+            ['Rollback point', 'Preserve the previous stable release.', RefreshCcw],
+          ].map(([title, text, Icon]) => (
+            <div
+              key={title}
+              className="
+                rounded-lg
+                border
+                border-[var(--bf-dev-border)]
+                bg-[var(--bf-dev-surface-2)]
+                p-4
+              "
+            >
+              <Icon
+                size={16}
+                className="text-[var(--bf-dev-primary)]"
+              />
+              <div className="mt-3 text-[11px] font-bold text-[var(--bf-dev-text)]">
+                {title}
+              </div>
+              <div className="mt-1 text-[10px] leading-5 text-[var(--bf-dev-text-2)]">
+                {text}
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+    </Page>
+  );
+}
+
+
 function ContentSeoSection() {
   return (
     <GenericCardsPage
@@ -1809,6 +2157,144 @@ function ContentSeoSection() {
     />
   );
 }
+
+
+function MetadataSection() {
+  return (
+    <GenericCardsPage
+      eyebrow="Content & SEO / Metadata"
+      title="Metadata"
+      description="Manage page titles, descriptions, canonical metadata and public social-sharing information."
+      cards={[
+        {
+          title: 'Page Titles',
+          text: 'Control search titles for every public Buddy Fleets route.',
+          icon: FileText,
+          status: 'active',
+        },
+        {
+          title: 'Meta Descriptions',
+          text: 'Maintain concise search descriptions for public pages.',
+          icon: PencilRuler,
+          status: 'active',
+        },
+        {
+          title: 'Canonical URLs',
+          text: 'Define canonical routes and prevent duplicate-indexing ambiguity.',
+          icon: Globe2,
+          status: 'active',
+        },
+        {
+          title: 'OpenGraph',
+          text: 'Manage titles, descriptions and social preview assets.',
+          icon: Share2,
+        },
+        {
+          title: 'Structured Data',
+          text: 'Control machine-readable public website schema metadata.',
+          icon: Code2,
+        },
+        {
+          title: 'Metadata Audit',
+          text: 'Review missing, duplicated or incomplete public metadata.',
+          icon: ListChecks,
+        },
+      ]}
+    />
+  );
+}
+
+
+function IndexingSection() {
+  return (
+    <GenericCardsPage
+      eyebrow="Content & SEO / Indexing"
+      title="Indexing"
+      description="Control crawl access, sitemap health and indexability of Buddy Fleets public website routes."
+      cards={[
+        {
+          title: 'robots.txt',
+          text: 'Review crawler access rules and protected route exclusions.',
+          icon: FileText,
+          status: 'active',
+        },
+        {
+          title: 'Sitemap',
+          text: 'Track public routes included in sitemap.xml.',
+          icon: Network,
+          status: 'active',
+        },
+        {
+          title: 'Indexability Rules',
+          text: 'Manage index/noindex policy for public pages.',
+          icon: SlidersHorizontal,
+          status: 'active',
+        },
+        {
+          title: 'Canonical Health',
+          text: 'Review canonical route consistency across indexed pages.',
+          icon: Globe2,
+        },
+        {
+          title: 'Route Health',
+          text: 'Identify public routes with redirect or response issues.',
+          icon: Gauge,
+        },
+        {
+          title: 'Index Coverage',
+          text: 'Prepare indexing visibility for future search-console integration.',
+          icon: Search,
+        },
+      ]}
+    />
+  );
+}
+
+
+function AiDiscoverabilitySection() {
+  return (
+    <GenericCardsPage
+      eyebrow="Content & SEO / AI Discoverability"
+      title="AI Discoverability"
+      description="Prepare structured public content so AI-assisted search and machine readers can understand Buddy Fleets accurately."
+      cards={[
+        {
+          title: 'llms.txt',
+          text: 'Maintain a concise machine-readable guide to important public Buddy Fleets content.',
+          icon: Code2,
+          status: 'active',
+        },
+        {
+          title: 'Structured Content',
+          text: 'Expose clear product, feature and company information for machine interpretation.',
+          icon: Blocks,
+          status: 'active',
+        },
+        {
+          title: 'Entity Signals',
+          text: 'Keep company, product and brand references consistent across public surfaces.',
+          icon: BadgeCheck,
+        },
+        {
+          title: 'Answer Readiness',
+          text: 'Review public content for concise factual explanations of Buddy Fleets capabilities.',
+          icon: MessageSquare,
+        },
+        {
+          title: 'Source Freshness',
+          text: 'Track content areas that may become stale after product or pricing changes.',
+          icon: RefreshCcw,
+        },
+        {
+          title: 'Machine Access',
+          text: 'Review crawler accessibility for approved AI and search discovery surfaces.',
+          icon: Globe2,
+        },
+      ]}
+    />
+  );
+}
+
 
 function EnquiriesSection() {
   return (
@@ -3448,29 +3934,29 @@ const SECTION_PATHS = {
   enquiries:
     '/website/enquiries',
   companies:
-    '/companies',
+    '/saas-platform/companies',
   entitlements:
-    '/subscriptions',
+    '/saas-platform/plans-entitlements',
   modules:
-    '/modules',
+    '/saas-platform/module-registry',
   team:
-    '/team',
+    '/saas-platform/team-roles',
   'module-builder':
-    '/developer-studio',
+    '/developer-studio/module-builder',
   'workflow-builder':
-    '/developer-studio/workflows',
+    '/developer-studio/workflow-builder',
   integrations:
-    '/integrations',
+    '/developer-studio/integrations',
   'feature-flags':
-    '/feature-flags',
+    '/developer-studio/feature-flags',
   security:
-    '/security',
+    '/security-system/security-center',
   audit:
-    '/audit',
+    '/security-system/audit-logs',
   infrastructure:
-    '/infrastructure',
+    '/security-system/infrastructure',
   settings:
-    '/system',
+    '/security-system/system-settings',
 };
 
 function useSectionNavigate() {
@@ -3512,10 +3998,66 @@ export function DeveloperActivityPage() {
 }
 
 export function DeveloperWebsiteStudioPage() {
+  const {
+    pathname,
+  } = useLocation();
+
+  if (
+    pathname.endsWith(
+      '/page-builder'
+    )
+  ) {
+    return <PageBuilderSection />;
+  }
+
+  if (
+    pathname.endsWith(
+      '/media-assets'
+    )
+  ) {
+    return <MediaAssetsSection />;
+  }
+
+  if (
+    pathname.endsWith(
+      '/release-workflow'
+    )
+  ) {
+    return <ReleaseWorkflowSection />;
+  }
+
   return <WebsiteStudioSection />;
 }
 
 export function DeveloperContentSeoPage() {
+  const {
+    pathname,
+  } = useLocation();
+
+  if (
+    pathname.endsWith(
+      '/metadata'
+    )
+  ) {
+    return <MetadataSection />;
+  }
+
+  if (
+    pathname.endsWith(
+      '/indexing'
+    )
+  ) {
+    return <IndexingSection />;
+  }
+
+  if (
+    pathname.endsWith(
+      '/ai-discoverability'
+    )
+  ) {
+    return <AiDiscoverabilitySection />;
+  }
+
   return <ContentSeoSection />;
 }
 
