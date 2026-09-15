@@ -37,6 +37,7 @@ import {
   RefreshCcw,
   Rocket,
   Search,
+  Share2,
   ServerCog,
   Settings,
   ShieldAlert,
