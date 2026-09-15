@@ -14,6 +14,7 @@ import {
 
 import {
   Activity,
+  AlignJustify,
   BadgeCheck,
   Bell,
   Blocks,
@@ -25,6 +26,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Circle,
+  Edit3,
+  EllipsisVertical,
   FileClock,
   Flag,
   Globe2,
@@ -39,11 +42,13 @@ import {
   Moon,
   PanelsTopLeft,
   Search,
+  Share2,
   ServerCog,
   Settings,
   ShieldCheck,
   SlidersHorizontal,
   Sun,
+  Trash2,
   User,
   Users,
   Workflow,
@@ -71,28 +76,39 @@ import {
 
 const SIDEBAR_W = 250;
 const SIDEBAR_COLLAPSED_W = 72;
+const SIDEBAR_ICON_TEXT_W = 110;
+const SIDEBAR_DOUBLE_RAIL_W = 80;
+const SIDEBAR_DOUBLE_PANEL_W = 280;
 const HEADER_H = 66;
+const HORIZONTAL_NAV_H = 52;
 const RIGHT_DRAWER_W = 302;
 
 
 /* ============================================================
-   THEME / LAYOUT DEFAULTS
+   FINAL DEFAULT THEME
 
-   Splite-style workflow:
-   - sidebar starts OPEN + LOCKED
-   - hamburger toggles locked-open / locked-collapsed
-   - collapsed rail temporarily expands on mouse hover
-   - mouse leave returns it to collapsed state
+   Reset All must always restore this exact Buddy Fleets preset:
+   - Dark Theme
+   - Dark Menu
+   - Color Header
+   - Primary #5551D7
+   - Background #0E1929
+   - Vertical / Default Menu
+   - Sidebar open + locked
 ============================================================ */
 
 const THEME_DEFAULTS = {
-  direction: 'ltr',
+  direction:
+    'ltr',
 
   navigationStyle:
     'vertical',
 
+  horizontalLogo:
+    'default',
+
   theme:
-    'light',
+    'dark',
 
   primaryColor:
     '#5551D7',
@@ -104,19 +120,10 @@ const THEME_DEFAULTS = {
     '#0E1929',
 
   sidebarStyle:
-    'light',
+    'dark',
 
   headerStyle:
     'color',
-
-  shadowMode:
-    'shadow',
-
-  layoutWidth:
-    'full',
-
-  layoutPosition:
-    'fixed',
 
   sideMenuLayout:
     'default',
@@ -124,14 +131,17 @@ const THEME_DEFAULTS = {
   sidebarLockedOpen:
     true,
 
-  drawerTab:
-    'settings',
+  themeDrawerTab:
+    'theme',
+
+  utilityDrawerTab:
+    'recent',
 };
 
 
 const STORAGE = {
   config:
-    'bf_dev_theme_config_v3',
+    'bf_dev_theme_config_v4',
 };
 
 
@@ -1024,12 +1034,9 @@ function buildVars({
 
 
   const shadow =
-    config.shadowMode ===
-    'shadow'
-      ? dark
-        ? '0 3px 16px rgba(0,0,0,.22)'
-        : '0 3px 16px rgba(15,23,42,.08)'
-      : 'none';
+    dark
+      ? '0 3px 16px rgba(0,0,0,.22)'
+      : '0 3px 16px rgba(15,23,42,.08)';
 
 
   return {
@@ -1110,6 +1117,18 @@ function buildVars({
 
     '--bf-drawer-width':
       `${RIGHT_DRAWER_W}px`,
+
+    '--bf-horizontal-nav-height':
+      `${HORIZONTAL_NAV_H}px`,
+
+    '--bf-sidebar-icon-text':
+      `${SIDEBAR_ICON_TEXT_W}px`,
+
+    '--bf-sidebar-double-rail':
+      `${SIDEBAR_DOUBLE_RAIL_W}px`,
+
+    '--bf-sidebar-double-panel':
+      `${SIDEBAR_DOUBLE_PANEL_W}px`,
 
     /*
       DeveloperWorkspace.jsx compatibility aliases.
@@ -1207,6 +1226,81 @@ function GlobalStyle() {
 
         .bf-dev-header-bg {
           background: var(--bf-header-bg);
+          color: var(--bf-header-text);
+        }
+
+        .bf-dev-header-bg .bf-header-main-text {
+          color: var(--bf-header-text) !important;
+        }
+
+        .bf-dev-header-bg .bf-header-muted-text {
+          color: var(--bf-header-muted) !important;
+        }
+
+        .bf-dev-gear {
+          animation:
+            bfGearSpin
+            5s
+            linear
+            infinite;
+        }
+
+        @keyframes bfGearSpin {
+          from {
+            transform:
+              rotate(0deg);
+          }
+
+          to {
+            transform:
+              rotate(360deg);
+          }
+        }
+
+        .bf-dev-online-dot {
+          position: relative;
+          isolation: isolate;
+        }
+
+        .bf-dev-online-dot::after {
+          content: '';
+          position: absolute;
+          inset: -1px;
+          z-index: -1;
+          border-radius: 999px;
+          background: rgba(34, 197, 94, .34);
+          animation:
+            bfOnlineRadar
+            1.8s
+            ease-out
+            infinite;
+        }
+
+        @keyframes bfOnlineRadar {
+          0% {
+            opacity: .85;
+            transform:
+              scale(.9);
+          }
+
+          75%,
+          100% {
+            opacity: 0;
+            transform:
+              scale(2.7);
+          }
+        }
+
+        .bf-dev-sidebar-parent:hover,
+        .bf-dev-sidebar-parent:hover svg,
+        .bf-dev-sidebar-child:hover {
+          color: var(--bf-primary) !important;
+        }
+
+        .bf-dev-horizontal-menu {
+          box-shadow:
+            0 1px 0
+            var(--bf-border);
         }
 
         .bf-dev-scroll {
@@ -1368,6 +1462,7 @@ function ParentMenuItem({
       }
       className={cx(
         `
+          bf-dev-sidebar-parent
           group
           relative
           flex
@@ -1433,6 +1528,7 @@ function ChildLink({
       className={({ isActive }) =>
         cx(
           `
+            bf-dev-sidebar-child
             relative
             flex
             min-h-[33px]
@@ -1483,23 +1579,310 @@ function ChildLink({
 
 
 /* ============================================================
-   SIDEBAR
+   SIDEBAR LAYOUT HELPERS
+============================================================ */
 
-   REQUIRED WORKFLOW
-   ------------------------------------------------------------
-   Default:
-     sidebarLockedOpen = true
+function SidebarProfile({
+  compact = false,
+}) {
+  if (compact) {
+    return (
+      <div
+        className="
+          flex
+          justify-center
+          py-5
+        "
+      >
+        <div
+          className="
+            relative
+            flex
+            h-10
+            w-10
+            items-center
+            justify-center
+            rounded-full
+            border
+            border-[var(--bf-sidebar-border)]
+            bg-[rgb(var(--bf-primary-rgb)/.10)]
+            text-[10px]
+            font-black
+            text-[var(--bf-primary)]
+          "
+        >
+          SA
 
-   Header hamburger:
-     open locked -> collapsed locked
-     collapsed locked -> open locked
+          <span
+            className="
+              bf-dev-online-dot
+              absolute
+              right-0
+              top-0
+              h-2.5
+              w-2.5
+              rounded-full
+              border-2
+              border-[var(--bf-sidebar-solid)]
+              bg-emerald-500
+            "
+          />
+        </div>
+      </div>
+    );
+  }
 
-   When collapsed:
-     mouse enter sidebar -> temporary expand
-     mouse leave sidebar -> collapse again
+  return (
+    <div
+      className="
+        shrink-0
+        border-b
+        border-[var(--bf-sidebar-border)]
+        py-7
+        text-center
+      "
+    >
+      <div
+        className="
+          relative
+          mx-auto
+          flex
+          h-16
+          w-16
+          items-center
+          justify-center
+          rounded-full
+          border
+          border-[var(--bf-sidebar-border)]
+          bg-[rgb(var(--bf-primary-rgb)/.10)]
+          text-[13px]
+          font-black
+          text-[var(--bf-primary)]
+        "
+      >
+        SA
 
-   Accordion:
-     only ONE parent menu can be expanded at a time.
+        <span
+          className="
+            bf-dev-online-dot
+            absolute
+            right-1
+            top-1
+            h-3
+            w-3
+            rounded-full
+            border-2
+            border-[var(--bf-sidebar-solid)]
+            bg-emerald-500
+          "
+        />
+      </div>
+
+      <div
+        className="
+          mt-3
+          text-[13px]
+          font-bold
+          text-[var(--bf-sidebar-text)]
+        "
+      >
+        Super Admin
+      </div>
+
+      <div
+        className="
+          mt-0.5
+          text-[10px]
+          text-[var(--bf-sidebar-muted)]
+        "
+      >
+        Platform Developer
+      </div>
+    </div>
+  );
+}
+
+
+function SidebarFlyout({
+  menu,
+  visible,
+  title = true,
+}) {
+  if (
+    !visible ||
+    !menu
+  ) {
+    return null;
+  }
+
+  return (
+    <div
+      className="
+        absolute
+        left-full
+        top-0
+        z-[90]
+        min-w-[210px]
+        overflow-hidden
+        rounded-r-md
+        border
+        border-[var(--bf-border)]
+        bg-[var(--bf-surface)]
+        shadow-[var(--bf-shadow)]
+      "
+    >
+      {title && (
+        <div
+          className="
+            border-b
+            border-[var(--bf-border)]
+            px-4
+            py-3
+            text-[11px]
+            font-bold
+            text-[var(--bf-text)]
+          "
+        >
+          {menu.label}
+        </div>
+      )}
+
+      <div
+        className="
+          py-2
+        "
+      >
+        {menu.children.map(
+          (child) => (
+            <NavLink
+              key={
+                child.to
+              }
+              to={
+                child.to
+              }
+              end={
+                child.end
+              }
+              className={({ isActive }) =>
+                cx(
+                  `
+                    flex
+                    items-center
+                    gap-2
+                    px-4
+                    py-2.5
+                    text-[11px]
+                    transition
+                    hover:text-[var(--bf-primary)]
+                  `,
+                  isActive
+                    ? 'font-semibold text-[var(--bf-primary)]'
+                    : 'text-[var(--bf-text-2)]'
+                )
+              }
+            >
+              <span
+                className="
+                  h-[5px]
+                  w-[5px]
+                  rounded-full
+                  border
+                  border-current
+                "
+              />
+
+              {child.label}
+            </NavLink>
+          )
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+function CompactMenuButton({
+  menu,
+  active,
+  showLabel,
+  onMouseEnter,
+  onMouseLeave,
+  onClick,
+}) {
+  const Icon =
+    menu.icon;
+
+  return (
+    <button
+      type="button"
+      title={
+        showLabel
+          ? undefined
+          : menu.label
+      }
+      onMouseEnter={
+        onMouseEnter
+      }
+      onMouseLeave={
+        onMouseLeave
+      }
+      onClick={
+        onClick
+      }
+      className={cx(
+        `
+          bf-dev-sidebar-parent
+          relative
+          flex
+          w-full
+          flex-col
+          items-center
+          justify-center
+          gap-1
+          rounded-md
+          px-2
+          py-2.5
+          text-center
+          transition
+        `,
+        active
+          ? 'text-[var(--bf-primary)]'
+          : 'text-[var(--bf-sidebar-text)] hover:text-[var(--bf-primary)]'
+      )}
+    >
+      <Icon
+        size={17}
+      />
+
+      {showLabel && (
+        <span
+          className="
+            max-w-full
+            truncate
+            text-[10px]
+          "
+        >
+          {menu.label}
+        </span>
+      )}
+    </button>
+  );
+}
+
+
+/* ============================================================
+   VERTICAL SIDEBAR
+
+   Supported layout modes:
+   - default
+   - closed
+   - icon-text
+   - icon-overlay
+   - hover-submenu
+   - hover-submenu-1
+   - double
+   - double-tabs
 ============================================================ */
 
 function Sidebar({
@@ -1529,32 +1912,27 @@ function Sidebar({
   ] =
     useState(false);
 
+  const [
+    flyoutMenuId,
+    setFlyoutMenuId,
+  ] =
+    useState(null);
 
-  const lockedOpen =
-    config.sidebarLockedOpen;
-
-
-  const temporaryExpanded =
-    !lockedOpen &&
-    hoverExpanded;
-
-
-  const visuallyExpanded =
-    lockedOpen ||
-    temporaryExpanded;
-
-
-  const compact =
-    !visuallyExpanded;
+  const [
+    doubleMenuId,
+    setDoubleMenuId,
+  ] =
+    useState(
+      activeMenuId
+    );
 
 
   useEffect(() => {
-    /*
-      Route change always opens the active group,
-      and because openMenuId is a single id,
-      every other group automatically closes.
-    */
     setOpenMenuId(
+      activeMenuId
+    );
+
+    setDoubleMenuId(
       activeMenuId
     );
 
@@ -1567,19 +1945,106 @@ function Sidebar({
   ]);
 
 
-  const handleParentToggle =
-    (menuId) => {
-      if (compact) {
-        return;
-      }
+  if (
+    config.navigationStyle !==
+    'vertical'
+  ) {
+    return null;
+  }
 
-      setOpenMenuId(
-        (current) =>
-          current === menuId
-            ? null
-            : menuId
-      );
-    };
+
+  if (
+    config.sideMenuLayout ===
+    'closed'
+  ) {
+    return null;
+  }
+
+
+  const layout =
+    config.sideMenuLayout;
+
+
+  /*
+     Default menu:
+     open + locked by default.
+     Hamburger controls lock state.
+     Collapsed state expands temporarily on hover.
+
+     Icon Overlay:
+     always compact until mouse enters the sidebar.
+  */
+
+  const isDefault =
+    layout ===
+    'default';
+
+  const isIconOverlay =
+    layout ===
+    'icon-overlay';
+
+  const lockedOpen =
+    isDefault
+      ? config.sidebarLockedOpen
+      : false;
+
+  const visualExpandOnHover =
+    isDefault ||
+    isIconOverlay;
+
+  const visuallyExpanded =
+    isDefault
+      ? (
+          lockedOpen ||
+          hoverExpanded
+        )
+      : isIconOverlay
+        ? hoverExpanded
+        : false;
+
+
+  const isIconText =
+    layout ===
+    'icon-text';
+
+  const isHoverMenu =
+    layout ===
+      'hover-submenu' ||
+    layout ===
+      'hover-submenu-1';
+
+  const isHoverStyleOne =
+    layout ===
+    'hover-submenu-1';
+
+  const isDouble =
+    layout ===
+      'double' ||
+    layout ===
+      'double-tabs';
+
+
+  const widthClass =
+    isDouble
+      ? 'lg:w-[360px]'
+      : isIconText ||
+          (
+            isHoverMenu &&
+            !isHoverStyleOne
+          )
+        ? 'lg:w-[var(--bf-sidebar-icon-text)]'
+        : visuallyExpanded
+          ? 'lg:w-[var(--bf-sidebar-width)]'
+          : 'lg:w-[var(--bf-sidebar-collapsed)]';
+
+
+  const activeDoubleMenu =
+    MENU_TREE.find(
+      (menu) =>
+        menu.id ===
+        doubleMenuId
+    ) ||
+    MENU_TREE[0];
 
 
   return (
@@ -1608,6 +2073,7 @@ function Sidebar({
       <aside
         onMouseEnter={() => {
           if (
+            visualExpandOnHover &&
             !lockedOpen
           ) {
             setHoverExpanded(
@@ -1617,10 +2083,19 @@ function Sidebar({
         }}
         onMouseLeave={() => {
           if (
+            visualExpandOnHover &&
             !lockedOpen
           ) {
             setHoverExpanded(
               false
+            );
+          }
+
+          if (
+            isHoverMenu
+          ) {
+            setFlyoutMenuId(
+              null
             );
           }
         }}
@@ -1632,218 +2107,824 @@ function Sidebar({
             left-0
             z-50
             flex
-            flex-col
             border-r
             border-[var(--bf-sidebar-border)]
             transition-[width,transform]
             duration-200
             ease-out
           `,
-          visuallyExpanded
-            ? 'lg:w-[var(--bf-sidebar-width)]'
-            : 'lg:w-[var(--bf-sidebar-collapsed)]',
+          widthClass,
           mobileOpen
             ? 'w-[var(--bf-sidebar-width)] translate-x-0'
             : 'w-[var(--bf-sidebar-width)] -translate-x-full lg:translate-x-0'
         )}
       >
-        <div
-          className={cx(
-            `
-              flex
-              h-[var(--bf-header-height)]
-              shrink-0
-              items-center
-              border-b
-              border-[var(--bf-sidebar-border)]
-            `,
-            compact
-              ? 'justify-center px-2'
-              : 'px-5'
-          )}
-        >
-          <Brand
-            collapsed={
-              compact
-            }
-          />
-        </div>
-
-
-        {!compact && (
-          <div
-            className="
-              shrink-0
-              border-b
-              border-[var(--bf-sidebar-border)]
-              py-7
-              text-center
-            "
-          >
+        {isDouble ? (
+          <>
             <div
               className="
-                relative
-                mx-auto
                 flex
-                h-16
-                w-16
-                items-center
-                justify-center
-                rounded-full
-                border
+                w-[var(--bf-sidebar-double-rail)]
+                shrink-0
+                flex-col
+                border-r
                 border-[var(--bf-sidebar-border)]
-                bg-[rgb(var(--bf-primary-rgb)/.10)]
-                text-[13px]
-                font-black
-                text-[var(--bf-primary)]
               "
             >
-              SA
-
-              <span
+              <div
                 className="
-                  absolute
-                  right-1
-                  top-1
-                  h-3
-                  w-3
-                  rounded-full
-                  border-2
-                  border-[var(--bf-sidebar-solid)]
-                  bg-emerald-500
+                  flex
+                  h-[var(--bf-header-height)]
+                  items-center
+                  justify-center
+                  border-b
+                  border-[var(--bf-sidebar-border)]
                 "
+              >
+                <Brand
+                  collapsed
+                />
+              </div>
+
+              <SidebarProfile
+                compact
               />
-            </div>
 
-            <div
-              className="
-                mt-3
-                text-[13px]
-                font-bold
-                text-[var(--bf-sidebar-text)]
-              "
-            >
-              Super Admin
-            </div>
-
-            <div
-              className="
-                mt-0.5
-                text-[10px]
-                text-[var(--bf-sidebar-muted)]
-              "
-            >
-              Platform Developer
-            </div>
-          </div>
-        )}
-
-
-        <nav
-          className="
-            bf-dev-scroll
-            flex-1
-            overflow-y-auto
-            px-3
-            py-4
-          "
-        >
-          <div
-            className="
-              space-y-1
-            "
-          >
-            {MENU_TREE.map(
-              (menu) => {
-                const active =
-                  pathIsInside(
-                    location.pathname,
-                    menu
-                  );
-
-                const expanded =
-                  openMenuId ===
-                  menu.id;
-
-                return (
-                  <div
-                    key={
-                      menu.id
-                    }
-                  >
-                    <ParentMenuItem
+              <div
+                className="
+                  bf-dev-scroll
+                  flex-1
+                  overflow-y-auto
+                  px-2
+                  py-3
+                "
+              >
+                {MENU_TREE.map(
+                  (menu) => (
+                    <CompactMenuButton
+                      key={
+                        menu.id
+                      }
                       menu={
                         menu
                       }
-                      collapsed={
-                        compact
-                      }
-                      expanded={
-                        expanded
-                      }
                       active={
-                        active
+                        doubleMenuId ===
+                        menu.id
                       }
-                      onToggle={() =>
-                        handleParentToggle(
+                      showLabel={
+                        false
+                      }
+                      onClick={() =>
+                        setDoubleMenuId(
                           menu.id
                         )
                       }
                     />
+                  )
+                )}
+              </div>
+            </div>
 
 
-                    {!compact &&
-                      expanded && (
+            <div
+              className="
+                flex
+                w-[var(--bf-sidebar-double-panel)]
+                min-w-0
+                flex-1
+                flex-col
+                bg-[var(--bf-sidebar-solid)]
+              "
+            >
+              {layout ===
+                'double-tabs' && (
+                <div
+                  className="
+                    grid
+                    grid-cols-3
+                    gap-2
+                    border-b
+                    border-[var(--bf-sidebar-border)]
+                    p-3
+                  "
+                >
+                  {MENU_TREE
+                    .slice(
+                      0,
+                      3
+                    )
+                    .map(
+                      (menu) => {
+                        const Icon =
+                          menu.icon;
+
+                        return (
+                          <button
+                            key={
+                              menu.id
+                            }
+                            type="button"
+                            onClick={() =>
+                              setDoubleMenuId(
+                                menu.id
+                              )
+                            }
+                            className={cx(
+                              `
+                                flex
+                                flex-col
+                                items-center
+                                gap-1
+                                rounded-md
+                                border
+                                border-[var(--bf-sidebar-border)]
+                                px-2
+                                py-2
+                                text-[9px]
+                                transition
+                              `,
+                              doubleMenuId ===
+                                menu.id
+                                ? 'bg-[var(--bf-primary)] text-white'
+                                : 'text-[var(--bf-sidebar-text)] hover:text-[var(--bf-primary)]'
+                            )}
+                          >
+                            <Icon
+                              size={14}
+                            />
+
+                            {menu.label
+                              .split(' ')[0]}
+                          </button>
+                        );
+                      }
+                    )}
+                </div>
+              )}
+
+
+              <div
+                className="
+                  border-b
+                  border-[var(--bf-sidebar-border)]
+                  px-5
+                  py-4
+                  text-[13px]
+                  font-bold
+                  text-[var(--bf-sidebar-text)]
+                "
+              >
+                {
+                  activeDoubleMenu.label
+                }
+              </div>
+
+
+              <div
+                className="
+                  bf-dev-scroll
+                  flex-1
+                  overflow-y-auto
+                  px-3
+                  py-3
+                "
+              >
+                {activeDoubleMenu.children.map(
+                  (child) => (
+                    <ChildLink
+                      key={
+                        child.to
+                      }
+                      child={
+                        child
+                      }
+                      collapsed={
+                        false
+                      }
+                    />
+                  )
+                )}
+
+
+                {layout ===
+                  'double-tabs' && (
+                  <div
+                    className="
+                      mt-5
+                      space-y-3
+                    "
+                  >
+                    <div
+                      className="
+                        text-[11px]
+                        font-bold
+                        text-[var(--bf-sidebar-text)]
+                      "
+                    >
+                      Platform Snapshot
+                    </div>
+
+                    {[
+                      [
+                        'Companies',
+                        '24',
+                      ],
+
+                      [
+                        'Modules',
+                        '18',
+                      ],
+
+                      [
+                        'Alerts',
+                        '3',
+                      ],
+                    ].map(
+                      ([
+                        label,
+                        value,
+                      ]) => (
                         <div
+                          key={
+                            label
+                          }
                           className="
-                            mb-1
-                            mt-0.5
+                            rounded-md
+                            border
+                            border-[var(--bf-sidebar-border)]
+                            p-3
                           "
                         >
-                          {menu.children.map(
-                            (child) => (
-                              <ChildLink
-                                key={
-                                  child.to
-                                }
-                                child={
-                                  child
-                                }
-                                collapsed={
-                                  false
-                                }
-                              />
-                            )
-                          )}
+                          <div
+                            className="
+                              text-[9px]
+                              text-[var(--bf-sidebar-muted)]
+                            "
+                          >
+                            {label}
+                          </div>
+
+                          <div
+                            className="
+                              mt-1
+                              text-[18px]
+                              font-bold
+                              text-[var(--bf-sidebar-text)]
+                            "
+                          >
+                            {value}
+                          </div>
                         </div>
-                      )}
+                      )
+                    )}
                   </div>
-                );
-              }
-            )}
-          </div>
-        </nav>
-
-
-        {!compact && (
+                )}
+              </div>
+            </div>
+          </>
+        ) : (
           <div
             className="
-              shrink-0
-              border-t
-              border-[var(--bf-sidebar-border)]
-              px-4
-              py-3
-              text-[9px]
-              text-[var(--bf-sidebar-muted)]
+              relative
+              flex
+              min-w-0
+              flex-1
+              flex-col
             "
           >
-            Buddy Fleets Platform
+            <div
+              className={cx(
+                `
+                  flex
+                  h-[var(--bf-header-height)]
+                  shrink-0
+                  items-center
+                  border-b
+                  border-[var(--bf-sidebar-border)]
+                `,
+                (
+                  visuallyExpanded ||
+                  (
+                    isHoverMenu &&
+                    !isHoverStyleOne
+                  )
+                )
+                  ? 'px-5'
+                  : 'justify-center px-2'
+              )}
+            >
+              <Brand
+                collapsed={
+                  !visuallyExpanded &&
+                  !(
+                    isHoverMenu &&
+                    !isHoverStyleOne
+                  )
+                }
+              />
+            </div>
+
+
+            {isDefault &&
+              visuallyExpanded && (
+                <SidebarProfile />
+              )}
+
+
+            {(
+              (
+                isDefault &&
+                !visuallyExpanded
+              ) ||
+              isIconOverlay ||
+              isIconText ||
+              isHoverMenu
+            ) && (
+              <SidebarProfile
+                compact
+              />
+            )}
+
+
+            <nav
+              className="
+                bf-dev-scroll
+                flex-1
+                overflow-y-auto
+                px-3
+                py-4
+              "
+            >
+              {isIconText ? (
+                <div
+                  className="
+                    space-y-1
+                  "
+                >
+                  {MENU_TREE.map(
+                    (menu) => (
+                      <div
+                        key={
+                          menu.id
+                        }
+                        className="
+                          relative
+                        "
+                      >
+                        <CompactMenuButton
+                          menu={
+                            menu
+                          }
+                          active={
+                            pathIsInside(
+                              location.pathname,
+                              menu
+                            )
+                          }
+                          showLabel
+                          onClick={() =>
+                            setFlyoutMenuId(
+                              flyoutMenuId ===
+                                menu.id
+                                ? null
+                                : menu.id
+                            )
+                          }
+                        />
+
+                        <SidebarFlyout
+                          menu={
+                            menu
+                          }
+                          visible={
+                            flyoutMenuId ===
+                            menu.id
+                          }
+                        />
+                      </div>
+                    )
+                  )}
+                </div>
+              ) : isHoverMenu ? (
+                <div
+                  className="
+                    space-y-1
+                  "
+                >
+                  {MENU_TREE.map(
+                    (menu) => (
+                      <div
+                        key={
+                          menu.id
+                        }
+                        className="
+                          relative
+                        "
+                        onMouseEnter={() =>
+                          setFlyoutMenuId(
+                            menu.id
+                          )
+                        }
+                      >
+                        <CompactMenuButton
+                          menu={
+                            menu
+                          }
+                          active={
+                            pathIsInside(
+                              location.pathname,
+                              menu
+                            )
+                          }
+                          showLabel={
+                            !isHoverStyleOne
+                          }
+                        />
+
+                        <SidebarFlyout
+                          menu={
+                            menu
+                          }
+                          visible={
+                            flyoutMenuId ===
+                            menu.id
+                          }
+                          title={
+                            true
+                          }
+                        />
+                      </div>
+                    )
+                  )}
+                </div>
+              ) : (
+                <div
+                  className="
+                    space-y-1
+                  "
+                >
+                  {MENU_TREE.map(
+                    (menu) => {
+                      const active =
+                        pathIsInside(
+                          location.pathname,
+                          menu
+                        );
+
+                      const expanded =
+                        openMenuId ===
+                        menu.id;
+
+                      const compact =
+                        !visuallyExpanded;
+
+                      return (
+                        <div
+                          key={
+                            menu.id
+                          }
+                        >
+                          <ParentMenuItem
+                            menu={
+                              menu
+                            }
+                            collapsed={
+                              compact
+                            }
+                            expanded={
+                              expanded
+                            }
+                            active={
+                              active
+                            }
+                            onToggle={() => {
+                              if (
+                                compact
+                              ) {
+                                return;
+                              }
+
+                              setOpenMenuId(
+                                (current) =>
+                                  current ===
+                                  menu.id
+                                    ? null
+                                    : menu.id
+                              );
+                            }}
+                          />
+
+
+                          {!compact &&
+                            expanded && (
+                              <div
+                                className="
+                                  mb-1
+                                  mt-0.5
+                                "
+                              >
+                                {menu.children.map(
+                                  (child) => (
+                                    <ChildLink
+                                      key={
+                                        child.to
+                                      }
+                                      child={
+                                        child
+                                      }
+                                      collapsed={
+                                        false
+                                      }
+                                    />
+                                  )
+                                )}
+                              </div>
+                            )}
+                        </div>
+                      );
+                    }
+                  )}
+                </div>
+              )}
+            </nav>
+
+
+            {(
+              visuallyExpanded ||
+              isIconText
+            ) && (
+              <div
+                className="
+                  shrink-0
+                  border-t
+                  border-[var(--bf-sidebar-border)]
+                  px-4
+                  py-3
+                  text-[9px]
+                  text-[var(--bf-sidebar-muted)]
+                "
+              >
+                Buddy Fleets Platform
+              </div>
+            )}
           </div>
         )}
       </aside>
     </>
   );
 }
+
+
+/* ============================================================
+   HORIZONTAL NAVIGATION
+
+   Click mode:
+     click parent -> dropdown
+
+   Hover mode:
+     hover parent -> dropdown
+
+   Both share the exact same geometry/theme.
+============================================================ */
+
+function HorizontalNavigation({
+  config,
+}) {
+  const location =
+    useLocation();
+
+  const [
+    openMenuId,
+    setOpenMenuId,
+  ] =
+    useState(null);
+
+  const hoverMode =
+    config.navigationStyle ===
+    'horizontal-hover';
+
+
+  useEffect(() => {
+    setOpenMenuId(
+      null
+    );
+  }, [
+    location.pathname,
+    config.navigationStyle,
+  ]);
+
+
+  if (
+    config.navigationStyle ===
+    'vertical'
+  ) {
+    return null;
+  }
+
+
+  return (
+    <div
+      className="
+        bf-dev-horizontal-menu
+        fixed
+        left-0
+        right-0
+        top-[var(--bf-header-height)]
+        z-20
+        h-[var(--bf-horizontal-nav-height)]
+        border-b
+        border-[var(--bf-sidebar-border)]
+        bg-[var(--bf-sidebar-solid)]
+      "
+      onMouseLeave={() => {
+        if (
+          hoverMode
+        ) {
+          setOpenMenuId(
+            null
+          );
+        }
+      }}
+    >
+      <div
+        className="
+          bf-dev-scroll
+          mx-auto
+          flex
+          h-full
+          max-w-[1500px]
+          items-center
+          gap-1
+          overflow-visible
+          px-4
+        "
+      >
+        {MENU_TREE.map(
+          (menu) => {
+            const Icon =
+              menu.icon;
+
+            const active =
+              pathIsInside(
+                location.pathname,
+                menu
+              );
+
+            const open =
+              openMenuId ===
+              menu.id;
+
+            return (
+              <div
+                key={
+                  menu.id
+                }
+                className="
+                  relative
+                  shrink-0
+                "
+                onMouseEnter={() => {
+                  if (
+                    hoverMode
+                  ) {
+                    setOpenMenuId(
+                      menu.id
+                    );
+                  }
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (
+                      hoverMode &&
+                      window.matchMedia(
+                        '(hover: hover)'
+                      ).matches
+                    ) {
+                      return;
+                    }
+
+                    setOpenMenuId(
+                      (current) =>
+                        current ===
+                        menu.id
+                          ? null
+                          : menu.id
+                    );
+                  }}
+                  className={cx(
+                    `
+                      flex
+                      h-9
+                      items-center
+                      gap-2
+                      rounded-md
+                      px-3
+                      text-[11px]
+                      font-medium
+                      transition
+                      hover:text-[var(--bf-primary)]
+                    `,
+                    active
+                      ? 'text-[var(--bf-primary)]'
+                      : 'text-[var(--bf-sidebar-text)]'
+                  )}
+                >
+                  <Icon
+                    size={15}
+                  />
+
+                  <span>
+                    {menu.label}
+                  </span>
+
+                  <ChevronDown
+                    size={11}
+                    className={cx(
+                      `
+                        transition-transform
+                      `,
+                      open &&
+                        'rotate-180'
+                    )}
+                  />
+                </button>
+
+
+                {open && (
+                  <div
+                    className="
+                      absolute
+                      left-0
+                      top-[calc(100%+7px)]
+                      z-[90]
+                      min-w-[220px]
+                      overflow-hidden
+                      rounded-md
+                      border
+                      border-[var(--bf-border)]
+                      bg-[var(--bf-surface)]
+                      shadow-[var(--bf-shadow)]
+                    "
+                  >
+                    {menu.children.map(
+                      (child) => (
+                        <NavLink
+                          key={
+                            child.to
+                          }
+                          to={
+                            child.to
+                          }
+                          end={
+                            child.end
+                          }
+                          className={({ isActive }) =>
+                            cx(
+                              `
+                                flex
+                                items-center
+                                gap-2
+                                px-4
+                                py-2.5
+                                text-[11px]
+                                transition
+                                hover:bg-[rgb(var(--bf-primary-rgb)/.06)]
+                                hover:text-[var(--bf-primary)]
+                              `,
+                              isActive
+                                ? 'font-semibold text-[var(--bf-primary)]'
+                                : 'text-[var(--bf-text-2)]'
+                            )
+                          }
+                        >
+                          <span
+                            className="
+                              h-[5px]
+                              w-[5px]
+                              rounded-full
+                              border
+                              border-current
+                            "
+                          />
+
+                          {child.label}
+                        </NavLink>
+                      )
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          }
+        )}
+      </div>
+    </div>
+  );
+}
+
 
 
 /* ============================================================
@@ -2401,7 +3482,119 @@ function ProfilePopover({
 
 
 /* ============================================================
+   LAYOUT OFFSET
+============================================================ */
+
+function getSidebarOffset(
+  config
+) {
+  if (
+    config.navigationStyle !==
+    'vertical'
+  ) {
+    return 0;
+  }
+
+  switch (
+    config.sideMenuLayout
+  ) {
+    case 'closed':
+      return 0;
+
+    case 'icon-text':
+      return SIDEBAR_ICON_TEXT_W;
+
+    case 'icon-overlay':
+      return SIDEBAR_COLLAPSED_W;
+
+    case 'hover-submenu':
+      return SIDEBAR_ICON_TEXT_W;
+
+    case 'hover-submenu-1':
+      return SIDEBAR_COLLAPSED_W;
+
+    case 'double':
+    case 'double-tabs':
+      return (
+        SIDEBAR_DOUBLE_RAIL_W +
+        SIDEBAR_DOUBLE_PANEL_W
+      );
+
+    case 'default':
+    default:
+      return config.sidebarLockedOpen
+        ? SIDEBAR_W
+        : SIDEBAR_COLLAPSED_W;
+  }
+}
+
+
+/* ============================================================
+   HORIZONTAL HEADER BRAND
+============================================================ */
+
+function HorizontalHeaderBrand({
+  centered,
+}) {
+  return (
+    <div
+      className={cx(
+        `
+          flex
+          items-center
+          gap-2
+          text-[var(--bf-header-text)]
+        `,
+        centered &&
+          `
+            pointer-events-none
+            absolute
+            left-1/2
+            top-1/2
+            -translate-x-1/2
+            -translate-y-1/2
+          `
+      )}
+    >
+      <div
+        className="
+          flex
+          h-8
+          w-8
+          items-center
+          justify-center
+          rounded-lg
+          bg-white/15
+          text-[9px]
+          font-black
+          text-white
+        "
+      >
+        BF
+      </div>
+
+      <div
+        className="
+          text-[18px]
+          font-black
+          tracking-[-0.03em]
+        "
+      >
+        Buddy Fleets
+      </div>
+    </div>
+  );
+}
+
+
+/* ============================================================
    HEADER
+
+   Important:
+   - Theme switch changes content + menu theme.
+   - Header style stays independent.
+   - 3-lines icon opens Utility drawer.
+   - Rotating gear opens Theme Customizer ONLY.
 ============================================================ */
 
 function Header({
@@ -2412,8 +3605,10 @@ function Header({
   onLogout,
   openPopover,
   setOpenPopover,
-  drawerOpen,
-  setDrawerOpen,
+  utilityDrawerOpen,
+  setUtilityDrawerOpen,
+  themeDrawerOpen,
+  setThemeDrawerOpen,
 }) {
   const rootRef =
     useRef(null);
@@ -2435,6 +3630,17 @@ function Header({
     currentUser?.username ||
     currentUser?.email?.split('@')[0] ||
     'Super Admin';
+
+
+  const horizontal =
+    config.navigationStyle !==
+    'vertical';
+
+
+  const centerLogo =
+    horizontal &&
+    config.horizontalLogo ===
+      'center';
 
 
   useEffect(() => {
@@ -2521,7 +3727,11 @@ function Header({
 
   const togglePopover =
     (id) => {
-      setDrawerOpen(
+      setUtilityDrawerOpen(
+        false
+      );
+
+      setThemeDrawerOpen(
         false
       );
 
@@ -2545,13 +3755,19 @@ function Header({
           await document.documentElement.requestFullscreen();
         }
       } catch {
-        // Browser or OS may deny fullscreen.
+        // Fullscreen can be denied by browser/OS.
       }
     };
 
 
   const handleSidebarToggle =
     () => {
+      if (
+        horizontal
+      ) {
+        return;
+      }
+
       if (
         window.innerWidth <
         1024
@@ -2563,68 +3779,98 @@ function Header({
         return;
       }
 
-      updateConfig({
-        sidebarLockedOpen:
-          !config.sidebarLockedOpen,
-      });
+      /*
+        Default menu supports locked open/collapsed.
+        Icon Overlay is hover-driven by design.
+      */
+      if (
+        config.sideMenuLayout ===
+        'default'
+      ) {
+        updateConfig({
+          sidebarLockedOpen:
+            !config.sidebarLockedOpen,
+        });
+      }
     };
 
 
   return (
     <header
-      className={cx(
-        `
-          bf-dev-header-bg
-          fixed
-          right-0
-          top-0
-          z-30
-          h-[var(--bf-header-height)]
-          border-b
-          border-[var(--bf-header-border)]
-          transition-[left]
-          duration-200
-          ease-out
-        `,
-        config.sidebarLockedOpen
-          ? 'left-0 lg:left-[var(--bf-sidebar-width)]'
-          : 'left-0 lg:left-[var(--bf-sidebar-collapsed)]'
-      )}
+      className="
+        bf-dev-header-bg
+        fixed
+        left-0
+        right-0
+        top-0
+        z-30
+        h-[var(--bf-header-height)]
+        border-b
+        border-[var(--bf-header-border)]
+        transition-[left]
+        duration-200
+        ease-out
+        lg:left-[var(--bf-main-offset)]
+      "
     >
       <div
         ref={
           rootRef
         }
         className="
+          relative
           flex
           h-full
           items-center
           px-4
         "
       >
-        <HeaderIcon
-          label="Toggle menu"
-          onClick={
-            handleSidebarToggle
-          }
-        >
-          <Menu
-            size={18}
+        {!horizontal && (
+          <HeaderIcon
+            label="Toggle menu"
+            onClick={
+              handleSidebarToggle
+            }
+          >
+            <Menu
+              size={18}
+            />
+          </HeaderIcon>
+        )}
+
+
+        {horizontal &&
+          !centerLogo && (
+            <HorizontalHeaderBrand
+              centered={
+                false
+              }
+            />
+          )}
+
+
+        {centerLogo && (
+          <HorizontalHeaderBrand
+            centered
           />
-        </HeaderIcon>
+        )}
 
 
         <div
-          className="
-            ml-4
-            hidden
-            items-center
-            gap-1.5
-            text-[11px]
-            font-semibold
-            text-[var(--bf-header-text)]
-            md:flex
-          "
+          className={cx(
+            `
+              hidden
+              items-center
+              gap-1.5
+              text-[11px]
+              font-semibold
+              text-[var(--bf-header-text)]
+              md:flex
+            `,
+            horizontal
+              ? 'ml-5'
+              : 'ml-4'
+          )}
         >
           <span>
             Developer
@@ -2819,6 +4065,7 @@ function Header({
 
               <div
                 className="
+                  relative
                   flex
                   h-8
                   w-8
@@ -2836,6 +4083,19 @@ function Header({
                 {getInitials(
                   name
                 )}
+
+                <span
+                  className="
+                    bf-dev-online-dot
+                    absolute
+                    right-0
+                    top-0
+                    h-2
+                    w-2
+                    rounded-full
+                    bg-emerald-400
+                  "
+                />
               </div>
 
               <ChevronDown
@@ -2863,16 +4123,46 @@ function Header({
 
 
           <HeaderIcon
-            label="Open customizer"
+            label="Open utility panel"
             active={
-              drawerOpen
+              utilityDrawerOpen
             }
             onClick={() => {
               setOpenPopover(
                 null
               );
 
-              setDrawerOpen(
+              setThemeDrawerOpen(
+                false
+              );
+
+              setUtilityDrawerOpen(
+                (current) =>
+                  !current
+              );
+            }}
+          >
+            <AlignJustify
+              size={18}
+            />
+          </HeaderIcon>
+
+
+          <HeaderIcon
+            label="Open theme settings"
+            active={
+              themeDrawerOpen
+            }
+            onClick={() => {
+              setOpenPopover(
+                null
+              );
+
+              setUtilityDrawerOpen(
+                false
+              );
+
+              setThemeDrawerOpen(
                 (current) =>
                   !current
               );
@@ -2880,6 +4170,9 @@ function Header({
           >
             <Settings
               size={18}
+              className="
+                bf-dev-gear
+              "
             />
           </HeaderIcon>
         </div>
@@ -2887,6 +4180,7 @@ function Header({
     </header>
   );
 }
+
 
 
 /* ============================================================
@@ -2920,6 +4214,8 @@ function Switch({
           w-[38px]
           shrink-0
           rounded-full
+          border
+          border-[var(--bf-border)]
           transition
         `,
         value
@@ -2931,7 +4227,7 @@ function Switch({
         className={cx(
           `
             absolute
-            top-[3px]
+            top-[2px]
             h-4
             w-4
             rounded-full
@@ -2940,7 +4236,7 @@ function Switch({
             transition
           `,
           value
-            ? 'left-[19px]'
+            ? 'left-[18px]'
             : 'left-[3px]'
         )}
       />
@@ -2950,7 +4246,7 @@ function Switch({
 
 
 /* ============================================================
-   SETTINGS UI
+   COMMON DRAWER UI
 ============================================================ */
 
 function SettingRow({
@@ -3209,211 +4505,19 @@ function ColorControl({
 
 
 /* ============================================================
-   RIGHT DRAWER TABS
+   THEME CUSTOMIZER
+   Gear icon opens ONLY this drawer.
 ============================================================ */
 
-function RecentTab() {
-  return (
-    <div>
-      {RECENT.map(
-        (item) => {
-          const Icon =
-            item.icon;
-
-          return (
-            <div
-              key={
-                item.title
-              }
-              className="
-                flex
-                gap-3
-                border-b
-                border-[var(--bf-border)]
-                px-4
-                py-4
-              "
-            >
-              <div
-                className="
-                  flex
-                  h-10
-                  w-10
-                  shrink-0
-                  items-center
-                  justify-center
-                  rounded-full
-                  bg-[rgb(var(--bf-primary-rgb)/.12)]
-                  text-[var(--bf-primary)]
-                "
-              >
-                <Icon
-                  size={16}
-                />
-              </div>
-
-              <div
-                className="
-                  min-w-0
-                  flex-1
-                "
-              >
-                <div
-                  className="
-                    flex
-                    items-start
-                    justify-between
-                    gap-3
-                  "
-                >
-                  <span
-                    className="
-                      text-[11px]
-                      font-semibold
-                      text-[var(--bf-text)]
-                    "
-                  >
-                    {item.title}
-                  </span>
-
-                  <span
-                    className="
-                      text-[9px]
-                      text-[var(--bf-text-3)]
-                    "
-                  >
-                    {item.time}
-                  </span>
-                </div>
-
-                <div
-                  className="
-                    mt-1
-                    text-[10px]
-                    leading-5
-                    text-[var(--bf-text-2)]
-                  "
-                >
-                  {item.text}
-                </div>
-              </div>
-            </div>
-          );
-        }
-      )}
-    </div>
-  );
-}
-
-
-function ContactsTab() {
-  return (
-    <div>
-      {CONTACTS.map(
-        (item) => (
-          <div
-            key={
-              item.name
-            }
-            className="
-              flex
-              items-center
-              gap-3
-              border-b
-              border-[var(--bf-border)]
-              px-4
-              py-3.5
-            "
-          >
-            <div
-              className="
-                relative
-                flex
-                h-10
-                w-10
-                shrink-0
-                items-center
-                justify-center
-                rounded-full
-                bg-[rgb(var(--bf-primary-rgb)/.12)]
-                text-[10px]
-                font-black
-                text-[var(--bf-primary)]
-              "
-            >
-              {item.initials}
-
-              <span
-                className={cx(
-                  `
-                    absolute
-                    bottom-0
-                    right-0
-                    h-2.5
-                    w-2.5
-                    rounded-full
-                    border-2
-                    border-[var(--bf-surface)]
-                  `,
-                  item.state ===
-                    'online'
-                    ? 'bg-emerald-500'
-                    : item.state ===
-                        'away'
-                      ? 'bg-amber-500'
-                      : 'bg-slate-400'
-                )}
-              />
-            </div>
-
-            <div
-              className="
-                min-w-0
-                flex-1
-              "
-            >
-              <div
-                className="
-                  truncate
-                  text-[11px]
-                  font-semibold
-                  text-[var(--bf-text)]
-                "
-              >
-                {item.name}
-              </div>
-
-              <div
-                className="
-                  mt-0.5
-                  truncate
-                  text-[9px]
-                  text-[var(--bf-text-3)]
-                "
-              >
-                {item.role}
-              </div>
-            </div>
-
-            <MessageCircle
-              size={15}
-              className="
-                text-[var(--bf-text-3)]
-              "
-            />
-          </div>
-        )
-      )}
-    </div>
-  );
-}
-
-
-function SettingsTab({
+function ThemeSettings({
   config,
   updateConfig,
   resetConfig,
 }) {
+  const horizontal =
+    config.navigationStyle !==
+    'vertical';
+
   return (
     <div
       className="
@@ -3498,6 +4602,43 @@ function SettingsTab({
           })
         }
       />
+
+
+      {horizontal && (
+        <>
+          <SectionTitle>
+            Horizontal Layout Styles
+          </SectionTitle>
+
+          <SettingRow
+            label="Default Logo"
+            selected={
+              config.horizontalLogo ===
+              'default'
+            }
+            onClick={() =>
+              updateConfig({
+                horizontalLogo:
+                  'default',
+              })
+            }
+          />
+
+          <SettingRow
+            label="Center Logo"
+            selected={
+              config.horizontalLogo ===
+              'center'
+            }
+            onClick={() =>
+              updateConfig({
+                horizontalLogo:
+                  'center',
+              })
+            }
+          />
+        </>
+      )}
 
 
       <SectionTitle>
@@ -3761,173 +4902,78 @@ function SettingsTab({
       )}
 
 
-      <SectionTitle>
-        Skin Modes
-      </SectionTitle>
+      {!horizontal && (
+        <>
+          <SectionTitle>
+            Sidemenu Layout Styles
+          </SectionTitle>
 
-      <SettingRow
-        label="Shadow"
-        selected={
-          config.shadowMode ===
-          'shadow'
-        }
-        onClick={() =>
-          updateConfig({
-            shadowMode:
-              'shadow',
-          })
-        }
-      />
+          {[
+            [
+              'default',
+              'Default Menu',
+            ],
 
-      <SettingRow
-        label="No-shadow"
-        selected={
-          config.shadowMode ===
-          'no-shadow'
-        }
-        onClick={() =>
-          updateConfig({
-            shadowMode:
-              'no-shadow',
-          })
-        }
-      />
+            [
+              'closed',
+              'Closed Menu',
+            ],
 
+            [
+              'icon-text',
+              'Icon with Text',
+            ],
 
-      <SectionTitle>
-        Layout Width Styles
-      </SectionTitle>
+            [
+              'icon-overlay',
+              'Icon Overlay',
+            ],
 
-      <SettingRow
-        label="Full Width"
-        selected={
-          config.layoutWidth ===
-          'full'
-        }
-        onClick={() =>
-          updateConfig({
-            layoutWidth:
-              'full',
-          })
-        }
-      />
+            [
+              'hover-submenu',
+              'Hover Submenu',
+            ],
 
-      <SettingRow
-        label="Boxed"
-        selected={
-          config.layoutWidth ===
-          'boxed'
-        }
-        onClick={() =>
-          updateConfig({
-            layoutWidth:
-              'boxed',
-          })
-        }
-      />
+            [
+              'hover-submenu-1',
+              'Hover Submenu style 1',
+            ],
 
+            [
+              'double',
+              'Double Menu',
+            ],
 
-      <SectionTitle>
-        Layout Positions
-      </SectionTitle>
-
-      <SettingRow
-        label="Fixed"
-        selected={
-          config.layoutPosition ===
-          'fixed'
-        }
-        onClick={() =>
-          updateConfig({
-            layoutPosition:
-              'fixed',
-          })
-        }
-      />
-
-      <SettingRow
-        label="Scrollable"
-        selected={
-          config.layoutPosition ===
-          'scrollable'
-        }
-        onClick={() =>
-          updateConfig({
-            layoutPosition:
-              'scrollable',
-          })
-        }
-      />
-
-
-      <SectionTitle>
-        Sidemenu Layout Styles
-      </SectionTitle>
-
-      {[
-        [
-          'default',
-          'Default Menu',
-        ],
-
-        [
-          'closed',
-          'Closed Menu',
-        ],
-
-        [
-          'icon-text',
-          'Icon with Text',
-        ],
-
-        [
-          'icon-overlay',
-          'Icon Overlay',
-        ],
-
-        [
-          'hover-submenu',
-          'Hover Submenu',
-        ],
-
-        [
-          'hover-submenu-1',
-          'Hover Submenu style 1',
-        ],
-
-        [
-          'double',
-          'Double Menu',
-        ],
-
-        [
-          'double-tabs',
-          'Double Menu with Tabs',
-        ],
-      ].map(
-        ([
-          value,
-          label,
-        ]) => (
-          <SettingRow
-            key={
-              value
-            }
-            label={
-              label
-            }
-            selected={
-              config.sideMenuLayout ===
-              value
-            }
-            onClick={() =>
-              updateConfig({
-                sideMenuLayout:
-                  value,
-              })
-            }
-          />
-        )
+            [
+              'double-tabs',
+              'Double Menu with Tabs',
+            ],
+          ].map(
+            ([
+              value,
+              label,
+            ]) => (
+              <SettingRow
+                key={
+                  value
+                }
+                label={
+                  label
+                }
+                selected={
+                  config.sideMenuLayout ===
+                  value
+                }
+                onClick={() =>
+                  updateConfig({
+                    sideMenuLayout:
+                      value,
+                  })
+                }
+              />
+            )
+          )}
+        </>
       )}
 
 
@@ -3967,24 +5013,824 @@ function SettingsTab({
 
 
 /* ============================================================
-   RIGHT DRAWER
+   UTILITY DRAWER — RECENT
 ============================================================ */
 
-function RightDrawer({
+function UtilityRecentTab() {
+  const items = [
+    {
+      title:
+        'Platform policy updated',
+
+      text:
+        'Security configuration and access rules were reviewed.',
+
+      time:
+        '1:40pm',
+
+      initials:
+        'PO',
+
+      state:
+        'online',
+    },
+
+    {
+      title:
+        'Company configuration changed',
+
+      text:
+        'Two module labels and plan permissions were updated.',
+
+      time:
+        '6:30pm',
+
+      initials:
+        'SA',
+
+      state:
+        'online',
+    },
+
+    {
+      title:
+        'New schedule released',
+
+      text:
+        'Developer Studio workflow schedule is now available.',
+
+      time:
+        '8:10pm',
+
+      initials:
+        'OP',
+
+      state:
+        'away',
+    },
+
+    {
+      title:
+        'Website assets published',
+
+      text:
+        'Public website content and media were deployed.',
+
+      time:
+        'Today',
+
+      initials:
+        'WL',
+
+      state:
+        'online',
+    },
+
+    {
+      title:
+        'Audit documentation updated',
+
+      text:
+        'Technical requirement notes were attached to the audit.',
+
+      time:
+        'Yesterday',
+
+      initials:
+        'AD',
+
+      state:
+        'offline',
+    },
+  ];
+
+
+  return (
+    <div>
+      {items.map(
+        (item) => (
+          <div
+            key={
+              `${item.title}-${item.time}`
+            }
+            className="
+              flex
+              gap-3
+              border-b
+              border-[var(--bf-border)]
+              px-4
+              py-4
+            "
+          >
+            <div
+              className="
+                relative
+                flex
+                h-9
+                w-9
+                shrink-0
+                items-center
+                justify-center
+                rounded-full
+                bg-[rgb(var(--bf-primary-rgb)/.12)]
+                text-[9px]
+                font-black
+                text-[var(--bf-primary)]
+              "
+            >
+              {item.initials}
+
+              <span
+                className={cx(
+                  `
+                    absolute
+                    bottom-0
+                    right-0
+                    h-2
+                    w-2
+                    rounded-full
+                    border
+                    border-[var(--bf-surface)]
+                  `,
+                  item.state ===
+                    'online'
+                    ? 'bg-emerald-500'
+                    : item.state ===
+                        'away'
+                      ? 'bg-slate-400'
+                      : 'bg-slate-500'
+                )}
+              />
+            </div>
+
+            <div
+              className="
+                min-w-0
+                flex-1
+              "
+            >
+              <div
+                className="
+                  flex
+                  items-start
+                  justify-between
+                  gap-2
+                "
+              >
+                <div
+                  className="
+                    text-[11px]
+                    font-semibold
+                    text-[var(--bf-text)]
+                  "
+                >
+                  {item.title}
+                </div>
+
+                <div
+                  className="
+                    shrink-0
+                    text-[9px]
+                    text-[var(--bf-text-3)]
+                  "
+                >
+                  {item.time}
+                </div>
+              </div>
+
+              <div
+                className="
+                  mt-1
+                  text-[10px]
+                  leading-5
+                  text-[var(--bf-text-2)]
+                "
+              >
+                {item.text}
+              </div>
+            </div>
+          </div>
+        )
+      )}
+
+      <div
+        className="
+          p-4
+        "
+      >
+        <button
+          type="button"
+          className="
+            h-10
+            w-full
+            rounded-md
+            bg-[var(--bf-primary)]
+            text-[11px]
+            font-bold
+            text-white
+          "
+        >
+          View more
+        </button>
+      </div>
+    </div>
+  );
+}
+
+
+/* ============================================================
+   UTILITY DRAWER — CONTACTS
+============================================================ */
+
+function UtilityContactsTab() {
+  const [
+    menuOpen,
+    setMenuOpen,
+  ] =
+    useState(null);
+
+
+  const contacts = [
+    {
+      name:
+        'Platform Owner',
+
+      meta:
+        'Active',
+
+      initials:
+        'PO',
+
+      online:
+        true,
+    },
+
+    {
+      name:
+        'Support Admin',
+
+      meta:
+        'Last seen at 12:45 am',
+
+      initials:
+        'SA',
+
+      online:
+        false,
+    },
+
+    {
+      name:
+        'Sales Admin',
+
+      meta:
+        'Active',
+
+      initials:
+        'SA',
+
+      online:
+        true,
+    },
+
+    {
+      name:
+        'Operations',
+
+      meta:
+        'Yesterday at 3:00 am',
+
+      initials:
+        'OP',
+
+      online:
+        false,
+    },
+
+    {
+      name:
+        'Website Lead',
+
+      meta:
+        'Today at 7:45 am',
+
+      initials:
+        'WL',
+
+      online:
+        true,
+    },
+  ];
+
+
+  return (
+    <div>
+      {contacts.map(
+        (
+          contact,
+          index
+        ) => (
+          <div
+            key={
+              contact.name
+            }
+            className="
+              relative
+              flex
+              items-center
+              gap-3
+              border-b
+              border-[var(--bf-border)]
+              px-4
+              py-3.5
+            "
+          >
+            <div
+              className="
+                relative
+                flex
+                h-10
+                w-10
+                shrink-0
+                items-center
+                justify-center
+                rounded-full
+                bg-[rgb(var(--bf-primary-rgb)/.12)]
+                text-[10px]
+                font-black
+                text-[var(--bf-primary)]
+              "
+            >
+              {contact.initials}
+
+              {contact.online && (
+                <span
+                  className="
+                    absolute
+                    bottom-0
+                    right-0
+                    h-2.5
+                    w-2.5
+                    rounded-full
+                    border-2
+                    border-[var(--bf-surface)]
+                    bg-emerald-500
+                  "
+                />
+              )}
+            </div>
+
+            <div
+              className="
+                min-w-0
+                flex-1
+              "
+            >
+              <div
+                className="
+                  truncate
+                  text-[11px]
+                  font-semibold
+                  text-[var(--bf-text)]
+                "
+              >
+                {contact.name}
+              </div>
+
+              <div
+                className={cx(
+                  `
+                    mt-0.5
+                    truncate
+                    text-[9px]
+                  `,
+                  contact.online
+                    ? 'text-emerald-500'
+                    : 'text-[var(--bf-text-3)]'
+                )}
+              >
+                {contact.meta}
+              </div>
+            </div>
+
+            <MessageCircle
+              size={14}
+              className="
+                text-[var(--bf-text-3)]
+              "
+            />
+
+            <button
+              type="button"
+              onClick={() =>
+                setMenuOpen(
+                  menuOpen ===
+                    index
+                    ? null
+                    : index
+                )
+              }
+              className="
+                flex
+                h-7
+                w-7
+                items-center
+                justify-center
+                rounded-md
+                text-[var(--bf-text-3)]
+                hover:bg-[var(--bf-surface-2)]
+              "
+            >
+              <EllipsisVertical
+                size={14}
+              />
+            </button>
+
+
+            {menuOpen ===
+              index && (
+              <div
+                className="
+                  absolute
+                  right-4
+                  top-[48px]
+                  z-20
+                  w-[150px]
+                  overflow-hidden
+                  rounded-md
+                  border
+                  border-[var(--bf-border)]
+                  bg-[var(--bf-surface)]
+                  p-1
+                  shadow-[var(--bf-shadow)]
+                "
+              >
+                {[
+                  [
+                    'Edit',
+                    Edit3,
+                  ],
+
+                  [
+                    'Share',
+                    Share2,
+                  ],
+
+                  [
+                    'Remove',
+                    Trash2,
+                  ],
+                ].map(
+                  ([
+                    label,
+                    Icon,
+                  ]) => (
+                    <button
+                      key={
+                        label
+                      }
+                      type="button"
+                      className="
+                        flex
+                        w-full
+                        items-center
+                        gap-2
+                        rounded-md
+                        px-3
+                        py-2
+                        text-left
+                        text-[10px]
+                        text-[var(--bf-text-2)]
+                        hover:bg-[var(--bf-surface-2)]
+                        hover:text-[var(--bf-primary)]
+                      "
+                    >
+                      <Icon
+                        size={13}
+                      />
+
+                      {label}
+                    </button>
+                  )
+                )}
+              </div>
+            )}
+          </div>
+        )
+      )}
+    </div>
+  );
+}
+
+
+/* ============================================================
+   UTILITY DRAWER — GENERAL SETTINGS
+============================================================ */
+
+function UtilitySettingsTab() {
+  const [
+    state,
+    setState,
+  ] =
+    useState({
+      notifications:
+        false,
+
+      mails:
+        false,
+
+      taskStats:
+        false,
+
+      recentActivity:
+        false,
+
+      systemLogs:
+        false,
+
+      errorReporting:
+        false,
+
+      showStatus:
+        false,
+
+      keepUpdated:
+        false,
+    });
+
+
+  const setFlag =
+    (
+      key,
+      value
+    ) => {
+      setState(
+        (current) => ({
+          ...current,
+
+          [key]:
+            value,
+        })
+      );
+    };
+
+
+  const rows = [
+    [
+      'Notifications',
+      'notifications',
+    ],
+
+    [
+      'Show Your Mails',
+      'mails',
+    ],
+
+    [
+      'Show Task statistics',
+      'taskStats',
+    ],
+
+    [
+      'Show recent activity',
+      'recentActivity',
+    ],
+
+    [
+      'System Logs',
+      'systemLogs',
+    ],
+
+    [
+      'Error Reporting',
+      'errorReporting',
+    ],
+
+    [
+      'Show your status to all',
+      'showStatus',
+    ],
+
+    [
+      'Keep up to date',
+      'keepUpdated',
+    ],
+  ];
+
+
+  const overview = [
+    [
+      'Achieves',
+      80,
+      '#5551D7',
+    ],
+
+    [
+      'Projects',
+      60,
+      '#B83ED6',
+    ],
+
+    [
+      'Earnings',
+      50,
+      '#22B95A',
+    ],
+
+    [
+      'Balance',
+      30,
+      '#F28C35',
+    ],
+
+    [
+      'Total Profits',
+      75,
+      '#EF4444',
+    ],
+  ];
+
+
+  return (
+    <div>
+      <div
+        className="
+          border-b
+          border-[var(--bf-border)]
+          bg-[var(--bf-surface-2)]
+          px-2
+          py-2
+          text-[12px]
+          font-semibold
+          text-[var(--bf-text)]
+        "
+      >
+        General Settings
+      </div>
+
+      <div
+        className="
+          py-2
+        "
+      >
+        {rows.map(
+          ([
+            label,
+            key,
+          ]) => (
+            <div
+              key={
+                key
+              }
+              className="
+                flex
+                items-center
+                justify-between
+                gap-3
+                px-4
+                py-2
+              "
+            >
+              <span
+                className="
+                  text-[10px]
+                  text-[var(--bf-text-2)]
+                "
+              >
+                {label}
+              </span>
+
+              <Switch
+                label={
+                  label
+                }
+                value={
+                  state[key]
+                }
+                onChange={(
+                  value
+                ) =>
+                  setFlag(
+                    key,
+                    value
+                  )
+                }
+              />
+            </div>
+          )
+        )}
+      </div>
+
+
+      <div
+        className="
+          border-y
+          border-[var(--bf-border)]
+          bg-[var(--bf-surface-2)]
+          px-2
+          py-2
+          text-[12px]
+          font-semibold
+          text-[var(--bf-text)]
+        "
+      >
+        OverView
+      </div>
+
+
+      <div
+        className="
+          space-y-5
+          px-4
+          py-4
+        "
+      >
+        {overview.map(
+          ([
+            label,
+            percent,
+            color,
+          ]) => (
+            <div
+              key={
+                label
+              }
+            >
+              <div
+                className="
+                  flex
+                  items-center
+                  justify-between
+                  gap-3
+                "
+              >
+                <span
+                  className="
+                    text-[10px]
+                    text-[var(--bf-text-2)]
+                  "
+                >
+                  {label}
+                </span>
+
+                <span
+                  className="
+                    text-[10px]
+                    text-[var(--bf-text-3)]
+                  "
+                >
+                  {percent}%
+                </span>
+              </div>
+
+              <div
+                className="
+                  mt-2
+                  h-[3px]
+                  overflow-hidden
+                  rounded-full
+                  bg-[var(--bf-surface-3)]
+                "
+              >
+                <div
+                  className="
+                    h-full
+                  "
+                  style={{
+                    width:
+                      `${percent}%`,
+
+                    background:
+                      color,
+                  }}
+                />
+              </div>
+            </div>
+          )
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+/* ============================================================
+   UTILITY DRAWER
+   Opened by the 3-lines icon.
+============================================================ */
+
+function UtilityDrawer({
   open,
   onClose,
   activeTab,
   setActiveTab,
-  config,
-  updateConfig,
-  resetConfig,
 }) {
   return (
     <>
       {open && (
         <button
           type="button"
-          aria-label="Close drawer overlay"
+          aria-label="Close utility drawer"
           onClick={
             onClose
           }
@@ -4023,7 +5869,7 @@ function RightDrawer({
         <div
           className="
             flex
-            h-[var(--bf-header-height)]
+            h-[58px]
             items-center
             border-b
             border-[var(--bf-border)]
@@ -4067,7 +5913,7 @@ function RightDrawer({
                     flex-1
                     items-center
                     justify-center
-                    text-[11px]
+                    text-[10px]
                     font-semibold
                   `,
                   activeTab ===
@@ -4109,12 +5955,11 @@ function RightDrawer({
               justify-center
               rounded-md
               text-[var(--bf-text-3)]
-              transition
-              hover:bg-[rgb(var(--bf-primary-rgb)/.06)]
+              hover:bg-[var(--bf-surface-2)]
             "
           >
             <X
-              size={15}
+              size={14}
             />
           </button>
         </div>
@@ -4123,39 +5968,163 @@ function RightDrawer({
         <div
           className="
             bf-dev-scroll
-            h-[calc(100dvh-var(--bf-header-height))]
+            h-[calc(100dvh-58px)]
             overflow-y-auto
           "
         >
           {activeTab ===
             'recent' && (
-            <RecentTab />
+            <UtilityRecentTab />
           )}
 
           {activeTab ===
             'contacts' && (
-            <ContactsTab />
+            <UtilityContactsTab />
           )}
 
           {activeTab ===
             'settings' && (
-            <SettingsTab
-              config={
-                config
-              }
-              updateConfig={
-                updateConfig
-              }
-              resetConfig={
-                resetConfig
-              }
-            />
+            <UtilitySettingsTab />
           )}
         </div>
       </aside>
     </>
   );
 }
+
+
+/* ============================================================
+   THEME DRAWER
+   Opened ONLY by the rotating gear icon.
+============================================================ */
+
+function ThemeDrawer({
+  open,
+  onClose,
+  config,
+  updateConfig,
+  resetConfig,
+}) {
+  return (
+    <>
+      {open && (
+        <button
+          type="button"
+          aria-label="Close theme customizer"
+          onClick={
+            onClose
+          }
+          className="
+            fixed
+            inset-0
+            z-40
+            bg-slate-950/20
+            lg:hidden
+          "
+        />
+      )}
+
+
+      <aside
+        className={cx(
+          `
+            fixed
+            bottom-0
+            right-0
+            top-0
+            z-[72]
+            w-[var(--bf-drawer-width)]
+            border-l
+            border-[var(--bf-border)]
+            bg-[var(--bf-surface)]
+            shadow-[-18px_0_40px_rgba(0,0,0,.14)]
+            transition-transform
+            duration-200
+          `,
+          open
+            ? 'translate-x-0'
+            : 'translate-x-full'
+        )}
+      >
+        <div
+          className="
+            flex
+            h-[58px]
+            items-center
+            justify-between
+            border-b
+            border-[var(--bf-border)]
+            px-4
+          "
+        >
+          <div
+            className="
+              flex
+              items-center
+              gap-2
+              text-[11px]
+              font-bold
+              text-[var(--bf-text)]
+            "
+          >
+            <Settings
+              size={15}
+              className="
+                bf-dev-gear
+                text-[var(--bf-primary)]
+              "
+            />
+
+            Theme Settings
+          </div>
+
+          <button
+            type="button"
+            onClick={
+              onClose
+            }
+            className="
+              flex
+              h-8
+              w-8
+              items-center
+              justify-center
+              rounded-md
+              text-[var(--bf-text-3)]
+              hover:bg-[var(--bf-surface-2)]
+            "
+          >
+            <X
+              size={14}
+            />
+          </button>
+        </div>
+
+
+        <div
+          className="
+            bf-dev-scroll
+            h-[calc(100dvh-58px)]
+            overflow-y-auto
+          "
+        >
+          <ThemeSettings
+            config={
+              config
+            }
+            updateConfig={
+              updateConfig
+            }
+            resetConfig={
+              resetConfig
+            }
+          />
+        </div>
+      </aside>
+    </>
+  );
+}
+
 
 
 /* ============================================================
@@ -4277,35 +6246,85 @@ export default function DeveloperLayout({
     useState(null);
 
   const [
-    drawerOpen,
-    setDrawerOpen,
+    utilityDrawerOpen,
+    setUtilityDrawerOpen,
   ] =
     useState(false);
 
   const [
-    drawerTab,
-    setDrawerTab,
+    utilityDrawerTab,
+    setUtilityDrawerTab,
   ] =
     useState(
-      config.drawerTab ||
-      'settings'
+      config.utilityDrawerTab ||
+      'recent'
     );
 
+  const [
+    themeDrawerOpen,
+    setThemeDrawerOpen,
+  ] =
+    useState(false);
 
+
+  /*
+     CENTRAL LIVE THEME ENGINE
+
+     Requirement:
+     - Any Theme Settings change must update the current scene immediately.
+     - Light Theme automatically uses Light Menu.
+     - Dark Theme automatically uses Dark Menu.
+     - Header Style remains independent and must NOT change with Theme Style.
+  */
   const updateConfig =
     useCallback(
       (patch) => {
         setConfig(
-          (current) => ({
-            ...current,
-            ...patch,
-          })
+          (current) => {
+            const requested =
+              typeof patch ===
+              'function'
+                ? patch(current)
+                : patch;
+
+            const next = {
+              ...current,
+              ...requested,
+            };
+
+            if (
+              Object.prototype.hasOwnProperty.call(
+                requested,
+                'theme'
+              ) &&
+              requested.theme !==
+                current.theme
+            ) {
+              next.sidebarStyle =
+                requested.theme ===
+                'dark'
+                  ? 'dark'
+                  : 'light';
+
+              /*
+                Header must preserve its selected style.
+                Color Header stays Color Header in both themes.
+              */
+              next.headerStyle =
+                current.headerStyle;
+            }
+
+            return next;
+          }
         );
       },
       []
     );
 
 
+  /*
+     Reset always restores the locked Buddy Fleets DARK preset.
+  */
   const resetConfig =
     useCallback(
       () => {
@@ -4313,8 +6332,12 @@ export default function DeveloperLayout({
           ...THEME_DEFAULTS,
         });
 
-        setDrawerTab(
-          THEME_DEFAULTS.drawerTab
+        setUtilityDrawerTab(
+          THEME_DEFAULTS.utilityDrawerTab
+        );
+
+        setOpenPopover(
+          null
         );
       },
       []
@@ -4323,10 +6346,21 @@ export default function DeveloperLayout({
 
   const vars =
     useMemo(
-      () =>
-        buildVars({
-          config,
-        }),
+      () => {
+        const base =
+          buildVars({
+            config,
+          });
+
+        return {
+          ...base,
+
+          '--bf-main-offset':
+            `${getSidebarOffset(
+              config
+            )}px`,
+        };
+      },
       [
         config,
       ]
@@ -4337,12 +6371,12 @@ export default function DeveloperLayout({
     writeThemeConfig({
       ...config,
 
-      drawerTab:
-        drawerTab,
+      utilityDrawerTab:
+        utilityDrawerTab,
     });
   }, [
     config,
-    drawerTab,
+    utilityDrawerTab,
   ]);
 
 
@@ -4350,7 +6384,11 @@ export default function DeveloperLayout({
     document.documentElement.dir =
       config.direction;
 
-    document.documentElement.style.colorScheme =
+    /*
+      Keep visual colors fully controlled by our tokens.
+      Browser color-scheme must not unexpectedly recolor the header.
+    */
+    document.documentElement.dataset.bfTheme =
       config.theme;
   }, [
     config.direction,
@@ -4358,9 +6396,9 @@ export default function DeveloperLayout({
   ]);
 
 
-  const boxed =
-    config.layoutWidth ===
-    'boxed';
+  const horizontal =
+    config.navigationStyle !==
+    'vertical';
 
 
   return (
@@ -4416,29 +6454,54 @@ export default function DeveloperLayout({
           setOpenPopover={
             setOpenPopover
           }
-          drawerOpen={
-            drawerOpen
+          utilityDrawerOpen={
+            utilityDrawerOpen
           }
-          setDrawerOpen={
-            setDrawerOpen
+          setUtilityDrawerOpen={
+            setUtilityDrawerOpen
+          }
+          themeDrawerOpen={
+            themeDrawerOpen
+          }
+          setThemeDrawerOpen={
+            setThemeDrawerOpen
           }
         />
 
 
-        <RightDrawer
+        <HorizontalNavigation
+          config={
+            config
+          }
+        />
+
+
+        <UtilityDrawer
           open={
-            drawerOpen
+            utilityDrawerOpen
           }
           onClose={() =>
-            setDrawerOpen(
+            setUtilityDrawerOpen(
               false
             )
           }
           activeTab={
-            drawerTab
+            utilityDrawerTab
           }
           setActiveTab={
-            setDrawerTab
+            setUtilityDrawerTab
+          }
+        />
+
+
+        <ThemeDrawer
+          open={
+            themeDrawerOpen
+          }
+          onClose={() =>
+            setThemeDrawerOpen(
+              false
+            )
           }
           config={
             config
@@ -4456,13 +6519,13 @@ export default function DeveloperLayout({
           className={cx(
             `
               min-h-[100dvh]
-              pt-[var(--bf-header-height)]
-              transition-[padding-left]
+              transition-[padding-left,padding-top]
               duration-200
+              lg:pl-[var(--bf-main-offset)]
             `,
-            config.sidebarLockedOpen
-              ? 'lg:pl-[var(--bf-sidebar-width)]'
-              : 'lg:pl-[var(--bf-sidebar-collapsed)]'
+            horizontal
+              ? 'pt-[calc(var(--bf-header-height)+var(--bf-horizontal-nav-height))]'
+              : 'pt-[var(--bf-header-height)]'
           )}
         >
           <div
@@ -4474,18 +6537,10 @@ export default function DeveloperLayout({
             "
           >
             <div
-              className={cx(
-                `
-                  min-w-0
-                  flex-1
-                `,
-                boxed &&
-                  `
-                    mx-auto
-                    w-full
-                    max-w-[1380px]
-                  `
-              )}
+              className="
+                min-w-0
+                flex-1
+              "
             >
               <Outlet
                 context={{
@@ -4504,16 +6559,33 @@ export default function DeveloperLayout({
                   headerStyle:
                     config.headerStyle,
 
+                  navigationStyle:
+                    config.navigationStyle,
+
+                  sideMenuLayout:
+                    config.sideMenuLayout,
+
                   themeConfig:
                     config,
 
                   openThemeSettings:
                     () => {
-                      setDrawerTab(
-                        'settings'
+                      setUtilityDrawerOpen(
+                        false
                       );
 
-                      setDrawerOpen(
+                      setThemeDrawerOpen(
+                        true
+                      );
+                    },
+
+                  openUtilityDrawer:
+                    () => {
+                      setThemeDrawerOpen(
+                        false
+                      );
+
+                      setUtilityDrawerOpen(
                         true
                       );
                     },
