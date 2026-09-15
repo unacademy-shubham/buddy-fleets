@@ -132,6 +132,159 @@ const DeveloperSystem = lazy(() =>
 
 
 /* =========================================================
+   ADDITIONAL DEVELOPER CPANEL PAGES
+
+   Dedicated pages for the new second/third-level Developer
+   navigation items. Existing auth, portal and session logic
+   remains unchanged.
+========================================================= */
+
+const DeveloperTrialsRenewals = lazy(() =>
+  import('./pages/Developer/Companies/TrialsRenewalsPage')
+);
+
+const DeveloperCompanyOverrides = lazy(() =>
+  import('./pages/Developer/Companies/CompanyOverridesPage')
+);
+
+const DeveloperPlans = lazy(() =>
+  import('./pages/Developer/Entitlements/PlansPage')
+);
+
+const DeveloperLimitsAccess = lazy(() =>
+  import('./pages/Developer/Entitlements/LimitsAccessPage')
+);
+
+const DeveloperRenewalPolicy = lazy(() =>
+  import('./pages/Developer/Entitlements/RenewalPolicyPage')
+);
+
+const DeveloperModuleRegistryPage = lazy(() =>
+  import('./pages/Developer/Modules/ModuleRegistryPage')
+);
+
+const DeveloperModuleDependencies = lazy(() =>
+  import('./pages/Developer/Modules/DependenciesPage')
+);
+
+const DeveloperModuleRolloutState = lazy(() =>
+  import('./pages/Developer/Modules/RolloutStatePage')
+);
+
+const DeveloperTeamMembers = lazy(() =>
+  import('./pages/Developer/Team/TeamMembersPage')
+);
+
+const DeveloperRolesPermissions = lazy(() =>
+  import('./pages/Developer/Team/RolesPermissionsPage')
+);
+
+const DeveloperPortalAccess = lazy(() =>
+  import('./pages/Developer/Team/PortalAccessPage')
+);
+
+const DeveloperModuleBuilderPage = lazy(() =>
+  import('./pages/Developer/DeveloperStudio/ModuleBuilderPage')
+);
+
+const DeveloperSchemasFields = lazy(() =>
+  import('./pages/Developer/DeveloperStudio/SchemasFieldsPage')
+);
+
+const DeveloperViewsForms = lazy(() =>
+  import('./pages/Developer/DeveloperStudio/ViewsFormsPage')
+);
+
+const DeveloperModulePermissions = lazy(() =>
+  import('./pages/Developer/DeveloperStudio/PermissionsPage')
+);
+
+const DeveloperPublishRollback = lazy(() =>
+  import('./pages/Developer/DeveloperStudio/PublishRollbackPage')
+);
+
+const DeveloperWorkflowBuilderPage = lazy(() =>
+  import('./pages/Developer/DeveloperStudio/WorkflowBuilderPage')
+);
+
+const DeveloperWorkflowTriggers = lazy(() =>
+  import('./pages/Developer/DeveloperStudio/TriggersPage')
+);
+
+const DeveloperWorkflowConditions = lazy(() =>
+  import('./pages/Developer/DeveloperStudio/ConditionsPage')
+);
+
+const DeveloperWorkflowApprovals = lazy(() =>
+  import('./pages/Developer/DeveloperStudio/ApprovalsPage')
+);
+
+const DeveloperWorkflowActions = lazy(() =>
+  import('./pages/Developer/DeveloperStudio/ActionsPage')
+);
+
+const DeveloperIntegrationProviders = lazy(() =>
+  import('./pages/Developer/Integrations/ProvidersPage')
+);
+
+const DeveloperWebhooks = lazy(() =>
+  import('./pages/Developer/Integrations/WebhooksPage')
+);
+
+const DeveloperApiHealth = lazy(() =>
+  import('./pages/Developer/Integrations/ApiHealthPage')
+);
+
+const DeveloperSecurityCenterPage = lazy(() =>
+  import('./pages/Developer/Security/SecurityCenterPage')
+);
+
+const DeveloperAuthSessions = lazy(() =>
+  import('./pages/Developer/Security/AuthSessionsPage')
+);
+
+const DeveloperMfaLocks = lazy(() =>
+  import('./pages/Developer/Security/MfaLocksPage')
+);
+
+const DeveloperPrivilegedAccess = lazy(() =>
+  import('./pages/Developer/Security/PrivilegedAccessPage')
+);
+
+const DeveloperSecurityEvents = lazy(() =>
+  import('./pages/Developer/Security/SecurityEventsPage')
+);
+
+const DeveloperServiceHealth = lazy(() =>
+  import('./pages/Developer/Infrastructure/ServiceHealthPage')
+);
+
+const DeveloperDeployments = lazy(() =>
+  import('./pages/Developer/Infrastructure/DeploymentsPage')
+);
+
+const DeveloperDatabaseApis = lazy(() =>
+  import('./pages/Developer/Infrastructure/DatabaseApisPage')
+);
+
+const DeveloperPlatformDefaults = lazy(() =>
+  import('./pages/Developer/System/PlatformDefaultsPage')
+);
+
+const DeveloperNotifications = lazy(() =>
+  import('./pages/Developer/System/NotificationsPage')
+);
+
+const DeveloperRetentionPrivacy = lazy(() =>
+  import('./pages/Developer/System/RetentionPrivacyPage')
+);
+
+const DeveloperApiPolicy = lazy(() =>
+  import('./pages/Developer/System/ApiPolicyPage')
+);
+
+
+/* =========================================================
    FINAL PORTAL ARCHITECTURE
 
    Main website:
@@ -2109,6 +2262,339 @@ function PortalRoutes({
             element={
               <LazyPage>
                 <DeveloperSystem />
+              </LazyPage>
+            }
+          />
+
+
+          {/* =====================================================
+              ADDITIONAL DEVELOPER CPANEL ROUTES
+
+              These routes live inside the existing DeveloperLayout,
+              so the existing secure developer portal/session gate
+              remains authoritative and unchanged.
+          ===================================================== */}
+
+          <Route
+            path="companies/trials-renewals"
+            element={
+              <LazyPage>
+                <DeveloperTrialsRenewals />
+              </LazyPage>
+            }
+          />
+
+          <Route
+            path="companies/overrides"
+            element={
+              <LazyPage>
+                <DeveloperCompanyOverrides />
+              </LazyPage>
+            }
+          />
+
+          <Route
+            path="subscriptions/plans"
+            element={
+              <LazyPage>
+                <DeveloperPlans />
+              </LazyPage>
+            }
+          />
+
+          <Route
+            path="subscriptions/limits-access"
+            element={
+              <LazyPage>
+                <DeveloperLimitsAccess />
+              </LazyPage>
+            }
+          />
+
+          <Route
+            path="subscriptions/renewal-policy"
+            element={
+              <LazyPage>
+                <DeveloperRenewalPolicy />
+              </LazyPage>
+            }
+          />
+
+          <Route
+            path="modules/registry"
+            element={
+              <LazyPage>
+                <DeveloperModuleRegistryPage />
+              </LazyPage>
+            }
+          />
+
+          <Route
+            path="modules/dependencies"
+            element={
+              <LazyPage>
+                <DeveloperModuleDependencies />
+              </LazyPage>
+            }
+          />
+
+          <Route
+            path="modules/rollout-state"
+            element={
+              <LazyPage>
+                <DeveloperModuleRolloutState />
+              </LazyPage>
+            }
+          />
+
+          <Route
+            path="team/members"
+            element={
+              <LazyPage>
+                <DeveloperTeamMembers />
+              </LazyPage>
+            }
+          />
+
+          <Route
+            path="team/roles-permissions"
+            element={
+              <LazyPage>
+                <DeveloperRolesPermissions />
+              </LazyPage>
+            }
+          />
+
+          <Route
+            path="team/portal-access"
+            element={
+              <LazyPage>
+                <DeveloperPortalAccess />
+              </LazyPage>
+            }
+          />
+
+          <Route
+            path="developer-studio/module-builder"
+            element={
+              <LazyPage>
+                <DeveloperModuleBuilderPage />
+              </LazyPage>
+            }
+          />
+
+          <Route
+            path="developer-studio/schemas-fields"
+            element={
+              <LazyPage>
+                <DeveloperSchemasFields />
+              </LazyPage>
+            }
+          />
+
+          <Route
+            path="developer-studio/views-forms"
+            element={
+              <LazyPage>
+                <DeveloperViewsForms />
+              </LazyPage>
+            }
+          />
+
+          <Route
+            path="developer-studio/permissions"
+            element={
+              <LazyPage>
+                <DeveloperModulePermissions />
+              </LazyPage>
+            }
+          />
+
+          <Route
+            path="developer-studio/publish-rollback"
+            element={
+              <LazyPage>
+                <DeveloperPublishRollback />
+              </LazyPage>
+            }
+          />
+
+          <Route
+            path="developer-studio/workflow-builder"
+            element={
+              <LazyPage>
+                <DeveloperWorkflowBuilderPage />
+              </LazyPage>
+            }
+          />
+
+          <Route
+            path="developer-studio/workflows/triggers"
+            element={
+              <LazyPage>
+                <DeveloperWorkflowTriggers />
+              </LazyPage>
+            }
+          />
+
+          <Route
+            path="developer-studio/workflows/conditions"
+            element={
+              <LazyPage>
+                <DeveloperWorkflowConditions />
+              </LazyPage>
+            }
+          />
+
+          <Route
+            path="developer-studio/workflows/approvals"
+            element={
+              <LazyPage>
+                <DeveloperWorkflowApprovals />
+              </LazyPage>
+            }
+          />
+
+          <Route
+            path="developer-studio/workflows/actions"
+            element={
+              <LazyPage>
+                <DeveloperWorkflowActions />
+              </LazyPage>
+            }
+          />
+
+          <Route
+            path="integrations/providers"
+            element={
+              <LazyPage>
+                <DeveloperIntegrationProviders />
+              </LazyPage>
+            }
+          />
+
+          <Route
+            path="integrations/webhooks"
+            element={
+              <LazyPage>
+                <DeveloperWebhooks />
+              </LazyPage>
+            }
+          />
+
+          <Route
+            path="integrations/api-health"
+            element={
+              <LazyPage>
+                <DeveloperApiHealth />
+              </LazyPage>
+            }
+          />
+
+          <Route
+            path="security/center"
+            element={
+              <LazyPage>
+                <DeveloperSecurityCenterPage />
+              </LazyPage>
+            }
+          />
+
+          <Route
+            path="security/auth-sessions"
+            element={
+              <LazyPage>
+                <DeveloperAuthSessions />
+              </LazyPage>
+            }
+          />
+
+          <Route
+            path="security/mfa-locks"
+            element={
+              <LazyPage>
+                <DeveloperMfaLocks />
+              </LazyPage>
+            }
+          />
+
+          <Route
+            path="security/privileged-access"
+            element={
+              <LazyPage>
+                <DeveloperPrivilegedAccess />
+              </LazyPage>
+            }
+          />
+
+          <Route
+            path="security/events"
+            element={
+              <LazyPage>
+                <DeveloperSecurityEvents />
+              </LazyPage>
+            }
+          />
+
+          <Route
+            path="infrastructure/service-health"
+            element={
+              <LazyPage>
+                <DeveloperServiceHealth />
+              </LazyPage>
+            }
+          />
+
+          <Route
+            path="infrastructure/deployments"
+            element={
+              <LazyPage>
+                <DeveloperDeployments />
+              </LazyPage>
+            }
+          />
+
+          <Route
+            path="infrastructure/database-apis"
+            element={
+              <LazyPage>
+                <DeveloperDatabaseApis />
+              </LazyPage>
+            }
+          />
+
+          <Route
+            path="system/platform-defaults"
+            element={
+              <LazyPage>
+                <DeveloperPlatformDefaults />
+              </LazyPage>
+            }
+          />
+
+          <Route
+            path="system/notifications"
+            element={
+              <LazyPage>
+                <DeveloperNotifications />
+              </LazyPage>
+            }
+          />
+
+          <Route
+            path="system/retention-privacy"
+            element={
+              <LazyPage>
+                <DeveloperRetentionPrivacy />
+              </LazyPage>
+            }
+          />
+
+          <Route
+            path="system/api-policy"
+            element={
+              <LazyPage>
+                <DeveloperApiPolicy />
               </LazyPage>
             }
           />

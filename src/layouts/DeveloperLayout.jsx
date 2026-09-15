@@ -3141,13 +3141,271 @@ function Sidebar({
    HORIZONTAL NAVIGATION
 
    Click mode:
-     click parent -> dropdown
+     click parent -> first tray
+     child with nested items -> second tray on right
 
    Hover mode:
-     hover parent -> dropdown
+     hover parent -> first tray
+     hover nested child -> second tray on right
 
-   Both share the exact same geometry/theme.
+   IMPORTANT:
+   - Third-level items never stack vertically inside the first tray.
+   - Nested items open in a separate right-side tray.
+   - Existing vertical sidebar behavior remains unchanged.
 ============================================================ */
+
+function HorizontalFlyoutNode({
+  child,
+  hoverMode,
+  closeAll,
+}) {
+  const location =
+    useLocation();
+
+  const hasChildren =
+    Array.isArray(
+      child.children
+    ) &&
+    child.children.length > 0;
+
+  const [
+    nestedOpen,
+    setNestedOpen,
+  ] =
+    useState(false);
+
+  useEffect(() => {
+    setNestedOpen(
+      false
+    );
+  }, [
+    location.pathname,
+  ]);
+
+  return (
+    <div
+      className="
+        relative
+      "
+      onMouseEnter={() => {
+        if (
+          hoverMode &&
+          hasChildren
+        ) {
+          setNestedOpen(
+            true
+          );
+        }
+      }}
+      onMouseLeave={() => {
+        if (
+          hoverMode &&
+          hasChildren
+        ) {
+          setNestedOpen(
+            false
+          );
+        }
+      }}
+    >
+      <div
+        className="
+          flex
+          items-center
+        "
+      >
+        <NavLink
+          to={child.to}
+          end={child.end}
+          onClick={() => {
+            if (
+              !hasChildren
+            ) {
+              closeAll();
+            }
+          }}
+          className={({ isActive }) =>
+            cx(
+              `
+                flex
+                min-h-[40px]
+                min-w-0
+                flex-1
+                items-center
+                gap-2
+                px-4
+                py-2.5
+                text-[11px]
+                transition
+                hover:bg-[rgb(var(--bf-primary-rgb)/.06)]
+                hover:text-[var(--bf-primary)]
+              `,
+              (
+                isActive ||
+                nodeMatchesPath(
+                  location.pathname,
+                  child
+                )
+              )
+                ? 'font-semibold text-[var(--bf-primary)]'
+                : 'text-[var(--bf-text-2)]'
+            )
+          }
+        >
+          <span
+            className="
+              h-[5px]
+              w-[5px]
+              shrink-0
+              rounded-full
+              border
+              border-current
+            "
+          />
+
+          <span
+            className="
+              min-w-0
+              flex-1
+              truncate
+            "
+          >
+            {child.label}
+          </span>
+        </NavLink>
+
+        {hasChildren && (
+          <button
+            type="button"
+            aria-label={`Open ${child.label} submenu`}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+
+              setNestedOpen(
+                (current) =>
+                  !current
+              );
+            }}
+            className={cx(
+              `
+                mr-1
+                flex
+                h-8
+                w-8
+                shrink-0
+                items-center
+                justify-center
+                rounded-md
+                text-[var(--bf-text-3)]
+                transition
+                hover:bg-[rgb(var(--bf-primary-rgb)/.08)]
+                hover:text-[var(--bf-primary)]
+              `,
+              nestedOpen &&
+                'text-[var(--bf-primary)]'
+            )}
+          >
+            <ChevronRight
+              size={13}
+            />
+          </button>
+        )}
+      </div>
+
+      {hasChildren &&
+        nestedOpen && (
+          <div
+            className="
+              absolute
+              left-[calc(100%-2px)]
+              top-0
+              z-[100]
+              min-w-[220px]
+              overflow-visible
+              rounded-md
+              border
+              border-[var(--bf-border)]
+              bg-[var(--bf-surface)]
+              shadow-[var(--bf-shadow)]
+            "
+          >
+            <div
+              className="
+                border-b
+                border-[var(--bf-border)]
+                px-4
+                py-3
+                text-[11px]
+                font-semibold
+                text-[var(--bf-text)]
+              "
+            >
+              {child.label}
+            </div>
+
+            <div
+              className="
+                py-1.5
+              "
+            >
+              {child.children.map(
+                (grandchild) => (
+                  <NavLink
+                    key={`${grandchild.label}-${grandchild.to}`}
+                    to={grandchild.to}
+                    end={grandchild.end}
+                    onClick={closeAll}
+                    className={({ isActive }) =>
+                      cx(
+                        `
+                          flex
+                          min-h-[38px]
+                          items-center
+                          gap-2
+                          px-4
+                          py-2
+                          text-[11px]
+                          transition
+                          hover:bg-[rgb(var(--bf-primary-rgb)/.06)]
+                          hover:text-[var(--bf-primary)]
+                        `,
+                        isActive
+                          ? 'font-semibold text-[var(--bf-primary)]'
+                          : 'text-[var(--bf-text-2)]'
+                      )
+                    }
+                  >
+                    <span
+                      className="
+                        h-[5px]
+                        w-[5px]
+                        shrink-0
+                        rounded-full
+                        border
+                        border-current
+                      "
+                    />
+
+                    <span
+                      className="
+                        min-w-0
+                        flex-1
+                        truncate
+                      "
+                    >
+                      {grandchild.label}
+                    </span>
+                  </NavLink>
+                )
+              )}
+            </div>
+          </div>
+        )}
+    </div>
+  );
+}
+
 
 function HorizontalNavigation({
   config,
@@ -3182,6 +3440,14 @@ function HorizontalNavigation({
   ) {
     return null;
   }
+
+
+  const closeAll =
+    () => {
+      setOpenMenuId(
+        null
+      );
+    };
 
 
   return (
@@ -3321,8 +3587,8 @@ function HorizontalNavigation({
                       left-0
                       top-[calc(100%+7px)]
                       z-[90]
-                      min-w-[220px]
-                      overflow-hidden
+                      min-w-[230px]
+                      overflow-visible
                       rounded-md
                       border
                       border-[var(--bf-border)]
@@ -3330,14 +3596,22 @@ function HorizontalNavigation({
                       shadow-[var(--bf-shadow)]
                     "
                   >
-                    {menu.children.map(
-                      (child) => (
-                        <FlyoutNode
-                          key={`${child.label}-${child.to}`}
-                          child={child}
-                        />
-                      )
-                    )}
+                    <div
+                      className="
+                        py-1.5
+                      "
+                    >
+                      {menu.children.map(
+                        (child) => (
+                          <HorizontalFlyoutNode
+                            key={`${child.label}-${child.to}`}
+                            child={child}
+                            hoverMode={hoverMode}
+                            closeAll={closeAll}
+                          />
+                        )
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
