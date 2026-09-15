@@ -1,4 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { getDeveloperOverview } from '../../services/developerApi';
 import {
   Activity,
   AlertTriangle,
@@ -11,8 +13,6 @@ import {
   Building2,
   Cable,
   Check,
-  ChevronDown,
-  ChevronLeft,
   ChevronRight,
   CircleDot,
   ClipboardList,
@@ -21,17 +21,13 @@ import {
   Database,
   FileClock,
   FileText,
-  Flag,
   Gauge,
   Globe2,
   HardDrive,
   KeyRound,
-  LayoutDashboard,
   LifeBuoy,
   ListChecks,
   LockKeyhole,
-  LogOut,
-  Menu,
   MessageSquare,
   MonitorCog,
   Network,
@@ -41,8 +37,6 @@ import {
   RefreshCcw,
   Rocket,
   Search,
-  ServerCog,
-  Settings,
   ShieldAlert,
   ShieldCheck,
   SlidersHorizontal,
@@ -72,8 +66,7 @@ import {
    - Security / sessions / audit / observability
 
    IMPORTANT:
-   - This file is intentionally self-contained for the first
-     production-grade CPanel shell.
+   - DeveloperLayout owns the application shell and navigation.
    - UI actions that require database mutation are represented as
      controlled interactive states until their server APIs/tables
      are wired in later phases.
@@ -82,50 +75,13 @@ import {
      access/refresh tokens.
 ============================================================ */
 
-const SIDEBAR_GROUPS = [
-  {
-    label: 'Control Center',
-    items: [
-      { id: 'overview', label: 'Overview', icon: LayoutDashboard },
-      { id: 'activity', label: 'Live Activity', icon: Activity },
-    ],
-  },
-  {
-    label: 'Website',
-    items: [
-      { id: 'website-studio', label: 'Website Studio', icon: PanelsTopLeft },
-      { id: 'content-seo', label: 'Content & SEO', icon: Globe2 },
-      { id: 'enquiries', label: 'Website Enquiries', icon: MessageSquare },
-    ],
-  },
-  {
-    label: 'SaaS Platform',
-    items: [
-      { id: 'companies', label: 'Companies', icon: Building2 },
-      { id: 'entitlements', label: 'Plans & Entitlements', icon: BadgeCheck },
-      { id: 'modules', label: 'Module Registry', icon: Boxes },
-      { id: 'team', label: 'Team & Roles', icon: Users },
-    ],
-  },
-  {
-    label: 'Developer Studio',
-    items: [
-      { id: 'module-builder', label: 'Module Builder', icon: Blocks },
-      { id: 'workflow-builder', label: 'Workflow Builder', icon: Workflow },
-      { id: 'integrations', label: 'Integrations', icon: Cable },
-      { id: 'feature-flags', label: 'Feature Flags', icon: Flag },
-    ],
-  },
-  {
-    label: 'Security & System',
-    items: [
-      { id: 'security', label: 'Security Center', icon: ShieldCheck },
-      { id: 'audit', label: 'Audit Logs', icon: FileClock },
-      { id: 'infrastructure', label: 'Infrastructure', icon: ServerCog },
-      { id: 'settings', label: 'System Settings', icon: Settings },
-    ],
-  },
-];
+const OVERVIEW_ROUTES = {
+  'website-studio': '/website/website-studio',
+  companies: '/saas-platform/companies',
+  modules: '/saas-platform/module-registry',
+  'module-builder': '/developer-studio/module-builder',
+  security: '/security-system/security-center',
+};
 
 const COMPANIES = [
   {
@@ -369,20 +325,87 @@ function EmptyState({ icon: Icon, title, text }) {
 }
 
 function OverviewSection({ onNavigate }) {
+  const [snapshot, setSnapshot] = useState({ loading: true, data: null, error: '' });
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadOverview() {
+      try {
+        const result = await getDeveloperOverview();
+        if (cancelled) return;
+        if (!result.ok) {
+          const denied = [401, 403, 423].includes(result.status);
+          setSnapshot({ loading: false, data: null, error: denied
+            ? 'Overview access is unavailable. Please sign in again.'
+            : 'Unable to load the overview. Use Refresh snapshot to try again.' });
+          return;
+        }
+        setSnapshot({ loading: false, data: result, error: '' });
+      } catch {
+        if (!cancelled) {
+          setSnapshot({ loading: false, data: null, error: 'Unable to load the overview. Use Refresh snapshot to try again.' });
+        }
+      }
+    }
+
+    void loadOverview();
+    return () => { cancelled = true; };
+  }, [refreshKey]);
+
+  const { loading, data, error } = snapshot;
+  const count = (value) => Number.isSafeInteger(value) && value >= 0 ? value.toLocaleString() : 'Unavailable';
+  const metric = (value) => loading ? '…' : count(value);
+  const companies = data?.metrics?.companies;
+  const security = data?.metrics?.security;
+  const securityStatus = loading ? '…' : security?.status === 'healthy' ? 'Healthy' : security?.status === 'attention' ? 'Attention' : 'Unavailable';
+  const text = (value, fallback) => typeof value === 'string' && value.trim() ? value : fallback;
+  const auditLogs = data?.recent?.auditLogs;
+  const securityEvents = data?.recent?.securityEvents;
+  const activityAvailable = Array.isArray(auditLogs) || Array.isArray(securityEvents);
+  const activity = [
+    ...(Array.isArray(auditLogs) ? auditLogs.filter((row) => row && typeof row === 'object').map((row, index) => ({
+      key: `audit-${text(row.id, String(index))}`,
+      action: text(row.action, 'Action unavailable'),
+      actor: text(row.actor_user_id, 'Actor unavailable'),
+      target: text(row.entity_type, 'Target unavailable'),
+      createdAt: row.created_at,
+    })) : []),
+    ...(Array.isArray(securityEvents) ? securityEvents.filter((row) => row && typeof row === 'object').map((row, index) => ({
+      key: `security-${text(row.id, String(index))}`,
+      action: text(row.event_type, 'Event unavailable'),
+      actor: text(row.user_id, 'Actor unavailable'),
+      target: text(row.portal_type, 'Portal unavailable'),
+      createdAt: row.created_at,
+    })) : []),
+  ].map((row) => {
+    const timestamp = typeof row.createdAt === 'string' ? Date.parse(row.createdAt) : NaN;
+    return { ...row, timestamp: Number.isFinite(timestamp) ? timestamp : 0,
+      time: Number.isFinite(timestamp) ? new Date(timestamp).toLocaleString() : 'Time unavailable' };
+  }).sort((a, b) => b.timestamp - a.timestamp).slice(0, 4);
+
+  const refresh = () => {
+    setSnapshot({ loading: true, data: null, error: '' });
+    setRefreshKey((value) => value + 1);
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" aria-busy={loading}>
       <SectionTitle
         eyebrow="Developer Control Center"
         title="Platform command center"
         description="One place to operate the Buddy Fleets public website, SaaS platform, companies, internal team, developer tools, security, integrations and system health."
-        action={<ActionButton icon={RefreshCcw} variant="neutral">Refresh snapshot</ActionButton>}
+        action={<ActionButton icon={RefreshCcw} variant="neutral" onClick={refresh} disabled={loading}>Refresh snapshot</ActionButton>}
       />
 
+      {loading || error ? <p role={error ? 'alert' : 'status'} className="text-xs text-slate-400">{error || 'Loading overview…'}</p> : null}
+
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Companies" value="5" note="3 active • 1 trial • 1 suspended" icon={Building2} tone="cyan" />
-        <MetricCard label="Platform users" value="84" note="Across customer + internal portals" icon={Users} tone="green" />
-        <MetricCard label="Production modules" value="9" note="3 additional modules in beta/planned" icon={Boxes} tone="violet" />
-        <MetricCard label="Security status" value="Healthy" note="Central auth + HttpOnly portal sessions" icon={ShieldCheck} tone="amber" />
+        <MetricCard label="Companies" value={metric(companies?.total)} note={loading ? 'Loading company counts…' : `${count(companies?.active)} active • ${count(companies?.trialActive)} trial • Suspended count unavailable`} icon={Building2} tone="cyan" />
+        <MetricCard label="Platform users" value={metric(data?.metrics?.users?.total)} note="Across customer + internal portals" icon={Users} tone="green" />
+        <MetricCard label="Production modules" value="Unavailable" note="Module counts are not available yet" icon={Boxes} tone="violet" />
+        <MetricCard label="Security status" value={securityStatus} note={loading ? 'Loading security summary…' : `${count(security?.lockedAccounts)} locked accounts • Based on account locks`} icon={ShieldCheck} tone="amber" />
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[1.25fr_.75fr]">
@@ -459,8 +482,9 @@ function OverviewSection({ onNavigate }) {
             <FileClock size={18} className="text-slate-500" />
           </div>
           <div className="mt-4 divide-y divide-white/[0.06]">
-            {AUDIT.slice(0, 4).map((row) => (
-              <div key={`${row.time}-${row.action}`} className="flex gap-3 py-3.5">
+            {!activity.length ? <p className="py-3.5 text-xs text-slate-500">{loading ? 'Loading activity…' : error || !activityAvailable ? 'Activity unavailable.' : 'No recent activity.'}</p> : null}
+            {activity.map((row) => (
+              <div key={row.key} className="flex gap-3 py-3.5">
                 <div className="mt-1 h-2 w-2 shrink-0 rounded-full bg-cyan-300" />
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1032,143 +1056,25 @@ function SectionRenderer({ activeSection, onNavigate }) {
   }
 }
 
-export default function DeveloperDashboard({ currentUser, onLogout, onUserUpdate }) {
-  const [activeSection, setActiveSection] = useState('overview');
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [commandOpen, setCommandOpen] = useState(false);
-  const [profileOpen, setProfileOpen] = useState(false);
+export default function DeveloperDashboard() {
+  const navigate = useNavigate();
 
-  const activeItem = useMemo(() => {
-    for (const group of SIDEBAR_GROUPS) {
-      const match = group.items.find((item) => item.id === activeSection);
-      if (match) return match;
-    }
-    return SIDEBAR_GROUPS[0].items[0];
-  }, [activeSection]);
-
-  const navigate = (id) => {
-    setActiveSection(id);
-    setSidebarOpen(false);
-    setCommandOpen(false);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+  const navigateToSection = (id) => {
+    const path = OVERVIEW_ROUTES[id];
+    if (path) navigate(path);
   };
 
-  const ActiveIcon = activeItem.icon;
-
-  const displayName = currentUser?.name || currentUser?.fullName || currentUser?.username || currentUser?.email?.split('@')[0] || 'Super Admin';
-  const displayEmail = currentUser?.email || 'Authenticated Developer';
-
   return (
-    <div className="min-h-screen bg-[#050914] font-sans text-white">
-      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+    <div className="relative bg-[#050914] font-sans text-white">
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <div className="absolute left-[-14%] top-[-18%] h-[520px] w-[520px] rounded-full bg-cyan-500/[0.07] blur-[120px]" />
         <div className="absolute right-[-16%] top-[22%] h-[560px] w-[560px] rounded-full bg-violet-500/[0.06] blur-[140px]" />
       </div>
-
-      {sidebarOpen ? <button aria-label="Close sidebar overlay" type="button" onClick={() => setSidebarOpen(false)} className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm lg:hidden" /> : null}
-
-      <aside className={cx(
-        'fixed inset-y-0 left-0 z-50 flex flex-col border-r border-white/[0.08] bg-[#07101d]/95 shadow-2xl backdrop-blur-xl transition-all duration-300',
-        sidebarCollapsed ? 'w-[84px]' : 'w-[286px]',
-        sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
-      )}>
-        <div className={cx('flex h-[76px] items-center border-b border-white/[0.07]', sidebarCollapsed ? 'justify-center px-3' : 'justify-between px-5')}>
-          <button type="button" onClick={() => navigate('overview')} className="flex min-w-0 items-center gap-3 text-left">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-400 via-blue-500 to-emerald-400 text-xs font-black text-white shadow-lg shadow-cyan-500/15">BF</div>
-            {!sidebarCollapsed ? <div className="min-w-0"><p className="truncate text-sm font-black tracking-tight text-white">Buddy Fleets</p><p className="mt-0.5 truncate text-[9px] font-bold uppercase tracking-[0.18em] text-cyan-300">Developer CPanel</p></div> : null}
-          </button>
-          {!sidebarCollapsed ? <button type="button" onClick={() => setSidebarOpen(false)} className="rounded-xl p-2 text-slate-500 hover:bg-white/[0.05] hover:text-white lg:hidden"><X size={17} /></button> : null}
+      <div className="relative px-4 py-6 sm:px-6 sm:py-7 xl:px-8 xl:py-8">
+        <div className="mx-auto max-w-[1600px]">
+          <SectionRenderer activeSection="overview" onNavigate={navigateToSection} />
         </div>
-
-        <div className="flex-1 overflow-y-auto px-3 py-4 [scrollbar-width:thin] [scrollbar-color:#1e293b_transparent]">
-          {SIDEBAR_GROUPS.map((group) => (
-            <div key={group.label} className="mb-5">
-              {!sidebarCollapsed ? <p className="mb-2 px-3 text-[8px] font-black uppercase tracking-[0.19em] text-slate-700">{group.label}</p> : <div className="mx-auto mb-2 h-px w-8 bg-white/[0.06]" />}
-              <div className="space-y-1">
-                {group.items.map((item) => {
-                  const Icon = item.icon;
-                  const active = activeSection === item.id;
-                  return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      title={sidebarCollapsed ? item.label : undefined}
-                      onClick={() => navigate(item.id)}
-                      className={cx(
-                        'group flex w-full items-center rounded-xl border text-left transition-all duration-200',
-                        sidebarCollapsed ? 'justify-center px-2 py-2.5' : 'gap-3 px-3 py-2.5',
-                        active ? 'border-cyan-400/15 bg-gradient-to-r from-cyan-400/[0.12] to-blue-500/[0.05] text-cyan-200' : 'border-transparent text-slate-500 hover:border-white/[0.06] hover:bg-white/[0.035] hover:text-slate-200'
-                      )}
-                    >
-                      <Icon size={17} className={cx('shrink-0', active ? 'text-cyan-300' : 'text-slate-600 group-hover:text-slate-400')} />
-                      {!sidebarCollapsed ? <span className="min-w-0 flex-1 truncate text-[12px] font-bold">{item.label}</span> : null}
-                      {!sidebarCollapsed && active ? <span className="h-1.5 w-1.5 rounded-full bg-cyan-300 shadow-[0_0_10px_rgba(103,232,249,.7)]" /> : null}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="border-t border-white/[0.07] p-3">
-          {!sidebarCollapsed ? (
-            <div className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-3">
-              <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-cyan-400/10 text-xs font-black text-cyan-300">{displayName.slice(0, 2).toUpperCase()}</div>
-                <div className="min-w-0 flex-1"><p className="truncate text-xs font-black text-white">{displayName}</p><p className="mt-0.5 truncate text-[9px] font-bold uppercase tracking-[0.12em] text-emerald-300">SUPER ADMIN</p></div>
-              </div>
-              <button type="button" onClick={onLogout} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-rose-400/10 bg-rose-400/[0.05] px-3 py-2 text-[11px] font-bold text-rose-300 transition hover:bg-rose-400/[0.1]"><LogOut size={14} /> Secure logout</button>
-            </div>
-          ) : (
-            <button type="button" onClick={onLogout} title="Secure logout" className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl border border-rose-400/10 bg-rose-400/[0.05] text-rose-300 hover:bg-rose-400/[0.1]"><LogOut size={16} /></button>
-          )}
-        </div>
-      </aside>
-
-      <div className={cx('relative min-h-screen transition-all duration-300', sidebarCollapsed ? 'lg:pl-[84px]' : 'lg:pl-[286px]')}>
-        <header className="sticky top-0 z-30 border-b border-white/[0.07] bg-[#050914]/85 backdrop-blur-xl">
-          <div className="flex h-[76px] items-center gap-3 px-4 sm:px-6 xl:px-8">
-            <button type="button" onClick={() => setSidebarOpen(true)} className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/[0.035] text-slate-300 lg:hidden"><Menu size={18} /></button>
-            <button type="button" onClick={() => setSidebarCollapsed((value) => !value)} className="hidden h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/[0.035] text-slate-500 transition hover:text-white lg:flex">{sidebarCollapsed ? <ChevronRight size={17} /> : <ChevronLeft size={17} />}</button>
-
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2"><ActiveIcon size={15} className="text-cyan-300" /><p className="truncate text-sm font-black text-white">{activeItem.label}</p></div>
-              <p className="mt-1 hidden text-[10px] text-slate-600 sm:block">developer.buddyfleets.in • Authenticated Super Admin session</p>
-            </div>
-
-            <button type="button" onClick={() => setCommandOpen(true)} className="hidden min-w-[220px] items-center gap-2 rounded-xl border border-white/10 bg-white/[0.025] px-3 py-2.5 text-left text-xs text-slate-600 transition hover:border-cyan-400/20 hover:text-slate-400 md:flex"><Search size={14} /><span className="flex-1">Search CPanel...</span><kbd className="rounded-md border border-white/[0.08] bg-black/10 px-1.5 py-0.5 text-[9px]">⌘K</kbd></button>
-            <button type="button" className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/[0.035] text-slate-500 transition hover:text-white"><Bell size={17} /><span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-cyan-300" /></button>
-
-            <div className="relative">
-              <button type="button" onClick={() => setProfileOpen((value) => !value)} className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.035] px-2 py-1.5 text-left transition hover:border-cyan-400/20">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-400 via-blue-500 to-emerald-400 text-[10px] font-black">{displayName.slice(0, 2).toUpperCase()}</div>
-                <div className="hidden max-w-[150px] md:block"><p className="truncate text-[11px] font-black text-white">{displayName}</p><p className="truncate text-[9px] text-slate-600">Super Admin</p></div>
-                <ChevronDown size={14} className="hidden text-slate-600 md:block" />
-              </button>
-              {profileOpen ? <div className="absolute right-0 top-[48px] w-64 rounded-2xl border border-white/10 bg-[#0a1220] p-3 shadow-2xl"><div className="rounded-xl bg-white/[0.025] p-3"><p className="text-xs font-black text-white">{displayName}</p><p className="mt-1 break-all text-[10px] text-slate-500">{displayEmail}</p></div><button type="button" onClick={() => { setProfileOpen(false); if (onUserUpdate) onUserUpdate(); }} className="mt-2 flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-400 hover:bg-white/[0.04] hover:text-white"><RefreshCcw size={14} /> Refresh session context</button><button type="button" onClick={onLogout} className="mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-xs font-bold text-rose-300 hover:bg-rose-400/[0.06]"><LogOut size={14} /> Secure logout</button></div> : null}
-            </div>
-          </div>
-        </header>
-
-        <main className="relative px-4 py-6 sm:px-6 sm:py-7 xl:px-8 xl:py-8">
-          <div className="mx-auto max-w-[1600px]">
-            <SectionRenderer activeSection={activeSection} onNavigate={navigate} />
-          </div>
-        </main>
       </div>
-
-      {commandOpen ? (
-        <div className="fixed inset-0 z-[120] flex items-start justify-center bg-black/70 p-4 pt-[10vh] backdrop-blur-sm" onMouseDown={() => setCommandOpen(false)}>
-          <Card className="w-full max-w-2xl overflow-hidden" >
-            <div onMouseDown={(event) => event.stopPropagation()}>
-              <div className="flex items-center gap-3 border-b border-white/[0.08] px-4 py-3"><Search size={17} className="text-cyan-300" /><input autoFocus placeholder="Search sections..." className="flex-1 bg-transparent text-sm text-white outline-none placeholder:text-slate-600" /><button type="button" onClick={() => setCommandOpen(false)} className="rounded-lg p-2 text-slate-500 hover:bg-white/[0.04] hover:text-white"><X size={15} /></button></div>
-              <div className="max-h-[55vh] overflow-y-auto p-3">{SIDEBAR_GROUPS.flatMap((group) => group.items).map((item) => { const Icon = item.icon; return <button key={item.id} type="button" onClick={() => navigate(item.id)} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-xs font-bold text-slate-400 transition hover:bg-cyan-400/[0.06] hover:text-white"><Icon size={15} className="text-cyan-300" />{item.label}<ChevronRight size={14} className="ml-auto text-slate-700" /></button>; })}</div>
-            </div>
-          </Card>
-        </div>
-      ) : null}
     </div>
   );
 }

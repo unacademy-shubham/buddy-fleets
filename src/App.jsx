@@ -62,8 +62,8 @@ const ResetPassword = lazy(() =>
   import('./pages/Auth/ResetPassword')
 );
 
-const DeveloperOverview = lazy(() =>
-  import('./pages/Developer/DeveloperOverview')
+const DeveloperDashboard = lazy(() =>
+  import('./pages/Dashboard/DeveloperDashboard')
 );
 
 const DeveloperActivity = lazy(() =>
@@ -2120,7 +2120,11 @@ function PortalRoutes({
             path="dashboard"
             element={
               <LazyPage>
-                <DeveloperOverview />
+                <DeveloperDashboard
+                  currentUser={currentUser}
+                  onLogout={onLogout}
+                  onUserUpdate={onUserUpdate}
+                />
               </LazyPage>
             }
           />

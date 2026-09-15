@@ -1645,6 +1645,35 @@ export default async function handler(
   req,
   res
 ) {
+  /*
+    TEMPORARY PERFORMANCE DIAGNOSTICS
+
+    This does not change authentication decisions.
+    It only exposes successful callback stage durations through
+    the standard Server-Timing response header.
+  */
+  const callbackStartedAt =
+    Date.now();
+
+  const callbackTimings = {};
+
+  const startStage =
+    () =>
+      Date.now();
+
+  const endStage =
+    (
+      name,
+      startedAt
+    ) => {
+      callbackTimings[name] =
+        Math.max(
+          0,
+          Date.now() -
+            startedAt
+        );
+    };
+
   if (
     req.method !==
     'GET'
@@ -1725,11 +1754,19 @@ export default async function handler(
 
   let handoff;
 
+  const handoffLookupStartedAt =
+    startStage();
+
   try {
     handoff =
       await getHandoff(
         handoffCode
       );
+
+    endStage(
+      'handoff',
+      handoffLookupStartedAt
+    );
   } catch (
     error
   ) {
@@ -1871,6 +1908,9 @@ export default async function handler(
   let authorization;
   let securitySession;
 
+  const securityChecksStartedAt =
+    startStage();
+
   try {
     [
       security,
@@ -1890,6 +1930,11 @@ export default async function handler(
           handoff
         ),
       ]);
+
+    endStage(
+      'security',
+      securityChecksStartedAt
+    );
   } catch (
     error
   ) {
@@ -1937,6 +1982,9 @@ export default async function handler(
   let accessToken;
   let refreshToken;
 
+  const decryptStartedAt =
+    startStage();
+
   try {
     encryptionKey =
       await getEncryptionKey();
@@ -1970,6 +2018,11 @@ export default async function handler(
           encryptionKey,
         }),
       ]);
+
+    endStage(
+      'decrypt',
+      decryptStartedAt
+    );
   } catch (
     error
   ) {
@@ -2075,6 +2128,9 @@ export default async function handler(
   let verifiedUserResult;
   let profile;
 
+  const userProfileStartedAt =
+    startStage();
+
   try {
     [
       verifiedUserResult,
@@ -2091,6 +2147,11 @@ export default async function handler(
           handoff.user_id
         ),
       ]);
+
+    endStage(
+      'user_profile',
+      userProfileStartedAt
+    );
   } catch (
     error
   ) {
@@ -2182,6 +2243,9 @@ export default async function handler(
   let encryptedAccess;
   let encryptedRefresh;
 
+  const encryptStartedAt =
+    startStage();
+
   try {
     [
       encryptedAccess,
@@ -2202,6 +2266,11 @@ export default async function handler(
           encryptionKey,
         }),
       ]);
+
+    endStage(
+      'encrypt',
+      encryptStartedAt
+    );
   } catch (
     error
   ) {
@@ -2222,6 +2291,9 @@ export default async function handler(
       HTTP_SESSION_LIFETIME_SECONDS *
       1000
     ).toISOString();
+
+  const finalizeStartedAt =
+    startStage();
 
   const {
     data:
@@ -2275,6 +2347,11 @@ export default async function handler(
         }
       );
 
+  endStage(
+    'finalize',
+    finalizeStartedAt
+  );
+
   if (
     finalizeError
   ) {
@@ -2321,6 +2398,9 @@ export default async function handler(
       jwtAal,
   };
 
+  const auditStartedAt =
+    startStage();
+
   await writeSecurityEvent({
     userId:
       handoff.user_id,
@@ -2363,6 +2443,32 @@ export default async function handler(
         'server_direct',
     },
   });
+
+  endStage(
+    'audit',
+    auditStartedAt
+  );
+
+  callbackTimings.total =
+    Math.max(
+      0,
+      Date.now() -
+        callbackStartedAt
+    );
+
+  res.setHeader(
+    'Server-Timing',
+    [
+      `handoff;dur=${callbackTimings.handoff || 0}`,
+      `security;dur=${callbackTimings.security || 0}`,
+      `decrypt;dur=${callbackTimings.decrypt || 0}`,
+      `user_profile;dur=${callbackTimings.user_profile || 0}`,
+      `encrypt;dur=${callbackTimings.encrypt || 0}`,
+      `finalize;dur=${callbackTimings.finalize || 0}`,
+      `audit;dur=${callbackTimings.audit || 0}`,
+      `total;dur=${callbackTimings.total || 0}`,
+    ].join(', ')
+  );
 
   return sendImmediateDashboardBootstrap({
     res,

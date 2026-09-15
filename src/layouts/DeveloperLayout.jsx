@@ -2759,14 +2759,16 @@ function Sidebar({
     setDoubleMenuId(
       activeMenuId
     );
-
-    setMobileOpen(
-      false
-    );
   }, [
     activeMenuId,
-    setMobileOpen,
   ]);
+
+  useEffect(() => {
+    setMobileOpen(false);
+    // Reset transient navigation UI when React Router commits a new pathname.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setFlyoutMenuId(null);
+  }, [location.pathname, setMobileOpen]);
 
 
   if (
