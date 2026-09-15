@@ -1830,23 +1830,29 @@ function ChildLink({
   const location =
     useLocation();
 
+  const hasChildren =
+    Array.isArray(
+      child.children
+    ) &&
+    child.children.length > 0;
+
+  const active =
+    nodeMatchesPath(
+      location.pathname,
+      child
+    );
+
   const [
     expanded,
     setExpanded,
   ] =
     useState(
-      nodeMatchesPath(
-        location.pathname,
-        child
-      )
+      active
     );
 
   useEffect(() => {
     if (
-      nodeMatchesPath(
-        location.pathname,
-        child
-      )
+      active
     ) {
       setExpanded(
         true
@@ -1854,35 +1860,92 @@ function ChildLink({
     }
   }, [
     location.pathname,
-    child,
+    active,
   ]);
 
-  const hasChildren =
-    Array.isArray(
-      child.children
-    ) &&
-    child.children.length > 0;
+
+  /*
+     IMPORTANT:
+     A node with children is a menu controller, not a page link.
+     Clicking anywhere on it only expands/collapses its submenu.
+  */
 
   if (
     collapsed
   ) {
+    if (
+      hasChildren
+    ) {
+      return (
+        <button
+          type="button"
+          title={child.label}
+          aria-expanded={expanded}
+          aria-label={`Toggle ${child.label}`}
+          onClick={() =>
+            setExpanded(
+              (current) =>
+                !current
+            )
+          }
+          className={cx(
+            `
+              bf-dev-sidebar-child
+              relative
+              flex
+              min-h-[33px]
+              w-full
+              items-center
+              justify-center
+              rounded-md
+              text-[12px]
+              transition
+              hover:bg-[rgb(var(--bf-primary-rgb)/.08)]
+              hover:text-[var(--bf-primary)]
+            `,
+            active
+              ? 'bg-[rgb(var(--bf-primary-rgb)/.10)] font-semibold text-[var(--bf-primary)]'
+              : 'text-[var(--bf-sidebar-text)]'
+          )}
+        >
+          <span
+            className="
+              h-[5px]
+              w-[5px]
+              rounded-full
+              border
+              border-current
+            "
+          />
+        </button>
+      );
+    }
+
     return (
       <NavLink
         to={child.to}
         end={child.end}
         title={child.label}
-        className="
-          bf-dev-sidebar-child
-          relative
-          flex
-          min-h-[33px]
-          items-center
-          justify-center
-          text-[12px]
-          text-[var(--bf-sidebar-text)]
-          transition
-          hover:text-[var(--bf-primary)]
-        "
+        className={({ isActive }) =>
+          cx(
+            `
+              bf-dev-sidebar-child
+              relative
+              flex
+              min-h-[33px]
+              items-center
+              justify-center
+              rounded-md
+              text-[12px]
+              transition
+              hover:bg-[rgb(var(--bf-primary-rgb)/.08)]
+              hover:text-[var(--bf-primary)]
+            `,
+            isActive
+              ? 'bg-[rgb(var(--bf-primary-rgb)/.10)] font-semibold text-[var(--bf-primary)]'
+              : 'text-[var(--bf-sidebar-text)]'
+          )
+        }
       >
         <span
           className="
@@ -1897,104 +1960,89 @@ function ChildLink({
     );
   }
 
-  return (
-    <div>
-      <div
-        className="
-          relative
-          flex
-          min-h-[33px]
-          items-center
-        "
-        style={{
-          paddingLeft:
-            `${38 + depth * 16}px`,
-        }}
-      >
-        <NavLink
-          to={child.to}
-          end={child.end}
-          className={({ isActive }) =>
-            cx(
-              `
-                bf-dev-sidebar-child
-                relative
-                flex
-                min-h-[33px]
-                min-w-0
-                flex-1
-                items-center
-                pr-2
-                text-[12px]
-                transition
-                duration-150
-              `,
-              (
-                isActive ||
-                nodeMatchesPath(
-                  location.pathname,
-                  child
-                )
-              )
-                ? 'font-semibold text-[var(--bf-primary)]'
-                : 'text-[var(--bf-sidebar-text)] hover:text-[var(--bf-primary)]'
+
+  if (
+    hasChildren
+  ) {
+    return (
+      <div>
+        <button
+          type="button"
+          aria-expanded={expanded}
+          aria-label={`Toggle ${child.label}`}
+          onClick={() =>
+            setExpanded(
+              (current) =>
+                !current
             )
           }
+          className={cx(
+            `
+              bf-dev-sidebar-child
+              group
+              relative
+              flex
+              min-h-[35px]
+              w-full
+              items-center
+              rounded-md
+              pr-2
+              text-left
+              text-[12px]
+              transition
+              duration-150
+              hover:bg-[rgb(var(--bf-primary-rgb)/.08)]
+              hover:text-[var(--bf-primary)]
+            `,
+            active
+              ? 'bg-[rgb(var(--bf-primary-rgb)/.10)] font-semibold text-[var(--bf-primary)]'
+              : 'text-[var(--bf-sidebar-text)]'
+          )}
+          style={{
+            paddingLeft:
+              `${38 + depth * 16}px`,
+          }}
         >
           <span
             className="
               absolute
-              -left-[20px]
               h-[5px]
               w-[5px]
               rounded-full
               border
               border-current
             "
+            style={{
+              left:
+                `${18 + depth * 16}px`,
+            }}
           />
 
-          <span className="truncate">
-            {child.label}
-          </span>
-        </NavLink>
-
-        {hasChildren && (
-          <button
-            type="button"
-            aria-label={`Toggle ${child.label}`}
-            onClick={() =>
-              setExpanded(
-                (current) =>
-                  !current
-              )
-            }
+          <span
             className="
-              mr-1
-              flex
-              h-7
-              w-7
-              shrink-0
-              items-center
-              justify-center
-              rounded-md
-              text-[var(--bf-sidebar-muted)]
-              hover:text-[var(--bf-primary)]
+              min-w-0
+              flex-1
+              truncate
             "
           >
-            <ChevronDown
-              size={12}
-              className={cx(
-                'transition-transform',
-                expanded &&
-                  'rotate-180'
-              )}
-            />
-          </button>
-        )}
-      </div>
+            {child.label}
+          </span>
 
-      {hasChildren &&
-        expanded && (
+          <ChevronDown
+            size={12}
+            className={cx(
+              `
+                ml-2
+                shrink-0
+                transition-transform
+              `,
+              expanded &&
+                'rotate-180'
+            )}
+          />
+        </button>
+
+        {expanded && (
           <div>
             {child.children.map(
               (grandchild) => (
@@ -2008,7 +2056,60 @@ function ChildLink({
             )}
           </div>
         )}
-    </div>
+      </div>
+    );
+  }
+
+
+  return (
+    <NavLink
+      to={child.to}
+      end={child.end}
+      className={({ isActive }) =>
+        cx(
+          `
+            bf-dev-sidebar-child
+            relative
+            flex
+            min-h-[35px]
+            items-center
+            rounded-md
+            pr-2
+            text-[12px]
+            transition
+            duration-150
+            hover:bg-[rgb(var(--bf-primary-rgb)/.08)]
+            hover:text-[var(--bf-primary)]
+          `,
+          isActive
+            ? 'bg-[rgb(var(--bf-primary-rgb)/.10)] font-semibold text-[var(--bf-primary)]'
+            : 'text-[var(--bf-sidebar-text)]'
+        )
+      }
+      style={{
+        paddingLeft:
+          `${38 + depth * 16}px`,
+      }}
+    >
+      <span
+        className="
+          absolute
+          h-[5px]
+          w-[5px]
+          rounded-full
+          border
+          border-current
+        "
+        style={{
+          left:
+            `${18 + depth * 16}px`,
+        }}
+      />
+
+      <span className="truncate">
+        {child.label}
+      </span>
+    </NavLink>
   );
 }
 
@@ -2142,73 +2243,183 @@ function FlyoutNode({
   child,
   depth = 0,
 }) {
+  const location =
+    useLocation();
+
   const hasChildren =
     Array.isArray(
       child.children
     ) &&
     child.children.length > 0;
 
-  return (
-    <div>
-      <NavLink
-        to={child.to}
-        end={child.end}
-        className={({ isActive }) =>
-          cx(
+  const active =
+    nodeMatchesPath(
+      location.pathname,
+      child
+    );
+
+  const [
+    expanded,
+    setExpanded,
+  ] =
+    useState(
+      active
+    );
+
+  useEffect(() => {
+    if (
+      active
+    ) {
+      setExpanded(
+        true
+      );
+    }
+  }, [
+    location.pathname,
+    active,
+  ]);
+
+
+  if (
+    hasChildren
+  ) {
+    return (
+      <div>
+        <button
+          type="button"
+          aria-expanded={expanded}
+          aria-label={`Toggle ${child.label}`}
+          onClick={() =>
+            setExpanded(
+              (current) =>
+                !current
+            )
+          }
+          className={cx(
             `
               flex
+              min-h-[38px]
+              w-full
               items-center
               gap-2
               px-4
               py-2.5
+              text-left
               text-[11px]
               transition
-              hover:bg-[rgb(var(--bf-primary-rgb)/.06)]
+              hover:bg-[rgb(var(--bf-primary-rgb)/.08)]
               hover:text-[var(--bf-primary)]
             `,
-            isActive
-              ? 'font-semibold text-[var(--bf-primary)]'
+            active
+              ? 'bg-[rgb(var(--bf-primary-rgb)/.10)] font-semibold text-[var(--bf-primary)]'
               : 'text-[var(--bf-text-2)]'
-          )
-        }
-        style={{
-          paddingLeft:
-            `${16 + depth * 16}px`,
-        }}
-      >
-        <span
-          className="
-            h-[5px]
-            w-[5px]
-            rounded-full
-            border
-            border-current
-          "
-        />
-
-        {child.label}
-      </NavLink>
-
-      {hasChildren && (
-        <div
-          className="
-            border-l
-            border-[var(--bf-border)]
-            bg-[var(--bf-surface-2)]
-          "
-        >
-          {child.children.map(
-            (grandchild) => (
-              <FlyoutNode
-                key={`${grandchild.label}-${grandchild.to}`}
-                child={grandchild}
-                depth={depth + 1}
-              />
-            )
           )}
-        </div>
-      )}
-    </div>
+          style={{
+            paddingLeft:
+              `${16 + depth * 16}px`,
+          }}
+        >
+          <span
+            className="
+              h-[5px]
+              w-[5px]
+              shrink-0
+              rounded-full
+              border
+              border-current
+            "
+          />
+
+          <span
+            className="
+              min-w-0
+              flex-1
+              truncate
+            "
+          >
+            {child.label}
+          </span>
+
+          <ChevronDown
+            size={12}
+            className={cx(
+              `
+                shrink-0
+                transition-transform
+              `,
+              expanded &&
+                'rotate-180'
+            )}
+          />
+        </button>
+
+        {expanded && (
+          <div
+            className="
+              border-l
+              border-[var(--bf-border)]
+              bg-[var(--bf-surface-2)]
+            "
+          >
+            {child.children.map(
+              (grandchild) => (
+                <FlyoutNode
+                  key={`${grandchild.label}-${grandchild.to}`}
+                  child={grandchild}
+                  depth={depth + 1}
+                />
+              )
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+
+  return (
+    <NavLink
+      to={child.to}
+      end={child.end}
+      className={({ isActive }) =>
+        cx(
+          `
+            flex
+            min-h-[38px]
+            items-center
+            gap-2
+            px-4
+            py-2.5
+            text-[11px]
+            transition
+            hover:bg-[rgb(var(--bf-primary-rgb)/.08)]
+            hover:text-[var(--bf-primary)]
+          `,
+          isActive
+            ? 'bg-[rgb(var(--bf-primary-rgb)/.10)] font-semibold text-[var(--bf-primary)]'
+            : 'text-[var(--bf-text-2)]'
+        )
+      }
+      style={{
+        paddingLeft:
+          `${16 + depth * 16}px`,
+      }}
+    >
+      <span
+        className="
+          h-[5px]
+          w-[5px]
+          shrink-0
+          rounded-full
+          border
+          border-current
+        "
+      />
+
+      <span className="truncate">
+        {child.label}
+      </span>
+    </NavLink>
   );
 }
 
@@ -3166,19 +3377,37 @@ function HorizontalFlyoutNode({
     ) &&
     child.children.length > 0;
 
+  const active =
+    nodeMatchesPath(
+      location.pathname,
+      child
+    );
+
   const [
     nestedOpen,
     setNestedOpen,
   ] =
-    useState(false);
+    useState(
+      active
+    );
 
   useEffect(() => {
-    setNestedOpen(
-      false
-    );
+    if (
+      active
+    ) {
+      setNestedOpen(
+        true
+      );
+    } else {
+      setNestedOpen(
+        false
+      );
+    }
   }, [
     location.pathname,
+    active,
   ]);
+
 
   return (
     <div
@@ -3198,7 +3427,8 @@ function HorizontalFlyoutNode({
       onMouseLeave={() => {
         if (
           hoverMode &&
-          hasChildren
+          hasChildren &&
+          !active
         ) {
           setNestedOpen(
             false
@@ -3206,46 +3436,94 @@ function HorizontalFlyoutNode({
         }
       }}
     >
-      <div
-        className="
-          flex
-          items-center
-        "
-      >
+      {hasChildren ? (
+        <button
+          type="button"
+          aria-expanded={nestedOpen}
+          aria-label={`Toggle ${child.label}`}
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+
+            setNestedOpen(
+              (current) =>
+                !current
+            );
+          }}
+          className={cx(
+            `
+              flex
+              min-h-[40px]
+              w-full
+              items-center
+              gap-2
+              px-4
+              py-2.5
+              text-left
+              text-[11px]
+              transition
+              hover:bg-[rgb(var(--bf-primary-rgb)/.08)]
+              hover:text-[var(--bf-primary)]
+            `,
+            active
+              ? 'bg-[rgb(var(--bf-primary-rgb)/.10)] font-semibold text-[var(--bf-primary)]'
+              : 'text-[var(--bf-text-2)]'
+          )}
+        >
+          <span
+            className="
+              h-[5px]
+              w-[5px]
+              shrink-0
+              rounded-full
+              border
+              border-current
+            "
+          />
+
+          <span
+            className="
+              min-w-0
+              flex-1
+              truncate
+            "
+          >
+            {child.label}
+          </span>
+
+          <ChevronRight
+            size={13}
+            className={cx(
+              `
+                shrink-0
+                transition-transform
+              `,
+              nestedOpen &&
+                'text-[var(--bf-primary)]'
+            )}
+          />
+        </button>
+      ) : (
         <NavLink
           to={child.to}
           end={child.end}
-          onClick={() => {
-            if (
-              !hasChildren
-            ) {
-              closeAll();
-            }
-          }}
+          onClick={closeAll}
           className={({ isActive }) =>
             cx(
               `
                 flex
                 min-h-[40px]
-                min-w-0
-                flex-1
                 items-center
                 gap-2
                 px-4
                 py-2.5
                 text-[11px]
                 transition
-                hover:bg-[rgb(var(--bf-primary-rgb)/.06)]
+                hover:bg-[rgb(var(--bf-primary-rgb)/.08)]
                 hover:text-[var(--bf-primary)]
               `,
-              (
-                isActive ||
-                nodeMatchesPath(
-                  location.pathname,
-                  child
-                )
-              )
-                ? 'font-semibold text-[var(--bf-primary)]'
+              isActive
+                ? 'bg-[rgb(var(--bf-primary-rgb)/.10)] font-semibold text-[var(--bf-primary)]'
                 : 'text-[var(--bf-text-2)]'
             )
           }
@@ -3271,45 +3549,7 @@ function HorizontalFlyoutNode({
             {child.label}
           </span>
         </NavLink>
-
-        {hasChildren && (
-          <button
-            type="button"
-            aria-label={`Open ${child.label} submenu`}
-            onClick={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-
-              setNestedOpen(
-                (current) =>
-                  !current
-              );
-            }}
-            className={cx(
-              `
-                mr-1
-                flex
-                h-8
-                w-8
-                shrink-0
-                items-center
-                justify-center
-                rounded-md
-                text-[var(--bf-text-3)]
-                transition
-                hover:bg-[rgb(var(--bf-primary-rgb)/.08)]
-                hover:text-[var(--bf-primary)]
-              `,
-              nestedOpen &&
-                'text-[var(--bf-primary)]'
-            )}
-          >
-            <ChevronRight
-              size={13}
-            />
-          </button>
-        )}
-      </div>
+      )}
 
       {hasChildren &&
         nestedOpen && (
@@ -3329,15 +3569,19 @@ function HorizontalFlyoutNode({
             "
           >
             <div
-              className="
-                border-b
-                border-[var(--bf-border)]
-                px-4
-                py-3
-                text-[11px]
-                font-semibold
-                text-[var(--bf-text)]
-              "
+              className={cx(
+                `
+                  border-b
+                  border-[var(--bf-border)]
+                  px-4
+                  py-3
+                  text-[11px]
+                  font-semibold
+                `,
+                active
+                  ? 'bg-[rgb(var(--bf-primary-rgb)/.08)] text-[var(--bf-primary)]'
+                  : 'text-[var(--bf-text)]'
+              )}
             >
               {child.label}
             </div>
@@ -3365,11 +3609,11 @@ function HorizontalFlyoutNode({
                           py-2
                           text-[11px]
                           transition
-                          hover:bg-[rgb(var(--bf-primary-rgb)/.06)]
+                          hover:bg-[rgb(var(--bf-primary-rgb)/.08)]
                           hover:text-[var(--bf-primary)]
                         `,
                         isActive
-                          ? 'font-semibold text-[var(--bf-primary)]'
+                          ? 'bg-[rgb(var(--bf-primary-rgb)/.10)] font-semibold text-[var(--bf-primary)]'
                           : 'text-[var(--bf-text-2)]'
                       )
                     }
