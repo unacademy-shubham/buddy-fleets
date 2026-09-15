@@ -57,9 +57,10 @@ import {
 
 /* ============================================================
    BUDDY FLEETS
-   DEVELOPER WORKSPACE — PROFESSIONAL CPANEL UI
+   DEVELOPER WORKSPACE — SPLITE-INSPIRED MULTI-THEME CPANEL UI
 
-   Single light admin theme.
+   Theme-neutral Buddy Fleets content.
+   Visual tokens are supplied by DeveloperLayout.jsx.
    All page exports are preserved for App.jsx routing.
 ============================================================ */
 
@@ -239,7 +240,9 @@ function Page({
   return (
     <div
       className="
+        bf-dev-workspace
         space-y-5
+        text-[var(--bf-dev-text)]
       "
     >
       {children}
@@ -254,77 +257,105 @@ function PageHeader({
   actions,
 }) {
   return (
-    <div
+    <section
       className="
-        flex
-        flex-col
-        gap-4
-        lg:flex-row
-        lg:items-end
-        lg:justify-between
+        relative
+        overflow-hidden
+        rounded-[var(--bf-dev-card-radius)]
+        border
+        border-[rgb(var(--bf-dev-primary-rgb)/.20)]
+        bg-[var(--bf-dev-primary)]
+        px-5
+        py-5
+        text-white
+        shadow-[var(--bf-dev-shadow)]
+        sm:px-6
       "
     >
       <div
         className="
-          min-w-0
+          pointer-events-none
+          absolute
+          -right-16
+          -top-20
+          h-48
+          w-48
+          rounded-full
+          bg-white/10
+          blur-2xl
+        "
+      />
+
+      <div
+        className="
+          relative
+          z-[1]
+          flex
+          flex-col
+          gap-4
+          lg:flex-row
+          lg:items-end
+          lg:justify-between
         "
       >
-        {eyebrow && (
-          <div
-            className="
-              text-[9px]
-              font-bold
-              uppercase
-              tracking-[0.14em]
-              text-[#0b84d8]
-            "
-          >
-            {eyebrow}
-          </div>
-        )}
+        <div className="min-w-0">
+          {eyebrow && (
+            <div
+              className="
+                text-[9px]
+                font-extrabold
+                uppercase
+                tracking-[0.16em]
+                text-white/70
+              "
+            >
+              {eyebrow}
+            </div>
+          )}
 
-        <h1
-          className="
-            mt-1.5
-            text-[26px]
-            font-extrabold
-            tracking-[-0.025em]
-            text-slate-900
-            sm:text-[30px]
-          "
-        >
-          {title}
-        </h1>
-
-        {description && (
-          <p
+          <h1
             className="
               mt-1.5
-              max-w-4xl
-              text-[12px]
-              leading-5
-              text-slate-500
+              text-[25px]
+              font-extrabold
+              tracking-[-0.025em]
+              text-white
+              sm:text-[29px]
             "
           >
-            {description}
-          </p>
+            {title}
+          </h1>
+
+          {description && (
+            <p
+              className="
+                mt-1.5
+                max-w-4xl
+                text-[11px]
+                leading-5
+                text-white/75
+              "
+            >
+              {description}
+            </p>
+          )}
+        </div>
+
+        {actions && (
+          <div
+            className="
+              flex
+              shrink-0
+              flex-wrap
+              items-center
+              gap-2
+            "
+          >
+            {actions}
+          </div>
         )}
       </div>
-
-      {actions && (
-        <div
-          className="
-            flex
-            shrink-0
-            flex-wrap
-            items-center
-            gap-2
-          "
-        >
-          {actions}
-        </div>
-      )}
-    </div>
+    </section>
   );
 }
 
@@ -336,12 +367,11 @@ function Card({
     <section
       className={cx(
         `
-          rounded-xl
+          rounded-[var(--bf-dev-card-radius)]
           border
-          border-slate-200
-          bg-white
-          shadow-sm
-          shadow-slate-900/[0.03]
+          border-[var(--bf-dev-border)]
+          bg-[var(--bf-dev-surface)]
+          shadow-[var(--bf-dev-shadow)]
         `,
         className
       )}
@@ -359,13 +389,13 @@ function Button({
 }) {
   const styles = {
     default:
-      'border-slate-200 bg-white text-slate-700 hover:bg-slate-50',
+      'border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] text-[var(--bf-dev-text-2)] hover:bg-[var(--bf-dev-surface-2)] hover:text-[var(--bf-dev-text)]',
     primary:
-      'border-[#0b84d8] bg-[#0b84d8] text-white hover:bg-[#086fb6]',
+      'border-[var(--bf-dev-primary)] bg-[var(--bf-dev-primary)] text-white hover:bg-[var(--bf-dev-primary-strong)]',
     success:
-      'border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700',
+      'border-emerald-500 bg-emerald-500 text-white hover:bg-emerald-600',
     danger:
-      'border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100',
+      'border-rose-500/20 bg-rose-500/10 text-rose-500 hover:bg-rose-500/15',
   };
 
   return (
@@ -379,16 +409,17 @@ function Button({
           items-center
           justify-center
           gap-2
-          rounded-lg
+          rounded-[var(--bf-dev-radius)]
           border
           px-3
           py-2
-          text-[11px]
+          text-[10px]
           font-semibold
           transition
+          duration-150
           focus-visible:outline-none
           focus-visible:ring-2
-          focus-visible:ring-blue-400/40
+          focus-visible:ring-[rgb(var(--bf-dev-primary-rgb)/.35)]
         `,
         styles[variant]
       )}
@@ -409,23 +440,23 @@ function Status({
 }) {
   const styles = {
     active:
-      'border-emerald-200 bg-emerald-50 text-emerald-700',
+      'border-emerald-500/20 bg-emerald-500/10 text-emerald-500',
     success:
-      'border-emerald-200 bg-emerald-50 text-emerald-700',
+      'border-emerald-500/20 bg-emerald-500/10 text-emerald-500',
     production:
-      'border-blue-200 bg-blue-50 text-blue-700',
+      'border-[rgb(var(--bf-dev-primary-rgb)/.20)] bg-[rgb(var(--bf-dev-primary-rgb)/.10)] text-[var(--bf-dev-primary)]',
     trial:
-      'border-amber-200 bg-amber-50 text-amber-700',
+      'border-amber-500/20 bg-amber-500/10 text-amber-500',
     beta:
-      'border-violet-200 bg-violet-50 text-violet-700',
+      'border-violet-500/20 bg-violet-500/10 text-violet-500',
     planned:
-      'border-slate-200 bg-slate-50 text-slate-600',
+      'border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] text-[var(--bf-dev-text-2)]',
     published:
-      'border-emerald-200 bg-emerald-50 text-emerald-700',
+      'border-emerald-500/20 bg-emerald-500/10 text-emerald-500',
     info:
-      'border-blue-200 bg-blue-50 text-blue-700',
+      'border-[rgb(var(--bf-dev-primary-rgb)/.20)] bg-[rgb(var(--bf-dev-primary-rgb)/.10)] text-[var(--bf-dev-primary)]',
     warning:
-      'border-amber-200 bg-amber-50 text-amber-700',
+      'border-amber-500/20 bg-amber-500/10 text-amber-500',
   };
 
   return (
@@ -438,13 +469,13 @@ function Status({
           border
           px-2
           py-1
-          text-[9px]
+          text-[8px]
           font-bold
           uppercase
           tracking-[0.08em]
         `,
         styles[status] ||
-          'border-slate-200 bg-slate-50 text-slate-600'
+          'border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] text-[var(--bf-dev-text-2)]'
       )}
     >
       {status}
@@ -461,21 +492,17 @@ function MetricCard({
 }) {
   const accentStyles = {
     blue:
-      'bg-blue-50 text-blue-600',
+      'bg-[rgb(var(--bf-dev-primary-rgb)/.11)] text-[var(--bf-dev-primary)]',
     green:
-      'bg-emerald-50 text-emerald-600',
+      'bg-emerald-500/10 text-emerald-500',
     violet:
-      'bg-violet-50 text-violet-600',
+      'bg-violet-500/10 text-violet-500',
     amber:
-      'bg-amber-50 text-amber-600',
+      'bg-amber-500/10 text-amber-500',
   };
 
   return (
-    <Card
-      className="
-        p-4
-      "
-    >
+    <Card className="p-4">
       <div
         className="
           flex
@@ -484,12 +511,12 @@ function MetricCard({
           gap-4
         "
       >
-        <div>
+        <div className="min-w-0">
           <div
             className="
               text-[10px]
               font-semibold
-              text-slate-500
+              text-[var(--bf-dev-text-2)]
             "
           >
             {label}
@@ -497,11 +524,12 @@ function MetricCard({
 
           <div
             className="
-              mt-2
-              text-[28px]
+              mt-1.5
+              truncate
+              text-[25px]
               font-extrabold
-              tracking-tight
-              text-slate-900
+              tracking-[-0.03em]
+              text-[var(--bf-dev-text)]
             "
           >
             {value}
@@ -509,9 +537,10 @@ function MetricCard({
 
           <div
             className="
-              mt-1
-              text-[10px]
-              text-slate-400
+              mt-1.5
+              text-[9px]
+              leading-4
+              text-[var(--bf-dev-text-3)]
             "
           >
             {note}
@@ -524,16 +553,15 @@ function MetricCard({
               flex
               h-10
               w-10
+              shrink-0
               items-center
               justify-center
-              rounded-xl
+              rounded-[9px]
             `,
             accentStyles[accent]
           )}
         >
-          <Icon
-            size={18}
-          />
+          <Icon size={18} />
         </div>
       </div>
     </Card>
@@ -553,7 +581,7 @@ function CardHeader({
         justify-between
         gap-3
         border-b
-        border-slate-200
+        border-[var(--bf-dev-border)]
         px-4
         py-3.5
       "
@@ -563,7 +591,7 @@ function CardHeader({
           className="
             text-[12px]
             font-bold
-            text-slate-900
+            text-[var(--bf-dev-text)]
           "
         >
           {title}
@@ -573,8 +601,8 @@ function CardHeader({
           <div
             className="
               mt-0.5
-              text-[10px]
-              text-slate-400
+              text-[9px]
+              text-[var(--bf-dev-text-3)]
             "
           >
             {subtitle}
@@ -709,8 +737,8 @@ function OverviewSection({
                   className="
                     rounded-lg
                     border
-                    border-slate-200
-                    bg-slate-50/60
+                    border-[var(--bf-dev-border)]
+                    bg-[var(--bf-dev-surface-2)]
                     p-4
                   "
                 >
@@ -729,8 +757,8 @@ function OverviewSection({
                         items-center
                         justify-center
                         rounded-lg
-                        bg-blue-50
-                        text-blue-600
+                        bg-[rgb(var(--bf-dev-primary-rgb)/.10)]
+                        text-[var(--bf-dev-primary)]
                       "
                     >
                       <Icon
@@ -747,7 +775,7 @@ function OverviewSection({
                         className="
                           text-[11px]
                           font-bold
-                          text-slate-900
+                          text-[var(--bf-dev-text)]
                         "
                       >
                         {title}
@@ -758,7 +786,7 @@ function OverviewSection({
                           mt-0.5
                           truncate
                           text-[9px]
-                          text-blue-600
+                          text-[var(--bf-dev-primary)]
                         "
                       >
                         {url}
@@ -771,7 +799,7 @@ function OverviewSection({
                       mt-3
                       text-[10px]
                       leading-5
-                      text-slate-500
+                      text-[var(--bf-dev-text-2)]
                     "
                   >
                     {text}
@@ -836,15 +864,15 @@ function OverviewSection({
                     justify-between
                     rounded-lg
                     border
-                    border-slate-200
-                    bg-white
+                    border-[var(--bf-dev-border)]
+                    bg-[var(--bf-dev-surface)]
                     px-3
                     py-3
                     text-left
                     text-[11px]
                     font-semibold
-                    text-slate-700
-                    hover:bg-slate-50
+                    text-[var(--bf-dev-text-2)]
+                    hover:bg-[var(--bf-dev-surface-2)]
                   "
                 >
                   <span
@@ -857,7 +885,7 @@ function OverviewSection({
                     <Icon
                       size={15}
                       className="
-                        text-blue-600
+                        text-[var(--bf-dev-primary)]
                       "
                     />
 
@@ -867,7 +895,7 @@ function OverviewSection({
                   <ChevronRight
                     size={13}
                     className="
-                      text-slate-400
+                      text-[var(--bf-dev-text-3)]
                     "
                   />
                 </button>
@@ -896,12 +924,12 @@ function OverviewSection({
           >
             <thead
               className="
-                bg-slate-50
+                bg-[var(--bf-dev-surface-2)]
                 text-[9px]
                 font-bold
                 uppercase
                 tracking-[0.08em]
-                text-slate-400
+                text-[var(--bf-dev-text-3)]
               "
             >
               <tr>
@@ -930,7 +958,7 @@ function OverviewSection({
                     key={`${row.time}-${row.action}`}
                     className="
                       border-t
-                      border-slate-200
+                      border-[var(--bf-dev-border)]
                       text-[10px]
                     "
                   >
@@ -939,7 +967,7 @@ function OverviewSection({
                         whitespace-nowrap
                         px-4
                         py-3.5
-                        text-slate-500
+                        text-[var(--bf-dev-text-2)]
                       "
                     >
                       {row.time}
@@ -951,7 +979,7 @@ function OverviewSection({
                         px-4
                         py-3.5
                         font-semibold
-                        text-slate-700
+                        text-[var(--bf-dev-text-2)]
                       "
                     >
                       {row.actor}
@@ -962,7 +990,7 @@ function OverviewSection({
                         px-4
                         py-3.5
                         font-semibold
-                        text-slate-900
+                        text-[var(--bf-dev-text)]
                       "
                     >
                       {row.action}
@@ -972,7 +1000,7 @@ function OverviewSection({
                       className="
                         px-4
                         py-3.5
-                        text-slate-500
+                        text-[var(--bf-dev-text-2)]
                       "
                     >
                       {row.target}
@@ -1059,8 +1087,8 @@ function GenericCardsPage({
                     items-center
                     justify-center
                     rounded-lg
-                    bg-blue-50
-                    text-blue-600
+                    bg-[rgb(var(--bf-dev-primary-rgb)/.10)]
+                    text-[var(--bf-dev-primary)]
                   "
                 >
                   <Icon
@@ -1082,7 +1110,7 @@ function GenericCardsPage({
                   mt-4
                   text-[12px]
                   font-bold
-                  text-slate-900
+                  text-[var(--bf-dev-text)]
                 "
               >
                 {cardTitle}
@@ -1093,7 +1121,7 @@ function GenericCardsPage({
                   mt-1.5
                   text-[10px]
                   leading-5
-                  text-slate-500
+                  text-[var(--bf-dev-text-2)]
                 "
               >
                 {text}
@@ -1140,7 +1168,7 @@ function LiveActivitySection() {
                 gap-2
                 text-[9px]
                 font-bold
-                text-emerald-600
+                text-emerald-500
               "
             >
               <span
@@ -1148,7 +1176,7 @@ function LiveActivitySection() {
                   h-2
                   w-2
                   rounded-full
-                  bg-emerald-500
+                  bg-emerald-500/100
                 "
               />
               LIVE
@@ -1165,7 +1193,7 @@ function LiveActivitySection() {
                   grid
                   gap-3
                   border-t
-                  border-slate-200
+                  border-[var(--bf-dev-border)]
                   px-4
                   py-4
                   text-[10px]
@@ -1174,7 +1202,7 @@ function LiveActivitySection() {
               >
                 <div
                   className="
-                    text-slate-400
+                    text-[var(--bf-dev-text-3)]
                   "
                 >
                   {row.time}
@@ -1183,7 +1211,7 @@ function LiveActivitySection() {
                 <div
                   className="
                     font-semibold
-                    text-slate-700
+                    text-[var(--bf-dev-text-2)]
                   "
                 >
                   {row.actor}
@@ -1193,7 +1221,7 @@ function LiveActivitySection() {
                   <div
                     className="
                       font-semibold
-                      text-slate-900
+                      text-[var(--bf-dev-text)]
                     "
                   >
                     {row.action}
@@ -1202,7 +1230,7 @@ function LiveActivitySection() {
                   <div
                     className="
                       mt-1
-                      text-slate-400
+                      text-[var(--bf-dev-text-3)]
                     "
                   >
                     {row.target}
@@ -1294,7 +1322,7 @@ function WebsiteStudioSection() {
                     gap-3
                     rounded-lg
                     border
-                    border-slate-200
+                    border-[var(--bf-dev-border)]
                     px-3
                     py-3
                   "
@@ -1304,7 +1332,7 @@ function WebsiteStudioSection() {
                       className="
                         text-[11px]
                         font-semibold
-                        text-slate-900
+                        text-[var(--bf-dev-text)]
                       "
                     >
                       {page.name}
@@ -1314,7 +1342,7 @@ function WebsiteStudioSection() {
                       className="
                         mt-0.5
                         text-[9px]
-                        text-slate-400
+                        text-[var(--bf-dev-text-3)]
                       "
                     >
                       {page.path}
@@ -1397,17 +1425,17 @@ function WebsiteStudioSection() {
                     className="
                       rounded-lg
                       border
-                      border-slate-200
-                      bg-white
+                      border-[var(--bf-dev-border)]
+                      bg-[var(--bf-dev-surface)]
                       p-4
                       text-left
-                      hover:bg-slate-50
+                      hover:bg-[var(--bf-dev-surface-2)]
                     "
                   >
                     <Icon
                       size={17}
                       className="
-                        text-blue-600
+                        text-[var(--bf-dev-primary)]
                       "
                     />
 
@@ -1416,7 +1444,7 @@ function WebsiteStudioSection() {
                         mt-3
                         text-[11px]
                         font-bold
-                        text-slate-900
+                        text-[var(--bf-dev-text)]
                       "
                     >
                       {title}
@@ -1426,7 +1454,7 @@ function WebsiteStudioSection() {
                       className="
                         mt-1
                         text-[10px]
-                        text-slate-500
+                        text-[var(--bf-dev-text-2)]
                       "
                     >
                       {text}
@@ -1465,8 +1493,8 @@ function WebsiteStudioSection() {
                     className="
                       rounded-lg
                       border
-                      border-slate-200
-                      bg-slate-50/60
+                      border-[var(--bf-dev-border)]
+                      bg-[var(--bf-dev-surface-2)]
                       p-4
                     "
                   >
@@ -1478,10 +1506,10 @@ function WebsiteStudioSection() {
                         items-center
                         justify-center
                         rounded-lg
-                        bg-blue-100
+                        bg-[rgb(var(--bf-dev-primary-rgb)/.14)]
                         text-[10px]
                         font-bold
-                        text-blue-700
+                        text-[var(--bf-dev-primary)]
                       "
                     >
                       {index + 1}
@@ -1492,7 +1520,7 @@ function WebsiteStudioSection() {
                         mt-3
                         text-[11px]
                         font-bold
-                        text-slate-900
+                        text-[var(--bf-dev-text)]
                       "
                     >
                       {step}
@@ -1616,7 +1644,7 @@ function EnquiriesSection() {
                   <div
                     className="
                       font-semibold
-                      text-slate-900
+                      text-[var(--bf-dev-text)]
                     "
                   >
                     {subject}
@@ -1625,7 +1653,7 @@ function EnquiriesSection() {
                   <div
                     className="
                       mt-1
-                      text-slate-400
+                      text-[var(--bf-dev-text-3)]
                     "
                   >
                     {company}
@@ -1634,7 +1662,7 @@ function EnquiriesSection() {
 
                 <div
                   className="
-                    text-slate-500
+                    text-[var(--bf-dev-text-2)]
                   "
                 >
                   {type}
@@ -1744,7 +1772,7 @@ function CompaniesSection() {
                 left-3
                 top-1/2
                 -translate-y-1/2
-                text-slate-400
+                text-[var(--bf-dev-text-3)]
               "
             />
 
@@ -1765,15 +1793,15 @@ function CompaniesSection() {
                 w-full
                 rounded-lg
                 border
-                border-slate-200
-                bg-white
+                border-[var(--bf-dev-border)]
+                bg-[var(--bf-dev-surface)]
                 pl-9
                 pr-3
                 text-[11px]
-                text-slate-900
+                text-[var(--bf-dev-text)]
                 outline-none
-                placeholder:text-slate-400
-                focus:border-blue-400
+                placeholder:text-[var(--bf-dev-text-3)]
+                focus:border-[var(--bf-dev-primary)]
               "
             />
           </div>
@@ -1781,7 +1809,7 @@ function CompaniesSection() {
           <div
             className="
               text-[10px]
-              text-slate-400
+              text-[var(--bf-dev-text-3)]
             "
           >
             {filtered.length} companies
@@ -1829,8 +1857,8 @@ function CompaniesSection() {
                       items-center
                       justify-center
                       rounded-xl
-                      bg-blue-50
-                      text-blue-600
+                      bg-[rgb(var(--bf-dev-primary-rgb)/.10)]
+                      text-[var(--bf-dev-primary)]
                     "
                   >
                     <Building2
@@ -1843,7 +1871,7 @@ function CompaniesSection() {
                       className="
                         text-[12px]
                         font-bold
-                        text-slate-900
+                        text-[var(--bf-dev-text)]
                       "
                     >
                       {company.name}
@@ -1853,7 +1881,7 @@ function CompaniesSection() {
                       className="
                         mt-1
                         text-[9px]
-                        text-blue-600
+                        text-[var(--bf-dev-primary)]
                       "
                     >
                       portal.buddyfleets.in/{company.slug}
@@ -1906,8 +1934,8 @@ function CompaniesSection() {
                       className="
                         rounded-lg
                         border
-                        border-slate-200
-                        bg-slate-50/60
+                        border-[var(--bf-dev-border)]
+                        bg-[var(--bf-dev-surface-2)]
                         p-3
                       "
                     >
@@ -1917,7 +1945,7 @@ function CompaniesSection() {
                           font-bold
                           uppercase
                           tracking-[0.08em]
-                          text-slate-400
+                          text-[var(--bf-dev-text-3)]
                         "
                       >
                         {label}
@@ -1928,7 +1956,7 @@ function CompaniesSection() {
                           mt-1
                           text-[11px]
                           font-bold
-                          text-slate-900
+                          text-[var(--bf-dev-text)]
                         "
                       >
                         {value}
@@ -1947,14 +1975,14 @@ function CompaniesSection() {
                   justify-between
                   gap-3
                   border-t
-                  border-slate-200
+                  border-[var(--bf-dev-border)]
                   pt-4
                 "
               >
                 <div
                   className="
                     text-[9px]
-                    text-slate-400
+                    text-[var(--bf-dev-text-3)]
                   "
                 >
                   Renewal: {company.renewal}
@@ -2026,7 +2054,7 @@ function CompaniesSection() {
                     font-bold
                     uppercase
                     tracking-[0.12em]
-                    text-blue-600
+                    text-[var(--bf-dev-primary)]
                   "
                 >
                   New tenant
@@ -2037,7 +2065,7 @@ function CompaniesSection() {
                     mt-1
                     text-[20px]
                     font-extrabold
-                    text-slate-900
+                    text-[var(--bf-dev-text)]
                   "
                 >
                   Create company
@@ -2059,8 +2087,8 @@ function CompaniesSection() {
                   justify-center
                   rounded-lg
                   border
-                  border-slate-200
-                  text-slate-500
+                  border-[var(--bf-dev-border)]
+                  text-[var(--bf-dev-text-2)]
                 "
               >
                 <X
@@ -2090,7 +2118,7 @@ function CompaniesSection() {
                       block
                       text-[10px]
                       font-semibold
-                      text-slate-600
+                      text-[var(--bf-dev-text-2)]
                     "
                   >
                     {label}
@@ -2102,11 +2130,11 @@ function CompaniesSection() {
                         w-full
                         rounded-lg
                         border
-                        border-slate-200
+                        border-[var(--bf-dev-border)]
                         px-3
                         text-[11px]
                         outline-none
-                        focus:border-blue-400
+                        focus:border-[var(--bf-dev-primary)]
                       "
                     />
                   </label>
@@ -2246,8 +2274,8 @@ function ModulesSection() {
                     items-center
                     justify-center
                     rounded-lg
-                    bg-violet-50
-                    text-violet-600
+                    bg-violet-500/10
+                    text-violet-500
                   "
                 >
                   <Boxes
@@ -2267,7 +2295,7 @@ function ModulesSection() {
                   mt-3
                   text-[12px]
                   font-bold
-                  text-slate-900
+                  text-[var(--bf-dev-text)]
                 "
               >
                 {module.name}
@@ -2278,7 +2306,7 @@ function ModulesSection() {
                   mt-1
                   font-mono
                   text-[9px]
-                  text-slate-400
+                  text-[var(--bf-dev-text-3)]
                 "
               >
                 module_id: {module.id}
@@ -2296,8 +2324,8 @@ function ModulesSection() {
                   className="
                     rounded-lg
                     border
-                    border-slate-200
-                    bg-slate-50
+                    border-[var(--bf-dev-border)]
+                    bg-[var(--bf-dev-surface-2)]
                     p-3
                   "
                 >
@@ -2305,7 +2333,7 @@ function ModulesSection() {
                     className="
                       text-[8px]
                       uppercase
-                      text-slate-400
+                      text-[var(--bf-dev-text-3)]
                     "
                   >
                     Companies
@@ -2326,8 +2354,8 @@ function ModulesSection() {
                   className="
                     rounded-lg
                     border
-                    border-slate-200
-                    bg-slate-50
+                    border-[var(--bf-dev-border)]
+                    bg-[var(--bf-dev-surface-2)]
                     p-3
                   "
                 >
@@ -2335,7 +2363,7 @@ function ModulesSection() {
                     className="
                       text-[8px]
                       uppercase
-                      text-slate-400
+                      text-[var(--bf-dev-text-3)]
                     "
                   >
                     Features
@@ -2395,11 +2423,11 @@ function TeamSection() {
           >
             <thead
               className="
-                bg-slate-50
+                bg-[var(--bf-dev-surface-2)]
                 text-[9px]
                 font-bold
                 uppercase
-                text-slate-400
+                text-[var(--bf-dev-text-3)]
               "
             >
               <tr>
@@ -2427,7 +2455,7 @@ function TeamSection() {
                     }
                     className="
                       border-t
-                      border-slate-200
+                      border-[var(--bf-dev-border)]
                       text-[10px]
                     "
                   >
@@ -2440,7 +2468,7 @@ function TeamSection() {
                       <div
                         className="
                           font-semibold
-                          text-slate-900
+                          text-[var(--bf-dev-text)]
                         "
                       >
                         {member.name}
@@ -2449,7 +2477,7 @@ function TeamSection() {
                       <div
                         className="
                           mt-1
-                          text-slate-400
+                          text-[var(--bf-dev-text-3)]
                         "
                       >
                         {member.email}
@@ -2461,7 +2489,7 @@ function TeamSection() {
                         px-4
                         py-3.5
                         font-semibold
-                        text-slate-700
+                        text-[var(--bf-dev-text-2)]
                       "
                     >
                       {member.role}
@@ -2471,7 +2499,7 @@ function TeamSection() {
                       className="
                         px-4
                         py-3.5
-                        text-blue-600
+                        text-[var(--bf-dev-primary)]
                       "
                     >
                       {member.portal}
@@ -2765,7 +2793,7 @@ function FeatureFlagsSection() {
                     className="
                       text-[11px]
                       font-semibold
-                      text-slate-900
+                      text-[var(--bf-dev-text)]
                     "
                   >
                     {flag.name}
@@ -2776,7 +2804,7 @@ function FeatureFlagsSection() {
                       mt-1
                       font-mono
                       text-[9px]
-                      text-slate-400
+                      text-[var(--bf-dev-text-3)]
                     "
                   >
                     {flag.id}
@@ -2786,7 +2814,7 @@ function FeatureFlagsSection() {
                     className="
                       mt-1
                       text-[9px]
-                      text-slate-500
+                      text-[var(--bf-dev-text-2)]
                     "
                   >
                     Scope: {flag.scope}
@@ -2822,8 +2850,8 @@ function FeatureFlagsSection() {
                       transition
                     `,
                     flag.enabled
-                      ? 'bg-emerald-500'
-                      : 'bg-slate-300'
+                      ? 'bg-emerald-500/100'
+                      : 'bg-[var(--bf-dev-surface-3)]'
                   )}
                 >
                   <span
@@ -2834,7 +2862,7 @@ function FeatureFlagsSection() {
                         h-4
                         w-4
                         rounded-full
-                        bg-white
+                        bg-[var(--bf-dev-surface)]
                         shadow
                         transition
                       `,
@@ -2950,11 +2978,11 @@ function AuditSection() {
           >
             <thead
               className="
-                bg-slate-50
+                bg-[var(--bf-dev-surface-2)]
                 text-[9px]
                 font-bold
                 uppercase
-                text-slate-400
+                text-[var(--bf-dev-text-3)]
               "
             >
               <tr>
@@ -2983,20 +3011,20 @@ function AuditSection() {
                     key={`${row.time}-${row.action}`}
                     className="
                       border-t
-                      border-slate-200
+                      border-[var(--bf-dev-border)]
                       text-[10px]
                     "
                   >
-                    <td className="px-4 py-3.5 text-slate-400">
+                    <td className="px-4 py-3.5 text-[var(--bf-dev-text-3)]">
                       {row.time}
                     </td>
-                    <td className="px-4 py-3.5 font-semibold text-slate-700">
+                    <td className="px-4 py-3.5 font-semibold text-[var(--bf-dev-text-2)]">
                       {row.actor}
                     </td>
-                    <td className="px-4 py-3.5 font-semibold text-slate-900">
+                    <td className="px-4 py-3.5 font-semibold text-[var(--bf-dev-text)]">
                       {row.action}
                     </td>
-                    <td className="px-4 py-3.5 text-slate-500">
+                    <td className="px-4 py-3.5 text-[var(--bf-dev-text-2)]">
                       {row.target}
                     </td>
                     <td className="px-4 py-3.5">
