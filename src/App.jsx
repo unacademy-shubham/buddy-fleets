@@ -615,6 +615,9 @@ async function requestPortalLogout() {
           cache:
             'no-store',
 
+          keepalive:
+            true,
+
           headers: {
             Accept:
               'application/json',
@@ -3071,7 +3074,7 @@ function AppRouter() {
 
   const handleLogout =
     useCallback(
-      async (
+      (
         isAutoTimeout = false
       ) => {
         if (
@@ -3096,7 +3099,14 @@ function AppRouter() {
             null;
         }
 
-        await requestPortalLogout();
+        /*
+          Start the authoritative server logout immediately, but do
+          not block the user's navigation on the network response.
+
+          keepalive=true allows this same-origin POST to continue
+          during document unload in supporting browsers.
+        */
+        void requestPortalLogout();
 
         clearLocalAppContext();
 
