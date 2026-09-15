@@ -1822,6 +1822,35 @@ function ParentMenuItem({
    SIDEBAR CHILD LINK
 ============================================================ */
 
+const BF_SUBMENU_TOGGLE_EVENT =
+  'bf-dev-submenu-toggle';
+
+
+function notifySiblingSubmenus({
+  scope,
+  key,
+}) {
+  if (
+    typeof window ===
+    'undefined'
+  ) {
+    return;
+  }
+
+  window.dispatchEvent(
+    new CustomEvent(
+      BF_SUBMENU_TOGGLE_EVENT,
+      {
+        detail: {
+          scope,
+          key,
+        },
+      }
+    )
+  );
+}
+
+
 function ChildLink({
   child,
   collapsed,
@@ -1841,6 +1870,13 @@ function ChildLink({
       location.pathname,
       child
     );
+
+  const submenuKey =
+    child.to ||
+    child.label;
+
+  const submenuScope =
+    `sidebar-depth-${depth}`;
 
   const [
     expanded,
@@ -1863,12 +1899,40 @@ function ChildLink({
     active,
   ]);
 
+  useEffect(() => {
+    const handleSiblingToggle =
+      (event) => {
+        const detail =
+          event?.detail;
 
-  /*
-     IMPORTANT:
-     A node with children is a menu controller, not a page link.
-     Clicking anywhere on it only expands/collapses its submenu.
-  */
+        if (
+          detail?.scope ===
+            submenuScope &&
+          detail?.key !==
+            submenuKey
+        ) {
+          setExpanded(
+            false
+          );
+        }
+      };
+
+    window.addEventListener(
+      BF_SUBMENU_TOGGLE_EVENT,
+      handleSiblingToggle
+    );
+
+    return () => {
+      window.removeEventListener(
+        BF_SUBMENU_TOGGLE_EVENT,
+        handleSiblingToggle
+      );
+    };
+  }, [
+    submenuKey,
+    submenuScope,
+  ]);
+
 
   if (
     collapsed
@@ -1882,12 +1946,23 @@ function ChildLink({
           title={child.label}
           aria-expanded={expanded}
           aria-label={`Toggle ${child.label}`}
-          onClick={() =>
+          onClick={() => {
+            const next =
+              !expanded;
+
+            if (next) {
+              notifySiblingSubmenus({
+                scope:
+                  submenuScope,
+                key:
+                  submenuKey,
+              });
+            }
+
             setExpanded(
-              (current) =>
-                !current
-            )
-          }
+              next
+            );
+          }}
           className={cx(
             `
               bf-dev-sidebar-child
@@ -1970,12 +2045,23 @@ function ChildLink({
           type="button"
           aria-expanded={expanded}
           aria-label={`Toggle ${child.label}`}
-          onClick={() =>
+          onClick={() => {
+            const next =
+              !expanded;
+
+            if (next) {
+              notifySiblingSubmenus({
+                scope:
+                  submenuScope,
+                key:
+                  submenuKey,
+              });
+            }
+
             setExpanded(
-              (current) =>
-                !current
-            )
-          }
+              next
+            );
+          }}
           className={cx(
             `
               bf-dev-sidebar-child
@@ -2258,6 +2344,13 @@ function FlyoutNode({
       child
     );
 
+  const submenuKey =
+    child.to ||
+    child.label;
+
+  const submenuScope =
+    `flyout-depth-${depth}`;
+
   const [
     expanded,
     setExpanded,
@@ -2279,6 +2372,40 @@ function FlyoutNode({
     active,
   ]);
 
+  useEffect(() => {
+    const handleSiblingToggle =
+      (event) => {
+        const detail =
+          event?.detail;
+
+        if (
+          detail?.scope ===
+            submenuScope &&
+          detail?.key !==
+            submenuKey
+        ) {
+          setExpanded(
+            false
+          );
+        }
+      };
+
+    window.addEventListener(
+      BF_SUBMENU_TOGGLE_EVENT,
+      handleSiblingToggle
+    );
+
+    return () => {
+      window.removeEventListener(
+        BF_SUBMENU_TOGGLE_EVENT,
+        handleSiblingToggle
+      );
+    };
+  }, [
+    submenuKey,
+    submenuScope,
+  ]);
+
 
   if (
     hasChildren
@@ -2289,12 +2416,23 @@ function FlyoutNode({
           type="button"
           aria-expanded={expanded}
           aria-label={`Toggle ${child.label}`}
-          onClick={() =>
+          onClick={() => {
+            const next =
+              !expanded;
+
+            if (next) {
+              notifySiblingSubmenus({
+                scope:
+                  submenuScope,
+                key:
+                  submenuKey,
+              });
+            }
+
             setExpanded(
-              (current) =>
-                !current
-            )
-          }
+              next
+            );
+          }}
           className={cx(
             `
               flex
@@ -3383,6 +3521,13 @@ function HorizontalFlyoutNode({
       child
     );
 
+  const submenuKey =
+    child.to ||
+    child.label;
+
+  const submenuScope =
+    'horizontal-nested';
+
   const [
     nestedOpen,
     setNestedOpen,
@@ -3408,6 +3553,39 @@ function HorizontalFlyoutNode({
     active,
   ]);
 
+  useEffect(() => {
+    const handleSiblingToggle =
+      (event) => {
+        const detail =
+          event?.detail;
+
+        if (
+          detail?.scope ===
+            submenuScope &&
+          detail?.key !==
+            submenuKey
+        ) {
+          setNestedOpen(
+            false
+          );
+        }
+      };
+
+    window.addEventListener(
+      BF_SUBMENU_TOGGLE_EVENT,
+      handleSiblingToggle
+    );
+
+    return () => {
+      window.removeEventListener(
+        BF_SUBMENU_TOGGLE_EVENT,
+        handleSiblingToggle
+      );
+    };
+  }, [
+    submenuKey,
+  ]);
+
 
   return (
     <div
@@ -3419,6 +3597,13 @@ function HorizontalFlyoutNode({
           hoverMode &&
           hasChildren
         ) {
+          notifySiblingSubmenus({
+            scope:
+              submenuScope,
+            key:
+              submenuKey,
+          });
+
           setNestedOpen(
             true
           );
@@ -3445,9 +3630,20 @@ function HorizontalFlyoutNode({
             event.preventDefault();
             event.stopPropagation();
 
+            const next =
+              !nestedOpen;
+
+            if (next) {
+              notifySiblingSubmenus({
+                scope:
+                  submenuScope,
+                key:
+                  submenuKey,
+              });
+            }
+
             setNestedOpen(
-              (current) =>
-                !current
+              next
             );
           }}
           className={cx(
@@ -3496,7 +3692,7 @@ function HorizontalFlyoutNode({
             className={cx(
               `
                 shrink-0
-                transition-transform
+                transition
               `,
               nestedOpen &&
                 'text-[var(--bf-primary)]'
@@ -3586,11 +3782,7 @@ function HorizontalFlyoutNode({
               {child.label}
             </div>
 
-            <div
-              className="
-                py-1.5
-              "
-            >
+            <div className="py-1.5">
               {child.children.map(
                 (grandchild) => (
                   <NavLink
