@@ -258,9 +258,21 @@ async function callSecureFunction(
           method:
             'POST',
 
+          /*
+            IMPORTANT PERFORMANCE + SECURITY NOTE:
+
+            This cross-origin request intentionally uses a CORS-safelisted
+            Content-Type so the browser does not send a separate OPTIONS
+            preflight before every login/MFA request.
+
+            The payload remains JSON text and the Edge Function still parses
+            it with request.json(). No credential, authorization, MFA, portal,
+            session, or tenant validation is weakened by this change.
+          */
+
           headers: {
             'Content-Type':
-              'application/json',
+              'text/plain;charset=UTF-8',
           },
 
           body:
