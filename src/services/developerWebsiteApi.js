@@ -1,6 +1,6 @@
-async function request(method, payload) {
+async function request(method, payload, path = '/api/developer/website/pages') {
   try {
-    const response = await fetch('/api/developer/website/pages', {
+    const response = await fetch(path, {
       method,
       credentials: 'include',
       cache: 'no-store',
@@ -23,4 +23,12 @@ export function getWebsitePages() {
 
 export function createWebsitePage(payload) {
   return request('POST', { name: payload.name, path: payload.path });
+}
+
+export function getWebsitePageDraft(pageId) {
+  return request('GET', undefined, `/api/developer/website/draft?pageId=${encodeURIComponent(pageId)}`);
+}
+
+export function saveWebsitePageDraft({ pageId, revision, content }) {
+  return request('PUT', { pageId, revision, content }, '/api/developer/website/draft');
 }
