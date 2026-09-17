@@ -55,9 +55,9 @@ export default async function handler(req, res) {
         }
         throw error;
       }
-      const page = Array.isArray(data) ? data[0] : data;
-      if (!page?.id) throw new Error('INVALID_RPC_RESPONSE');
-      return res.status(201).json({ ok: true, page });
+      const rpcResult = Array.isArray(data) ? data[0] : data;
+      if (!rpcResult?.ok || !rpcResult?.page?.id) throw new Error('INVALID_RPC_RESPONSE');
+      return res.status(201).json({ ok: true, page: rpcResult.page });
     }
     const { data, error } = await auth.supabaseAdmin
       .from('website_pages')
