@@ -206,7 +206,17 @@ export default function PageBuilder() {
   }, [createPageOpen]);
 
   useEffect(() => {
-    if (!selectedPageId) return;
+    if (!selectedPageId) {
+      setDraft(null);
+      setDraftLoading(false);
+      setDraftError('');
+      return;
+    }
+
+    setDraft(null);
+    setDraftLoading(true);
+    setDraftError('');
+
     let cancelled = false;
     getWebsitePageDraft(selectedPageId).then((result) => {
       if (cancelled) return;
@@ -312,12 +322,7 @@ export default function PageBuilder() {
       resetDraft();
       setSelectedPageId(result.page.id);
       setCreatePageOpen(false);
-      window.clearTimeout(successTimerRef.current);
-      setSuccessMessage('Page created successfully.');
-      successTimerRef.current = window.setTimeout(() => {
-        setSuccessMessage('');
-        successTimerRef.current = null;
-      }, 3000);
+      notify('Page created successfully.');
     } catch {
       setCreateError('Unable to create website page.');
     } finally {
@@ -377,7 +382,7 @@ export default function PageBuilder() {
           />
 
           <div className="space-y-1 p-2.5">
-            {loading && <p role="status" className="p-3 text-[11px] text-[var(--bf-dev-text-3)]">Loading website pages?</p>}
+            {loading && <p role="status" className="p-3 text-[11px] text-[var(--bf-dev-text-3)]">Loading website pages…</p>}
             {error && <p role="alert" className="p-3 text-[11px] text-[var(--bf-dev-text-2)]">{error}</p>}
             {!loading && !error && !pages.length && <p className="p-3 text-[11px] text-[var(--bf-dev-text-3)]">No website pages.</p>}
             {pages.map(
@@ -542,7 +547,7 @@ export default function PageBuilder() {
           {createError && <p role="alert" className="mt-3 text-[11px] text-[var(--bf-dev-text-2)]">{createError}</p>}
           <div className="mt-5 flex justify-end gap-2">
             <button type="button" disabled={creatingPage} onClick={() => setCreatePageOpen(false)} className="rounded border border-[var(--bf-dev-border)] px-3 py-1.5 text-[10px] font-semibold hover:bg-[var(--bf-dev-surface-2)] disabled:opacity-50">Cancel</button>
-            <button type="submit" disabled={creatingPage} className="rounded border border-[var(--bf-dev-primary)] bg-[var(--bf-dev-primary)] px-3 py-1.5 text-[10px] font-semibold text-white hover:bg-[var(--bf-dev-primary-strong)] disabled:opacity-50">{creatingPage ? 'Creating?' : 'Create Page'}</button>
+            <button type="submit" disabled={creatingPage} className="rounded border border-[var(--bf-dev-primary)] bg-[var(--bf-dev-primary)] px-3 py-1.5 text-[10px] font-semibold text-white hover:bg-[var(--bf-dev-primary-strong)] disabled:opacity-50">{creatingPage ? 'Creating…' : 'Create Page'}</button>
           </div>
         </form>
       </dialog>

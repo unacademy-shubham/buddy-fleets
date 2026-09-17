@@ -10,10 +10,20 @@ async function request(method, payload, path = '/api/developer/website/pages') {
       },
       ...(payload ? { body: JSON.stringify(payload) } : {}),
     });
+
     const data = await response.json().catch(() => ({}));
-    return { ...data, ok: Boolean(response.ok && data?.ok), status: response.status };
+
+    return {
+      ...data,
+      ok: Boolean(response.ok && data?.ok),
+      status: response.status,
+    };
   } catch {
-    return { ok: false, status: 0, code: 'NETWORK_ERROR' };
+    return {
+      ok: false,
+      status: 0,
+      code: 'NETWORK_ERROR',
+    };
   }
 }
 
@@ -22,13 +32,24 @@ export function getWebsitePages() {
 }
 
 export function createWebsitePage(payload) {
-  return request('POST', { name: payload.name, path: payload.path });
+  return request('POST', {
+    name: payload.name,
+    path: payload.path,
+  });
 }
 
 export function getWebsitePageDraft(pageId) {
-  return request('GET', undefined, `/api/developer/website/draft?pageId=${encodeURIComponent(pageId)}`);
+  return request(
+    'GET',
+    undefined,
+    `/api/developer/website/draft?pageId=${encodeURIComponent(pageId)}`
+  );
 }
 
 export function saveWebsitePageDraft({ pageId, revision, content }) {
-  return request('PUT', { pageId, revision, content }, '/api/developer/website/draft');
+  return request(
+    'PUT',
+    { pageId, revision, content },
+    '/api/developer/website/draft'
+  );
 }
