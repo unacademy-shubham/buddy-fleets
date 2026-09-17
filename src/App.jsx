@@ -74,6 +74,10 @@ const DeveloperWebsiteStudio = lazy(() =>
   import('./pages/Developer/WebsiteStudio')
 );
 
+const DeveloperPageBuilder = lazy(() =>
+  import('./pages/Developer/Website/PageBuilder')
+);
+
 const DeveloperContentSeo = lazy(() =>
   import('./pages/Developer/ContentSeo')
 );
@@ -2611,7 +2615,7 @@ function PortalRoutes({
             path="website/website-studio/page-builder"
             element={
               <LazyPage>
-                <DeveloperWebsiteStudio />
+                <DeveloperPageBuilder />
               </LazyPage>
             }
           />
