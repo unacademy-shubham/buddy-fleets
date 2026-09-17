@@ -211,27 +211,27 @@ function cx(...classes) {
 
 function StatusBadge({ status }) {
   const config = {
-    active: 'border-emerald-400/20 bg-emerald-400/10 text-emerald-300',
-    success: 'border-emerald-400/20 bg-emerald-400/10 text-emerald-300',
-    connected: 'border-emerald-400/20 bg-emerald-400/10 text-emerald-300',
-    configured: 'border-cyan-400/20 bg-cyan-400/10 text-cyan-300',
-    production: 'border-emerald-400/20 bg-emerald-400/10 text-emerald-300',
-    published: 'border-emerald-400/20 bg-emerald-400/10 text-emerald-300',
-    trial: 'border-amber-400/20 bg-amber-400/10 text-amber-300',
-    beta: 'border-violet-400/20 bg-violet-400/10 text-violet-300',
-    demo: 'border-cyan-400/20 bg-cyan-400/10 text-cyan-300',
-    invited: 'border-blue-400/20 bg-blue-400/10 text-blue-300',
-    planned: 'border-slate-500/20 bg-slate-500/10 text-slate-400',
-    system: 'border-blue-400/20 bg-blue-400/10 text-blue-300',
-    suspended: 'border-rose-400/20 bg-rose-400/10 text-rose-300',
-    warning: 'border-amber-400/20 bg-amber-400/10 text-amber-300',
-    info: 'border-blue-400/20 bg-blue-400/10 text-blue-300',
+    active: 'border-emerald-400/20 bg-emerald-400/10 text-[var(--bf-dev-text)]',
+    success: 'border-emerald-400/20 bg-emerald-400/10 text-[var(--bf-dev-text)]',
+    connected: 'border-emerald-400/20 bg-emerald-400/10 text-[var(--bf-dev-text)]',
+    configured: 'border-[var(--bf-dev-border)] bg-[rgb(var(--bf-dev-primary-rgb)/.10)] text-[var(--bf-dev-primary)]',
+    production: 'border-emerald-400/20 bg-emerald-400/10 text-[var(--bf-dev-text)]',
+    published: 'border-emerald-400/20 bg-emerald-400/10 text-[var(--bf-dev-text)]',
+    trial: 'border-amber-400/20 bg-amber-400/10 text-[var(--bf-dev-text)]',
+    beta: 'border-[var(--bf-dev-border)] bg-[rgb(var(--bf-dev-primary-rgb)/.10)] text-[var(--bf-dev-primary)]',
+    demo: 'border-[var(--bf-dev-border)] bg-[rgb(var(--bf-dev-primary-rgb)/.10)] text-[var(--bf-dev-primary)]',
+    invited: 'border-[var(--bf-dev-border)] bg-[rgb(var(--bf-dev-primary-rgb)/.10)] text-[var(--bf-dev-primary)]',
+    planned: 'border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] text-[var(--bf-dev-text-2)]',
+    system: 'border-[var(--bf-dev-border)] bg-[rgb(var(--bf-dev-primary-rgb)/.10)] text-[var(--bf-dev-primary)]',
+    suspended: 'border-rose-400/20 bg-rose-400/10 text-[var(--bf-dev-text)]',
+    warning: 'border-amber-400/20 bg-amber-400/10 text-[var(--bf-dev-text)]',
+    info: 'border-[var(--bf-dev-border)] bg-[rgb(var(--bf-dev-primary-rgb)/.10)] text-[var(--bf-dev-primary)]',
   };
 
   return (
     <span className={cx(
       'inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em]',
-      config[status] || 'border-white/10 bg-white/5 text-slate-400'
+      config[status] || 'border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] text-[var(--bf-dev-text-2)]'
     )}>
       {status}
     </span>
@@ -241,7 +241,7 @@ function StatusBadge({ status }) {
 function Card({ children, className = '' }) {
   return (
     <div className={cx(
-      'rounded-[24px] border border-white/[0.08] bg-[#0a1220]/90 shadow-[0_18px_50px_rgba(0,0,0,0.18)]',
+      'rounded-[var(--bf-dev-card-radius)] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] text-[var(--bf-dev-text)] shadow-[var(--bf-dev-shadow)]',
       className
     )}>
       {children}
@@ -253,10 +253,10 @@ function SectionTitle({ eyebrow, title, description, action }) {
   return (
     <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
       <div>
-        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-300">{eyebrow}</p>
-        <h2 className="mt-2 text-2xl font-black tracking-tight text-white sm:text-3xl">{title}</h2>
+        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--bf-dev-primary)]">{eyebrow}</p>
+        <h2 className="mt-2 text-2xl font-black tracking-tight text-[var(--bf-dev-text)] sm:text-3xl">{title}</h2>
         {description ? (
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">{description}</p>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--bf-dev-text-2)]">{description}</p>
         ) : null}
       </div>
       {action}
@@ -264,24 +264,17 @@ function SectionTitle({ eyebrow, title, description, action }) {
   );
 }
 
-function MetricCard({ label, value, note, icon: Icon, tone = 'cyan' }) {
-  const toneMap = {
-    cyan: 'from-cyan-400/20 to-blue-500/5 text-cyan-300 border-cyan-400/10',
-    green: 'from-emerald-400/20 to-emerald-500/5 text-emerald-300 border-emerald-400/10',
-    violet: 'from-violet-400/20 to-purple-500/5 text-violet-300 border-violet-400/10',
-    amber: 'from-amber-400/20 to-orange-500/5 text-amber-300 border-amber-400/10',
-  };
-
+function MetricCard({ label, value, note, icon: Icon }) {
   return (
-    <Card className={cx('overflow-hidden bg-gradient-to-br p-5', toneMap[tone])}>
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">{label}</p>
-          <p className="mt-3 text-3xl font-black tracking-tight text-white">{value}</p>
-          <p className="mt-1 text-xs text-slate-500">{note}</p>
+    <Card className="min-h-[118px] px-5 py-5 shadow-[0_1px_2px_rgba(0,0,0,.04)]">
+      <div className="flex h-full items-center gap-4">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[5px] bg-[var(--bf-dev-primary)] text-white">
+          <Icon size={19} />
         </div>
-        <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-black/10">
-          <Icon size={20} />
+        <div className="min-w-0 flex-1">
+          <div className="text-[13px] font-medium text-[var(--bf-dev-text)]">{label}</div>
+          <div className="mt-0.5 text-[24px] font-semibold leading-none tracking-[-0.02em] text-[var(--bf-dev-text)]">{value}</div>
+          <div className="mt-2 text-[10px] text-[var(--bf-dev-text-3)]">{note}</div>
         </div>
       </div>
     </Card>
@@ -290,10 +283,10 @@ function MetricCard({ label, value, note, icon: Icon, tone = 'cyan' }) {
 
 function ActionButton({ children, icon: Icon, onClick, variant = 'primary', disabled = false }) {
   const variants = {
-    primary: 'border-cyan-400/20 bg-cyan-400/10 text-cyan-200 hover:bg-cyan-400/15',
-    neutral: 'border-white/10 bg-white/[0.045] text-slate-300 hover:bg-white/[0.08] hover:text-white',
-    danger: 'border-rose-400/20 bg-rose-400/10 text-rose-300 hover:bg-rose-400/15',
-    success: 'border-emerald-400/20 bg-emerald-400/10 text-emerald-300 hover:bg-emerald-400/15',
+    primary: 'border-[var(--bf-dev-primary)] bg-[var(--bf-dev-primary)] text-white hover:bg-[var(--bf-dev-primary-strong)] hover:border-[var(--bf-dev-primary-strong)]',
+    neutral: 'border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] text-[var(--bf-dev-text)] hover:bg-[rgb(var(--bf-dev-primary-rgb)/.08)] hover:text-[var(--bf-dev-text)]',
+    danger: 'border-rose-400/20 bg-rose-400/10 text-[var(--bf-dev-text)] hover:bg-rose-400/15',
+    success: 'border-emerald-400/20 bg-emerald-400/10 text-[var(--bf-dev-text)] hover:bg-emerald-400/15',
   };
 
   return (
@@ -302,7 +295,7 @@ function ActionButton({ children, icon: Icon, onClick, variant = 'primary', disa
       onClick={onClick}
       disabled={disabled}
       className={cx(
-        'inline-flex items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-xs font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/60 disabled:cursor-not-allowed disabled:opacity-40',
+        'inline-flex items-center justify-center gap-2 rounded-[var(--bf-dev-radius)] border px-4 py-2.5 text-xs font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--bf-dev-primary)] disabled:cursor-not-allowed disabled:opacity-40',
         variants[variant]
       )}
     >
@@ -323,6 +316,265 @@ function EmptyState({ icon: Icon, title, text }) {
     </Card>
   );
 }
+
+function Page({
+  children,
+  busy,
+}) {
+  return (
+    <>
+      <style>
+        {`
+          .bf-dev-workspace {
+            min-height: calc(100dvh - var(--bf-header-height, 66px));
+            background: var(--bf-dev-page-bg);
+            color: var(--bf-dev-text);
+            overflow-x: hidden;
+          }
+
+          .bf-dev-workspace > * + * {
+            margin-top: 24px;
+          }
+
+          .bf-dev-workspace > :not(.bf-dev-page-band) {
+            margin-left: 24px;
+            margin-right: 24px;
+          }
+
+          .bf-dev-workspace > .bf-dev-page-band + * {
+            position: relative;
+            z-index: 2;
+            margin-top: -22px;
+          }
+
+          .bf-dev-workspace > :last-child {
+            margin-bottom: 24px;
+          }
+
+          @media (max-width: 767px) {
+            .bf-dev-workspace > :not(.bf-dev-page-band) {
+              margin-left: 14px;
+              margin-right: 14px;
+            }
+
+            .bf-dev-workspace > .bf-dev-page-band + * {
+              margin-top: -14px;
+            }
+
+            .bf-dev-workspace > * + * {
+              margin-top: 16px;
+            }
+          }
+        `}
+      </style>
+
+      <div
+        className="bf-dev-workspace"
+        aria-busy={busy}
+      >
+        {children}
+      </div>
+    </>
+  );
+}
+
+function PageHeader({
+  eyebrow,
+  title,
+  description,
+  actions,
+}) {
+  return (
+    <section
+      className="bf-dev-page-band relative min-h-[104px] overflow-hidden bg-[var(--bf-dev-primary)] px-6 pb-8 pt-6 text-white sm:px-7 lg:px-8"
+    >
+      <div
+        className="relative z-[1] flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between"
+      >
+        <div
+          className="min-w-0"
+        >
+          <h1
+            className="text-[25px] font-semibold tracking-[-0.02em] text-white sm:text-[27px]"
+          >
+            {title}
+          </h1>
+
+          {description && (
+            <p
+              className="mt-1.5 max-w-3xl text-[10px] leading-5 text-white/72"
+            >
+              {description}
+            </p>
+          )}
+        </div>
+
+        <div
+          className="flex shrink-0 flex-col items-start gap-2 lg:items-end"
+        >
+          <div
+            className="text-[10px] font-medium text-white/80"
+          >
+            Developer
+            <span className="mx-2 text-white/35">
+              /
+            </span>
+            <span className="text-white">
+              {eyebrow || title}
+            </span>
+          </div>
+
+          {actions && (
+            <div
+              className="flex flex-wrap items-center gap-2"
+            >
+              {actions}
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Button({
+  children,
+  icon: Icon,
+  variant = 'default',
+  onClick,
+  disabled = false,
+}) {
+  const styles = {
+    default:
+      'border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] text-[var(--bf-dev-text-2)] hover:bg-[var(--bf-dev-surface-2)] hover:text-[var(--bf-dev-text)]',
+    header:
+      'border-[#111827] bg-[#111827] text-white hover:border-[#1F2937] hover:bg-[#1F2937] hover:text-white',
+    pageBand:
+      'border-white/30 bg-white/12 text-white hover:border-white/45 hover:bg-white/20 hover:text-white',
+    primary:
+      'border-[var(--bf-dev-primary)] bg-[var(--bf-dev-primary)] text-white hover:bg-[var(--bf-dev-primary-strong)]',
+    success:
+      'border-emerald-500 bg-emerald-500 text-white hover:bg-emerald-600',
+    danger:
+      'border-rose-500/25 bg-rose-500/10 text-rose-500 hover:bg-rose-500/15',
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={cx(
+        `
+          inline-flex
+          min-h-[32px]
+          items-center
+          justify-center
+          gap-1.5
+          rounded-[4px]
+          border
+          px-3
+          py-1.5
+          text-[10px]
+          font-semibold
+          transition
+          duration-150
+          disabled:cursor-not-allowed
+          disabled:opacity-40
+          focus-visible:outline-none
+          focus-visible:ring-2
+          focus-visible:ring-[rgb(var(--bf-dev-primary-rgb)/.35)]
+        `,
+        styles[variant]
+      )}
+    >
+      {Icon && (
+        <Icon size={13} />
+      )}
+
+      {children}
+    </button>
+  );
+}
+
+function Status({
+  status,
+}) {
+  const styles = {
+    active:
+      'border-emerald-500/20 bg-emerald-500/10 text-emerald-500',
+    success:
+      'border-emerald-500/20 bg-emerald-500/10 text-emerald-500',
+    production:
+      'border-[rgb(var(--bf-dev-primary-rgb)/.20)] bg-[rgb(var(--bf-dev-primary-rgb)/.10)] text-[var(--bf-dev-primary)]',
+    trial:
+      'border-amber-500/20 bg-amber-500/10 text-amber-500',
+    beta:
+      'border-violet-500/20 bg-violet-500/10 text-violet-500',
+    planned:
+      'border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] text-[var(--bf-dev-text-2)]',
+    published:
+      'border-emerald-500/20 bg-emerald-500/10 text-emerald-500',
+    info:
+      'border-[rgb(var(--bf-dev-primary-rgb)/.20)] bg-[rgb(var(--bf-dev-primary-rgb)/.10)] text-[var(--bf-dev-primary)]',
+    warning:
+      'border-amber-500/20 bg-amber-500/10 text-amber-500',
+  };
+
+  return (
+    <span
+      className={cx(
+        `
+          inline-flex
+          items-center
+          rounded-full
+          border
+          px-2
+          py-1
+          text-[8px]
+          font-bold
+          uppercase
+          tracking-[0.08em]
+        `,
+        styles[status] ||
+          'border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] text-[var(--bf-dev-text-2)]'
+      )}
+    >
+      {status}
+    </span>
+  );
+}
+
+function CardHeader({
+  title,
+  subtitle,
+  action,
+}) {
+  return (
+    <div
+      className="flex min-h-[55px] items-center justify-between gap-3 border-b border-[var(--bf-dev-border)] px-5 py-3"
+    >
+      <div>
+        <div
+          className="text-[15px] font-medium text-[var(--bf-dev-text)]"
+        >
+          {title}
+        </div>
+
+        {subtitle && (
+          <div
+            className="mt-0.5 text-[9px] text-[var(--bf-dev-text-3)]"
+          >
+            {subtitle}
+          </div>
+        )}
+      </div>
+
+      {action}
+    </div>
+  );
+}
+
 
 function OverviewSection({ onNavigate }) {
   const [snapshot, setSnapshot] = useState({ loading: true, data: null, error: '' });
@@ -391,66 +643,54 @@ function OverviewSection({ onNavigate }) {
   };
 
   return (
-    <div className="space-y-6" aria-busy={loading}>
-      <SectionTitle
+    <Page busy={loading}>
+      <PageHeader
         eyebrow="Developer Control Center"
-        title="Platform command center"
-        description="One place to operate the Buddy Fleets public website, SaaS platform, companies, internal team, developer tools, security, integrations and system health."
-        action={<ActionButton icon={RefreshCcw} variant="neutral" onClick={refresh} disabled={loading}>Refresh snapshot</ActionButton>}
+        title="Developer Dashboard"
+        description="Platform companies, access, modules, security and operational health."
+        actions={<Button icon={RefreshCcw} variant="header" onClick={refresh} disabled={loading}>Refresh snapshot</Button>}
       />
 
-      {loading || error ? <p role={error ? 'alert' : 'status'} className="text-xs text-slate-400">{error || 'Loading overview…'}</p> : null}
-
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Companies" value={metric(companies?.total)} note={loading ? 'Loading company counts…' : `${count(companies?.active)} active • ${count(companies?.trialActive)} trial • Suspended count unavailable`} icon={Building2} tone="cyan" />
-        <MetricCard label="Platform users" value={metric(data?.metrics?.users?.total)} note="Across customer + internal portals" icon={Users} tone="green" />
-        <MetricCard label="Production modules" value="Unavailable" note="Module counts are not available yet" icon={Boxes} tone="violet" />
-        <MetricCard label="Security status" value={securityStatus} note={loading ? 'Loading security summary…' : `${count(security?.lockedAccounts)} locked accounts • Based on account locks`} icon={ShieldCheck} tone="amber" />
+        <MetricCard label="Companies" value={metric(companies?.total)} note={loading ? 'Loading company counts…' : `${count(companies?.active)} active • ${count(companies?.trialActive)} trial • Suspended count unavailable`} icon={Building2} />
+        <MetricCard label="Platform users" value={metric(data?.metrics?.users?.total)} note="Across customer + internal portals" icon={Users} />
+        <MetricCard label="Production modules" value="Unavailable" note="Module counts are not available yet" icon={Boxes} />
+        <MetricCard label="Security status" value={securityStatus} note={loading ? 'Loading security summary…' : `${count(security?.lockedAccounts)} locked accounts • Based on account locks`} icon={ShieldCheck} />
       </div>
 
-      <div className="grid gap-5 xl:grid-cols-[1.25fr_.75fr]">
-        <Card className="p-5 sm:p-6">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-black text-white">Platform surfaces</p>
-              <p className="mt-1 text-xs text-slate-500">Current product surfaces and architecture status.</p>
-            </div>
-            <StatusBadge status="active" />
-          </div>
+      {loading || error ? <p role={error ? 'alert' : 'status'} className="text-xs text-[var(--bf-dev-text-2)]">{error || 'Loading overview…'}</p> : null}
 
-          <div className="mt-5 grid gap-3 md:grid-cols-2">
+      <div className="grid gap-4 xl:grid-cols-[1.4fr_.6fr]">
+        <Card className="shadow-[0_1px_2px_rgba(0,0,0,.04)]">
+          <CardHeader title="Platform surfaces" subtitle="Current product and portal surfaces" action={<Status status="active" />} />
+
+          <div className="grid gap-3 p-4 md:grid-cols-2">
             {[
               ['Public Website', 'buddyfleets.in', Globe2, 'Published marketing + auth entry'],
               ['Developer CPanel', 'developer.buddyfleets.in', TerminalSquare, 'Super Admin control plane'],
               ['Team Portal', 'team.buddyfleets.in', Users, 'Role-based internal workspace'],
               ['Company Portal', 'portal.buddyfleets.in/{slug}', Building2, 'Tenant-isolated customer workspace'],
             ].map(([title, url, Icon, note]) => (
-              <div key={title} className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4">
+              <div key={title} className="rounded-lg border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] p-4">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-400/10 text-cyan-300">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-[var(--bf-dev-radius)] bg-[rgb(var(--bf-dev-primary-rgb)/.10)] text-[var(--bf-dev-primary)]">
                     <Icon size={18} />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-sm font-bold text-white">{title}</p>
-                    <p className="truncate text-[11px] text-cyan-300">{url}</p>
+                    <p className="text-sm font-bold text-[var(--bf-dev-text)]">{title}</p>
+                    <p className="truncate text-[11px] text-[var(--bf-dev-primary)]">{url}</p>
                   </div>
                 </div>
-                <p className="mt-3 text-xs leading-5 text-slate-500">{note}</p>
+                <p className="mt-3 text-xs leading-5 text-[var(--bf-dev-text-2)]">{note}</p>
               </div>
             ))}
           </div>
         </Card>
 
-        <Card className="p-5 sm:p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-black text-white">Quick controls</p>
-              <p className="mt-1 text-xs text-slate-500">Jump straight to a platform area.</p>
-            </div>
-            <Zap size={18} className="text-amber-300" />
-          </div>
+        <Card className="shadow-[0_1px_2px_rgba(0,0,0,.04)]">
+          <CardHeader title="Quick actions" subtitle="Jump to a management area" action={<Zap size={16} className="text-[var(--bf-dev-primary)]" />} />
 
-          <div className="mt-5 space-y-2">
+          <div className="space-y-2 p-4">
             {[
               ['Website Studio', 'website-studio', PanelsTopLeft],
               ['Create / manage company', 'companies', Building2],
@@ -462,9 +702,9 @@ function OverviewSection({ onNavigate }) {
                 key={target}
                 type="button"
                 onClick={() => onNavigate(target)}
-                className="flex w-full items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.025] px-3.5 py-3 text-left text-xs font-bold text-slate-300 transition hover:border-cyan-400/20 hover:bg-cyan-400/[0.05] hover:text-white"
+                className="flex w-full items-center justify-between rounded-[var(--bf-dev-radius)] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] px-3 py-2.5 text-left text-[11px] font-medium text-[var(--bf-dev-text)] transition hover:border-[var(--bf-dev-primary)] hover:bg-[rgb(var(--bf-dev-primary-rgb)/.08)] hover:text-[var(--bf-dev-text)]"
               >
-                <span className="flex items-center gap-3"><Icon size={15} className="text-cyan-300" />{label}</span>
+                <span className="flex items-center gap-3"><Icon size={15} className="text-[var(--bf-dev-primary)]" />{label}</span>
                 <ChevronRight size={14} />
               </button>
             ))}
@@ -472,41 +712,27 @@ function OverviewSection({ onNavigate }) {
         </Card>
       </div>
 
-      <div className="grid gap-5 xl:grid-cols-2">
-        <Card className="p-5 sm:p-6">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-black text-white">Recent platform activity</p>
-              <p className="mt-1 text-xs text-slate-500">Security and deployment events from the current build cycle.</p>
-            </div>
-            <FileClock size={18} className="text-slate-500" />
-          </div>
-          <div className="mt-4 divide-y divide-white/[0.06]">
-            {!activity.length ? <p className="py-3.5 text-xs text-slate-500">{loading ? 'Loading activity…' : error || !activityAvailable ? 'Activity unavailable.' : 'No recent activity.'}</p> : null}
+      <div className="grid gap-4 xl:grid-cols-2">
+        <Card className="shadow-[0_1px_2px_rgba(0,0,0,.04)]">
+          <CardHeader title="Recent platform activity" subtitle="Security and deployment events from the current build cycle." action={<FileClock size={16} className="text-[var(--bf-dev-text-3)]" />} />
+          <div className="divide-y divide-[var(--bf-dev-border)]">
+            {!activity.length ? <p className="px-4 py-3.5 text-xs text-[var(--bf-dev-text-2)]">{loading ? 'Loading activity…' : error || !activityAvailable ? 'Activity unavailable.' : 'No recent activity.'}</p> : null}
             {activity.map((row) => (
-              <div key={row.key} className="flex gap-3 py-3.5">
-                <div className="mt-1 h-2 w-2 shrink-0 rounded-full bg-cyan-300" />
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-xs font-bold text-slate-200">{row.action}</p>
-                    <span className="text-[10px] text-slate-600">{row.time}</span>
-                  </div>
-                  <p className="mt-1 text-[11px] text-slate-500">{row.actor} • {row.target}</p>
+              <div key={row.key} className="grid gap-3 px-4 py-4 text-[10px] sm:grid-cols-[minmax(0,.8fr)_minmax(0,1fr)_minmax(0,1.2fr)]">
+                <div className="text-[var(--bf-dev-text-3)]">{row.time}</div>
+                <div className="break-words font-semibold text-[var(--bf-dev-text-2)]">{row.actor}</div>
+                <div className="min-w-0 break-words">
+                  <div className="font-semibold text-[var(--bf-dev-text)]">{row.action}</div>
+                  <div className="mt-1 text-[var(--bf-dev-text-3)]">{row.target}</div>
                 </div>
               </div>
             ))}
           </div>
         </Card>
 
-        <Card className="p-5 sm:p-6">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-black text-white">Architecture foundation</p>
-              <p className="mt-1 text-xs text-slate-500">Locked project requirements carried into the CPanel.</p>
-            </div>
-            <LockKeyhole size={18} className="text-emerald-300" />
-          </div>
-          <div className="mt-4 grid gap-2 sm:grid-cols-2">
+        <Card className="shadow-[0_1px_2px_rgba(0,0,0,.04)]">
+          <CardHeader title="Architecture foundation" subtitle="Locked project requirements carried into the CPanel." action={<LockKeyhole size={16} className="text-[var(--bf-dev-primary)]" />} />
+          <div className="grid gap-2 p-4 sm:grid-cols-2">
             {[
               'Central secure authentication',
               'Database-level tenant isolation',
@@ -519,15 +745,15 @@ function OverviewSection({ onNavigate }) {
               'Secure support impersonation design',
               'Environment / migration readiness',
             ].map((item) => (
-              <div key={item} className="flex items-start gap-2 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 text-xs leading-5 text-slate-400">
-                <Check size={14} className="mt-0.5 shrink-0 text-emerald-300" />
+              <div key={item} className="flex items-start gap-2 rounded-[var(--bf-dev-radius)] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] p-3 text-xs leading-5 text-[var(--bf-dev-text-2)]">
+                <Check size={14} className="mt-0.5 shrink-0 text-[var(--bf-dev-text)]" />
                 {item}
               </div>
             ))}
           </div>
         </Card>
       </div>
-    </div>
+    </Page>
   );
 }
 
@@ -1065,16 +1291,6 @@ export default function DeveloperDashboard() {
   };
 
   return (
-    <div className="relative bg-[#050914] font-sans text-white">
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute left-[-14%] top-[-18%] h-[520px] w-[520px] rounded-full bg-cyan-500/[0.07] blur-[120px]" />
-        <div className="absolute right-[-16%] top-[22%] h-[560px] w-[560px] rounded-full bg-violet-500/[0.06] blur-[140px]" />
-      </div>
-      <div className="relative px-4 py-6 sm:px-6 sm:py-7 xl:px-8 xl:py-8">
-        <div className="mx-auto max-w-[1600px]">
-          <SectionRenderer activeSection="overview" onNavigate={navigateToSection} />
-        </div>
-      </div>
-    </div>
+    <SectionRenderer activeSection="overview" onNavigate={navigateToSection} />
   );
 }

@@ -1584,30 +1584,6 @@ function GlobalStyle() {
           word-break: break-word;
         }
 
-        /*
-          Targeted fix only:
-          Keep the Refresh Snapshot action readable in both Light and Dark themes.
-          The button lives inside the routed workspace, so we target its Lucide
-          refresh icon from this shared layout stylesheet without changing any
-          other workspace code or theme behavior.
-        */
-        .bf-dev-shell button:has(svg.lucide-refresh-cw) {
-          border-color: #111827 !important;
-          background: #111827 !important;
-          color: #FFFFFF !important;
-        }
-
-        .bf-dev-shell button:has(svg.lucide-refresh-cw):hover {
-          border-color: #1F2937 !important;
-          background: #1F2937 !important;
-          color: #FFFFFF !important;
-        }
-
-        .bf-dev-shell button:has(svg.lucide-refresh-cw) svg {
-          color: #FFFFFF !important;
-          stroke: currentColor !important;
-        }
-
         .bf-dev-scroll {
           scrollbar-width: thin;
           scrollbar-color:
