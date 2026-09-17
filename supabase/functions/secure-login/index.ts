@@ -425,11 +425,25 @@ function createRandomCode(
 }
 
 
-async function getEncryptionKey() {
+let encryptionKeyPromise:
+  Promise<CryptoKey> |
+  null =
+  null;
+
+
+function getEncryptionKey() {
+  if (
+    encryptionKeyPromise
+  ) {
+    return encryptionKeyPromise;
+  }
+
+
   const rawKey =
     base64ToBytes(
       AUTH_FLOW_ENCRYPTION_KEY!
     );
+
 
   if (
     rawKey.length !== 32
@@ -439,18 +453,23 @@ async function getEncryptionKey() {
     );
   }
 
-  return await crypto.subtle.importKey(
-    'raw',
-    rawKey,
-    {
-      name:
-        'AES-GCM',
-    },
-    false,
-    [
-      'encrypt',
-    ]
-  );
+
+  encryptionKeyPromise =
+    crypto.subtle.importKey(
+      'raw',
+      rawKey,
+      {
+        name:
+          'AES-GCM',
+      },
+      false,
+      [
+        'encrypt',
+      ]
+    );
+
+
+  return encryptionKeyPromise;
 }
 
 
@@ -2092,21 +2111,48 @@ Deno.serve(
 
     /* ========================================================
        LOCK CHECK
+
+       Common-path optimization:
+       - Ensure the security row exists.
+       - Read the current lock state in parallel.
+
+       If the row does not exist yet, the read may return null while
+       the parallel upsert creates the default unlocked row. That is
+       safe for a brand-new security record. A fresh authoritative
+       second lock check still runs after password verification.
     ======================================================== */
+
+    let preAuthSecurity:
+      Awaited<
+        ReturnType<
+          typeof getUserSecurity
+        >
+      > |
+      null =
+      null;
+
 
     if (
       resolvedUserId
     ) {
       try {
-        await ensureUserSecurityRow(
-          resolvedUserId
-        );
+        const [
+          ,
+          security,
+        ] =
+          await Promise.all([
+            ensureUserSecurityRow(
+              resolvedUserId
+            ),
+
+            getUserSecurity(
+              resolvedUserId
+            ),
+          ]);
 
 
-        const security =
-          await getUserSecurity(
-            resolvedUserId
-          );
+        preAuthSecurity =
+          security;
 
 
         if (
@@ -2329,15 +2375,35 @@ Deno.serve(
 
 
     try {
-      await ensureUserSecurityRow(
+      /*
+        When the pre-auth resolver matched the authenticated user,
+        the security row was already ensured before password auth.
+        We still perform a NEW database read here so account locks
+        or MFA changes made during authentication are respected.
+
+        If pre-auth resolution did not produce this user, retain the
+        original ensure-before-read behavior.
+      */
+
+      if (
+        resolvedUserId ===
         authUser.id
-      );
-
-
-      postAuthSecurity =
-        await getUserSecurity(
+      ) {
+        postAuthSecurity =
+          await getUserSecurity(
+            authUser.id
+          );
+      } else {
+        await ensureUserSecurityRow(
           authUser.id
         );
+
+
+        postAuthSecurity =
+          await getUserSecurity(
+            authUser.id
+          );
+      }
 
 
       if (
@@ -2724,9 +2790,48 @@ Deno.serve(
       !mfaEnabled
     ) {
       try {
-        await expirePreviousFlows(
-          authUser.id
-        );
+        /*
+          Old temporary-flow expiration and creation of the new
+          authoritative Buddy Fleets security session are independent.
+          Run them together to avoid an unnecessary sequential DB hop.
+        */
+
+        const [
+          ,
+          securitySessionResult,
+        ] =
+          await Promise.all([
+            expirePreviousFlows(
+              authUser.id
+            ),
+
+            adminClient
+              .rpc(
+                'bf_start_security_session',
+                {
+                  p_user_id:
+                    authUser.id,
+
+                  p_auth_session_id:
+                    authSessionId,
+
+                  p_portal_type:
+                    portal.portalType,
+
+                  p_company_id:
+                    portal.companyId,
+
+                  p_device_id_hash:
+                    deviceIdHash,
+
+                  p_ip_address:
+                    ipAddress,
+
+                  p_user_agent:
+                    userAgent,
+                }
+              ),
+          ]);
 
 
         const {
@@ -2735,32 +2840,7 @@ Deno.serve(
           error:
             securitySessionError,
         } =
-          await adminClient
-            .rpc(
-              'bf_start_security_session',
-              {
-                p_user_id:
-                  authUser.id,
-
-                p_auth_session_id:
-                  authSessionId,
-
-                p_portal_type:
-                  portal.portalType,
-
-                p_company_id:
-                  portal.companyId,
-
-                p_device_id_hash:
-                  deviceIdHash,
-
-                p_ip_address:
-                  ipAddress,
-
-                p_user_agent:
-                  userAgent,
-              }
-            );
+          securitySessionResult;
 
 
         if (
@@ -3076,20 +3156,23 @@ Deno.serve(
        NEVER returned to browser.
     ======================================================== */
 
-    const encryptedAccess =
-      await encryptSecret(
-        authSession
-          .access_token,
-        encryptionKey
-      );
+    const [
+      encryptedAccess,
+      encryptedRefresh,
+    ] =
+      await Promise.all([
+        encryptSecret(
+          authSession
+            .access_token,
+          encryptionKey
+        ),
 
-
-    const encryptedRefresh =
-      await encryptSecret(
-        authSession
-          .refresh_token,
-        encryptionKey
-      );
+        encryptSecret(
+          authSession
+            .refresh_token,
+          encryptionKey
+        ),
+      ]);
 
 
     /* ========================================================
