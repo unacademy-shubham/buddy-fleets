@@ -78,6 +78,10 @@ const DeveloperPageBuilder = lazy(() =>
   import('./pages/Developer/Website/PageBuilder')
 );
 
+const DeveloperWebsitePreview = lazy(() =>
+  import('./pages/Developer/Website/WebsitePreview')
+);
+
 const DeveloperContentSeo = lazy(() =>
   import('./pages/Developer/ContentSeo')
 );
@@ -2105,6 +2109,15 @@ function PortalRoutes({
               replace
               to="/dashboard"
             />
+          }
+        />
+
+        <Route
+          path="website-preview/:pageId"
+          element={
+            <LazyPage>
+              <DeveloperWebsitePreview />
+            </LazyPage>
           }
         />
 

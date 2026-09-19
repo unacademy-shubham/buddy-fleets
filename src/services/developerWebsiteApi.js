@@ -53,3 +53,11 @@ export function saveWebsitePageDraft({ pageId, revision, content }) {
     '/api/developer/website/draft'
   );
 }
+
+export function migrateExistingWebsitePage(pageId) {
+  return request(
+    'POST',
+    { pageId },
+    '/api/developer/website/migrate-existing'
+  );
+}

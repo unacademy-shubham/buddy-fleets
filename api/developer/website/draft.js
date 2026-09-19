@@ -9,33 +9,30 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const isObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 const positiveInteger = (value) => Number.isInteger(value) && value > 0 && value <= 2147483647;
-const plainText = (value) =>
-  typeof value === 'string' &&
-  value.length <= 20000 &&
-  !/<\/?[a-z!][^>]*>/i.test(value);
+const plainText = (value) => typeof value === 'string' && value.length <= 20000 && !/<\/?[a-z!][^>]*>/i.test(value);
 
 const fields = {
-  hero: ['eyebrow', 'heading', 'subheading', 'description', 'primaryCta', 'secondaryCta', 'imageUrl', 'imageAlt'],
+  hero: ['eyebrow', 'heading', 'subheading', 'description', 'primaryCta', 'secondaryCta', 'imageUrl', 'imageAlt', 'trustItems'],
   'rich-text': ['eyebrow', 'heading', 'body'],
   'feature-grid': ['eyebrow', 'heading', 'description', 'items'],
   'image-text': ['eyebrow', 'heading', 'description', 'imageUrl', 'imageAlt', 'imagePosition'],
-  highlights: ['items'],
+  highlights: ['eyebrow', 'heading', 'description', 'items'],
   stats: ['eyebrow', 'heading', 'items'],
-  workflow: ['eyebrow', 'heading', 'items'],
+  workflow: ['eyebrow', 'heading', 'description', 'items'],
   benefits: ['eyebrow', 'heading', 'description', 'items'],
   pricing: ['eyebrow', 'heading', 'description', 'items'],
   faq: ['eyebrow', 'heading', 'items'],
   cta: ['eyebrow', 'heading', 'description', 'primaryCta', 'secondaryCta'],
-  contact: ['eyebrow', 'heading', 'description'],
+  contact: ['eyebrow', 'heading', 'description', 'formTitle', 'formDescription'],
 };
 
 const itemFields = {
-  'feature-grid': ['id', 'title', 'description', 'icon'],
-  highlights: ['id', 'title', 'description', 'icon'],
+  'feature-grid': ['id', 'number', 'title', 'description', 'icon', 'category', 'accent', 'imageUrl', 'imageAlt'],
+  highlights: ['id', 'number', 'title', 'description', 'icon'],
   stats: ['id', 'value', 'label'],
-  workflow: ['id', 'title', 'description', 'icon'],
-  benefits: ['id', 'title', 'description', 'icon'],
-  pricing: ['id', 'name', 'priceLabel', 'description', 'features'],
+  workflow: ['id', 'step', 'title', 'description', 'icon'],
+  benefits: ['id', 'number', 'title', 'description', 'icon'],
+  pricing: ['id', 'name', 'tagline', 'fleet', 'users', 'sites', 'badge', 'price1', 'price3', 'price6', 'price12', 'features'],
   faq: ['id', 'question', 'answer'],
 };
 
@@ -45,87 +42,60 @@ function safeTree(value, depth = 0) {
   if (value === null || typeof value === 'string' || typeof value === 'boolean') return true;
   if (typeof value !== 'object') return false;
 
-  return Object.entries(value).every(
-    ([key, child]) =>
-      !['__proto__', 'constructor', 'prototype'].includes(key) &&
-      safeTree(child, depth + 1)
-  );
+  return Object.entries(value).every(([key, child]) =>
+    !['__proto__', 'constructor', 'prototype'].includes(key) && safeTree(child, depth + 1));
 }
 
 function safeUrl(value, image = false) {
-  if (
-    !plainText(value) ||
-    /[\\\s]/.test(value) ||
-    (typeof value === 'string' && [...value].some((char) => char.charCodeAt(0) < 32))
-  ) {
-    return false;
-  }
+  if (!plainText(value)) return false;
+  if (!value) return true;
+  if (/\s/.test(value) || [...value].some((char) => char.charCodeAt(0) < 32)) return false;
 
-  if (
-    !value ||
-    (value.startsWith('/') && !value.startsWith('//')) ||
-    (!image && value.startsWith('#'))
-  ) {
-    return true;
-  }
+  if (value.startsWith('/') && !value.startsWith('//')) return true;
+  if (!image && value.startsWith('#')) return true;
 
   try {
     const url = new URL(value);
-    return (image
-      ? ['https:', 'http:']
-      : ['https:', 'http:', 'mailto:', 'tel:']
-    ).includes(url.protocol);
+    return (image ? ['https:', 'http:'] : ['https:', 'http:', 'mailto:', 'tel:']).includes(url.protocol);
   } catch {
     return false;
   }
+}
+
+function validLineList(value, max = 100) {
+  return Array.isArray(value) && value.length <= max && value.every(plainText);
 }
 
 function validData(type, data) {
   if (!isObject(data)) return false;
 
   return Object.entries(data).every(([key, value]) => {
-    if (!fields[type].includes(key)) return false;
+    if (!fields[type]?.includes(key)) return false;
 
     if (key === 'items') {
       if (!Array.isArray(value) || value.length > 100) return false;
-
       const ids = new Set();
 
-      return value.every((item) => {
-        if (
-          !isObject(item) ||
-          !plainText(item.id) ||
-          !item.id.trim() ||
-          ids.has(item.id)
-        ) {
-          return false;
-        }
+      return value.every((entry) => {
+        if (!isObject(entry) || !plainText(entry.id) || !entry.id.trim() || ids.has(entry.id)) return false;
+        ids.add(entry.id);
 
-        ids.add(item.id);
-
-        return Object.entries(item).every(([field, entry]) => {
+        return Object.entries(entry).every(([field, fieldValue]) => {
           if (!itemFields[type]?.includes(field)) return false;
-
-          if (field === 'features') {
-            return (
-              Array.isArray(entry) &&
-              entry.length <= 100 &&
-              entry.every(plainText)
-            );
-          }
-
-          return plainText(entry);
+          if (field === 'features') return validLineList(fieldValue);
+          if (field === 'imageUrl') return safeUrl(fieldValue, true);
+          return plainText(fieldValue);
         });
       });
     }
 
+    if (key === 'trustItems') return validLineList(value, 30);
+
     if (key === 'primaryCta' || key === 'secondaryCta') {
-      return (
-        isObject(value) &&
+      return isObject(value) &&
         Object.keys(value).every((field) => ['label', 'href'].includes(field)) &&
-        plainText(value.label) &&
-        safeUrl(value.href)
-      );
+        plainText(value.label || '') &&
+        safeUrl(value.href || '');
     }
 
     if (key === 'imageUrl') return safeUrl(value, true);
@@ -160,13 +130,8 @@ function validContent(content) {
       !Object.hasOwn(fields, section.type) ||
       typeof section.enabled !== 'boolean' ||
       !Number.isSafeInteger(section.order) ||
-      !(
-        section.variant === null ||
-        (plainText(section.variant) && section.variant.length <= 100)
-      ) ||
-      Object.keys(section).some(
-        (key) => !['id', 'type', 'enabled', 'order', 'variant', 'data'].includes(key)
-      )
+      !(section.variant === null || (plainText(section.variant) && section.variant.length <= 100)) ||
+      Object.keys(section).some((key) => !['id', 'type', 'enabled', 'order', 'variant', 'data'].includes(key))
     ) {
       return false;
     }
@@ -177,33 +142,19 @@ function validContent(content) {
 }
 
 function failure(res, error, saving) {
-  const known = [
-    'PAGE_NOT_FOUND',
-    'DRAFT_CONFLICT',
-    'DRAFT_NOT_INITIALIZED',
-    'DRAFT_NOT_FOUND',
-  ];
+  const known = ['PAGE_NOT_FOUND', 'DRAFT_CONFLICT', 'DRAFT_NOT_INITIALIZED', 'DRAFT_NOT_FOUND'];
+  const message = String(error?.message || '');
+  const code = known.find((candidate) => error?.code === candidate || message.includes(candidate));
 
-  const code = known.find(
-    (candidate) =>
-      error?.code === candidate ||
-      new RegExp(`\\b${candidate}\\b`).test(String(error?.message || ''))
-  );
-
-  if (code === 'PAGE_NOT_FOUND') {
-    return res.status(404).json({ ok: false, code });
-  }
-
-  if (saving && code) {
-    return res.status(409).json({ ok: false, code });
-  }
+  if (code === 'PAGE_NOT_FOUND') return res.status(404).json({ ok: false, code });
+  if (saving && code) return res.status(409).json({ ok: false, code });
 
   if (
     saving &&
     (
       ['22023', '23514'].includes(error?.code) ||
       /^INVALID_[A-Z_]+$/.test(String(error?.code || '')) ||
-      /\bINVALID_[A-Z_]+\b/.test(String(error?.message || ''))
+      /\bINVALID_[A-Z_]+\b/.test(message)
     )
   ) {
     return res.status(400).json({ ok: false, code: 'INVALID_DRAFT' });
@@ -230,27 +181,23 @@ export default async function handler(req, res) {
 
     if (!auth.ok) {
       if (auth.clearCookie) clearDeveloperSessionCookie(res);
-      return res
-        .status(auth.status || 401)
-        .json({ ok: false, code: auth.code || 'UNAUTHORIZED' });
+      return res.status(auth.status || 401).json({
+        ok: false,
+        code: auth.code || 'UNAUTHORIZED',
+      });
     }
 
     let body;
 
     if (saving) {
-      if (
-        String(req.headers['content-type'] || '')
-          .split(';')[0]
-          .trim()
-          .toLowerCase() !== 'application/json'
-      ) {
+      if (String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase() !== 'application/json') {
         return res.status(415).json({ ok: false, code: 'JSON_REQUIRED' });
       }
 
       try {
         const raw = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
 
-        if (!raw || new TextEncoder().encode(raw).length > MAX_BYTES) {
+        if (!raw || Buffer.byteLength(raw, 'utf8') > MAX_BYTES) {
           return res.status(400).json({ ok: false, code: 'INVALID_DRAFT_SIZE' });
         }
 
@@ -266,10 +213,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ ok: false, code: 'INVALID_PAGE_ID' });
     }
 
-    if (
-      saving &&
-      (!safeTree(body) || !positiveInteger(body.revision) || !validContent(body.content))
-    ) {
+    if (saving && (!safeTree(body) || !positiveInteger(body.revision) || !validContent(body.content))) {
       return res.status(400).json({ ok: false, code: 'INVALID_DRAFT' });
     }
 
@@ -307,7 +251,8 @@ export default async function handler(req, res) {
     }
 
     return res.status(200).json({ ok: true, draft });
-  } catch {
+  } catch (error) {
+    console.error('Developer website draft API failed:', error?.message);
     return failure(res, null, saving);
   }
 }

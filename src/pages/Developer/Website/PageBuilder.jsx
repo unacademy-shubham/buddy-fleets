@@ -1,5 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { getWebsitePages, createWebsitePage, getWebsitePageDraft, saveWebsitePageDraft } from '../../../services/developerWebsiteApi';
+import {
+  getWebsitePages,
+  createWebsitePage,
+  getWebsitePageDraft,
+  saveWebsitePageDraft,
+  migrateExistingWebsitePage,
+} from '../../../services/developerWebsiteApi';
 
 import {
   AppWindow,
@@ -25,6 +31,9 @@ import {
   ChevronRight,
   FileText,
   Gauge,
+  Landmark,
+  Route,
+  AlertTriangle,
   MonitorCog,
   PencilRuler,
   Plus,
@@ -40,38 +49,89 @@ import {
 } from '../shared/DeveloperPageUI';
 
 const ICONS = {
-  truck: Truck, users: Users, 'shield-check': ShieldCheck, wrench: Wrench,
-  'file-text': FileText, 'badge-check': BadgeCheck, 'wallet-cards': WalletCards,
-  'clipboard-check': ClipboardCheck, 'package-check': PackageCheck,
-  'receipt-text': ReceiptText, fuel: Fuel, bell: Bell, 'check-circle': CheckCircle2,
+  truck: Truck,
+  users: Users,
+  'shield-check': ShieldCheck,
+  wrench: Wrench,
+  'file-text': FileText,
+  'badge-check': BadgeCheck,
+  'wallet-cards': WalletCards,
+  'clipboard-check': ClipboardCheck,
+  'package-check': PackageCheck,
+  'receipt-text': ReceiptText,
+  fuel: Fuel,
+  bell: Bell,
+  'check-circle': CheckCircle2,
+  gauge: Gauge,
+  landmark: Landmark,
+  route: Route,
+  'alert-triangle': AlertTriangle,
+  'message-circle': MessageCircle,
 };
+
 const CATALOG = [
-  ['hero', 'Hero', AppWindow], ['rich-text', 'Rich Text', FileText],
-  ['feature-grid', 'Feature Grid', Blocks], ['image-text', 'Image + Text', Image],
-  ['highlights', 'Highlights', BadgeCheck], ['stats', 'Stats', Gauge],
-  ['workflow', 'Workflow', ClipboardCheck], ['benefits', 'Benefits', ShieldCheck],
-  ['pricing', 'Pricing', ReceiptText], ['faq', 'FAQ', MessageCircle],
-  ['cta', 'CTA', Rocket], ['contact', 'Contact', Users],
+  ['hero', 'Hero', AppWindow],
+  ['rich-text', 'Rich Text', FileText],
+  ['feature-grid', 'Feature Grid', Blocks],
+  ['image-text', 'Image + Text', Image],
+  ['highlights', 'Highlights', BadgeCheck],
+  ['stats', 'Stats', Gauge],
+  ['workflow', 'Workflow', ClipboardCheck],
+  ['benefits', 'Benefits', ShieldCheck],
+  ['pricing', 'Pricing', ReceiptText],
+  ['faq', 'FAQ', MessageCircle],
+  ['cta', 'CTA', Rocket],
+  ['contact', 'Contact', Users],
 ];
+
 const DATA_FIELDS = {
-  hero: ['eyebrow', 'heading', 'subheading', 'description', 'primaryCta', 'secondaryCta', 'imageUrl', 'imageAlt'],
+  hero: ['eyebrow', 'heading', 'subheading', 'description', 'primaryCta', 'secondaryCta', 'imageUrl', 'imageAlt', 'trustItems'],
   'rich-text': ['eyebrow', 'heading', 'body'],
   'feature-grid': ['eyebrow', 'heading', 'description', 'items'],
   'image-text': ['eyebrow', 'heading', 'description', 'imageUrl', 'imageAlt', 'imagePosition'],
-  highlights: ['items'], stats: ['eyebrow', 'heading', 'items'],
-  workflow: ['eyebrow', 'heading', 'items'], benefits: ['eyebrow', 'heading', 'description', 'items'],
-  pricing: ['eyebrow', 'heading', 'description', 'items'], faq: ['eyebrow', 'heading', 'items'],
+  highlights: ['eyebrow', 'heading', 'description', 'items'],
+  stats: ['eyebrow', 'heading', 'items'],
+  workflow: ['eyebrow', 'heading', 'description', 'items'],
+  benefits: ['eyebrow', 'heading', 'description', 'items'],
+  pricing: ['eyebrow', 'heading', 'description', 'items'],
+  faq: ['eyebrow', 'heading', 'items'],
   cta: ['eyebrow', 'heading', 'description', 'primaryCta', 'secondaryCta'],
-  contact: ['eyebrow', 'heading', 'description'],
+  contact: ['eyebrow', 'heading', 'description', 'formTitle', 'formDescription'],
 };
+
 const ITEM_FIELDS = {
-  'feature-grid': ['title', 'description', 'icon'], highlights: ['title', 'description', 'icon'],
-  workflow: ['title', 'description', 'icon'], benefits: ['title', 'description', 'icon'],
-  stats: ['value', 'label'], pricing: ['name', 'priceLabel', 'description', 'features'], faq: ['question', 'answer'],
+  'feature-grid': ['number', 'title', 'description', 'icon', 'category', 'accent', 'imageUrl', 'imageAlt'],
+  highlights: ['number', 'title', 'description', 'icon'],
+  stats: ['value', 'label'],
+  workflow: ['step', 'title', 'description', 'icon'],
+  benefits: ['number', 'title', 'description', 'icon'],
+  pricing: ['name', 'tagline', 'fleet', 'users', 'sites', 'badge', 'price1', 'price3', 'price6', 'price12', 'features'],
+  faq: ['question', 'answer'],
 };
-const LABELS = { primaryCta: 'Primary action', secondaryCta: 'Secondary action', href: 'Link URL',
-  imageUrl: 'Image URL', imageAlt: 'Image description', imagePosition: 'Image position', priceLabel: 'Price label',
-  body: 'Body text', features: 'Features (one per line)' };
+
+const LABELS = {
+  primaryCta: 'Primary action',
+  secondaryCta: 'Secondary action',
+  href: 'Link URL',
+  imageUrl: 'Image URL',
+  imageAlt: 'Image description',
+  imagePosition: 'Image position',
+  priceLabel: 'Price label',
+  body: 'Body text',
+  features: 'Features (one per line)',
+  trustItems: 'Trust items (one per line)',
+  formTitle: 'Form title',
+  formDescription: 'Form description',
+  price1: '1 month price',
+  price3: '3 months price',
+  price6: '6 months price',
+  price12: '12 months price',
+  category: 'Category',
+  accent: 'Accent',
+  number: 'Number / label',
+  step: 'Step',
+};
+
 const inputStyle = 'mt-1.5 w-full rounded border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] px-3 py-2 text-[11px] text-[var(--bf-dev-text)] outline-none focus:border-[var(--bf-dev-primary)]';
 let localId = 0;
 function newId() {
@@ -79,14 +139,33 @@ function newId() {
 }
 function defaultData(type) {
   return Object.fromEntries(DATA_FIELDS[type].map((key) => [key,
-    key === 'items' ? [] : key.endsWith('Cta') ? { label: '', href: '' } : key === 'imagePosition' ? 'right' : '',
+    key === 'items' || key === 'trustItems'
+      ? []
+      : key.endsWith('Cta')
+        ? { label: '', href: '' }
+        : key === 'imagePosition'
+          ? 'right'
+          : '',
   ]));
 }
+
 function newItem(type) {
-  return { id: newId(), ...Object.fromEntries(ITEM_FIELDS[type].map((key) => [key,
-    key === 'features' ? [] : key === 'icon' ? (type === 'feature-grid' ? 'truck' : type === 'workflow' ? 'check-circle' : 'badge-check') : '',
-  ])) };
+  const fields = ITEM_FIELDS[type] || [];
+
+  return {
+    id: newId(),
+    ...Object.fromEntries(fields.map((key) => [key,
+      key === 'features'
+        ? []
+        : key === 'icon'
+          ? (type === 'feature-grid' ? 'truck' : type === 'workflow' ? 'check-circle' : 'badge-check')
+          : key === 'accent'
+            ? 'cyan'
+            : '',
+    ])),
+  };
 }
+
 function moveEntry(items, index, delta) {
   const next = [...items];
   const target = index + delta;
@@ -113,14 +192,32 @@ function EditorDialog({ title, onClose, children }) {
 }
 function EditorField({ name, value, onChange }) {
   const label = LABELS[name] || name.charAt(0).toUpperCase() + name.slice(1);
-  const choices = name === 'icon' ? [...new Set([...Object.keys(ICONS), value].filter(Boolean))] : name === 'imagePosition' ? ['left', 'right'] : null;
+  const choices = name === 'icon'
+    ? [...new Set([...Object.keys(ICONS), value].filter(Boolean))]
+    : name === 'imagePosition'
+      ? ['left', 'right']
+      : name === 'accent'
+        ? ['cyan', 'blue', 'violet', 'emerald']
+        : null;
+
+  const isLineList = ['features', 'trustItems'].includes(name);
+  const isTextarea = ['body', 'description', 'answer', 'formDescription', ...(['features', 'trustItems'])].includes(name);
+
   return <label className="block text-[11px] text-[var(--bf-dev-text-2)]">{label}
-    {choices ? <select className={inputStyle} value={value || choices[0]} onChange={(event) => onChange(event.target.value)}>{choices.map((option) => <option key={option} value={option}>{option}</option>)}</select>
-      : ['body', 'description', 'answer', 'features'].includes(name)
-        ? <textarea className={inputStyle} rows={name === 'body' ? 6 : 3} maxLength={20000} value={name === 'features' ? (value || []).join('\n') : value || ''} onChange={(event) => onChange(name === 'features' ? event.target.value.split('\n') : event.target.value)} />
+    {choices
+      ? <select className={inputStyle} value={value || choices[0]} onChange={(event) => onChange(event.target.value)}>{choices.map((option) => <option key={option} value={option}>{option}</option>)}</select>
+      : isTextarea
+        ? <textarea
+            className={inputStyle}
+            rows={name === 'body' ? 6 : 3}
+            maxLength={20000}
+            value={isLineList ? (value || []).join('\n') : value || ''}
+            onChange={(event) => onChange(isLineList ? event.target.value.split('\n').map((entry) => entry.trim()).filter(Boolean) : event.target.value)}
+          />
         : <input className={inputStyle} maxLength={20000} value={value || ''} onChange={(event) => onChange(event.target.value)} />}
   </label>;
 }
+
 function SectionEditor({ section, onApply, onClose }) {
   const [data, setData] = useState(() => ({ ...defaultData(section.type), ...JSON.parse(JSON.stringify(section.data)) }));
   const [editorError, setEditorError] = useState('');
@@ -218,17 +315,53 @@ export default function PageBuilder() {
     setDraftError('');
 
     let cancelled = false;
-    getWebsitePageDraft(selectedPageId).then((result) => {
+
+    async function loadDraft() {
+      let result = await getWebsitePageDraft(selectedPageId);
+
       if (cancelled) return;
-      if (result.ok && result.draft?.page_id === selectedPageId && Array.isArray(result.draft.content?.sections)) {
+
+      const selectedPage = pages.find((page) => page.id === selectedPageId);
+      const sections = Array.isArray(result.draft?.content?.sections)
+        ? result.draft.content.sections
+        : [];
+
+      if (
+        result.ok &&
+        result.draft?.page_id === selectedPageId &&
+        sections.length === 0 &&
+        selectedPage?.is_system
+      ) {
+        const migration = await migrateExistingWebsitePage(selectedPageId);
+
+        if (cancelled) return;
+
+        if (migration.ok && migration.draft?.page_id === selectedPageId) {
+          result = migration;
+        }
+      }
+
+      if (
+        result.ok &&
+        result.draft?.page_id === selectedPageId &&
+        Array.isArray(result.draft.content?.sections)
+      ) {
         setDraft(result.draft);
-        setPages((current) => current.map((page) => page.id === selectedPageId ? { ...page, current_draft_version_id: result.draft.id } : page));
+        setPages((current) => current.map((page) => page.id === selectedPageId
+          ? { ...page, current_draft_version_id: result.draft.id }
+          : page));
       } else {
         setDraftError('Unable to load draft.');
       }
+
       setDraftLoading(false);
-    });
-    return () => { cancelled = true; };
+    }
+
+    loadDraft();
+
+    return () => {
+      cancelled = true;
+    };
   }, [selectedPageId]);
 
   useEffect(() => {
@@ -282,6 +415,24 @@ export default function PageBuilder() {
       }
     } catch { setDraftError('Unable to save draft.'); }
     finally { savingRef.current = false; setDraftSaving(false); }
+  };
+
+  const openPreview = () => {
+    if (!selectedPageId || !activeDraft) {
+      notify('Select a page before opening preview.');
+      return;
+    }
+
+    if (dirty) {
+      notify('Save the draft before opening Preview.');
+      return;
+    }
+
+    window.open(
+      `/website-preview/${encodeURIComponent(selectedPageId)}`,
+      '_blank',
+      'noopener,noreferrer'
+    );
   };
 
   const createPage = async (event) => {
@@ -343,7 +494,7 @@ export default function PageBuilder() {
             <Button
               variant="pageBand"
               icon={MonitorCog}
-              onClick={() => notify('Preview will be available after the draft renderer is connected.')}
+              onClick={openPreview}
             >
               Preview
             </Button>
