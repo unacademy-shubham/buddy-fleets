@@ -23,7 +23,7 @@ function Card({ children, className = '' }) {
   return <section className={cx('rounded-[5px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] shadow-[0_1px_2px_rgba(0,0,0,.04)]', className)}>{children}</section>;
 }
 
-export default function BackendWorkspacePage({ workspaceKey, title, description }) {
+export default function BackendWorkspacePage({ workspaceKey, title, description, onConfigureItem, customDialog = null }) {
   const defaults = useMemo(() => ({ items: [
     { title: 'Overview', text: description, status: 'active', config: { enabled: true, notes: '' } },
     { title: 'Configuration', text: COMMON_CONFIGURATION_TEXT, status: 'active', config: { enabled: true, notes: '' } },
@@ -69,12 +69,13 @@ export default function BackendWorkspacePage({ workspaceKey, title, description 
               <div className="flex items-start justify-between gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[rgb(var(--bf-dev-primary-rgb)/.10)] text-[var(--bf-dev-primary)]"><Icon size={17} /></div><Status status={item.status} /></div>
               <div className="mt-4 text-[14px] font-bold text-[var(--bf-dev-text)]">{item.title}</div>
               <div className="mt-1.5 text-[12px] leading-5 text-[var(--bf-dev-text-2)]">{item.text}</div>
-              <button type="button" onClick={() => setEditingItem(item)} className="mt-4 inline-flex h-9 items-center rounded-md border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] px-3 text-[12px] font-semibold text-[var(--bf-dev-text-2)] transition hover:bg-[var(--bf-dev-surface-2)] hover:text-[var(--bf-dev-text)]">Configure</button>
+              <button type="button" onClick={() => { const handled = onConfigureItem?.(item) === true; if (!handled) setEditingItem(item); }} className="mt-4 inline-flex h-9 items-center rounded-md border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] px-3 text-[12px] font-semibold text-[var(--bf-dev-text-2)] transition hover:bg-[var(--bf-dev-surface-2)] hover:text-[var(--bf-dev-text)]">Configure</button>
             </Card>;
           })}
         </div>
       </div></div>
       {editingItem && <ControlPlaneConfigDialog item={editingItem} saving={saving} error={error} onClose={() => setEditingItem(null)} onSave={saveItem} />}
+      {customDialog}
     </div>
   );
 }
