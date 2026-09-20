@@ -1,0 +1,187 @@
+[
+  {
+    "file": "src/pages/Developer/Companies/CompaniesPage.jsx",
+    "workspaceKey": "leaf:companies:companies",
+    "title": "Company Management"
+  },
+  {
+    "file": "src/pages/Developer/Companies/CompanyOverridesPage.jsx",
+    "workspaceKey": "leaf:companies:companyoverrides",
+    "title": "Company Overrides"
+  },
+  {
+    "file": "src/pages/Developer/Companies/TrialsRenewalsPage.jsx",
+    "workspaceKey": "leaf:companies:trialsrenewals",
+    "title": "Trials & Renewals"
+  },
+  {
+    "file": "src/pages/Developer/DeveloperStudio/ActionsPage.jsx",
+    "workspaceKey": "leaf:developerstudio:actions",
+    "title": "Workflow Actions"
+  },
+  {
+    "file": "src/pages/Developer/DeveloperStudio/ApprovalsPage.jsx",
+    "workspaceKey": "leaf:developerstudio:approvals",
+    "title": "Workflow Approvals"
+  },
+  {
+    "file": "src/pages/Developer/DeveloperStudio/ConditionsPage.jsx",
+    "workspaceKey": "leaf:developerstudio:conditions",
+    "title": "Workflow Conditions"
+  },
+  {
+    "file": "src/pages/Developer/DeveloperStudio/ModuleBuilderPage.jsx",
+    "workspaceKey": "leaf:developerstudio:modulebuilder",
+    "title": "Module Builder"
+  },
+  {
+    "file": "src/pages/Developer/DeveloperStudio/PermissionsPage.jsx",
+    "workspaceKey": "leaf:developerstudio:permissions",
+    "title": "Module Permissions"
+  },
+  {
+    "file": "src/pages/Developer/DeveloperStudio/PublishRollbackPage.jsx",
+    "workspaceKey": "leaf:developerstudio:publishrollback",
+    "title": "Publish & Rollback"
+  },
+  {
+    "file": "src/pages/Developer/DeveloperStudio/SchemasFieldsPage.jsx",
+    "workspaceKey": "leaf:developerstudio:schemasfields",
+    "title": "Schemas & Fields"
+  },
+  {
+    "file": "src/pages/Developer/DeveloperStudio/TriggersPage.jsx",
+    "workspaceKey": "leaf:developerstudio:triggers",
+    "title": "Workflow Triggers"
+  },
+  {
+    "file": "src/pages/Developer/DeveloperStudio/ViewsFormsPage.jsx",
+    "workspaceKey": "leaf:developerstudio:viewsforms",
+    "title": "Views & Forms"
+  },
+  {
+    "file": "src/pages/Developer/DeveloperStudio/WorkflowBuilderPage.jsx",
+    "workspaceKey": "leaf:developerstudio:workflowbuilder",
+    "title": "Workflow Builder"
+  },
+  {
+    "file": "src/pages/Developer/Entitlements/LimitsAccessPage.jsx",
+    "workspaceKey": "leaf:entitlements:limitsaccess",
+    "title": "Limits & Access"
+  },
+  {
+    "file": "src/pages/Developer/Entitlements/PlansPage.jsx",
+    "workspaceKey": "leaf:entitlements:plans",
+    "title": "Plans"
+  },
+  {
+    "file": "src/pages/Developer/Entitlements/RenewalPolicyPage.jsx",
+    "workspaceKey": "leaf:entitlements:renewalpolicy",
+    "title": "Renewal Policy"
+  },
+  {
+    "file": "src/pages/Developer/Infrastructure/DatabaseApisPage.jsx",
+    "workspaceKey": "leaf:infrastructure:databaseapis",
+    "title": "Database & APIs"
+  },
+  {
+    "file": "src/pages/Developer/Infrastructure/DeploymentsPage.jsx",
+    "workspaceKey": "leaf:infrastructure:deployments",
+    "title": "Deployments"
+  },
+  {
+    "file": "src/pages/Developer/Infrastructure/ServiceHealthPage.jsx",
+    "workspaceKey": "leaf:infrastructure:servicehealth",
+    "title": "Service Health"
+  },
+  {
+    "file": "src/pages/Developer/Integrations/ApiHealthPage.jsx",
+    "workspaceKey": "leaf:integrations:apihealth",
+    "title": "API Health"
+  },
+  {
+    "file": "src/pages/Developer/Integrations/ProvidersPage.jsx",
+    "workspaceKey": "leaf:integrations:providers",
+    "title": "Integration Providers"
+  },
+  {
+    "file": "src/pages/Developer/Integrations/WebhooksPage.jsx",
+    "workspaceKey": "leaf:integrations:webhooks",
+    "title": "Webhooks"
+  },
+  {
+    "file": "src/pages/Developer/Modules/DependenciesPage.jsx",
+    "workspaceKey": "leaf:modules:dependencies",
+    "title": "Module Dependencies"
+  },
+  {
+    "file": "src/pages/Developer/Modules/ModuleRegistryPage.jsx",
+    "workspaceKey": "leaf:modules:moduleregistry",
+    "title": "Module Registry"
+  },
+  {
+    "file": "src/pages/Developer/Modules/RolloutStatePage.jsx",
+    "workspaceKey": "leaf:modules:rolloutstate",
+    "title": "Rollout State"
+  },
+  {
+    "file": "src/pages/Developer/Security/AuthSessionsPage.jsx",
+    "workspaceKey": "leaf:security:authsessions",
+    "title": "Auth & Sessions"
+  },
+  {
+    "file": "src/pages/Developer/Security/MfaLocksPage.jsx",
+    "workspaceKey": "leaf:security:mfalocks",
+    "title": "MFA & Locks"
+  },
+  {
+    "file": "src/pages/Developer/Security/PrivilegedAccessPage.jsx",
+    "workspaceKey": "leaf:security:privilegedaccess",
+    "title": "Privileged Access"
+  },
+  {
+    "file": "src/pages/Developer/Security/SecurityCenterPage.jsx",
+    "workspaceKey": "leaf:security:securitycenter",
+    "title": "Security Center"
+  },
+  {
+    "file": "src/pages/Developer/Security/SecurityEventsPage.jsx",
+    "workspaceKey": "leaf:security:securityevents",
+    "title": "Security Events"
+  },
+  {
+    "file": "src/pages/Developer/System/ApiPolicyPage.jsx",
+    "workspaceKey": "leaf:system:apipolicy",
+    "title": "API Policy"
+  },
+  {
+    "file": "src/pages/Developer/System/NotificationsPage.jsx",
+    "workspaceKey": "leaf:system:notifications",
+    "title": "Notifications"
+  },
+  {
+    "file": "src/pages/Developer/System/PlatformDefaultsPage.jsx",
+    "workspaceKey": "leaf:system:platformdefaults",
+    "title": "Platform Defaults"
+  },
+  {
+    "file": "src/pages/Developer/System/RetentionPrivacyPage.jsx",
+    "workspaceKey": "leaf:system:retentionprivacy",
+    "title": "Retention & Privacy"
+  },
+  {
+    "file": "src/pages/Developer/Team/PortalAccessPage.jsx",
+    "workspaceKey": "leaf:team:portalaccess",
+    "title": "Portal Access"
+  },
+  {
+    "file": "src/pages/Developer/Team/RolesPermissionsPage.jsx",
+    "workspaceKey": "leaf:team:rolespermissions",
+    "title": "Roles & Permissions"
+  },
+  {
+    "file": "src/pages/Developer/Team/TeamMembersPage.jsx",
+    "workspaceKey": "leaf:team:teammembers",
+    "title": "Team Members"
+  }
+]

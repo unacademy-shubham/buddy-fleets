@@ -57,6 +57,9 @@ import {
   useNavigate,
 } from 'react-router-dom';
 
+import useDeveloperControlPlane from './shared/useDeveloperControlPlane';
+import ControlPlaneConfigDialog from './shared/ControlPlaneConfigDialog';
+
 /* ============================================================
    BUDDY FLEETS
    DEVELOPER WORKSPACE — SPLITE-INSPIRED MULTI-THEME CPANEL UI
@@ -434,6 +437,7 @@ function Button({
   icon: Icon,
   variant = 'default',
   onClick,
+  ...buttonProps
 }) {
   const styles = {
     default:
@@ -453,6 +457,7 @@ function Button({
   return (
     <button
       type="button"
+      {...buttonProps}
       onClick={onClick}
       className={cx(
         `
@@ -472,6 +477,8 @@ function Button({
           focus-visible:outline-none
           focus-visible:ring-2
           focus-visible:ring-[rgb(var(--bf-dev-primary-rgb)/.35)]
+          disabled:cursor-not-allowed
+          disabled:opacity-50
         `,
         styles[variant]
       )}
@@ -1278,14 +1285,38 @@ function GenericCardsPage({
   cards,
   action,
 }) {
+  const { pathname } = useLocation();
+  const workspaceKey = `route:${String(pathname || '/').toLowerCase()}`;
+  const defaults = { cardSettings: {} };
+  const { payload, save, saving, error } =
+    useDeveloperControlPlane(workspaceKey, defaults);
+  const [editingCard, setEditingCard] = useState(null);
+
+  const cardSettings =
+    payload?.cardSettings && typeof payload.cardSettings === 'object'
+      ? payload.cardSettings
+      : {};
+
+  async function saveCardConfig(nextItem) {
+    const result = await save({
+      ...payload,
+      cardSettings: {
+        ...cardSettings,
+        [nextItem.title]: {
+          status: nextItem.status,
+          config: nextItem.config || {},
+        },
+      },
+    });
+    if (result.ok) setEditingCard(null);
+  }
+
   return (
     <Page>
       <PageHeader
         eyebrow={eyebrow}
         title={title}
-        description={
-          description
-        }
+        description={description}
         actions={action}
       />
 
@@ -1299,98 +1330,88 @@ function GenericCardsPage({
       >
         {cards.map(
           ({
-            title:
-              cardTitle,
+            title: cardTitle,
             text,
             icon: Icon,
             status,
-          }) => (
-            <Card
-              key={
-                cardTitle
-              }
-              className="
-                p-4
-              "
-            >
-              <div
-                className="
-                  flex
-                  items-start
-                  justify-between
-                  gap-3
-                "
+          }) => {
+            const saved = cardSettings[cardTitle] || {};
+            const displayStatus = saved.status || status;
+
+            return (
+              <Card
+                key={cardTitle}
+                className="p-4"
               >
-                <div
-                  className="
-                    flex
-                    h-10
-                    w-10
-                    items-center
-                    justify-center
-                    rounded-lg
-                    bg-[rgb(var(--bf-dev-primary-rgb)/.10)]
-                    text-[var(--bf-dev-primary)]
-                  "
-                >
-                  <Icon
-                    size={17}
-                  />
+                <div className="flex items-start justify-between gap-3">
+                  <div
+                    className="
+                      flex
+                      h-10
+                      w-10
+                      items-center
+                      justify-center
+                      rounded-lg
+                      bg-[rgb(var(--bf-dev-primary-rgb)/.10)]
+                      text-[var(--bf-dev-primary)]
+                    "
+                  >
+                    <Icon size={17} />
+                  </div>
+
+                  {displayStatus && (
+                    <Status status={displayStatus} />
+                  )}
                 </div>
 
-                {status && (
-                  <Status
-                    status={
-                      status
+                <div className="mt-4 text-[12px] font-bold text-[var(--bf-dev-text)]">
+                  {cardTitle}
+                </div>
+
+                <div className="mt-1.5 text-[10px] leading-5 text-[var(--bf-dev-text-2)]">
+                  {text}
+                </div>
+
+                <div className="mt-4">
+                  <Button
+                    icon={SlidersHorizontal}
+                    onClick={() =>
+                      setEditingCard({
+                        title: cardTitle,
+                        status: displayStatus || 'active',
+                        config: saved.config || { enabled: true, notes: '' },
+                      })
                     }
-                  />
-                )}
-              </div>
-
-              <div
-                className="
-                  mt-4
-                  text-[12px]
-                  font-bold
-                  text-[var(--bf-dev-text)]
-                "
-              >
-                {cardTitle}
-              </div>
-
-              <div
-                className="
-                  mt-1.5
-                  text-[10px]
-                  leading-5
-                  text-[var(--bf-dev-text-2)]
-                "
-              >
-                {text}
-              </div>
-
-              <div
-                className="
-                  mt-4
-                "
-              >
-                <Button
-                  icon={
-                    SlidersHorizontal
-                  }
-                >
-                  Configure
-                </Button>
-              </div>
-            </Card>
-          )
+                  >
+                    Configure
+                  </Button>
+                </div>
+              </Card>
+            );
+          }
         )}
       </div>
+
+      {editingCard && (
+        <ControlPlaneConfigDialog
+          item={editingCard}
+          saving={saving}
+          error={error}
+          onClose={() => setEditingCard(null)}
+          onSave={saveCardConfig}
+        />
+      )}
     </Page>
   );
 }
 
 function LiveActivitySection() {
+  const { pathname } = useLocation();
+  const defaults = { rows: AUDIT };
+  const { payload } =
+    useDeveloperControlPlane(`route:${String(pathname || '/').toLowerCase()}`, defaults);
+  const rows = Array.isArray(payload?.rows) ? payload.rows : AUDIT;
+
   return (
     <Page>
       <PageHeader
@@ -1403,96 +1424,28 @@ function LiveActivitySection() {
         <CardHeader
           title="Activity stream"
           action={
-            <div
-              className="
-                flex
-                items-center
-                gap-2
-                text-[9px]
-                font-bold
-                text-emerald-500
-              "
-            >
-              <span
-                className="
-                  h-2
-                  w-2
-                  rounded-full
-                  bg-emerald-500/100
-                "
-              />
+            <div className="flex items-center gap-2 text-[9px] font-bold text-emerald-500">
+              <span className="h-2 w-2 rounded-full bg-emerald-500/100" />
               LIVE
             </div>
           }
         />
 
         <div>
-          {AUDIT.map(
-            (row) => (
-              <div
-                key={`${row.time}-${row.action}`}
-                className="
-                  grid
-                  gap-3
-                  border-t
-                  border-[var(--bf-dev-border)]
-                  px-4
-                  py-4
-                  text-[10px]
-                  sm:grid-cols-[90px_140px_1fr_150px]
-                "
-              >
-                <div
-                  className="
-                    text-[var(--bf-dev-text-3)]
-                  "
-                >
-                  {row.time}
-                </div>
-
-                <div
-                  className="
-                    font-semibold
-                    text-[var(--bf-dev-text-2)]
-                  "
-                >
-                  {row.actor}
-                </div>
-
-                <div>
-                  <div
-                    className="
-                      font-semibold
-                      text-[var(--bf-dev-text)]
-                    "
-                  >
-                    {row.action}
-                  </div>
-
-                  <div
-                    className="
-                      mt-1
-                      text-[var(--bf-dev-text-3)]
-                    "
-                  >
-                    {row.target}
-                  </div>
-                </div>
-
-                <div
-                  className="
-                    sm:text-right
-                  "
-                >
-                  <Status
-                    status={
-                      row.severity
-                    }
-                  />
-                </div>
+          {rows.map((row) => (
+            <div
+              key={`${row.time}-${row.action}`}
+              className="grid gap-3 border-t border-[var(--bf-dev-border)] px-4 py-4 text-[10px] sm:grid-cols-[90px_140px_1fr_150px]"
+            >
+              <div className="text-[var(--bf-dev-text-3)]">{row.time}</div>
+              <div className="font-semibold text-[var(--bf-dev-text-2)]">{row.actor}</div>
+              <div>
+                <div className="font-semibold text-[var(--bf-dev-text)]">{row.action}</div>
+                <div className="mt-1 text-[var(--bf-dev-text-3)]">{row.target}</div>
               </div>
-            )
-          )}
+              <div className="sm:text-right"><Status status={row.severity} /></div>
+            </div>
+          ))}
         </div>
       </Card>
     </Page>
@@ -1500,6 +1453,13 @@ function LiveActivitySection() {
 }
 
 function WebsiteStudioSection() {
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const defaults = { pages: WEBSITE_PAGES };
+  const { payload } =
+    useDeveloperControlPlane(`route:${String(pathname || '/').toLowerCase()}`, defaults);
+  const websitePages = Array.isArray(payload?.pages) ? payload.pages : WEBSITE_PAGES;
+
   return (
     <Page>
       <PageHeader
@@ -1510,9 +1470,8 @@ function WebsiteStudioSection() {
           <>
             <Button
               variant="pageBand"
-              icon={
-                MonitorCog
-              }
+              icon={MonitorCog}
+              onClick={() => navigate('/website/website-studio/page-builder')}
             >
               Preview
             </Button>
@@ -1520,6 +1479,7 @@ function WebsiteStudioSection() {
             <Button
               variant="primary"
               icon={Rocket}
+              onClick={() => navigate('/website/website-studio/release-workflow')}
             >
               Publish changes
             </Button>
@@ -1527,250 +1487,71 @@ function WebsiteStudioSection() {
         }
       />
 
-      <div
-        className="
-          grid
-          gap-4
-          xl:grid-cols-[300px_1fr]
-        "
-      >
+      <div className="grid gap-4 xl:grid-cols-[300px_1fr]">
         <Card>
           <CardHeader
             title="Pages"
             action={
-              <Button
-                icon={Plus}
-              >
+              <Button icon={Plus} onClick={() => navigate('/website/website-studio/page-builder')}>
                 Page
               </Button>
             }
           />
 
-          <div
-            className="
-              space-y-1
-              p-2.5
-            "
-          >
-            {WEBSITE_PAGES.map(
-              (page) => (
-                <div
-                  key={
-                    page.path
-                  }
-                  className="
-                    flex
-                    items-center
-                    justify-between
-                    gap-3
-                    rounded-lg
-                    border
-                    border-[var(--bf-dev-border)]
-                    px-3
-                    py-3
-                  "
-                >
-                  <div>
-                    <div
-                      className="
-                        text-[11px]
-                        font-semibold
-                        text-[var(--bf-dev-text)]
-                      "
-                    >
-                      {page.name}
-                    </div>
-
-                    <div
-                      className="
-                        mt-0.5
-                        text-[9px]
-                        text-[var(--bf-dev-text-3)]
-                      "
-                    >
-                      {page.path}
-                    </div>
-                  </div>
-
-                  <Status
-                    status={
-                      page.status
-                    }
-                  />
+          <div className="space-y-1 p-2.5">
+            {websitePages.map((page) => (
+              <div
+                key={page.path}
+                className="flex items-center justify-between gap-3 rounded-lg border border-[var(--bf-dev-border)] px-3 py-3"
+              >
+                <div>
+                  <div className="text-[11px] font-semibold text-[var(--bf-dev-text)]">{page.name}</div>
+                  <div className="mt-0.5 text-[9px] text-[var(--bf-dev-text-3)]">{page.path}</div>
                 </div>
-              )
-            )}
+                <Status status={page.status} />
+              </div>
+            ))}
           </div>
         </Card>
 
-        <div
-          className="
-            space-y-4
-          "
-        >
+        <div className="space-y-4">
           <Card>
             <CardHeader
               title="Visual content workspace"
               subtitle="Code-backed pages with controlled metadata configuration"
             />
-
-            <div
-              className="
-                grid
-                gap-3
-                p-4
-                md:grid-cols-2
-                xl:grid-cols-3
-              "
-            >
+            <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-3">
               {[
-                [
-                  'Hero',
-                  'Headline, CTA and media',
-                  AppWindow,
-                ],
-                [
-                  'Feature Blocks',
-                  'Cards and product modules',
-                  Blocks,
-                ],
-                [
-                  'Trust & Proof',
-                  'Stats and testimonials',
-                  BadgeCheck,
-                ],
-                [
-                  'Pricing',
-                  'Plans and offers',
-                  Gauge,
-                ],
-                [
-                  'CTA Sections',
-                  'Conversion content',
-                  Rocket,
-                ],
-                [
-                  'Footer & Legal',
-                  'Navigation and policies',
-                  FileText,
-                ],
-              ].map(
-                ([
-                  title,
-                  text,
-                  Icon,
-                ]) => (
-                  <button
-                    key={
-                      title
-                    }
-                    type="button"
-                    className="
-                      rounded-lg
-                      border
-                      border-[var(--bf-dev-border)]
-                      bg-[var(--bf-dev-surface)]
-                      p-4
-                      text-left
-                      hover:bg-[var(--bf-dev-surface-2)]
-                    "
-                  >
-                    <Icon
-                      size={17}
-                      className="
-                        text-[var(--bf-dev-primary)]
-                      "
-                    />
-
-                    <div
-                      className="
-                        mt-3
-                        text-[11px]
-                        font-bold
-                        text-[var(--bf-dev-text)]
-                      "
-                    >
-                      {title}
-                    </div>
-
-                    <div
-                      className="
-                        mt-1
-                        text-[10px]
-                        text-[var(--bf-dev-text-2)]
-                      "
-                    >
-                      {text}
-                    </div>
-                  </button>
-                )
-              )}
+                ['Hero', 'Headline, CTA and media', AppWindow],
+                ['Feature Blocks', 'Cards and product modules', Blocks],
+                ['Trust & Proof', 'Stats and testimonials', BadgeCheck],
+                ['Pricing', 'Plans and offers', Gauge],
+                ['CTA Sections', 'Conversion content', Rocket],
+                ['Footer & Legal', 'Navigation and policies', FileText],
+              ].map(([title, text, Icon]) => (
+                <button
+                  key={title}
+                  type="button"
+                  onClick={() => navigate('/website/website-studio/page-builder')}
+                  className="rounded-lg border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] p-4 text-left hover:bg-[var(--bf-dev-surface-2)]"
+                >
+                  <Icon size={17} className="text-[var(--bf-dev-primary)]" />
+                  <div className="mt-3 text-[11px] font-bold text-[var(--bf-dev-text)]">{title}</div>
+                  <div className="mt-1 text-[10px] text-[var(--bf-dev-text-2)]">{text}</div>
+                </button>
+              ))}
             </div>
           </Card>
 
           <Card>
-            <CardHeader
-              title="Release workflow"
-            />
-
-            <div
-              className="
-                grid
-                gap-3
-                p-4
-                sm:grid-cols-4
-              "
-            >
-              {[
-                'Draft',
-                'Preview',
-                'Publish',
-                'Rollback',
-              ].map(
-                (
-                  step,
-                  index
-                ) => (
-                  <div
-                    key={step}
-                    className="
-                      rounded-lg
-                      border
-                      border-[var(--bf-dev-border)]
-                      bg-[var(--bf-dev-surface-2)]
-                      p-4
-                    "
-                  >
-                    <div
-                      className="
-                        flex
-                        h-7
-                        w-7
-                        items-center
-                        justify-center
-                        rounded-lg
-                        bg-[rgb(var(--bf-dev-primary-rgb)/.14)]
-                        text-[10px]
-                        font-bold
-                        text-[var(--bf-dev-primary)]
-                      "
-                    >
-                      {index + 1}
-                    </div>
-
-                    <div
-                      className="
-                        mt-3
-                        text-[11px]
-                        font-bold
-                        text-[var(--bf-dev-text)]
-                      "
-                    >
-                      {step}
-                    </div>
-                  </div>
-                )
-              )}
+            <CardHeader title="Release workflow" />
+            <div className="grid gap-3 p-4 sm:grid-cols-4">
+              {['Draft', 'Preview', 'Publish', 'Rollback'].map((step, index) => (
+                <div key={step} className="rounded-lg border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] p-4">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[rgb(var(--bf-dev-primary-rgb)/.14)] text-[10px] font-bold text-[var(--bf-dev-primary)]">{index + 1}</div>
+                  <div className="mt-3 text-[11px] font-bold text-[var(--bf-dev-text)]">{step}</div>
+                </div>
+              ))}
             </div>
           </Card>
         </div>
@@ -2018,6 +1799,27 @@ function MediaAssetsSection() {
 
 
 function ReleaseWorkflowSection() {
+  const { pathname } = useLocation();
+  const defaults = { releases: [] };
+  const { payload, save, saving } =
+    useDeveloperControlPlane(`route:${String(pathname || '/').toLowerCase()}`, defaults);
+
+  async function createRelease() {
+    if (saving) return;
+    const releases = Array.isArray(payload?.releases) ? payload.releases : [];
+    await save({
+      ...payload,
+      releases: [
+        ...releases,
+        {
+          id: globalThis.crypto?.randomUUID?.() || `release-${Date.now()}`,
+          state: 'draft',
+          createdAt: new Date().toISOString(),
+        },
+      ],
+    });
+  }
+
   return (
     <Page>
       <PageHeader
@@ -2028,6 +1830,8 @@ function ReleaseWorkflowSection() {
           <Button
             variant="primary"
             icon={Rocket}
+            disabled={saving}
+            onClick={createRelease}
           >
             Create release
           </Button>
@@ -2298,6 +2102,48 @@ function AiDiscoverabilitySection() {
 
 
 function EnquiriesSection() {
+  const { pathname } = useLocation();
+  const defaults = {
+    enquiries: [
+      { id: 'enq-1', subject: 'Fleet Demo Request', company: 'Apex Transport', type: 'Product Demo', status: 'New' },
+      { id: 'enq-2', subject: 'Pricing enquiry', company: 'Raj Roadlines', type: 'Pricing', status: 'Open' },
+      { id: 'enq-3', subject: 'Enterprise onboarding', company: 'Western Cargo', type: 'Enterprise', status: 'Follow-up' },
+    ],
+  };
+  const { payload, save, saving } =
+    useDeveloperControlPlane(`route:${String(pathname || '/').toLowerCase()}`, defaults);
+  const enquiries = Array.isArray(payload?.enquiries) ? payload.enquiries : defaults.enquiries;
+
+  async function createEnquiry() {
+    if (saving) return;
+    const subject = window.prompt('Enquiry subject');
+    if (!subject?.trim()) return;
+    const company = window.prompt('Company / contact name');
+    if (!company?.trim()) return;
+    const type = window.prompt('Enquiry type', 'Product Demo');
+    if (!type?.trim()) return;
+    await save({
+      ...payload,
+      enquiries: [...enquiries, {
+        id: globalThis.crypto?.randomUUID?.() || `enq-${Date.now()}`,
+        subject: subject.trim(),
+        company: company.trim(),
+        type: type.trim(),
+        status: 'New',
+      }],
+    });
+  }
+
+  async function openEnquiry(id) {
+    if (saving) return;
+    await save({
+      ...payload,
+      enquiries: enquiries.map((item) =>
+        item.id === id && item.status === 'New' ? { ...item, status: 'Open' } : item
+      ),
+    });
+  }
+
   return (
     <Page>
       <PageHeader
@@ -2305,108 +2151,23 @@ function EnquiriesSection() {
         title="Inbound lead inbox"
         description="Website contact submissions, demo interest and public enquiries."
         actions={
-          <Button
-            variant="primary"
-            icon={Plus}
-          >
+          <Button variant="primary" icon={Plus} disabled={saving} onClick={createEnquiry}>
             New enquiry
           </Button>
         }
       />
 
       <Card>
-        <CardHeader
-          title="Current enquiries"
-        />
-
-        <div
-          className="
-            divide-y
-            divide-slate-200
-          "
-        >
-          {[
-            [
-              'Fleet Demo Request',
-              'Apex Transport',
-              'Product Demo',
-              'New',
-            ],
-            [
-              'Pricing enquiry',
-              'Raj Roadlines',
-              'Pricing',
-              'Open',
-            ],
-            [
-              'Enterprise onboarding',
-              'Western Cargo',
-              'Enterprise',
-              'Follow-up',
-            ],
-          ].map(
-            ([
-              subject,
-              company,
-              type,
-              status,
-            ]) => (
-              <div
-                key={
-                  subject
-                }
-                className="
-                  grid
-                  gap-3
-                  px-4
-                  py-4
-                  text-[10px]
-                  sm:grid-cols-[1fr_180px_140px_100px]
-                  sm:items-center
-                "
-              >
-                <div>
-                  <div
-                    className="
-                      font-semibold
-                      text-[var(--bf-dev-text)]
-                    "
-                  >
-                    {subject}
-                  </div>
-
-                  <div
-                    className="
-                      mt-1
-                      text-[var(--bf-dev-text-3)]
-                    "
-                  >
-                    {company}
-                  </div>
-                </div>
-
-                <div
-                  className="
-                    text-[var(--bf-dev-text-2)]
-                  "
-                >
-                  {type}
-                </div>
-
-                <Status
-                  status={
-                    status === 'New'
-                      ? 'trial'
-                      : 'active'
-                  }
-                />
-
-                <Button>
-                  Open
-                </Button>
-              </div>
-            )
-          )}
+        <CardHeader title="Current enquiries" />
+        <div className="divide-y divide-slate-200">
+          {enquiries.map((item) => (
+            <div key={item.id} className="grid gap-3 px-4 py-4 text-[10px] sm:grid-cols-[1fr_180px_140px_100px] sm:items-center">
+              <div><div className="font-semibold text-[var(--bf-dev-text)]">{item.subject}</div><div className="mt-1 text-[var(--bf-dev-text-3)]">{item.company}</div></div>
+              <div className="text-[var(--bf-dev-text-2)]">{item.type}</div>
+              <Status status={item.status === 'New' ? 'trial' : 'active'} />
+              <Button disabled={saving} onClick={() => openEnquiry(item.id)}>Open</Button>
+            </div>
+          ))}
         </div>
       </Card>
     </Page>
@@ -2414,38 +2175,81 @@ function EnquiriesSection() {
 }
 
 function CompaniesSection() {
-  const [
-    query,
-    setQuery,
-  ] =
-    useState('');
+  const { pathname } = useLocation();
+  const defaults = { companies: COMPANIES };
+  const { payload, save, saving, error } =
+    useDeveloperControlPlane(`route:${String(pathname || '/').toLowerCase()}`, defaults);
+  const companies = Array.isArray(payload?.companies) ? payload.companies : COMPANIES;
 
-  const [
-    showCreate,
-    setShowCreate,
-  ] =
-    useState(false);
+  const [query, setQuery] = useState('');
+  const [showCreate, setShowCreate] = useState(false);
+  const [formError, setFormError] = useState('');
+  const [draftCompany, setDraftCompany] = useState({
+    companyName: '',
+    ownerEmail: '',
+    mobile: '',
+    slug: '',
+  });
 
-  const filtered =
-    useMemo(() => {
-      const q =
-        query
-          .trim()
-          .toLowerCase();
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return companies;
+    return companies.filter((company) =>
+      `${company.name} ${company.slug} ${company.plan} ${company.status}`.toLowerCase().includes(q)
+    );
+  }, [companies, query]);
 
-      if (!q) {
-        return COMPANIES;
-      }
+  async function createDraftCompany() {
+    const companyName = draftCompany.companyName.trim();
+    const ownerEmail = draftCompany.ownerEmail.trim().toLowerCase();
+    const mobile = draftCompany.mobile.trim();
+    const slug = draftCompany.slug.trim().toLowerCase();
 
-      return COMPANIES.filter(
-        (company) =>
-          `${company.name} ${company.slug} ${company.plan} ${company.status}`
-            .toLowerCase()
-            .includes(q)
-      );
-    }, [
-      query,
-    ]);
+    if (!companyName || !ownerEmail || !slug) {
+      setFormError('Company name, owner email and preferred slug are required.');
+      return;
+    }
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
+      setFormError('Preferred slug must use lowercase letters, numbers and hyphens only.');
+      return;
+    }
+    if (companies.some((company) => company.slug === slug)) {
+      setFormError('A company draft with this slug already exists.');
+      return;
+    }
+
+    const nextCompany = {
+      id: globalThis.crypto?.randomUUID?.() || `cmp_${Date.now()}`,
+      name: companyName,
+      slug,
+      plan: 'Trial',
+      status: 'trial',
+      users: 1,
+      vehicles: 0,
+      modules: 0,
+      renewal: 'Not set',
+      ownerEmail,
+      mobile,
+      draft: true,
+    };
+
+    const result = await save({ ...payload, companies: [...companies, nextCompany] });
+    if (result.ok) {
+      setShowCreate(false);
+      setFormError('');
+      setDraftCompany({ companyName: '', ownerEmail: '', mobile: '', slug: '' });
+    }
+  }
+
+  async function suspendCompany(companyId) {
+    if (saving) return;
+    await save({
+      ...payload,
+      companies: companies.map((company) =>
+        company.id === companyId ? { ...company, status: 'suspended' } : company
+      ),
+    });
+  }
 
   return (
     <Page>
@@ -2457,439 +2261,123 @@ function CompaniesSection() {
           <Button
             variant="primary"
             icon={Plus}
-            onClick={() =>
-              setShowCreate(
-                true
-              )
-            }
+            onClick={() => {
+              setFormError('');
+              setShowCreate(true);
+            }}
           >
             Create company
           </Button>
         }
       />
 
-      <Card
-        className="
-          p-3
-        "
-      >
-        <div
-          className="
-            flex
-            flex-col
-            gap-3
-            sm:flex-row
-            sm:items-center
-            sm:justify-between
-          "
-        >
-          <div
-            className="
-              relative
-              max-w-md
-              flex-1
-            "
-          >
-            <Search
-              size={14}
-              className="
-                absolute
-                left-3
-                top-1/2
-                -translate-y-1/2
-                text-[var(--bf-dev-text-3)]
-              "
-            />
-
+      <Card className="p-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="relative max-w-md flex-1">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--bf-dev-text-3)]" />
             <input
-              value={
-                query
-              }
-              onChange={(
-                event
-              ) =>
-                setQuery(
-                  event.target.value
-                )
-              }
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
               placeholder="Search company, slug, plan..."
-              className="
-                h-9
-                w-full
-                rounded-lg
-                border
-                border-[var(--bf-dev-border)]
-                bg-[var(--bf-dev-surface)]
-                pl-9
-                pr-3
-                text-[11px]
-                text-[var(--bf-dev-text)]
-                outline-none
-                placeholder:text-[var(--bf-dev-text-3)]
-                focus:border-[var(--bf-dev-primary)]
-              "
+              className="h-9 w-full rounded-lg border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] pl-9 pr-3 text-[11px] text-[var(--bf-dev-text)] outline-none placeholder:text-[var(--bf-dev-text-3)] focus:border-[var(--bf-dev-primary)]"
             />
           </div>
-
-          <div
-            className="
-              text-[10px]
-              text-[var(--bf-dev-text-3)]
-            "
-          >
-            {filtered.length} companies
-          </div>
+          <div className="text-[10px] text-[var(--bf-dev-text-3)]">{filtered.length} companies</div>
         </div>
       </Card>
 
-      <div
-        className="
-          grid
-          gap-4
-          xl:grid-cols-2
-        "
-      >
-        {filtered.map(
-          (company) => (
-            <Card
-              key={
-                company.id
-              }
-              className="
-                p-4
-              "
-            >
-              <div
-                className="
-                  flex
-                  items-start
-                  justify-between
-                  gap-3
-                "
-              >
-                <div
-                  className="
-                    flex
-                    items-start
-                    gap-3
-                  "
-                >
-                  <div
-                    className="
-                      flex
-                      h-10
-                      w-10
-                      items-center
-                      justify-center
-                      rounded-xl
-                      bg-[rgb(var(--bf-dev-primary-rgb)/.10)]
-                      text-[var(--bf-dev-primary)]
-                    "
-                  >
-                    <Building2
-                      size={17}
-                    />
-                  </div>
+      {error && <div className="text-[10px] text-rose-500">{error}</div>}
 
-                  <div>
-                    <div
-                      className="
-                        text-[12px]
-                        font-bold
-                        text-[var(--bf-dev-text)]
-                      "
-                    >
-                      {company.name}
-                    </div>
-
-                    <div
-                      className="
-                        mt-1
-                        text-[9px]
-                        text-[var(--bf-dev-primary)]
-                      "
-                    >
-                      portal.buddyfleets.in/{company.slug}
-                    </div>
-                  </div>
+      <div className="grid gap-4 xl:grid-cols-2">
+        {filtered.map((company) => (
+          <Card key={company.id} className="p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[rgb(var(--bf-dev-primary-rgb)/.10)] text-[var(--bf-dev-primary)]">
+                  <Building2 size={17} />
                 </div>
-
-                <Status
-                  status={
-                    company.status
-                  }
-                />
-              </div>
-
-              <div
-                className="
-                  mt-4
-                  grid
-                  grid-cols-2
-                  gap-2
-                  sm:grid-cols-4
-                "
-              >
-                {[
-                  [
-                    'Plan',
-                    company.plan,
-                  ],
-                  [
-                    'Users',
-                    company.users,
-                  ],
-                  [
-                    'Vehicles',
-                    company.vehicles,
-                  ],
-                  [
-                    'Modules',
-                    company.modules,
-                  ],
-                ].map(
-                  ([
-                    label,
-                    value,
-                  ]) => (
-                    <div
-                      key={
-                        label
-                      }
-                      className="
-                        rounded-lg
-                        border
-                        border-[var(--bf-dev-border)]
-                        bg-[var(--bf-dev-surface-2)]
-                        p-3
-                      "
-                    >
-                      <div
-                        className="
-                          text-[8px]
-                          font-bold
-                          uppercase
-                          tracking-[0.08em]
-                          text-[var(--bf-dev-text-3)]
-                        "
-                      >
-                        {label}
-                      </div>
-
-                      <div
-                        className="
-                          mt-1
-                          text-[11px]
-                          font-bold
-                          text-[var(--bf-dev-text)]
-                        "
-                      >
-                        {value}
-                      </div>
-                    </div>
-                  )
-                )}
-              </div>
-
-              <div
-                className="
-                  mt-4
-                  flex
-                  flex-wrap
-                  items-center
-                  justify-between
-                  gap-3
-                  border-t
-                  border-[var(--bf-dev-border)]
-                  pt-4
-                "
-              >
-                <div
-                  className="
-                    text-[9px]
-                    text-[var(--bf-dev-text-3)]
-                  "
-                >
-                  Renewal: {company.renewal}
-                </div>
-
-                <div
-                  className="
-                    flex
-                    gap-2
-                  "
-                >
-                  <Button
-                    icon={
-                      UserCog
-                    }
-                  >
-                    Manage
-                  </Button>
-
-                  <Button
-                    variant="danger"
-                    icon={
-                      LockKeyhole
-                    }
-                  >
-                    Suspend
-                  </Button>
+                <div>
+                  <div className="text-[12px] font-bold text-[var(--bf-dev-text)]">{company.name}</div>
+                  <div className="mt-1 text-[9px] text-[var(--bf-dev-primary)]">portal.buddyfleets.in/{company.slug}</div>
                 </div>
               </div>
-            </Card>
-          )
-        )}
+              <Status status={company.status} />
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {[
+                ['Plan', company.plan],
+                ['Users', company.users],
+                ['Vehicles', company.vehicles],
+                ['Modules', company.modules],
+              ].map(([label, value]) => (
+                <div key={label} className="rounded-lg border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] p-3">
+                  <div className="text-[8px] font-bold uppercase tracking-[0.08em] text-[var(--bf-dev-text-3)]">{label}</div>
+                  <div className="mt-1 text-[11px] font-bold text-[var(--bf-dev-text)]">{value}</div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--bf-dev-border)] pt-4">
+              <div className="text-[9px] text-[var(--bf-dev-text-3)]">Renewal: {company.renewal}</div>
+              <div className="flex gap-2">
+                <Button icon={UserCog}>Manage</Button>
+                <Button
+                  variant="danger"
+                  icon={LockKeyhole}
+                  disabled={saving || company.status === 'suspended'}
+                  onClick={() => suspendCompany(company.id)}
+                >
+                  Suspend
+                </Button>
+              </div>
+            </div>
+          </Card>
+        ))}
       </div>
 
       {showCreate && (
-        <div
-          className="
-            fixed
-            inset-0
-            z-[100]
-            flex
-            items-center
-            justify-center
-            bg-slate-950/35
-            p-4
-            backdrop-blur-sm
-          "
-        >
-          <Card
-            className="
-              w-full
-              max-w-lg
-              p-5
-              shadow-xl
-            "
-          >
-            <div
-              className="
-                flex
-                items-start
-                justify-between
-                gap-4
-              "
-            >
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-sm">
+          <Card className="w-full max-w-lg p-5 shadow-xl">
+            <div className="flex items-start justify-between gap-4">
               <div>
-                <div
-                  className="
-                    text-[9px]
-                    font-bold
-                    uppercase
-                    tracking-[0.12em]
-                    text-[var(--bf-dev-primary)]
-                  "
-                >
-                  New tenant
-                </div>
-
-                <div
-                  className="
-                    mt-1
-                    text-[20px]
-                    font-extrabold
-                    text-[var(--bf-dev-text)]
-                  "
-                >
-                  Create company
-                </div>
+                <div className="text-[9px] font-bold uppercase tracking-[0.12em] text-[var(--bf-dev-primary)]">New tenant</div>
+                <div className="mt-1 text-[20px] font-extrabold text-[var(--bf-dev-text)]">Create company</div>
               </div>
-
-              <button
-                type="button"
-                onClick={() =>
-                  setShowCreate(
-                    false
-                  )
-                }
-                className="
-                  flex
-                  h-8
-                  w-8
-                  items-center
-                  justify-center
-                  rounded-lg
-                  border
-                  border-[var(--bf-dev-border)]
-                  text-[var(--bf-dev-text-2)]
-                "
-              >
-                <X
-                  size={15}
-                />
+              <button type="button" onClick={() => setShowCreate(false)} className="flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--bf-dev-border)] text-[var(--bf-dev-text-2)]">
+                <X size={15} />
               </button>
             </div>
 
-            <div
-              className="
-                mt-4
-                space-y-3
-              "
-            >
+            <div className="mt-4 space-y-3">
               {[
-                'Company name',
-                'Owner email',
-                'Mobile number',
-                'Preferred slug',
-              ].map(
-                (label) => (
-                  <label
-                    key={
-                      label
-                    }
-                    className="
-                      block
-                      text-[10px]
-                      font-semibold
-                      text-[var(--bf-dev-text-2)]
-                    "
-                  >
-                    {label}
-
-                    <input
-                      className="
-                        mt-1.5
-                        h-10
-                        w-full
-                        rounded-lg
-                        border
-                        border-[var(--bf-dev-border)]
-                        px-3
-                        text-[11px]
-                        outline-none
-                        focus:border-[var(--bf-dev-primary)]
-                      "
-                    />
-                  </label>
-                )
-              )}
+                ['Company name', 'companyName'],
+                ['Owner email', 'ownerEmail'],
+                ['Mobile number', 'mobile'],
+                ['Preferred slug', 'slug'],
+              ].map(([label, key]) => (
+                <label key={key} className="block text-[10px] font-semibold text-[var(--bf-dev-text-2)]">
+                  {label}
+                  <input
+                    value={draftCompany[key]}
+                    onChange={(event) => setDraftCompany((current) => ({ ...current, [key]: event.target.value }))}
+                    className="mt-1.5 h-10 w-full rounded-lg border border-[var(--bf-dev-border)] px-3 text-[11px] outline-none focus:border-[var(--bf-dev-primary)]"
+                  />
+                </label>
+              ))}
             </div>
 
-            <div
-              className="
-                mt-5
-                flex
-                justify-end
-                gap-2
-              "
-            >
-              <Button
-                onClick={() =>
-                  setShowCreate(
-                    false
-                  )
-                }
-              >
-                Cancel
-              </Button>
+            {(formError || error) && <p className="mt-3 text-[10px] text-rose-500">{formError || error}</p>}
 
+            <div className="mt-5 flex justify-end gap-2">
+              <Button onClick={() => setShowCreate(false)}>Cancel</Button>
               <Button
                 variant="primary"
                 icon={Plus}
+                disabled={saving}
+                onClick={createDraftCompany}
               >
-                Create draft tenant
+                {saving ? 'Saving...' : 'Create draft tenant'}
               </Button>
             </div>
           </Card>
@@ -2956,6 +2444,35 @@ function EntitlementsSection() {
 }
 
 function ModulesSection() {
+  const { pathname } = useLocation();
+  const defaults = { modules: MODULES };
+  const { payload, save, saving } =
+    useDeveloperControlPlane(`route:${String(pathname || '/').toLowerCase()}`, defaults);
+  const modules = Array.isArray(payload?.modules) ? payload.modules : MODULES;
+
+  async function registerModule() {
+    if (saving) return;
+    const name = window.prompt('Module name');
+    if (!name?.trim()) return;
+    const suggested = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    const id = window.prompt('Module ID', suggested);
+    if (!id?.trim()) return;
+    if (modules.some((module) => module.id === id.trim())) {
+      window.alert('A module with this ID already exists.');
+      return;
+    }
+    await save({
+      ...payload,
+      modules: [...modules, {
+        id: id.trim(),
+        name: name.trim(),
+        status: 'planned',
+        companies: 0,
+        features: 0,
+      }],
+    });
+  }
+
   return (
     <Page>
       <PageHeader
@@ -2966,160 +2483,73 @@ function ModulesSection() {
           <Button
             variant="primary"
             icon={Plus}
+            disabled={saving}
+            onClick={registerModule}
           >
             Register module
           </Button>
         }
       />
 
-      <div
-        className="
-          grid
-          gap-4
-          md:grid-cols-2
-          xl:grid-cols-3
-        "
-      >
-        {MODULES.map(
-          (module) => (
-            <Card
-              key={
-                module.id
-              }
-              className="
-                p-4
-              "
-            >
-              <div
-                className="
-                  flex
-                  items-start
-                  justify-between
-                "
-              >
-                <div
-                  className="
-                    flex
-                    h-9
-                    w-9
-                    items-center
-                    justify-center
-                    rounded-lg
-                    bg-violet-500/10
-                    text-violet-500
-                  "
-                >
-                  <Boxes
-                    size={16}
-                  />
-                </div>
-
-                <Status
-                  status={
-                    module.status
-                  }
-                />
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {modules.map((module) => (
+          <Card key={module.id} className="p-4">
+            <div className="flex items-start justify-between">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-500/10 text-violet-500">
+                <Boxes size={16} />
               </div>
-
-              <div
-                className="
-                  mt-3
-                  text-[12px]
-                  font-bold
-                  text-[var(--bf-dev-text)]
-                "
-              >
-                {module.name}
+              <Status status={module.status} />
+            </div>
+            <div className="mt-3 text-[12px] font-bold text-[var(--bf-dev-text)]">{module.name}</div>
+            <div className="mt-1 font-mono text-[9px] text-[var(--bf-dev-text-3)]">module_id: {module.id}</div>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <div className="rounded-lg border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] p-3">
+                <div className="text-[8px] uppercase text-[var(--bf-dev-text-3)]">Companies</div>
+                <div className="mt-1 text-[12px] font-bold">{module.companies}</div>
               </div>
-
-              <div
-                className="
-                  mt-1
-                  font-mono
-                  text-[9px]
-                  text-[var(--bf-dev-text-3)]
-                "
-              >
-                module_id: {module.id}
+              <div className="rounded-lg border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] p-3">
+                <div className="text-[8px] uppercase text-[var(--bf-dev-text-3)]">Features</div>
+                <div className="mt-1 text-[12px] font-bold">{module.features}</div>
               </div>
-
-              <div
-                className="
-                  mt-4
-                  grid
-                  grid-cols-2
-                  gap-2
-                "
-              >
-                <div
-                  className="
-                    rounded-lg
-                    border
-                    border-[var(--bf-dev-border)]
-                    bg-[var(--bf-dev-surface-2)]
-                    p-3
-                  "
-                >
-                  <div
-                    className="
-                      text-[8px]
-                      uppercase
-                      text-[var(--bf-dev-text-3)]
-                    "
-                  >
-                    Companies
-                  </div>
-
-                  <div
-                    className="
-                      mt-1
-                      text-[12px]
-                      font-bold
-                    "
-                  >
-                    {module.companies}
-                  </div>
-                </div>
-
-                <div
-                  className="
-                    rounded-lg
-                    border
-                    border-[var(--bf-dev-border)]
-                    bg-[var(--bf-dev-surface-2)]
-                    p-3
-                  "
-                >
-                  <div
-                    className="
-                      text-[8px]
-                      uppercase
-                      text-[var(--bf-dev-text-3)]
-                    "
-                  >
-                    Features
-                  </div>
-
-                  <div
-                    className="
-                      mt-1
-                      text-[12px]
-                      font-bold
-                    "
-                  >
-                    {module.features}
-                  </div>
-                </div>
-              </div>
-            </Card>
-          )
-        )}
+            </div>
+          </Card>
+        ))}
       </div>
     </Page>
   );
 }
 
 function TeamSection() {
+  const { pathname } = useLocation();
+  const defaults = { team: TEAM };
+  const { payload, save, saving } =
+    useDeveloperControlPlane(`route:${String(pathname || '/').toLowerCase()}`, defaults);
+  const team = Array.isArray(payload?.team) ? payload.team : TEAM;
+
+  async function inviteMember() {
+    if (saving) return;
+    const name = window.prompt('Team member name');
+    if (!name?.trim()) return;
+    const email = window.prompt('Email address');
+    if (!email?.trim()) return;
+    const role = window.prompt('Role', 'SUPPORT_ADMIN');
+    if (!role?.trim()) return;
+    if (team.some((member) => member.email.toLowerCase() === email.trim().toLowerCase())) {
+      window.alert('A team member with this email already exists.');
+      return;
+    }
+    await save({
+      ...payload,
+      team: [...team, {
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+        role: role.trim().toUpperCase(),
+        portal: 'Team',
+        status: 'planned',
+      }],
+    });
+  }
+
   return (
     <Page>
       <PageHeader
@@ -3127,130 +2557,28 @@ function TeamSection() {
         title="Buddy Fleets team & roles"
         description="Internal staff, roles and portal assignment."
         actions={
-          <Button
-            variant="primary"
-            icon={Plus}
-          >
+          <Button variant="primary" icon={Plus} disabled={saving} onClick={inviteMember}>
             Invite team member
           </Button>
         }
       />
 
       <Card>
-        <CardHeader
-          title="Team members"
-        />
-
-        <div
-          className="
-            overflow-x-auto
-          "
-        >
-          <table
-            className="
-              min-w-full
-              text-left
-            "
-          >
-            <thead
-              className="
-                bg-[var(--bf-dev-surface-2)]
-                text-[9px]
-                font-bold
-                uppercase
-                text-[var(--bf-dev-text-3)]
-              "
-            >
-              <tr>
-                <th className="px-4 py-3">
-                  User
-                </th>
-                <th className="px-4 py-3">
-                  Role
-                </th>
-                <th className="px-4 py-3">
-                  Portal
-                </th>
-                <th className="px-4 py-3">
-                  Status
-                </th>
-              </tr>
+        <CardHeader title="Team members" />
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-left">
+            <thead className="bg-[var(--bf-dev-surface-2)] text-[9px] font-bold uppercase text-[var(--bf-dev-text-3)]">
+              <tr><th className="px-4 py-3">User</th><th className="px-4 py-3">Role</th><th className="px-4 py-3">Portal</th><th className="px-4 py-3">Status</th></tr>
             </thead>
-
             <tbody>
-              {TEAM.map(
-                (member) => (
-                  <tr
-                    key={
-                      member.email
-                    }
-                    className="
-                      border-t
-                      border-[var(--bf-dev-border)]
-                      text-[10px]
-                    "
-                  >
-                    <td
-                      className="
-                        px-4
-                        py-3.5
-                      "
-                    >
-                      <div
-                        className="
-                          font-semibold
-                          text-[var(--bf-dev-text)]
-                        "
-                      >
-                        {member.name}
-                      </div>
-
-                      <div
-                        className="
-                          mt-1
-                          text-[var(--bf-dev-text-3)]
-                        "
-                      >
-                        {member.email}
-                      </div>
-                    </td>
-
-                    <td
-                      className="
-                        px-4
-                        py-3.5
-                        font-semibold
-                        text-[var(--bf-dev-text-2)]
-                      "
-                    >
-                      {member.role}
-                    </td>
-
-                    <td
-                      className="
-                        px-4
-                        py-3.5
-                        text-[var(--bf-dev-primary)]
-                      "
-                    >
-                      {member.portal}
-                    </td>
-
-                    <td
-                      className="
-                        px-4
-                        py-3.5
-                      "
-                    >
-                      <Status
-                        status={
-                          member.status
-                        }
-                      />
-                    </td>
-                  </tr>
-                )
-              )}
+              {team.map((member) => (
+                <tr key={member.email} className="border-t border-[var(--bf-dev-border)] text-[10px]">
+                  <td className="px-4 py-3.5"><div className="font-semibold text-[var(--bf-dev-text)]">{member.name}</div><div className="mt-1 text-[var(--bf-dev-text-3)]">{member.email}</div></td>
+                  <td className="px-4 py-3.5 font-semibold text-[var(--bf-dev-text-2)]">{member.role}</td>
+                  <td className="px-4 py-3.5 text-[var(--bf-dev-primary)]">{member.portal}</td>
+                  <td className="px-4 py-3.5"><Status status={member.status} /></td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
@@ -3440,42 +2768,44 @@ function IntegrationsSection() {
 }
 
 function FeatureFlagsSection() {
-  const [
-    flags,
-    setFlags,
-  ] =
-    useState([
+  const { pathname } = useLocation();
+  const defaults = {
+    flags: [
       {
-        id:
-          'new-company-shell',
-        name:
-          'New Company Workspace Shell',
-        scope:
-          'Demo + Internal',
-        enabled:
-          true,
+        id: 'new-company-shell',
+        name: 'New Company Workspace Shell',
+        scope: 'Demo + Internal',
+        enabled: true,
       },
       {
-        id:
-          'epod-v2',
-        name:
-          'ePOD V2 Workflow',
-        scope:
-          'Selected companies',
-        enabled:
-          true,
+        id: 'epod-v2',
+        name: 'ePOD V2 Workflow',
+        scope: 'Selected companies',
+        enabled: true,
       },
       {
-        id:
-          'toll-beta',
-        name:
-          'Automated Toll Beta',
-        scope:
-          'Beta companies',
-        enabled:
-          false,
+        id: 'toll-beta',
+        name: 'Automated Toll Beta',
+        scope: 'Beta companies',
+        enabled: false,
       },
-    ]);
+    ],
+  };
+
+  const { payload, save, saving } =
+    useDeveloperControlPlane(`route:${String(pathname || '/').toLowerCase()}`, defaults);
+
+  const flags = Array.isArray(payload?.flags) ? payload.flags : defaults.flags;
+
+  async function toggleFlag(flagId) {
+    if (saving) return;
+    await save({
+      ...payload,
+      flags: flags.map((item) =>
+        item.id === flagId ? { ...item, enabled: !item.enabled } : item
+      ),
+    });
+  }
 
   return (
     <Page>
@@ -3494,118 +2824,46 @@ function FeatureFlagsSection() {
       />
 
       <Card>
-        <CardHeader
-          title="Feature flags"
-        />
+        <CardHeader title="Feature flags" />
 
-        <div
-          className="
-            divide-y
-            divide-slate-200
-          "
-        >
-          {flags.map(
-            (flag) => (
-              <div
-                key={
-                  flag.id
-                }
-                className="
-                  flex
-                  items-center
-                  justify-between
-                  gap-4
-                  px-4
-                  py-4
-                "
-              >
-                <div>
-                  <div
-                    className="
-                      text-[11px]
-                      font-semibold
-                      text-[var(--bf-dev-text)]
-                    "
-                  >
-                    {flag.name}
-                  </div>
-
-                  <div
-                    className="
-                      mt-1
-                      font-mono
-                      text-[9px]
-                      text-[var(--bf-dev-text-3)]
-                    "
-                  >
-                    {flag.id}
-                  </div>
-
-                  <div
-                    className="
-                      mt-1
-                      text-[9px]
-                      text-[var(--bf-dev-text-2)]
-                    "
-                  >
-                    Scope: {flag.scope}
-                  </div>
+        <div className="divide-y divide-slate-200">
+          {flags.map((flag) => (
+            <div
+              key={flag.id}
+              className="flex items-center justify-between gap-4 px-4 py-4"
+            >
+              <div>
+                <div className="text-[11px] font-semibold text-[var(--bf-dev-text)]">
+                  {flag.name}
                 </div>
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    setFlags(
-                      (current) =>
-                        current.map(
-                          (
-                            item
-                          ) =>
-                            item.id ===
-                            flag.id
-                              ? {
-                                  ...item,
-                                  enabled:
-                                    !item.enabled,
-                                }
-                              : item
-                        )
-                    )
-                  }
-                  className={cx(
-                    `
-                      relative
-                      h-6
-                      w-11
-                      rounded-full
-                      transition
-                    `,
-                    flag.enabled
-                      ? 'bg-emerald-500/100'
-                      : 'bg-[var(--bf-dev-surface-3)]'
-                  )}
-                >
-                  <span
-                    className={cx(
-                      `
-                        absolute
-                        top-1
-                        h-4
-                        w-4
-                        rounded-full
-                        bg-[var(--bf-dev-surface)]
-                        shadow
-                        transition
-                      `,
-                      flag.enabled
-                        ? 'left-6'
-                        : 'left-1'
-                    )}
-                  />
-                </button>
+                <div className="mt-1 font-mono text-[9px] text-[var(--bf-dev-text-3)]">
+                  {flag.id}
+                </div>
+                <div className="mt-1 text-[9px] text-[var(--bf-dev-text-2)]">
+                  Scope: {flag.scope}
+                </div>
               </div>
-            )
-          )}
+
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => toggleFlag(flag.id)}
+                className={cx(
+                  'relative h-6 w-11 rounded-full transition disabled:opacity-50',
+                  flag.enabled
+                    ? 'bg-emerald-500/100'
+                    : 'bg-[var(--bf-dev-surface-3)]'
+                )}
+              >
+                <span
+                  className={cx(
+                    'absolute top-1 h-4 w-4 rounded-full bg-[var(--bf-dev-surface)] shadow transition',
+                    flag.enabled ? 'left-6' : 'left-1'
+                  )}
+                />
+              </button>
+            </div>
+          ))}
         </div>
       </Card>
     </Page>
@@ -3688,100 +2946,38 @@ function SecuritySection() {
 }
 
 function AuditSection() {
+  const { pathname } = useLocation();
+  const defaults = { rows: AUDIT };
+  const { payload } =
+    useDeveloperControlPlane(`route:${String(pathname || '/').toLowerCase()}`, defaults);
+  const rows = Array.isArray(payload?.rows) ? payload.rows : AUDIT;
+
   return (
     <Page>
       <PageHeader
         eyebrow="Audit Trail"
         title="Critical action history"
         description="Trace important platform changes and privileged actions."
-        actions={
-          <Button
-            icon={
-              FileText
-            }
-          >
-            Export log
-          </Button>
-        }
+        actions={<Button icon={FileText}>Export log</Button>}
       />
 
       <Card>
-        <CardHeader
-          title="Audit events"
-        />
-
-        <div
-          className="
-            overflow-x-auto
-          "
-        >
-          <table
-            className="
-              min-w-full
-              text-left
-            "
-          >
-            <thead
-              className="
-                bg-[var(--bf-dev-surface-2)]
-                text-[9px]
-                font-bold
-                uppercase
-                text-[var(--bf-dev-text-3)]
-              "
-            >
-              <tr>
-                <th className="px-4 py-3">
-                  Time
-                </th>
-                <th className="px-4 py-3">
-                  Actor
-                </th>
-                <th className="px-4 py-3">
-                  Action
-                </th>
-                <th className="px-4 py-3">
-                  Target
-                </th>
-                <th className="px-4 py-3">
-                  Severity
-                </th>
-              </tr>
+        <CardHeader title="Audit events" />
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-left">
+            <thead className="bg-[var(--bf-dev-surface-2)] text-[9px] font-bold uppercase text-[var(--bf-dev-text-3)]">
+              <tr><th className="px-4 py-3">Time</th><th className="px-4 py-3">Actor</th><th className="px-4 py-3">Action</th><th className="px-4 py-3">Target</th><th className="px-4 py-3">Severity</th></tr>
             </thead>
-
             <tbody>
-              {AUDIT.map(
-                (row) => (
-                  <tr
-                    key={`${row.time}-${row.action}`}
-                    className="
-                      border-t
-                      border-[var(--bf-dev-border)]
-                      text-[10px]
-                    "
-                  >
-                    <td className="px-4 py-3.5 text-[var(--bf-dev-text-3)]">
-                      {row.time}
-                    </td>
-                    <td className="px-4 py-3.5 font-semibold text-[var(--bf-dev-text-2)]">
-                      {row.actor}
-                    </td>
-                    <td className="px-4 py-3.5 font-semibold text-[var(--bf-dev-text)]">
-                      {row.action}
-                    </td>
-                    <td className="px-4 py-3.5 text-[var(--bf-dev-text-2)]">
-                      {row.target}
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <Status
-                        status={
-                          row.severity
-                        }
-                      />
-                    </td>
-                  </tr>
-                )
-              )}
+              {rows.map((row) => (
+                <tr key={`${row.time}-${row.action}`} className="border-t border-[var(--bf-dev-border)] text-[10px]">
+                  <td className="px-4 py-3.5 text-[var(--bf-dev-text-3)]">{row.time}</td>
+                  <td className="px-4 py-3.5 font-semibold text-[var(--bf-dev-text-2)]">{row.actor}</td>
+                  <td className="px-4 py-3.5 font-semibold text-[var(--bf-dev-text)]">{row.action}</td>
+                  <td className="px-4 py-3.5 text-[var(--bf-dev-text-2)]">{row.target}</td>
+                  <td className="px-4 py-3.5"><Status status={row.severity} /></td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>

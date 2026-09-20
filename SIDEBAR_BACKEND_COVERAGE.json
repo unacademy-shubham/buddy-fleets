@@ -1,0 +1,230 @@
+[
+  {
+    "path": "/dashboard",
+    "backend": "existing /api/developer/overview + current dashboard logic"
+  },
+  {
+    "path": "/dashboard/live-activity",
+    "backend": "control-plane route state (current content preserved)"
+  },
+  {
+    "path": "/website/website-studio",
+    "backend": "DeveloperWorkspace control-plane backend"
+  },
+  {
+    "path": "/website/website-studio/page-builder",
+    "backend": "existing website CMS pages/draft backend"
+  },
+  {
+    "path": "/website/website-studio/media-assets",
+    "backend": "DeveloperWorkspace control-plane backend"
+  },
+  {
+    "path": "/website/website-studio/release-workflow",
+    "backend": "DeveloperWorkspace control-plane backend"
+  },
+  {
+    "path": "/website/content-seo",
+    "backend": "DeveloperWorkspace control-plane backend"
+  },
+  {
+    "path": "/website/content-seo/metadata",
+    "backend": "DeveloperWorkspace control-plane backend"
+  },
+  {
+    "path": "/website/content-seo/indexing",
+    "backend": "DeveloperWorkspace control-plane backend"
+  },
+  {
+    "path": "/website/content-seo/ai-discoverability",
+    "backend": "DeveloperWorkspace control-plane backend"
+  },
+  {
+    "path": "/website/website-enquiries",
+    "backend": "DeveloperWorkspace control-plane backend"
+  },
+  {
+    "path": "/saas-platform/companies",
+    "backend": "DeveloperWorkspace control-plane backend"
+  },
+  {
+    "path": "/saas-platform/companies/all-companies",
+    "backend": "dedicated leaf control-plane backend"
+  },
+  {
+    "path": "/saas-platform/companies/trials-renewals",
+    "backend": "dedicated leaf control-plane backend"
+  },
+  {
+    "path": "/saas-platform/companies/company-overrides",
+    "backend": "dedicated leaf control-plane backend"
+  },
+  {
+    "path": "/saas-platform/plans-entitlements",
+    "backend": "DeveloperWorkspace control-plane backend"
+  },
+  {
+    "path": "/saas-platform/plans-entitlements/plans",
+    "backend": "dedicated leaf control-plane backend"
+  },
+  {
+    "path": "/saas-platform/plans-entitlements/limits-access",
+    "backend": "dedicated leaf control-plane backend"
+  },
+  {
+    "path": "/saas-platform/plans-entitlements/renewal-policy",
+    "backend": "dedicated leaf control-plane backend"
+  },
+  {
+    "path": "/saas-platform/module-registry",
+    "backend": "DeveloperWorkspace control-plane backend"
+  },
+  {
+    "path": "/saas-platform/module-registry/modules",
+    "backend": "dedicated leaf control-plane backend"
+  },
+  {
+    "path": "/saas-platform/module-registry/dependencies",
+    "backend": "dedicated leaf control-plane backend"
+  },
+  {
+    "path": "/saas-platform/module-registry/rollout-state",
+    "backend": "dedicated leaf control-plane backend"
+  },
+  {
+    "path": "/saas-platform/team-roles",
+    "backend": "DeveloperWorkspace control-plane backend"
+  },
+  {
+    "path": "/saas-platform/team-roles/team-members",
+    "backend": "dedicated leaf control-plane backend"
+  },
+  {
+    "path": "/saas-platform/team-roles/roles-permissions",
+    "backend": "dedicated leaf control-plane backend"
+  },
+  {
+    "path": "/saas-platform/team-roles/portal-access",
+    "backend": "dedicated leaf control-plane backend"
+  },
+  {
+    "path": "/developer-studio/module-builder",
+    "backend": "DeveloperWorkspace control-plane backend"
+  },
+  {
+    "path": "/developer-studio/module-builder/schemas-fields",
+    "backend": "dedicated leaf control-plane backend"
+  },
+  {
+    "path": "/developer-studio/module-builder/views-forms",
+    "backend": "dedicated leaf control-plane backend"
+  },
+  {
+    "path": "/developer-studio/module-builder/permissions",
+    "backend": "dedicated leaf control-plane backend"
+  },
+  {
+    "path": "/developer-studio/module-builder/publish-rollback",
+    "backend": "dedicated leaf control-plane backend"
+  },
+  {
+    "path": "/developer-studio/workflow-builder",
+    "backend": "DeveloperWorkspace control-plane backend"
+  },
+  {
+    "path": "/developer-studio/workflow-builder/triggers",
+    "backend": "dedicated leaf control-plane backend"
+  },
+  {
+    "path": "/developer-studio/workflow-builder/conditions",
+    "backend": "dedicated leaf control-plane backend"
+  },
+  {
+    "path": "/developer-studio/workflow-builder/approvals",
+    "backend": "dedicated leaf control-plane backend"
+  },
+  {
+    "path": "/developer-studio/workflow-builder/actions",
+    "backend": "dedicated leaf control-plane backend"
+  },
+  {
+    "path": "/developer-studio/integrations",
+    "backend": "DeveloperWorkspace control-plane backend"
+  },
+  {
+    "path": "/developer-studio/integrations/providers",
+    "backend": "dedicated leaf control-plane backend"
+  },
+  {
+    "path": "/developer-studio/integrations/webhooks",
+    "backend": "dedicated leaf control-plane backend"
+  },
+  {
+    "path": "/developer-studio/integrations/api-health",
+    "backend": "dedicated leaf control-plane backend"
+  },
+  {
+    "path": "/developer-studio/feature-flags",
+    "backend": "DeveloperWorkspace control-plane backend"
+  },
+  {
+    "path": "/security-system/security-center",
+    "backend": "DeveloperWorkspace control-plane backend"
+  },
+  {
+    "path": "/security-system/security-center/auth-sessions",
+    "backend": "dedicated leaf control-plane backend"
+  },
+  {
+    "path": "/security-system/security-center/mfa-locks",
+    "backend": "dedicated leaf control-plane backend"
+  },
+  {
+    "path": "/security-system/security-center/privileged-access",
+    "backend": "dedicated leaf control-plane backend"
+  },
+  {
+    "path": "/security-system/security-center/security-events",
+    "backend": "dedicated leaf control-plane backend"
+  },
+  {
+    "path": "/security-system/audit-logs",
+    "backend": "DeveloperWorkspace control-plane backend"
+  },
+  {
+    "path": "/security-system/infrastructure",
+    "backend": "DeveloperWorkspace control-plane backend"
+  },
+  {
+    "path": "/security-system/infrastructure/service-health",
+    "backend": "dedicated leaf control-plane backend"
+  },
+  {
+    "path": "/security-system/infrastructure/deployments",
+    "backend": "dedicated leaf control-plane backend"
+  },
+  {
+    "path": "/security-system/infrastructure/database-apis",
+    "backend": "dedicated leaf control-plane backend"
+  },
+  {
+    "path": "/security-system/system-settings",
+    "backend": "DeveloperWorkspace control-plane backend"
+  },
+  {
+    "path": "/security-system/system-settings/platform-defaults",
+    "backend": "dedicated leaf control-plane backend"
+  },
+  {
+    "path": "/security-system/system-settings/notifications",
+    "backend": "dedicated leaf control-plane backend"
+  },
+  {
+    "path": "/security-system/system-settings/retention-privacy",
+    "backend": "dedicated leaf control-plane backend"
+  },
+  {
+    "path": "/security-system/system-settings/api-policy",
+    "backend": "dedicated leaf control-plane backend"
+  }
+]
