@@ -2199,6 +2199,8 @@ function blankLiveCompanyForm() {
     ownerName: '',
     ownerEmail: '',
     ownerMobile: '',
+    ownerPassword: '',
+    ownerPasswordConfirm: '',
     contactEmail: '',
     contactMobile: '',
     alternateMobile: '',
@@ -2269,6 +2271,21 @@ function CompanyDetailsModal({ company, plans, saving, apiError, onClose, onSave
       return;
     }
 
+    if (isNew && !form.ownerEmail.trim()) {
+      setLocalError('Owner email is required.');
+      return;
+    }
+
+    if (isNew && form.ownerPassword.length < 8) {
+      setLocalError('Owner password must be at least 8 characters.');
+      return;
+    }
+
+    if (isNew && form.ownerPassword !== form.ownerPasswordConfirm) {
+      setLocalError('Owner password and confirmation do not match.');
+      return;
+    }
+
     if (form.status === 'trial_active' && !form.trialEndAt) {
       setLocalError('Trial end date is required for an active trial.');
       return;
@@ -2317,7 +2334,7 @@ function CompanyDetailsModal({ company, plans, saving, apiError, onClose, onSave
                 <label className={labelClass}>Company name *<input value={form.companyName} onChange={(e) => edit('companyName', e.target.value)} className={inputClass} /></label>
                 <label className={labelClass}>Legal name<input value={form.legalName} onChange={(e) => edit('legalName', e.target.value)} className={inputClass} /></label>
                 <label className={labelClass}>Trade name<input value={form.tradeName} onChange={(e) => edit('tradeName', e.target.value)} className={inputClass} /></label>
-                <label className={labelClass}>Company code {isNew ? '(auto if blank)' : ''}<input value={form.companyCode} onChange={(e) => edit('companyCode', e.target.value.toUpperCase())} disabled={!isNew} className={inputClass} /></label>
+                <label className={labelClass}>Company code {isNew ? '(auto-generated)' : ''}<input value={isNew ? 'Generated automatically on create' : form.companyCode} disabled className={inputClass} /></label>
                 <label className={labelClass}>Portal slug {isNew ? '(auto if blank)' : ''}<input value={form.subdomainSlug} onChange={(e) => edit('subdomainSlug', e.target.value.toLowerCase())} className={inputClass} /></label>
                 {isNew && <label className={labelClass}>Initial status<select value={form.status} onChange={(e) => edit('status', e.target.value)} className={inputClass}><option value="pending_confirmation">Pending confirmation</option><option value="trial_active">Trial active</option><option value="active">Active</option></select></label>}
                 {isNew && <label className={labelClass}>Initial plan<select value={form.planKey} onChange={(e) => edit('planKey', e.target.value)} className={inputClass}><option value="">No plan yet</option>{plans.filter((plan) => plan.status === 'active').map((plan) => <option key={plan.id} value={plan.plan_key}>{plan.name}</option>)}</select></label>}
@@ -2345,6 +2362,8 @@ function CompanyDetailsModal({ company, plans, saving, apiError, onClose, onSave
                 <label className={labelClass}>Owner / contact person<input value={form.ownerName} onChange={(e) => edit('ownerName', e.target.value)} className={inputClass} /></label>
                 <label className={labelClass}>Owner email<input type="email" value={form.ownerEmail} onChange={(e) => edit('ownerEmail', e.target.value)} className={inputClass} /></label>
                 <label className={labelClass}>Owner mobile<input inputMode="numeric" value={form.ownerMobile} onChange={(e) => edit('ownerMobile', e.target.value)} className={inputClass} /></label>
+                {isNew && <label className={labelClass}>Owner password *<input type="password" minLength={8} value={form.ownerPassword} onChange={(e) => edit('ownerPassword', e.target.value)} className={inputClass} /></label>}
+                {isNew && <label className={labelClass}>Confirm owner password *<input type="password" minLength={8} value={form.ownerPasswordConfirm} onChange={(e) => edit('ownerPasswordConfirm', e.target.value)} className={inputClass} /></label>}
                 <label className={labelClass}>Company email<input type="email" value={form.contactEmail} onChange={(e) => edit('contactEmail', e.target.value)} className={inputClass} /></label>
                 <label className={labelClass}>Company mobile<input inputMode="numeric" value={form.contactMobile} onChange={(e) => edit('contactMobile', e.target.value)} className={inputClass} /></label>
                 <label className={labelClass}>Alternate mobile<input inputMode="numeric" value={form.alternateMobile} onChange={(e) => edit('alternateMobile', e.target.value)} className={inputClass} /></label>
@@ -2381,6 +2400,7 @@ function CompanyDetailsModal({ company, plans, saving, apiError, onClose, onSave
 }
 
 function CompaniesSection() {
+  const navigate = useNavigate();
   const [companies, setCompanies] = useState([]);
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -2546,6 +2566,7 @@ function CompaniesSection() {
               <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--bf-dev-border)] pt-4">
                 <div className="text-[9px] text-[var(--bf-dev-text-3)]">Renewal / trial end: {companyDateLabel(renewalDate)}</div>
                 <div className="flex flex-wrap gap-2">
+                  <Button icon={ChevronRight} disabled={saving} onClick={() => navigate(`/saas-platform/companies/${company.id}`)}>View More</Button>
                   <Button icon={UserCog} disabled={saving} onClick={() => { setError(''); setEditingCompany(company); }}>Manage</Button>
                   {company.status === 'suspended' ? (
                     <Button disabled={saving} onClick={() => changeLifecycle(company, 'restore')}>Restore</Button>

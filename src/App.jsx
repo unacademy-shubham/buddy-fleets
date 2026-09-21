@@ -17,6 +17,7 @@ import {
 
 import WebsiteLayout from './layouts/WebsiteLayout';
 import DeveloperLayout from './layouts/DeveloperLayout';
+import CompanyAnnouncementPopup from './components/CompanyAnnouncementPopup';
 
 /* =========================================================
    ROUTE-LEVEL CODE SPLITTING
@@ -1130,6 +1131,7 @@ function CompanyDashboardPending({
         text-white
       "
     >
+      <CompanyAnnouncementPopup />
       <main
         className="
           flex
