@@ -1,3 +1,5 @@
+import { randomBytes } from 'node:crypto';
+
 import {
   clearDeveloperSessionCookie,
   requireDeveloperSession,
@@ -94,6 +96,123 @@ function normalizePrices(value) {
   return result;
 }
 
+
+function normalizeEmail(value) {
+  const email = text(value, 254).toLowerCase();
+  if (!email) return '';
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : null;
+}
+
+function normalizeMobile(value) {
+  const digits = String(value || '').replace(/\D/g, '');
+  if (!digits) return '';
+  const normalized = digits.length > 10 ? digits.slice(-10) : digits;
+  return /^[6-9]\d{9}$/.test(normalized) ? normalized : null;
+}
+
+function normalizeGstin(value) {
+  const gstin = text(value, 15).toUpperCase().replace(/\s+/g, '');
+  if (!gstin) return '';
+  return /^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(gstin) ? gstin : null;
+}
+
+function normalizePan(value) {
+  const pan = text(value, 10).toUpperCase().replace(/\s+/g, '');
+  if (!pan) return '';
+  return /^[A-Z]{5}\d{4}[A-Z]$/.test(pan) ? pan : null;
+}
+
+function normalizeAadhaarLast4(value) {
+  const digits = String(value || '').replace(/\D/g, '');
+  if (!digits) return '';
+  const last4 = digits.slice(-4);
+  return /^\d{4}$/.test(last4) ? last4 : null;
+}
+
+function normalizePostalCode(value) {
+  const pin = String(value || '').replace(/\D/g, '').slice(0, 6);
+  if (!pin) return '';
+  return /^[1-9]\d{5}$/.test(pin) ? pin : null;
+}
+
+function normalizeSlug(value) {
+  return text(value, 80)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 63);
+}
+
+function randomCompanyCode() {
+  return `BF${randomBytes(4).toString('hex').toUpperCase()}`;
+}
+
+async function uniqueCompanyIdentity(supabaseAdmin, companyName, _requestedCode, requestedSlug) {
+  let slug = normalizeSlug(requestedSlug || companyName);
+  if (!slug) slug = `company-${randomBytes(3).toString('hex')}`;
+
+  let code = '';
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const { data: generatedCode, error: codeError } = await supabaseAdmin.rpc('developer_generate_company_code');
+    if (codeError) throw codeError;
+    code = String(generatedCode || '').trim().toUpperCase();
+    if (!code) throw new Error('UNABLE_TO_GENERATE_COMPANY_CODE');
+
+    const [codeResult, slugResult] = await Promise.all([
+      supabaseAdmin.from('companies').select('id').eq('company_code', code).limit(1),
+      supabaseAdmin.from('companies').select('id').eq('subdomain_slug', slug).limit(1),
+    ]);
+    if (codeResult.error) throw codeResult.error;
+    if (slugResult.error) throw slugResult.error;
+    if (!(codeResult.data || []).length && !(slugResult.data || []).length) return { code, slug };
+    if ((slugResult.data || []).length) slug = `${normalizeSlug(companyName).slice(0, 52) || 'company'}-${randomBytes(3).toString('hex')}`;
+  }
+  throw new Error('UNABLE_TO_GENERATE_COMPANY_IDENTITY');
+}
+
+function normalizeCompanyProfile(body) {
+  const gstin = normalizeGstin(body?.gstin);
+  const pan = normalizePan(body?.pan);
+  const aadhaarLast4 = normalizeAadhaarLast4(body?.aadhaarLast4 ?? body?.aadhaar);
+  const contactEmail = normalizeEmail(body?.contactEmail);
+  const billingEmail = normalizeEmail(body?.billingEmail);
+  const ownerEmail = normalizeEmail(body?.ownerEmail);
+  const contactMobile = normalizeMobile(body?.contactMobile);
+  const alternateMobile = normalizeMobile(body?.alternateMobile);
+  const ownerMobile = normalizeMobile(body?.ownerMobile);
+  const postalCode = normalizePostalCode(body?.postalCode);
+
+  if ([gstin, pan, aadhaarLast4, contactEmail, billingEmail, ownerEmail, contactMobile, alternateMobile, ownerMobile, postalCode].includes(null)) {
+    return null;
+  }
+
+  return {
+    legal_name: text(body?.legalName, 180),
+    trade_name: text(body?.tradeName, 180),
+    registration_type: text(body?.registrationType, 80),
+    business_type: text(body?.businessType, 120),
+    gstin,
+    pan,
+    aadhaar_last4: aadhaarLast4,
+    cin: text(body?.cin, 30).toUpperCase(),
+    contact_email: contactEmail,
+    contact_mobile: contactMobile,
+    alternate_mobile: alternateMobile,
+    billing_email: billingEmail,
+    website: text(body?.website, 500),
+    owner_name: text(body?.ownerName, 150),
+    owner_email: ownerEmail,
+    owner_mobile: ownerMobile,
+    address_line1: text(body?.addressLine1, 250),
+    address_line2: text(body?.addressLine2, 250),
+    city: text(body?.city, 100),
+    state: text(body?.state, 100),
+    postal_code: postalCode,
+    country: text(body?.country || 'India', 100),
+    notes: text(body?.notes, 5000),
+  };
+}
+
 async function writeHistory(supabaseAdmin, actorUserId, domain, entityId, action, beforePayload, afterPayload) {
   try {
     await supabaseAdmin.from('developer_saas_history').insert({
@@ -133,9 +252,10 @@ async function getCompanies(supabaseAdmin) {
   const ids = (companies || []).map((company) => company.id).filter(Boolean);
   let subscriptions = [];
   let overrides = [];
+  let profiles = [];
 
   if (ids.length) {
-    const [subscriptionResult, overrideResult] = await Promise.all([
+    const [subscriptionResult, overrideResult, profileResult] = await Promise.all([
       supabaseAdmin
         .from('subscriptions')
         .select('company_id,status,plan_id,trial_start_at,trial_end_at,subscription_start_at,subscription_end_at')
@@ -144,22 +264,282 @@ async function getCompanies(supabaseAdmin) {
         .from('developer_company_overrides')
         .select('id,company_id,enabled,plan_key,limits_override,entitlements_override,notes,revision,updated_at')
         .in('company_id', ids),
+      supabaseAdmin
+        .from('developer_company_profiles')
+        .select('company_id,legal_name,trade_name,registration_type,business_type,gstin,pan,aadhaar_last4,cin,contact_email,contact_mobile,alternate_mobile,billing_email,website,owner_name,owner_email,owner_mobile,address_line1,address_line2,city,state,postal_code,country,notes,status_before_suspend,created_via,revision,updated_at')
+        .in('company_id', ids),
     ]);
 
     if (subscriptionResult.error) throw subscriptionResult.error;
     if (overrideResult.error) throw overrideResult.error;
+    if (profileResult.error) throw profileResult.error;
     subscriptions = subscriptionResult.data || [];
     overrides = overrideResult.data || [];
+    profiles = profileResult.data || [];
   }
 
   const subscriptionByCompany = new Map(subscriptions.map((item) => [item.company_id, item]));
   const overrideByCompany = new Map(overrides.map((item) => [item.company_id, item]));
+  const profileByCompany = new Map(profiles.map((item) => [item.company_id, item]));
 
   return (companies || []).map((company) => ({
     ...company,
     subscription: subscriptionByCompany.get(company.id) || null,
     override: overrideByCompany.get(company.id) || null,
+    profile: profileByCompany.get(company.id) || null,
   }));
+}
+
+
+async function createCompany({ supabaseAdmin, actorUserId, body }) {
+  const companyName = text(body?.companyName, 180);
+  const status = String(body?.status || 'trial_active').trim();
+  const planKey = text(body?.planKey, 80).toLowerCase();
+  const profile = normalizeCompanyProfile(body);
+  const ownerPassword = String(body?.ownerPassword || '');
+  const ownerEmail = profile?.owner_email || '';
+
+  if (!companyName || !COMPANY_STATUSES.has(status) || !profile || !ownerEmail || ownerPassword.length < 8) {
+    return { status: 400, payload: { ok: false, code: 'INVALID_COMPANY_PAYLOAD' } };
+  }
+
+  if (planKey) {
+    const { data: plan, error: planError } = await supabaseAdmin
+      .from('developer_plans')
+      .select('plan_key,status')
+      .eq('plan_key', planKey)
+      .maybeSingle();
+    if (planError) throw planError;
+    if (!plan || plan.status === 'archived') {
+      return { status: 400, payload: { ok: false, code: 'PLAN_NOT_AVAILABLE' } };
+    }
+  }
+
+  const trialStartAt = validDateOrNull(body?.trialStartAt);
+  const trialEndAt = validDateOrNull(body?.trialEndAt);
+  if (trialStartAt === undefined || trialEndAt === undefined) {
+    return { status: 400, payload: { ok: false, code: 'INVALID_TRIAL_PAYLOAD' } };
+  }
+  if (status === 'trial_active' && (!trialEndAt || (trialStartAt && Date.parse(trialEndAt) <= Date.parse(trialStartAt)))) {
+    return { status: 400, payload: { ok: false, code: 'INVALID_TRIAL_RANGE' } };
+  }
+
+  const identity = await uniqueCompanyIdentity(
+    supabaseAdmin,
+    companyName,
+    body?.companyCode,
+    body?.subdomainSlug
+  );
+
+  const confirmedAt = status === 'pending_confirmation' ? null : new Date().toISOString();
+
+  const { data: company, error: companyError } = await supabaseAdmin
+    .from('companies')
+    .insert({
+      company_code: identity.code,
+      company_name: companyName,
+      status,
+      confirmed_at: confirmedAt,
+      subdomain_slug: identity.slug,
+      account_owner_user_id: null,
+    })
+    .select('id,company_code,company_name,status,confirmed_at,account_owner_user_id,subdomain_slug')
+    .single();
+
+  if (companyError) {
+    if (companyError.code === '23505') {
+      return { status: 409, payload: { ok: false, code: 'COMPANY_IDENTITY_EXISTS' } };
+    }
+    throw companyError;
+  }
+
+  let ownerUserId = null;
+  try {
+    const { data: ownerAuth, error: ownerAuthError } = await supabaseAdmin.auth.admin.createUser({
+      email: ownerEmail,
+      password: ownerPassword,
+      email_confirm: true,
+      user_metadata: {
+        full_name: profile.owner_name || companyName,
+        mobile: profile.owner_mobile || null,
+        created_via: 'developer_cpanel_company_owner',
+      },
+    });
+    if (ownerAuthError || !ownerAuth?.user?.id) {
+      const err = new Error(ownerAuthError?.message || 'OWNER_AUTH_CREATE_FAILED');
+      err.code = 'OWNER_AUTH_CREATE_FAILED';
+      throw err;
+    }
+    ownerUserId = ownerAuth.user.id;
+
+    const membershipResult = await supabaseAdmin.from('company_memberships').insert({
+      company_id: company.id,
+      user_id: ownerUserId,
+      status: 'active',
+      access_scope: 'company',
+      joined_at: new Date().toISOString(),
+    });
+    if (membershipResult.error) throw membershipResult.error;
+
+    const employeeResult = await supabaseAdmin.from('developer_company_employees').insert({
+      company_id: company.id,
+      user_id: ownerUserId,
+      full_name: profile.owner_name || companyName,
+      email: ownerEmail,
+      mobile: profile.owner_mobile || '',
+      designation: 'Company Owner',
+      role_key: 'owner',
+      status: 'active',
+      created_by: actorUserId,
+      updated_by: actorUserId,
+    });
+    if (employeeResult.error) throw employeeResult.error;
+
+    const ownerCompanyResult = await supabaseAdmin.from('companies').update({ account_owner_user_id: ownerUserId }).eq('id', company.id);
+    if (ownerCompanyResult.error) throw ownerCompanyResult.error;
+
+    const profilePayload = {
+      company_id: company.id,
+      ...profile,
+      created_via: 'developer_cpanel',
+      created_by: actorUserId,
+      updated_by: actorUserId,
+      revision: 1,
+    };
+    const { error: profileError } = await supabaseAdmin
+      .from('developer_company_profiles')
+      .insert(profilePayload);
+    if (profileError) throw profileError;
+
+    if (status !== 'pending_confirmation') {
+      const subscriptionStatus =
+        status === 'trial_active' || status === 'trial_expired'
+          ? status
+          : 'active';
+
+      const { error: subscriptionError } = await supabaseAdmin
+        .from('subscriptions')
+        .insert({
+          company_id: company.id,
+          status: subscriptionStatus,
+          trial_start_at: trialStartAt,
+          trial_end_at: trialEndAt,
+          subscription_start_at: status === 'active' ? new Date().toISOString() : null,
+          subscription_end_at: null,
+        });
+
+      if (subscriptionError) throw subscriptionError;
+    }
+
+    if (planKey) {
+      const { error: overrideError } = await supabaseAdmin
+        .from('developer_company_overrides')
+        .insert({
+          company_id: company.id,
+          enabled: true,
+          plan_key: planKey,
+          limits_override: {},
+          entitlements_override: [],
+          notes: 'Initial plan assigned from Developer CPanel company creation.',
+          revision: 1,
+          created_by: actorUserId,
+          updated_by: actorUserId,
+        });
+      if (overrideError) throw overrideError;
+    }
+  } catch (error) {
+    await supabaseAdmin.from('developer_company_employees').delete().eq('company_id', company.id);
+    await supabaseAdmin.from('company_memberships').delete().eq('company_id', company.id);
+    if (ownerUserId) await supabaseAdmin.auth.admin.deleteUser(ownerUserId).catch(() => {});
+    await supabaseAdmin.from('developer_company_overrides').delete().eq('company_id', company.id);
+    await supabaseAdmin.from('developer_company_profiles').delete().eq('company_id', company.id);
+    await supabaseAdmin.from('subscriptions').delete().eq('company_id', company.id);
+    await supabaseAdmin.from('companies').delete().eq('id', company.id);
+    throw error;
+  }
+
+  const refreshed = (await getCompanies(supabaseAdmin)).find((item) => item.id === company.id) || {
+    ...company,
+    profile,
+  };
+
+  await writeHistory(supabaseAdmin, actorUserId, 'company', company.id, 'create', null, refreshed);
+  return { status: 201, payload: { ok: true, company: refreshed } };
+}
+
+async function updateCompanyProfile({ supabaseAdmin, actorUserId, body, currentCompany }) {
+  const profile = normalizeCompanyProfile(body);
+  if (!profile) {
+    return { status: 400, payload: { ok: false, code: 'INVALID_COMPANY_PROFILE' } };
+  }
+
+  const companyName = text(body?.companyName ?? currentCompany.company_name, 180);
+  const requestedSlug = normalizeSlug(body?.subdomainSlug ?? currentCompany.subdomain_slug);
+  if (!companyName || !requestedSlug) {
+    return { status: 400, payload: { ok: false, code: 'INVALID_COMPANY_PROFILE' } };
+  }
+
+  if (requestedSlug !== currentCompany.subdomain_slug) {
+    const { data: duplicate, error: duplicateError } = await supabaseAdmin
+      .from('companies')
+      .select('id')
+      .eq('subdomain_slug', requestedSlug)
+      .neq('id', currentCompany.id)
+      .limit(1);
+    if (duplicateError) throw duplicateError;
+    if ((duplicate || []).length) {
+      return { status: 409, payload: { ok: false, code: 'COMPANY_SLUG_EXISTS' } };
+    }
+  }
+
+  const { data: beforeProfile, error: beforeProfileError } = await supabaseAdmin
+    .from('developer_company_profiles')
+    .select('*')
+    .eq('company_id', currentCompany.id)
+    .maybeSingle();
+  if (beforeProfileError) throw beforeProfileError;
+
+  const expectedRevision = Number(body?.expectedRevision || beforeProfile?.revision || 0);
+  if (beforeProfile && Number(beforeProfile.revision) !== expectedRevision) {
+    return { status: 409, payload: { ok: false, code: 'REVISION_CONFLICT' } };
+  }
+
+  const { data: company, error: companyError } = await supabaseAdmin
+    .from('companies')
+    .update({ company_name: companyName, subdomain_slug: requestedSlug })
+    .eq('id', currentCompany.id)
+    .select('id,company_code,company_name,status,confirmed_at,account_owner_user_id,subdomain_slug')
+    .single();
+  if (companyError) throw companyError;
+
+  const nextRevision = beforeProfile ? expectedRevision + 1 : 1;
+  const { data: savedProfile, error: profileError } = await supabaseAdmin
+    .from('developer_company_profiles')
+    .upsert({
+      company_id: currentCompany.id,
+      ...profile,
+      status_before_suspend: beforeProfile?.status_before_suspend || null,
+      created_via: beforeProfile?.created_via || 'developer_cpanel',
+      revision: nextRevision,
+      created_by: beforeProfile?.created_by || actorUserId,
+      updated_by: actorUserId,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'company_id' })
+    .select('*')
+    .single();
+  if (profileError) throw profileError;
+
+  await writeHistory(
+    supabaseAdmin,
+    actorUserId,
+    'company_profile',
+    currentCompany.id,
+    'update',
+    { company: currentCompany, profile: beforeProfile },
+    { company, profile: savedProfile }
+  );
+
+  return { status: 200, payload: { ok: true, company: { ...company, profile: savedProfile } } };
 }
 
 async function updateCompany({ supabaseAdmin, actorUserId, body }) {
@@ -174,6 +554,105 @@ async function updateCompany({ supabaseAdmin, actorUserId, body }) {
     .maybeSingle();
   if (beforeError) throw beforeError;
   if (!beforeCompany) return { status: 404, payload: { ok: false, code: 'COMPANY_NOT_FOUND' } };
+
+  if (action === 'update_profile') {
+    return updateCompanyProfile({
+      supabaseAdmin,
+      actorUserId,
+      body,
+      currentCompany: beforeCompany,
+    });
+  }
+
+  if (action === 'suspend') {
+    if (beforeCompany.status === 'suspended') {
+      return { status: 200, payload: { ok: true, company: beforeCompany } };
+    }
+
+    const { data: existingProfile, error: profileReadError } = await supabaseAdmin
+      .from('developer_company_profiles')
+      .select('company_id,status_before_suspend,revision')
+      .eq('company_id', companyId)
+      .maybeSingle();
+    if (profileReadError) throw profileReadError;
+
+    const { error: lifecycleError } = await supabaseAdmin
+      .from('developer_company_profiles')
+      .upsert({
+        company_id: companyId,
+        status_before_suspend: beforeCompany.status,
+        revision: Number(existingProfile?.revision || 0) + 1,
+        updated_by: actorUserId,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'company_id' });
+    if (lifecycleError) throw lifecycleError;
+
+    const { data, error } = await supabaseAdmin
+      .from('companies')
+      .update({ status: 'suspended' })
+      .eq('id', companyId)
+      .select('id,company_code,company_name,status,confirmed_at,account_owner_user_id,subdomain_slug')
+      .single();
+    if (error) throw error;
+
+    await writeHistory(supabaseAdmin, actorUserId, 'company', companyId, 'suspend', beforeCompany, data);
+    return { status: 200, payload: { ok: true, company: data } };
+  }
+
+  if (action === 'restore') {
+    if (beforeCompany.status !== 'suspended') {
+      return { status: 409, payload: { ok: false, code: 'COMPANY_NOT_SUSPENDED' } };
+    }
+
+    const [{ data: lifecycle, error: lifecycleError }, { data: subscription, error: subscriptionError }] = await Promise.all([
+      supabaseAdmin
+        .from('developer_company_profiles')
+        .select('status_before_suspend')
+        .eq('company_id', companyId)
+        .maybeSingle(),
+      supabaseAdmin
+        .from('subscriptions')
+        .select('status,trial_end_at')
+        .eq('company_id', companyId)
+        .maybeSingle(),
+    ]);
+    if (lifecycleError) throw lifecycleError;
+    if (subscriptionError) throw subscriptionError;
+
+    let restoreStatus = lifecycle?.status_before_suspend;
+    if (!['pending_confirmation', 'trial_active', 'trial_expired', 'active'].includes(restoreStatus)) {
+      restoreStatus = ['trial_active', 'trial_expired', 'active'].includes(subscription?.status)
+        ? subscription.status
+        : 'active';
+    }
+    if (
+      restoreStatus === 'trial_active' &&
+      subscription?.trial_end_at &&
+      Date.parse(subscription.trial_end_at) <= Date.now()
+    ) {
+      restoreStatus = 'trial_expired';
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('companies')
+      .update({ status: restoreStatus })
+      .eq('id', companyId)
+      .select('id,company_code,company_name,status,confirmed_at,account_owner_user_id,subdomain_slug')
+      .single();
+    if (error) throw error;
+
+    await supabaseAdmin
+      .from('developer_company_profiles')
+      .update({
+        status_before_suspend: null,
+        updated_by: actorUserId,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('company_id', companyId);
+
+    await writeHistory(supabaseAdmin, actorUserId, 'company', companyId, 'restore', beforeCompany, data);
+    return { status: 200, payload: { ok: true, company: data } };
+  }
 
   if (action === 'set_status') {
     const status = String(body?.status || '').trim();
@@ -607,7 +1086,9 @@ export default async function handler(req, res) {
     const bodyResource = String(body?.resource || '').trim().toLowerCase();
     let result;
 
-    if (bodyResource === 'companies' && req.method === 'PATCH') {
+    if (bodyResource === 'companies' && req.method === 'POST') {
+      result = await createCompany({ supabaseAdmin: auth.supabaseAdmin, actorUserId: auth.user.id, body });
+    } else if (bodyResource === 'companies' && req.method === 'PATCH') {
       result = await updateCompany({ supabaseAdmin: auth.supabaseAdmin, actorUserId: auth.user.id, body });
     } else if (bodyResource === 'plans' && req.method === 'POST') {
       result = await createPlan({ supabaseAdmin: auth.supabaseAdmin, actorUserId: auth.user.id, body });

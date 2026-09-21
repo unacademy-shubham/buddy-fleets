@@ -151,6 +151,10 @@ const DeveloperTrialsRenewals = lazy(() =>
   import('./pages/Developer/Companies/TrialsRenewalsPage')
 );
 
+const DeveloperCompany360 = lazy(() =>
+  import('./pages/Developer/Companies/Company360Page')
+);
+
 const DeveloperCompanyOverrides = lazy(() =>
   import('./pages/Developer/Companies/CompanyOverridesPage')
 );
@@ -1382,6 +1386,74 @@ function CompanyDashboardPending({
                   ?.toUpperCase()}
               </p>
             </div>
+
+            <div>
+              <p
+                className="
+                  text-[8px]
+                  font-bold
+                  uppercase
+                  tracking-[0.15em]
+                  text-slate-500
+                "
+              >
+                Effective Plan
+              </p>
+
+              <p className="mt-1 text-xs font-bold text-cyan-300">
+                {currentUser?.effectivePlan?.name ||
+                  currentUser?.effectivePlan?.key ||
+                  'Not assigned'}
+              </p>
+            </div>
+
+            <div>
+              <p
+                className="
+                  text-[8px]
+                  font-bold
+                  uppercase
+                  tracking-[0.15em]
+                  text-slate-500
+                "
+              >
+                Access Limits
+              </p>
+
+              <p className="mt-1 text-[10px] font-medium leading-5 text-slate-300">
+                Vehicles: {currentUser?.effectiveLimits?.vehicles_max ?? '—'} · Users:{' '}
+                {currentUser?.effectiveLimits?.users ?? '—'} · Sites:{' '}
+                {currentUser?.effectiveLimits?.sites ?? '—'}
+              </p>
+            </div>
+
+            {Array.isArray(currentUser?.effectiveEntitlements) &&
+              currentUser.effectiveEntitlements.length > 0 && (
+                <div className="sm:col-span-2">
+                  <p
+                    className="
+                      text-[8px]
+                      font-bold
+                      uppercase
+                      tracking-[0.15em]
+                      text-slate-500
+                    "
+                  >
+                    Enabled Modules / Entitlements
+                  </p>
+
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {currentUser.effectiveEntitlements.map((item) => (
+                      <span
+                        key={item}
+                        className="rounded-full border border-cyan-400/15 bg-cyan-400/[0.06] px-2 py-1 text-[9px] font-semibold text-cyan-200"
+                      >
+                        {item}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
           </div>
 
           <button
@@ -2298,6 +2370,15 @@ function PortalRoutes({
               so the existing secure developer portal/session gate
               remains authoritative and unchanged.
           ===================================================== */}
+
+          <Route
+            path="saas-platform/companies/:companyId"
+            element={
+              <LazyPage>
+                <DeveloperCompany360 />
+              </LazyPage>
+            }
+          />
 
           <Route
             path="saas-platform/companies/trials-renewals"

@@ -781,6 +781,63 @@ async function getProfile(
   return data;
 }
 
+
+async function getEffectiveCompanyAccess(companyId) {
+  const { data: override, error: overrideError } = await supabaseAdmin
+    .from('developer_company_overrides')
+    .select('enabled,plan_key,limits_override,entitlements_override,revision,updated_at')
+    .eq('company_id', companyId)
+    .maybeSingle();
+
+  if (overrideError) {
+    console.error('Company entitlement override lookup failed:', overrideError.message);
+    return null;
+  }
+
+  if (!override?.enabled) {
+    return null;
+  }
+
+  let plan = null;
+  if (override.plan_key) {
+    const { data, error } = await supabaseAdmin
+      .from('developer_plans')
+      .select('plan_key,name,status,limits,entitlements,revision,updated_at')
+      .eq('plan_key', override.plan_key)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Company effective plan lookup failed:', error.message);
+    } else if (data && data.status !== 'archived') {
+      plan = data;
+    }
+  }
+
+  const baseLimits = plan?.limits && typeof plan.limits === 'object' ? plan.limits : {};
+  const overrideLimits =
+    override?.limits_override && typeof override.limits_override === 'object'
+      ? override.limits_override
+      : {};
+  const overrideEntitlements = Array.isArray(override?.entitlements_override)
+    ? override.entitlements_override
+    : [];
+  const baseEntitlements = Array.isArray(plan?.entitlements) ? plan.entitlements : [];
+
+  return {
+    overrideEnabled: true,
+    planKey: plan?.plan_key || override.plan_key || null,
+    planName: plan?.name || null,
+    limits: {
+      ...baseLimits,
+      ...overrideLimits,
+    },
+    entitlements: overrideEntitlements.length ? overrideEntitlements : baseEntitlements,
+    overrideRevision: override.revision || null,
+    updatedAt: override.updated_at || plan?.updated_at || null,
+  };
+}
+
+
 async function verifyPortalAuthorization(
   handoff
 ) {
@@ -1191,6 +1248,12 @@ async function verifyPortalAuthorization(
         'trial_expired';
     }
 
+    const effectiveAccess =
+      await getEffectiveCompanyAccess(
+        company.id
+      );
+
+
     return {
       authorized:
         true,
@@ -1209,6 +1272,8 @@ async function verifyPortalAuthorization(
       subscription,
 
       effectiveCompanyStatus,
+
+      effectiveAccess,
 
       roles: [
         'COMPANY_USER',
@@ -1492,6 +1557,42 @@ function buildSafeCurrentUser({
       subscription
         ?.subscription_end_at ||
       null,
+
+    effectivePlan:
+      authorization
+        .effectiveAccess
+        ? {
+            key:
+              authorization
+                .effectiveAccess
+                .planKey ||
+              null,
+
+            name:
+              authorization
+                .effectiveAccess
+                .planName ||
+              null,
+          }
+        : null,
+
+    effectiveLimits:
+      authorization
+        .effectiveAccess
+        ?.limits ||
+      {},
+
+    effectiveEntitlements:
+      authorization
+        .effectiveAccess
+        ?.entitlements ||
+      [],
+
+    companyOverrideEnabled:
+      authorization
+        .effectiveAccess
+        ?.overrideEnabled ===
+      true,
 
     mfaEnabled,
 

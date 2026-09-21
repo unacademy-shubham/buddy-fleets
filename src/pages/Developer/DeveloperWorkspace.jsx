@@ -60,6 +60,13 @@ import {
 import useDeveloperControlPlane from './shared/useDeveloperControlPlane';
 import ControlPlaneConfigDialog from './shared/ControlPlaneConfigDialog';
 
+import {
+  createCompany as createLiveCompany,
+  getCompanies as getLiveCompanies,
+  getPlans as getLivePlans,
+  updateCompany as updateLiveCompany,
+} from '../../services/developerSaasApi';
+
 /* ============================================================
    BUDDY FLEETS
    DEVELOPER WORKSPACE — SPLITE-INSPIRED MULTI-THEME CPANEL UI
@@ -68,42 +75,6 @@ import ControlPlaneConfigDialog from './shared/ControlPlaneConfigDialog';
    Visual tokens are supplied by DeveloperLayout.jsx.
    All page exports are preserved for App.jsx routing.
 ============================================================ */
-
-const COMPANIES = [
-  {
-    id: 'cmp_001',
-    name: 'Apex Logistics Pvt Ltd',
-    slug: 'apex-logistics',
-    plan: 'Enterprise',
-    status: 'active',
-    users: 38,
-    vehicles: 126,
-    modules: 14,
-    renewal: '28 Oct 2026',
-  },
-  {
-    id: 'cmp_002',
-    name: 'Shree Balaji Roadways',
-    slug: 'shree-balaji-roadways',
-    plan: 'Growth',
-    status: 'trial',
-    users: 12,
-    vehicles: 44,
-    modules: 10,
-    renewal: '19 Sep 2026',
-  },
-  {
-    id: 'cmp_003',
-    name: 'Northstar Freight Co.',
-    slug: 'northstar-freight',
-    plan: 'Growth',
-    status: 'active',
-    users: 19,
-    vehicles: 73,
-    modules: 11,
-    renewal: '05 Nov 2026',
-  },
-];
 
 const AUDIT = [
   {
@@ -514,6 +485,10 @@ function Status({
       'border-[rgb(var(--bf-dev-primary-rgb)/.20)] bg-[rgb(var(--bf-dev-primary-rgb)/.10)] text-[var(--bf-dev-primary)]',
     warning:
       'border-amber-500/20 bg-amber-500/10 text-amber-500',
+    suspended:
+      'border-rose-500/20 bg-rose-500/10 text-rose-500',
+    pending_confirmation:
+      'border-slate-500/20 bg-slate-500/10 text-slate-500',
   };
 
   return (
@@ -2174,81 +2149,321 @@ function EnquiriesSection() {
   );
 }
 
-function CompaniesSection() {
-  const { pathname } = useLocation();
-  const defaults = { companies: COMPANIES };
-  const { payload, save, saving, error } =
-    useDeveloperControlPlane(`route:${String(pathname || '/').toLowerCase()}`, defaults);
-  const companies = Array.isArray(payload?.companies) ? payload.companies : COMPANIES;
+function companyDateInput(value) {
+  if (!value) return '';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return '';
+  return parsed.toISOString().slice(0, 10);
+}
 
-  const [query, setQuery] = useState('');
-  const [showCreate, setShowCreate] = useState(false);
-  const [formError, setFormError] = useState('');
-  const [draftCompany, setDraftCompany] = useState({
+function companyDateLabel(value) {
+  if (!value) return 'Not set';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return 'Not set';
+  return new Intl.DateTimeFormat('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  }).format(parsed);
+}
+
+function companyStartOfDay(value) {
+  if (!value) return null;
+  const date = new Date(`${value}T00:00:00`);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+function companyEndOfDay(value) {
+  if (!value) return null;
+  const date = new Date(`${value}T23:59:59`);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+function blankLiveCompanyForm() {
+  return {
     companyName: '',
+    companyCode: '',
+    subdomainSlug: '',
+    status: 'pending_confirmation',
+    planKey: '',
+    trialStartAt: companyDateInput(new Date()),
+    trialEndAt: '',
+    legalName: '',
+    tradeName: '',
+    registrationType: '',
+    businessType: '',
+    gstin: '',
+    pan: '',
+    aadhaarLast4: '',
+    cin: '',
+    ownerName: '',
     ownerEmail: '',
-    mobile: '',
-    slug: '',
-  });
+    ownerMobile: '',
+    contactEmail: '',
+    contactMobile: '',
+    alternateMobile: '',
+    billingEmail: '',
+    website: '',
+    addressLine1: '',
+    addressLine2: '',
+    city: '',
+    state: '',
+    postalCode: '',
+    country: 'India',
+    notes: '',
+    expectedRevision: 0,
+  };
+}
+
+function liveCompanyToForm(company) {
+  const profile = company?.profile || {};
+  return {
+    ...blankLiveCompanyForm(),
+    companyName: company?.company_name || '',
+    companyCode: company?.company_code || '',
+    subdomainSlug: company?.subdomain_slug || '',
+    status: company?.status || 'active',
+    planKey: company?.override?.plan_key || '',
+    trialStartAt: companyDateInput(company?.subscription?.trial_start_at),
+    trialEndAt: companyDateInput(company?.subscription?.trial_end_at),
+    legalName: profile.legal_name || '',
+    tradeName: profile.trade_name || '',
+    registrationType: profile.registration_type || '',
+    businessType: profile.business_type || '',
+    gstin: profile.gstin || '',
+    pan: profile.pan || '',
+    aadhaarLast4: profile.aadhaar_last4 || '',
+    cin: profile.cin || '',
+    ownerName: profile.owner_name || '',
+    ownerEmail: profile.owner_email || '',
+    ownerMobile: profile.owner_mobile || '',
+    contactEmail: profile.contact_email || '',
+    contactMobile: profile.contact_mobile || '',
+    alternateMobile: profile.alternate_mobile || '',
+    billingEmail: profile.billing_email || '',
+    website: profile.website || '',
+    addressLine1: profile.address_line1 || '',
+    addressLine2: profile.address_line2 || '',
+    city: profile.city || '',
+    state: profile.state || '',
+    postalCode: profile.postal_code || '',
+    country: profile.country || 'India',
+    notes: profile.notes || '',
+    expectedRevision: Number(profile.revision || 0),
+  };
+}
+
+function CompanyDetailsModal({ company, plans, saving, apiError, onClose, onSaved }) {
+  const isNew = !company;
+  const [form, setForm] = useState(() => (company ? liveCompanyToForm(company) : blankLiveCompanyForm()));
+  const [localError, setLocalError] = useState('');
+
+  const edit = (key, value) => {
+    setForm((current) => ({ ...current, [key]: value }));
+    setLocalError('');
+  };
+
+  async function submit() {
+    if (!form.companyName.trim()) {
+      setLocalError('Company name is required.');
+      return;
+    }
+
+    if (form.status === 'trial_active' && !form.trialEndAt) {
+      setLocalError('Trial end date is required for an active trial.');
+      return;
+    }
+
+    const payload = {
+      ...form,
+      trialStartAt: companyStartOfDay(form.trialStartAt),
+      trialEndAt: companyEndOfDay(form.trialEndAt),
+    };
+
+    await onSaved(payload, company?.id || '');
+  }
+
+  const inputClass = 'mt-1.5 h-10 w-full rounded-lg border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] px-3 text-[11px] text-[var(--bf-dev-text)] outline-none placeholder:text-[var(--bf-dev-text-3)] focus:border-[var(--bf-dev-primary)] disabled:cursor-not-allowed disabled:opacity-60';
+  const textareaClass = 'mt-1.5 w-full rounded-lg border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] px-3 py-2.5 text-[11px] text-[var(--bf-dev-text)] outline-none placeholder:text-[var(--bf-dev-text-3)] focus:border-[var(--bf-dev-primary)]';
+  const labelClass = 'block text-[10px] font-semibold text-[var(--bf-dev-text-2)]';
+
+  return (
+    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/45 p-3 backdrop-blur-sm sm:p-5">
+      <Card className="max-h-[92dvh] w-full max-w-5xl overflow-hidden shadow-2xl">
+        <div className="flex items-start justify-between gap-4 border-b border-[var(--bf-dev-border)] p-5">
+          <div>
+            <div className="text-[9px] font-bold uppercase tracking-[0.12em] text-[var(--bf-dev-primary)]">
+              {isNew ? 'New tenant' : 'Company profile'}
+            </div>
+            <div className="mt-1 text-[20px] font-extrabold text-[var(--bf-dev-text)]">
+              {isNew ? 'Create company' : `Edit ${company.company_name}`}
+            </div>
+            <div className="mt-1 text-[10px] text-[var(--bf-dev-text-3)]">
+              Company, legal, tax, owner, contact, billing and registered-address information.
+            </div>
+          </div>
+          <button type="button" onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--bf-dev-border)] text-[var(--bf-dev-text-2)]">
+            <X size={15} />
+          </button>
+        </div>
+
+        <div className="max-h-[calc(92dvh-132px)] overflow-y-auto p-5">
+          {(localError || apiError) && <p className="mb-4 text-[10px] font-medium text-rose-500">{localError || apiError}</p>}
+
+          <div className="space-y-6">
+            <section>
+              <div className="mb-3 text-[9px] font-bold uppercase tracking-[0.12em] text-[var(--bf-dev-primary)]">Company & Portal</div>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <label className={labelClass}>Company name *<input value={form.companyName} onChange={(e) => edit('companyName', e.target.value)} className={inputClass} /></label>
+                <label className={labelClass}>Legal name<input value={form.legalName} onChange={(e) => edit('legalName', e.target.value)} className={inputClass} /></label>
+                <label className={labelClass}>Trade name<input value={form.tradeName} onChange={(e) => edit('tradeName', e.target.value)} className={inputClass} /></label>
+                <label className={labelClass}>Company code {isNew ? '(auto if blank)' : ''}<input value={form.companyCode} onChange={(e) => edit('companyCode', e.target.value.toUpperCase())} disabled={!isNew} className={inputClass} /></label>
+                <label className={labelClass}>Portal slug {isNew ? '(auto if blank)' : ''}<input value={form.subdomainSlug} onChange={(e) => edit('subdomainSlug', e.target.value.toLowerCase())} className={inputClass} /></label>
+                {isNew && <label className={labelClass}>Initial status<select value={form.status} onChange={(e) => edit('status', e.target.value)} className={inputClass}><option value="pending_confirmation">Pending confirmation</option><option value="trial_active">Trial active</option><option value="active">Active</option></select></label>}
+                {isNew && <label className={labelClass}>Initial plan<select value={form.planKey} onChange={(e) => edit('planKey', e.target.value)} className={inputClass}><option value="">No plan yet</option>{plans.filter((plan) => plan.status === 'active').map((plan) => <option key={plan.id} value={plan.plan_key}>{plan.name}</option>)}</select></label>}
+                {isNew && <label className={labelClass}>Trial start<input type="date" value={form.trialStartAt} onChange={(e) => edit('trialStartAt', e.target.value)} className={inputClass} /></label>}
+                {isNew && <label className={labelClass}>Trial end {form.status === 'trial_active' ? '*' : ''}<input type="date" value={form.trialEndAt} onChange={(e) => edit('trialEndAt', e.target.value)} className={inputClass} /></label>}
+              </div>
+            </section>
+
+            <section>
+              <div className="mb-3 text-[9px] font-bold uppercase tracking-[0.12em] text-[var(--bf-dev-primary)]">Legal & Tax</div>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <label className={labelClass}>Registration type<input placeholder="Proprietorship / Pvt Ltd / LLP" value={form.registrationType} onChange={(e) => edit('registrationType', e.target.value)} className={inputClass} /></label>
+                <label className={labelClass}>Business type<input placeholder="Transport / Logistics" value={form.businessType} onChange={(e) => edit('businessType', e.target.value)} className={inputClass} /></label>
+                <label className={labelClass}>GSTIN<input maxLength={15} value={form.gstin} onChange={(e) => edit('gstin', e.target.value.toUpperCase())} className={inputClass} /></label>
+                <label className={labelClass}>PAN<input maxLength={10} value={form.pan} onChange={(e) => edit('pan', e.target.value.toUpperCase())} className={inputClass} /></label>
+                <label className={labelClass}>CIN / registration no.<input value={form.cin} onChange={(e) => edit('cin', e.target.value.toUpperCase())} className={inputClass} /></label>
+                <label className={labelClass}>Aadhaar last 4<input inputMode="numeric" maxLength={4} value={form.aadhaarLast4} onChange={(e) => edit('aadhaarLast4', e.target.value.replace(/\D/g, '').slice(0, 4))} className={inputClass} /></label>
+              </div>
+              <p className="mt-2 text-[9px] leading-4 text-[var(--bf-dev-text-3)]">For privacy/security, this profile stores only Aadhaar last 4. Full Aadhaar documents should use private document storage with controlled access.</p>
+            </section>
+
+            <section>
+              <div className="mb-3 text-[9px] font-bold uppercase tracking-[0.12em] text-[var(--bf-dev-primary)]">Owner & Contact</div>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <label className={labelClass}>Owner / contact person<input value={form.ownerName} onChange={(e) => edit('ownerName', e.target.value)} className={inputClass} /></label>
+                <label className={labelClass}>Owner email<input type="email" value={form.ownerEmail} onChange={(e) => edit('ownerEmail', e.target.value)} className={inputClass} /></label>
+                <label className={labelClass}>Owner mobile<input inputMode="numeric" value={form.ownerMobile} onChange={(e) => edit('ownerMobile', e.target.value)} className={inputClass} /></label>
+                <label className={labelClass}>Company email<input type="email" value={form.contactEmail} onChange={(e) => edit('contactEmail', e.target.value)} className={inputClass} /></label>
+                <label className={labelClass}>Company mobile<input inputMode="numeric" value={form.contactMobile} onChange={(e) => edit('contactMobile', e.target.value)} className={inputClass} /></label>
+                <label className={labelClass}>Alternate mobile<input inputMode="numeric" value={form.alternateMobile} onChange={(e) => edit('alternateMobile', e.target.value)} className={inputClass} /></label>
+                <label className={labelClass}>Billing email<input type="email" value={form.billingEmail} onChange={(e) => edit('billingEmail', e.target.value)} className={inputClass} /></label>
+                <label className={`${labelClass} sm:col-span-2`}>Website<input placeholder="https://..." value={form.website} onChange={(e) => edit('website', e.target.value)} className={inputClass} /></label>
+              </div>
+            </section>
+
+            <section>
+              <div className="mb-3 text-[9px] font-bold uppercase tracking-[0.12em] text-[var(--bf-dev-primary)]">Registered Address</div>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <label className={`${labelClass} sm:col-span-2`}>Address line 1<input value={form.addressLine1} onChange={(e) => edit('addressLine1', e.target.value)} className={inputClass} /></label>
+                <label className={labelClass}>Address line 2<input value={form.addressLine2} onChange={(e) => edit('addressLine2', e.target.value)} className={inputClass} /></label>
+                <label className={labelClass}>City<input value={form.city} onChange={(e) => edit('city', e.target.value)} className={inputClass} /></label>
+                <label className={labelClass}>State<input value={form.state} onChange={(e) => edit('state', e.target.value)} className={inputClass} /></label>
+                <label className={labelClass}>PIN code<input inputMode="numeric" maxLength={6} value={form.postalCode} onChange={(e) => edit('postalCode', e.target.value.replace(/\D/g, '').slice(0, 6))} className={inputClass} /></label>
+                <label className={labelClass}>Country<input value={form.country} onChange={(e) => edit('country', e.target.value)} className={inputClass} /></label>
+              </div>
+            </section>
+
+            <label className={labelClass}>Internal notes<textarea rows={4} value={form.notes} onChange={(e) => edit('notes', e.target.value)} className={textareaClass} /></label>
+          </div>
+
+          <div className="mt-6 flex flex-wrap justify-end gap-2 border-t border-[var(--bf-dev-border)] pt-4">
+            <Button onClick={onClose}>Cancel</Button>
+            <Button variant="primary" disabled={saving} onClick={submit}>
+              {saving ? 'Saving...' : isNew ? 'Create company' : 'Save company details'}
+            </Button>
+          </div>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+function CompaniesSection() {
+  const [companies, setCompanies] = useState([]);
+  const [plans, setPlans] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [query, setQuery] = useState('');
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [editingCompany, setEditingCompany] = useState(undefined);
+
+  async function loadCompanies() {
+    setLoading(true);
+    setError('');
+    const [companyResult, planResult] = await Promise.all([
+      getLiveCompanies(),
+      getLivePlans(),
+    ]);
+
+    if (companyResult.ok && Array.isArray(companyResult.companies)) {
+      setCompanies(companyResult.companies);
+    } else {
+      setCompanies([]);
+      setError(companyResult?.code || 'Unable to load companies.');
+    }
+
+    if (planResult.ok && Array.isArray(planResult.plans)) {
+      setPlans(planResult.plans);
+    }
+    setLoading(false);
+  }
+
+  React.useEffect(() => {
+    loadCompanies();
+  }, []);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return companies;
-    return companies.filter((company) =>
-      `${company.name} ${company.slug} ${company.plan} ${company.status}`.toLowerCase().includes(q)
-    );
+    return companies.filter((company) => {
+      const profile = company.profile || {};
+      return `${company.company_name || ''} ${company.company_code || ''} ${company.subdomain_slug || ''} ${company.status || ''} ${profile.gstin || ''} ${profile.pan || ''} ${profile.owner_name || ''}`.toLowerCase().includes(q);
+    });
   }, [companies, query]);
 
-  async function createDraftCompany() {
-    const companyName = draftCompany.companyName.trim();
-    const ownerEmail = draftCompany.ownerEmail.trim().toLowerCase();
-    const mobile = draftCompany.mobile.trim();
-    const slug = draftCompany.slug.trim().toLowerCase();
+  async function saveCompany(payload, companyId = '') {
+    setSaving(true);
+    setError('');
+    setSuccess('');
 
-    if (!companyName || !ownerEmail || !slug) {
-      setFormError('Company name, owner email and preferred slug are required.');
-      return;
-    }
-    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
-      setFormError('Preferred slug must use lowercase letters, numbers and hyphens only.');
-      return;
-    }
-    if (companies.some((company) => company.slug === slug)) {
-      setFormError('A company draft with this slug already exists.');
-      return;
-    }
+    const result = companyId
+      ? await updateLiveCompany({ action: 'update_profile', companyId, ...payload })
+      : await createLiveCompany(payload);
 
-    const nextCompany = {
-      id: globalThis.crypto?.randomUUID?.() || `cmp_${Date.now()}`,
-      name: companyName,
-      slug,
-      plan: 'Trial',
-      status: 'trial',
-      users: 1,
-      vehicles: 0,
-      modules: 0,
-      renewal: 'Not set',
-      ownerEmail,
-      mobile,
-      draft: true,
-    };
-
-    const result = await save({ ...payload, companies: [...companies, nextCompany] });
     if (result.ok) {
-      setShowCreate(false);
-      setFormError('');
-      setDraftCompany({ companyName: '', ownerEmail: '', mobile: '', slug: '' });
+      setEditingCompany(undefined);
+      setSuccess(companyId ? 'Company details updated.' : 'Company created in the live tenant database.');
+      await loadCompanies();
+    } else {
+      const messages = {
+        INVALID_COMPANY_PROFILE: 'Check GSTIN, PAN, mobile, email and PIN-code formats.',
+        INVALID_COMPANY_PAYLOAD: 'Complete the required company information and check field formats.',
+        INVALID_TRIAL_RANGE: 'Trial end date must be after the trial start date.',
+        COMPANY_IDENTITY_EXISTS: 'Company code or portal slug already exists.',
+        COMPANY_SLUG_EXISTS: 'Portal slug already exists.',
+        PLAN_NOT_AVAILABLE: 'Selected plan is not available.',
+        REVISION_CONFLICT: 'This company was changed in another session. Refresh and try again.',
+      };
+      setError(messages[result?.code] || result?.code || 'Unable to save company.');
     }
+    setSaving(false);
   }
 
-  async function suspendCompany(companyId) {
-    if (saving) return;
-    await save({
-      ...payload,
-      companies: companies.map((company) =>
-        company.id === companyId ? { ...company, status: 'suspended' } : company
-      ),
-    });
+  async function changeLifecycle(company, action) {
+    setSaving(true);
+    setError('');
+    setSuccess('');
+    const result = await updateLiveCompany({ action, companyId: company.id });
+    if (result.ok) {
+      setSuccess(action === 'suspend' ? 'Company suspended. Existing company-portal sessions are revoked by the secure session gate.' : 'Company restored. The company user can sign in again.');
+      await loadCompanies();
+    } else {
+      setError(result?.code || `Unable to ${action} company.`);
+    }
+    setSaving(false);
   }
 
   return (
@@ -2256,18 +2471,14 @@ function CompaniesSection() {
       <PageHeader
         eyebrow="SaaS Platform"
         title="Company management"
-        description="Create, inspect and manage Buddy Fleets customer tenants."
+        description="Create, inspect and manage Buddy Fleets customer tenants. Data is loaded from the live companies database."
         actions={
-          <Button
-            variant="primary"
-            icon={Plus}
-            onClick={() => {
-              setFormError('');
-              setShowCreate(true);
-            }}
-          >
-            Create company
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button icon={RefreshCcw} onClick={loadCompanies} disabled={loading || saving}>Refresh</Button>
+            <Button variant="primary" icon={Plus} onClick={() => { setError(''); setEditingCompany(null); }}>
+              Create company
+            </Button>
+          </div>
         }
       />
 
@@ -2278,110 +2489,85 @@ function CompaniesSection() {
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search company, slug, plan..."
+              placeholder="Search company, code, slug, GSTIN, PAN..."
               className="h-9 w-full rounded-lg border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] pl-9 pr-3 text-[11px] text-[var(--bf-dev-text)] outline-none placeholder:text-[var(--bf-dev-text-3)] focus:border-[var(--bf-dev-primary)]"
             />
           </div>
-          <div className="text-[10px] text-[var(--bf-dev-text-3)]">{filtered.length} companies</div>
+          <div className="text-[10px] text-[var(--bf-dev-text-3)]">{loading ? 'Loading...' : `${filtered.length} live companies`}</div>
         </div>
       </Card>
 
-      {error && <div className="text-[10px] text-rose-500">{error}</div>}
+      {error && <div className="text-[10px] font-medium text-rose-500">{error}</div>}
+      {success && <div className="text-[10px] font-medium text-emerald-500">{success}</div>}
+
+      {!loading && !filtered.length && (
+        <Card className="p-8 text-center text-[11px] text-[var(--bf-dev-text-3)]">
+          No matching live company records found.
+        </Card>
+      )}
 
       <div className="grid gap-4 xl:grid-cols-2">
-        {filtered.map((company) => (
-          <Card key={company.id} className="p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[rgb(var(--bf-dev-primary-rgb)/.10)] text-[var(--bf-dev-primary)]">
-                  <Building2 size={17} />
+        {filtered.map((company) => {
+          const profile = company.profile || {};
+          const renewalDate = company.subscription?.subscription_end_at || company.subscription?.trial_end_at;
+          const statusForChip = company.status === 'trial_active' ? 'trial' : company.status === 'trial_expired' ? 'warning' : company.status;
+          const planLabel = company.override?.plan_key || company.subscription?.plan_id || 'Not assigned';
+
+          return (
+            <Card key={company.id} className="p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[rgb(var(--bf-dev-primary-rgb)/.10)] text-[var(--bf-dev-primary)]">
+                    <Building2 size={17} />
+                  </div>
+                  <div>
+                    <div className="text-[12px] font-bold text-[var(--bf-dev-text)]">{company.company_name || 'Unnamed company'}</div>
+                    <div className="mt-1 text-[9px] text-[var(--bf-dev-primary)]">{company.company_code || 'No code'} · portal.buddyfleets.in/{company.subdomain_slug || 'no-slug'}</div>
+                    {profile.owner_name && <div className="mt-1 text-[9px] text-[var(--bf-dev-text-3)]">Owner: {profile.owner_name}</div>}
+                  </div>
                 </div>
-                <div>
-                  <div className="text-[12px] font-bold text-[var(--bf-dev-text)]">{company.name}</div>
-                  <div className="mt-1 text-[9px] text-[var(--bf-dev-primary)]">portal.buddyfleets.in/{company.slug}</div>
+                <Status status={statusForChip} />
+              </div>
+
+              <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {[
+                  ['Plan', planLabel],
+                  ['GSTIN', profile.gstin || 'Not set'],
+                  ['PAN', profile.pan || 'Not set'],
+                  ['Subscription', company.subscription?.status || 'Not set'],
+                ].map(([label, value]) => (
+                  <div key={label} className="min-w-0 rounded-lg border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] p-3">
+                    <div className="text-[8px] font-bold uppercase tracking-[0.08em] text-[var(--bf-dev-text-3)]">{label}</div>
+                    <div className="mt-1 truncate text-[10px] font-bold text-[var(--bf-dev-text)]" title={String(value)}>{value}</div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--bf-dev-border)] pt-4">
+                <div className="text-[9px] text-[var(--bf-dev-text-3)]">Renewal / trial end: {companyDateLabel(renewalDate)}</div>
+                <div className="flex flex-wrap gap-2">
+                  <Button icon={UserCog} disabled={saving} onClick={() => { setError(''); setEditingCompany(company); }}>Manage</Button>
+                  {company.status === 'suspended' ? (
+                    <Button disabled={saving} onClick={() => changeLifecycle(company, 'restore')}>Restore</Button>
+                  ) : (
+                    <Button variant="danger" icon={LockKeyhole} disabled={saving} onClick={() => changeLifecycle(company, 'suspend')}>Suspend</Button>
+                  )}
                 </div>
               </div>
-              <Status status={company.status} />
-            </div>
-
-            <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-              {[
-                ['Plan', company.plan],
-                ['Users', company.users],
-                ['Vehicles', company.vehicles],
-                ['Modules', company.modules],
-              ].map(([label, value]) => (
-                <div key={label} className="rounded-lg border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] p-3">
-                  <div className="text-[8px] font-bold uppercase tracking-[0.08em] text-[var(--bf-dev-text-3)]">{label}</div>
-                  <div className="mt-1 text-[11px] font-bold text-[var(--bf-dev-text)]">{value}</div>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--bf-dev-border)] pt-4">
-              <div className="text-[9px] text-[var(--bf-dev-text-3)]">Renewal: {company.renewal}</div>
-              <div className="flex gap-2">
-                <Button icon={UserCog}>Manage</Button>
-                <Button
-                  variant="danger"
-                  icon={LockKeyhole}
-                  disabled={saving || company.status === 'suspended'}
-                  onClick={() => suspendCompany(company.id)}
-                >
-                  Suspend
-                </Button>
-              </div>
-            </div>
-          </Card>
-        ))}
+            </Card>
+          );
+        })}
       </div>
 
-      {showCreate && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-sm">
-          <Card className="w-full max-w-lg p-5 shadow-xl">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className="text-[9px] font-bold uppercase tracking-[0.12em] text-[var(--bf-dev-primary)]">New tenant</div>
-                <div className="mt-1 text-[20px] font-extrabold text-[var(--bf-dev-text)]">Create company</div>
-              </div>
-              <button type="button" onClick={() => setShowCreate(false)} className="flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--bf-dev-border)] text-[var(--bf-dev-text-2)]">
-                <X size={15} />
-              </button>
-            </div>
-
-            <div className="mt-4 space-y-3">
-              {[
-                ['Company name', 'companyName'],
-                ['Owner email', 'ownerEmail'],
-                ['Mobile number', 'mobile'],
-                ['Preferred slug', 'slug'],
-              ].map(([label, key]) => (
-                <label key={key} className="block text-[10px] font-semibold text-[var(--bf-dev-text-2)]">
-                  {label}
-                  <input
-                    value={draftCompany[key]}
-                    onChange={(event) => setDraftCompany((current) => ({ ...current, [key]: event.target.value }))}
-                    className="mt-1.5 h-10 w-full rounded-lg border border-[var(--bf-dev-border)] px-3 text-[11px] outline-none focus:border-[var(--bf-dev-primary)]"
-                  />
-                </label>
-              ))}
-            </div>
-
-            {(formError || error) && <p className="mt-3 text-[10px] text-rose-500">{formError || error}</p>}
-
-            <div className="mt-5 flex justify-end gap-2">
-              <Button onClick={() => setShowCreate(false)}>Cancel</Button>
-              <Button
-                variant="primary"
-                icon={Plus}
-                disabled={saving}
-                onClick={createDraftCompany}
-              >
-                {saving ? 'Saving...' : 'Create draft tenant'}
-              </Button>
-            </div>
-          </Card>
-        </div>
+      {editingCompany !== undefined && (
+        <CompanyDetailsModal
+          company={editingCompany}
+          plans={plans}
+          saving={saving}
+          apiError={error}
+          onClose={() => { setEditingCompany(undefined); setError(''); }}
+          onSaved={saveCompany}
+        />
       )}
     </Page>
   );

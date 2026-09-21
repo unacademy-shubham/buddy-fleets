@@ -1,8 +1,11 @@
 import React from 'react';
 import { Outlet } from 'react-router-dom';
+import CompanyAnnouncementPopup from '../components/CompanyAnnouncementPopup';
 
 export default function DashboardLayout({ currentUser, onLogout }) {
   return (
+    <>
+    <CompanyAnnouncementPopup />
     <div className="min-h-screen bg-slate-100 flex font-sans">
       
       {/* 1. SIDEBAR (Left Menu) */}
@@ -50,5 +53,6 @@ export default function DashboardLayout({ currentUser, onLogout }) {
         </main>
       </div>
     </div>
+    </>
   );
 }

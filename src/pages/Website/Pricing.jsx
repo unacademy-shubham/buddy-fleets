@@ -250,6 +250,67 @@ const PLANS = [
   },
 ];
 
+
+const PLAN_VISUALS = Object.fromEntries(
+  PLANS.map((plan) => [
+    plan.id,
+    {
+      icon: plan.icon,
+      accent: plan.accent,
+      accentSoft: plan.accentSoft,
+      accentText: plan.accentText,
+    },
+  ])
+);
+
+function fleetLabel(limits = {}) {
+  const min = limits?.vehicles_min;
+  const max = limits?.vehicles_max;
+  if (min == null && max == null) return 'Custom Vehicles';
+  if (max == null) return `${min || 1}+ Vehicles`;
+  if (min == null || Number(min) <= 1) return `1–${max} Vehicles`;
+  return `${min}–${max} Vehicles`;
+}
+
+function pluralLimit(value, singular) {
+  if (value == null || value === '') return `Custom ${singular}s`;
+  const count = Number(value);
+  if (!Number.isFinite(count)) return `Custom ${singular}s`;
+  return `${count} ${singular}${count === 1 ? '' : 's'}`;
+}
+
+function mapServerPlans(rows) {
+  if (!Array.isArray(rows) || !rows.length) return PLANS;
+
+  return rows.map((row, index) => {
+    const fallback = PLANS.find((plan) => plan.id === row.plan_key) || PLANS[index % PLANS.length];
+    const visuals = PLAN_VISUALS[row.plan_key] || {
+      icon: fallback?.icon || Rocket,
+      accent: fallback?.accent || 'from-[#12BFF2] via-[#078EE5] to-[#075bb8]',
+      accentSoft: fallback?.accentSoft || 'bg-cyan-500/[0.07]',
+      accentText: fallback?.accentText || 'text-cyan-500',
+    };
+    const limits = row?.limits || {};
+    const fleet = fleetLabel(limits);
+    const users = pluralLimit(limits?.users, 'User');
+    const sites = pluralLimit(limits?.sites, 'Site');
+    const entitlements = Array.isArray(row?.entitlements) ? row.entitlements : [];
+
+    return {
+      id: row.plan_key,
+      name: row.name,
+      tagline: row.tagline || '',
+      fleet,
+      users,
+      sites,
+      badge: row.badge || '',
+      prices: { ...(fallback?.prices || {}), ...(row.prices || {}) },
+      features: [fleet, users, sites, ...entitlements],
+      ...visuals,
+    };
+  });
+}
+
 /* =========================================================
    PRICE FORMATTER
 ========================================================= */
@@ -1338,6 +1399,32 @@ function PlanCard({
 ========================================================= */
 
 export default function Pricing() {
+  const [plans, setPlans] = useState(PLANS);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadLivePlans() {
+      try {
+        const response = await fetch('/api/public/pricing-plans', {
+          method: 'GET',
+          headers: { Accept: 'application/json' },
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!cancelled && response.ok && payload?.ok && Array.isArray(payload.plans) && payload.plans.length) {
+          setPlans(mapServerPlans(payload.plans));
+        }
+      } catch {
+        // Keep the exact built-in pricing content as a resilient fallback.
+      }
+    }
+
+    loadLivePlans();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <div
       className="
@@ -1588,7 +1675,7 @@ export default function Pricing() {
               xl:grid-cols-4
             "
           >
-            {PLANS.map(
+            {plans.map(
               (plan) => (
                 <PlanCard
                   key={plan.id}

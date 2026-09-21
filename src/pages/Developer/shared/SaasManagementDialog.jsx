@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Archive,
   CheckCircle2,
@@ -11,6 +12,7 @@ import {
 } from 'lucide-react';
 import {
   archivePlan,
+  createCompany,
   clearCompanyOverride,
   createPlan,
   getCompanies,
@@ -86,20 +88,101 @@ function EmptyState({ children }) {
   return <div className="rounded-lg border border-dashed border-[var(--bf-dev-border)] p-5 text-center text-[11px] text-[var(--bf-dev-text-3)]">{children}</div>;
 }
 
+const blankCompanyForm = () => ({
+  companyName: '',
+  companyCode: '',
+  subdomainSlug: '',
+  status: 'trial_active',
+  planKey: '',
+  trialStartAt: formatDate(new Date()),
+  trialEndAt: '',
+  legalName: '',
+  tradeName: '',
+  registrationType: '',
+  businessType: '',
+  gstin: '',
+  pan: '',
+  aadhaarLast4: '',
+  cin: '',
+  contactEmail: '',
+  contactMobile: '',
+  alternateMobile: '',
+  billingEmail: '',
+  website: '',
+  ownerName: '',
+  ownerEmail: '',
+  ownerMobile: '',
+  addressLine1: '',
+  addressLine2: '',
+  city: '',
+  state: '',
+  postalCode: '',
+  country: 'India',
+  notes: '',
+  ownerPassword: '',
+  ownerPasswordConfirm: '',
+  expectedRevision: 0,
+});
+
+function companyToForm(company) {
+  const profile = company?.profile || {};
+  return {
+    ...blankCompanyForm(),
+    companyName: company?.company_name || '',
+    companyCode: company?.company_code || '',
+    subdomainSlug: company?.subdomain_slug || '',
+    status: company?.status || 'active',
+    planKey: company?.override?.plan_key || '',
+    trialStartAt: formatDate(company?.subscription?.trial_start_at),
+    trialEndAt: formatDate(company?.subscription?.trial_end_at),
+    legalName: profile.legal_name || '',
+    tradeName: profile.trade_name || '',
+    registrationType: profile.registration_type || '',
+    businessType: profile.business_type || '',
+    gstin: profile.gstin || '',
+    pan: profile.pan || '',
+    aadhaarLast4: profile.aadhaar_last4 || '',
+    cin: profile.cin || '',
+    contactEmail: profile.contact_email || '',
+    contactMobile: profile.contact_mobile || '',
+    alternateMobile: profile.alternate_mobile || '',
+    billingEmail: profile.billing_email || '',
+    website: profile.website || '',
+    ownerName: profile.owner_name || '',
+    ownerEmail: profile.owner_email || '',
+    ownerMobile: profile.owner_mobile || '',
+    addressLine1: profile.address_line1 || '',
+    addressLine2: profile.address_line2 || '',
+    city: profile.city || '',
+    state: profile.state || '',
+    postalCode: profile.postal_code || '',
+    country: profile.country || 'India',
+    notes: profile.notes || '',
+    expectedRevision: Number(profile.revision || 0),
+  };
+}
+
 function CompaniesPanel({ trialOnly = false }) {
+  const navigate = useNavigate();
   const [companies, setCompanies] = useState([]);
+  const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState('');
   const [query, setQuery] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [editor, setEditor] = useState(null);
 
   async function load() {
     setLoading(true);
     setError('');
-    const result = await getCompanies();
-    if (result.ok && Array.isArray(result.companies)) setCompanies(result.companies);
-    else setError(errorText(result, 'Unable to load companies.'));
+    const [companyResult, planResult] = await Promise.all([
+      getCompanies(),
+      getPlans(),
+    ]);
+    if (companyResult.ok && Array.isArray(companyResult.companies)) setCompanies(companyResult.companies);
+    else setError(errorText(companyResult, 'Unable to load companies.'));
+    if (planResult.ok && Array.isArray(planResult.plans)) setPlans(planResult.plans);
     setLoading(false);
   }
 
@@ -110,9 +193,24 @@ function CompaniesPanel({ trialOnly = false }) {
     return companies.filter((company) => {
       if (trialOnly && !['trial_active', 'trial_expired'].includes(company.status)) return false;
       if (!q) return true;
-      return `${company.company_name || ''} ${company.company_code || ''} ${company.subdomain_slug || ''} ${company.status || ''}`.toLowerCase().includes(q);
+      const profile = company.profile || {};
+      return `${company.company_name || ''} ${company.company_code || ''} ${company.subdomain_slug || ''} ${company.status || ''} ${profile.gstin || ''} ${profile.pan || ''} ${profile.owner_name || ''}`.toLowerCase().includes(q);
     });
   }, [companies, query, trialOnly]);
+
+  async function setLifecycle(company, action) {
+    setSavingId(company.id);
+    setError('');
+    setSuccess('');
+    const result = await updateCompany({ action, companyId: company.id });
+    if (result.ok) {
+      setSuccess(`${company.company_name || 'Company'} ${action === 'suspend' ? 'suspended' : 'restored'} successfully.`);
+      await load();
+    } else {
+      setError(errorText(result, action === 'suspend' ? 'Unable to suspend company.' : 'Unable to restore company.'));
+    }
+    setSavingId('');
+  }
 
   async function setStatus(company, status) {
     setSavingId(company.id);
@@ -148,18 +246,94 @@ function CompaniesPanel({ trialOnly = false }) {
     setSavingId('');
   }
 
+  async function saveCompanyForm(form, companyId = '') {
+    setSavingId(companyId || 'new');
+    setError('');
+    setSuccess('');
+
+    const payload = {
+      ...form,
+      trialStartAt: startOfLocalDay(form.trialStartAt),
+      trialEndAt: endOfLocalDay(form.trialEndAt),
+    };
+
+    const result = companyId
+      ? await updateCompany({
+          action: 'update_profile',
+          companyId,
+          ...payload,
+        })
+      : await createCompany(payload);
+
+    if (result.ok) {
+      setEditor(null);
+      setSuccess(companyId ? 'Company details updated successfully.' : 'Company created successfully.');
+      await load();
+    } else {
+      const message =
+        result?.code === 'INVALID_COMPANY_PROFILE'
+          ? 'Check GSTIN, PAN, mobile, email and PIN-code formats.'
+          : result?.code === 'INVALID_COMPANY_PAYLOAD'
+            ? 'Complete the required company information and check field formats.'
+            : result?.code === 'INVALID_TRIAL_RANGE'
+              ? 'Trial end date must be after the trial start date.'
+              : result?.code === 'COMPANY_IDENTITY_EXISTS' || result?.code === 'COMPANY_SLUG_EXISTS'
+                ? 'Company code or portal slug is already in use.'
+                : 'Unable to save company.';
+      setError(errorText(result, message));
+    }
+
+    setSavingId('');
+  }
+
+  if (editor) {
+    return (
+      <CompanyEditor
+        form={editor.form}
+        companyId={editor.companyId}
+        plans={plans}
+        saving={Boolean(savingId)}
+        error={error}
+        onCancel={() => {
+          setEditor(null);
+          setError('');
+        }}
+        onSave={saveCompanyForm}
+      />
+    );
+  }
+
   return (
     <div>
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="relative flex-1 sm:max-w-md">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--bf-dev-text-3)]" />
-          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search company, code, slug..." className={`${inputClass} mt-0 pl-9`} />
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search company, code, GSTIN, PAN..." className={`${inputClass} mt-0 pl-9`} />
         </div>
-        <SmallButton icon={RefreshCcw} onClick={load} disabled={loading}>Refresh</SmallButton>
+        <div className="flex flex-wrap gap-2">
+          {!trialOnly && (
+            <SmallButton
+              icon={Plus}
+              variant="primary"
+              onClick={() => {
+                setError('');
+                setEditor({ companyId: '', form: blankCompanyForm() });
+              }}
+            >
+              Create company
+            </SmallButton>
+          )}
+          <SmallButton icon={RefreshCcw} onClick={load} disabled={loading}>Refresh</SmallButton>
+        </div>
       </div>
 
       {error && <p className="mb-3 text-[10px] text-rose-500">{error}</p>}
       {success && <p className="mb-3 text-[10px] text-emerald-500">{success}</p>}
+      {!trialOnly && (
+        <p className="mb-3 text-[9px] leading-4 text-[var(--bf-dev-text-3)]">
+          This list is read from the live <code>companies</code> table. Existing test rows are database records, not frontend demo data.
+        </p>
+      )}
       {loading && <p className="py-6 text-center text-[11px] text-[var(--bf-dev-text-3)]">Loading companies...</p>}
       {!loading && !filtered.length && <EmptyState>No matching companies.</EmptyState>}
 
@@ -171,6 +345,14 @@ function CompaniesPanel({ trialOnly = false }) {
             trialOnly={trialOnly}
             saving={savingId === company.id}
             onStatus={setStatus}
+            onLifecycle={setLifecycle}
+            onEdit={(target) => {
+              setError('');
+              setEditor({ companyId: target.id, form: companyToForm(target) });
+            }}
+            onView={(target) => {
+              navigate(`/saas-platform/companies/${target.id}`);
+            }}
             onSaveTrial={saveTrial}
           />
         ))}
@@ -179,10 +361,98 @@ function CompaniesPanel({ trialOnly = false }) {
   );
 }
 
-function CompanyRow({ company, trialOnly, saving, onStatus, onSaveTrial }) {
+function CompanyEditor({ form: initialForm, companyId, plans, saving, error, onCancel, onSave }) {
+  const [form, setForm] = useState(initialForm);
+  const edit = (key, value) => setForm((current) => ({ ...current, [key]: value }));
+  const isNew = !companyId;
+
+  return (
+    <div>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-[var(--bf-dev-border)] pb-4">
+        <div>
+          <h3 className="text-[13px] font-bold text-[var(--bf-dev-text)]">{isNew ? 'Create New Company' : 'Edit Company Details'}</h3>
+          <p className="mt-1 text-[9px] text-[var(--bf-dev-text-3)]">Company identity, legal/tax, owner, contact, billing and address information.</p>
+        </div>
+        <SmallButton onClick={onCancel}>Back to companies</SmallButton>
+      </div>
+
+      {error && <p className="mb-4 text-[10px] text-rose-500">{error}</p>}
+
+      <div className="space-y-5">
+        <section>
+          <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--bf-dev-primary)]">Company & Portal</div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <label className={labelClass}>Company name *<input value={form.companyName} onChange={(e) => edit('companyName', e.target.value)} className={inputClass} /></label>
+            <label className={labelClass}>Legal name<input value={form.legalName} onChange={(e) => edit('legalName', e.target.value)} className={inputClass} /></label>
+            <label className={labelClass}>Trade name<input value={form.tradeName} onChange={(e) => edit('tradeName', e.target.value)} className={inputClass} /></label>
+            <label className={labelClass}>Company code<input value={isNew ? 'Auto-generated on create' : form.companyCode} disabled className={inputClass} /></label>
+            <label className={labelClass}>Portal slug {isNew ? '(auto if blank)' : ''}<input value={form.subdomainSlug} onChange={(e) => edit('subdomainSlug', e.target.value.toLowerCase())} className={inputClass} /></label>
+            {isNew && <label className={labelClass}>Status<select value={form.status} onChange={(e) => edit('status', e.target.value)} className={inputClass}><option value="trial_active">Trial active</option><option value="active">Active</option><option value="pending_confirmation">Pending confirmation</option></select></label>}
+            {isNew && <label className={labelClass}>Initial plan<select value={form.planKey} onChange={(e) => edit('planKey', e.target.value)} className={inputClass}><option value="">No plan yet</option>{plans.filter((plan) => plan.status === 'active').map((plan) => <option key={plan.id} value={plan.plan_key}>{plan.name}</option>)}</select></label>}
+            {isNew && <label className={labelClass}>Trial start<input type="date" value={form.trialStartAt} onChange={(e) => edit('trialStartAt', e.target.value)} className={inputClass} /></label>}
+            {isNew && <label className={labelClass}>Trial end {form.status === 'trial_active' ? '*' : ''}<input type="date" value={form.trialEndAt} onChange={(e) => edit('trialEndAt', e.target.value)} className={inputClass} /></label>}
+          </div>
+        </section>
+
+        <section>
+          <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--bf-dev-primary)]">Legal & Tax</div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <label className={labelClass}>Registration type<input placeholder="Proprietorship / Pvt Ltd / LLP..." value={form.registrationType} onChange={(e) => edit('registrationType', e.target.value)} className={inputClass} /></label>
+            <label className={labelClass}>Business type<input placeholder="Transport / Logistics..." value={form.businessType} onChange={(e) => edit('businessType', e.target.value)} className={inputClass} /></label>
+            <label className={labelClass}>GSTIN<input maxLength={15} value={form.gstin} onChange={(e) => edit('gstin', e.target.value.toUpperCase())} className={inputClass} /></label>
+            <label className={labelClass}>PAN<input maxLength={10} value={form.pan} onChange={(e) => edit('pan', e.target.value.toUpperCase())} className={inputClass} /></label>
+            <label className={labelClass}>CIN / Registration no.<input value={form.cin} onChange={(e) => edit('cin', e.target.value.toUpperCase())} className={inputClass} /></label>
+            <label className={labelClass}>Aadhaar last 4<input inputMode="numeric" maxLength={4} value={form.aadhaarLast4} onChange={(e) => edit('aadhaarLast4', e.target.value.replace(/\D/g, '').slice(0, 4))} className={inputClass} /></label>
+          </div>
+          <p className="mt-2 text-[9px] leading-4 text-[var(--bf-dev-text-3)]">For security and privacy, Buddy Fleets stores only the last 4 digits of Aadhaar here. Full Aadhaar documents should later use private document storage with controlled access.</p>
+        </section>
+
+        <section>
+          <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--bf-dev-primary)]">Owner & Contact</div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <label className={labelClass}>Owner / contact person<input value={form.ownerName} onChange={(e) => edit('ownerName', e.target.value)} className={inputClass} /></label>
+            <label className={labelClass}>Owner email<input type="email" value={form.ownerEmail} onChange={(e) => edit('ownerEmail', e.target.value)} className={inputClass} /></label>
+            <label className={labelClass}>Owner mobile<input inputMode="numeric" value={form.ownerMobile} onChange={(e) => edit('ownerMobile', e.target.value)} className={inputClass} /></label>
+            {isNew && <label className={labelClass}>Owner password *<input type="password" minLength={8} value={form.ownerPassword} onChange={(e) => edit('ownerPassword', e.target.value)} className={inputClass} /></label>}
+            {isNew && <label className={labelClass}>Confirm owner password *<input type="password" minLength={8} value={form.ownerPasswordConfirm} onChange={(e) => edit('ownerPasswordConfirm', e.target.value)} className={inputClass} /></label>}
+            <label className={labelClass}>Company email<input type="email" value={form.contactEmail} onChange={(e) => edit('contactEmail', e.target.value)} className={inputClass} /></label>
+            <label className={labelClass}>Company mobile<input inputMode="numeric" value={form.contactMobile} onChange={(e) => edit('contactMobile', e.target.value)} className={inputClass} /></label>
+            <label className={labelClass}>Alternate mobile<input inputMode="numeric" value={form.alternateMobile} onChange={(e) => edit('alternateMobile', e.target.value)} className={inputClass} /></label>
+            <label className={labelClass}>Billing email<input type="email" value={form.billingEmail} onChange={(e) => edit('billingEmail', e.target.value)} className={inputClass} /></label>
+            <label className={`${labelClass} sm:col-span-2`}>Website<input placeholder="https://..." value={form.website} onChange={(e) => edit('website', e.target.value)} className={inputClass} /></label>
+          </div>
+        </section>
+
+        <section>
+          <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--bf-dev-primary)]">Registered Address</div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <label className={`${labelClass} sm:col-span-2`}>Address line 1<input value={form.addressLine1} onChange={(e) => edit('addressLine1', e.target.value)} className={inputClass} /></label>
+            <label className={labelClass}>Address line 2<input value={form.addressLine2} onChange={(e) => edit('addressLine2', e.target.value)} className={inputClass} /></label>
+            <label className={labelClass}>City<input value={form.city} onChange={(e) => edit('city', e.target.value)} className={inputClass} /></label>
+            <label className={labelClass}>State<input value={form.state} onChange={(e) => edit('state', e.target.value)} className={inputClass} /></label>
+            <label className={labelClass}>PIN code<input inputMode="numeric" maxLength={6} value={form.postalCode} onChange={(e) => edit('postalCode', e.target.value.replace(/\D/g, '').slice(0, 6))} className={inputClass} /></label>
+            <label className={labelClass}>Country<input value={form.country} onChange={(e) => edit('country', e.target.value)} className={inputClass} /></label>
+          </div>
+        </section>
+
+        <label className={labelClass}>Internal notes<textarea rows={4} value={form.notes} onChange={(e) => edit('notes', e.target.value)} className={textareaClass} /></label>
+
+        <div className="flex justify-end gap-2 border-t border-[var(--bf-dev-border)] pt-4">
+          <SmallButton onClick={onCancel}>Cancel</SmallButton>
+          <SmallButton icon={Save} variant="primary" disabled={saving || !form.companyName || (isNew && (!form.ownerEmail || form.ownerPassword.length < 8 || form.ownerPassword !== form.ownerPasswordConfirm)) || (isNew && form.status === 'trial_active' && !form.trialEndAt)} onClick={() => onSave(form, companyId)}>
+            {saving ? 'Saving...' : isNew ? 'Create company' : 'Save details'}
+          </SmallButton>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CompanyRow({ company, trialOnly, saving, onStatus, onLifecycle, onEdit, onView, onSaveTrial }) {
   const [startDate, setStartDate] = useState(formatDate(company.subscription?.trial_start_at));
   const [endDate, setEndDate] = useState(formatDate(company.subscription?.trial_end_at));
   const [trialStatus, setTrialStatus] = useState(['trial_active', 'trial_expired'].includes(company.status) ? company.status : 'trial_active');
+  const profile = company.profile || {};
 
   return (
     <div className="rounded-lg border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] p-4">
@@ -196,20 +466,29 @@ function CompanyRow({ company, trialOnly, saving, onStatus, onSaveTrial }) {
             {company.company_code || 'No code'} · portal.buddyfleets.in/{company.subdomain_slug || 'no-slug'}
           </div>
           <div className="mt-2 text-[9px] text-[var(--bf-dev-text-3)]">
-            Subscription: {company.subscription?.status || 'not found'} · Plan ID: {company.subscription?.plan_id || 'not assigned'}
+            Subscription: {company.subscription?.status || 'not found'} · Plan: {company.override?.plan_key || company.subscription?.plan_id || 'not assigned'}
           </div>
+          {(profile.gstin || profile.pan || profile.owner_name) && (
+            <div className="mt-1 text-[9px] text-[var(--bf-dev-text-3)]">
+              {profile.owner_name ? `Owner: ${profile.owner_name}` : ''}
+              {profile.gstin ? `${profile.owner_name ? ' · ' : ''}GSTIN: ${profile.gstin}` : ''}
+              {profile.pan ? ` · PAN: ${profile.pan}` : ''}
+            </div>
+          )}
           {company.override?.enabled && (
             <div className="mt-1 text-[9px] text-[var(--bf-dev-primary)]">
-              Override active{company.override.plan_key ? ` · ${company.override.plan_key}` : ''}
+              Live company override active{company.override.plan_key ? ` · ${company.override.plan_key}` : ''}
             </div>
           )}
         </div>
 
         {!trialOnly && (
           <div className="flex flex-wrap gap-2">
-            {company.status !== 'active' && <SmallButton disabled={saving} onClick={() => onStatus(company, 'active')}>Activate</SmallButton>}
-            {company.status !== 'suspended' && <SmallButton variant="danger" disabled={saving} onClick={() => onStatus(company, 'suspended')}>Suspend</SmallButton>}
-            {company.status === 'suspended' && <SmallButton disabled={saving} onClick={() => onStatus(company, 'active')}>Restore</SmallButton>}
+            <SmallButton disabled={saving} onClick={() => onView(company)}>View More</SmallButton>
+            <SmallButton disabled={saving} onClick={() => onEdit(company)}>Edit details</SmallButton>
+            {company.status !== 'suspended' && company.status !== 'active' && <SmallButton disabled={saving} onClick={() => onStatus(company, 'active')}>Activate</SmallButton>}
+            {company.status !== 'suspended' && <SmallButton variant="danger" disabled={saving} onClick={() => onLifecycle(company, 'suspend')}>Suspend</SmallButton>}
+            {company.status === 'suspended' && <SmallButton disabled={saving} onClick={() => onLifecycle(company, 'restore')}>Restore</SmallButton>}
           </div>
         )}
       </div>

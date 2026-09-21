@@ -873,6 +873,65 @@ async function getProfile(
 }
 
 
+
+async function getEffectiveCompanyAccess(companyId) {
+  const { data: override, error: overrideError } = await supabaseAdmin
+    .from('developer_company_overrides')
+    .select('enabled,plan_key,limits_override,entitlements_override,revision,updated_at')
+    .eq('company_id', companyId)
+    .maybeSingle();
+
+  if (overrideError) {
+    // Phase 2.1 tables are additive. Authentication must remain available
+    // even during a rolling deploy before the migration reaches the database.
+    console.error('Company entitlement override lookup failed:', overrideError.message);
+    return null;
+  }
+
+  if (!override?.enabled) {
+    return null;
+  }
+
+  let plan = null;
+  if (override.plan_key) {
+    const { data, error } = await supabaseAdmin
+      .from('developer_plans')
+      .select('plan_key,name,status,limits,entitlements,revision,updated_at')
+      .eq('plan_key', override.plan_key)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Company effective plan lookup failed:', error.message);
+    } else if (data && data.status !== 'archived') {
+      plan = data;
+    }
+  }
+
+  const baseLimits = plan?.limits && typeof plan.limits === 'object' ? plan.limits : {};
+  const overrideLimits =
+    override?.limits_override && typeof override.limits_override === 'object'
+      ? override.limits_override
+      : {};
+  const overrideEntitlements = Array.isArray(override?.entitlements_override)
+    ? override.entitlements_override
+    : [];
+  const baseEntitlements = Array.isArray(plan?.entitlements) ? plan.entitlements : [];
+
+  return {
+    overrideEnabled: true,
+    planKey: plan?.plan_key || override.plan_key || null,
+    planName: plan?.name || null,
+    limits: {
+      ...baseLimits,
+      ...overrideLimits,
+    },
+    entitlements: overrideEntitlements.length ? overrideEntitlements : baseEntitlements,
+    overrideRevision: override.revision || null,
+    updatedAt: override.updated_at || plan?.updated_at || null,
+  };
+}
+
+
 /* ============================================================
    EXPECTED PORTAL CONTEXT
 ============================================================ */
@@ -1245,6 +1304,31 @@ async function getExpectedPortalContext(
     }
 
 
+    /* Company 360 employee access control.
+       Existing companies/users without a Company 360 employee row remain compatible. */
+    const {
+      data: companyEmployeeAccess,
+      error: companyEmployeeAccessError,
+    } = await supabaseAdmin
+      .from('developer_company_employees')
+      .select('status')
+      .eq('company_id', company.id)
+      .eq('user_id', session.user_id)
+      .maybeSingle();
+
+    if (companyEmployeeAccessError && companyEmployeeAccessError.code !== '42P01') {
+      throw companyEmployeeAccessError;
+    }
+
+    if (
+      companyEmployeeAccess &&
+      companyEmployeeAccess.status !== 'active' &&
+      companyEmployeeAccess.status !== 'invited'
+    ) {
+      return null;
+    }
+
+
     const {
       data:
         subscription,
@@ -1297,6 +1381,12 @@ async function getExpectedPortalContext(
     }
 
 
+    const effectiveAccess =
+      await getEffectiveCompanyAccess(
+        company.id
+      );
+
+
     return {
       expectedHost:
         COMPANY_PORTAL_HOST,
@@ -1310,6 +1400,8 @@ async function getExpectedPortalContext(
         effectiveStatus,
 
         subscription,
+
+        effectiveAccess,
       },
 
       membership,
@@ -1797,6 +1889,42 @@ function buildCurrentUser({
       subscription
         ?.subscription_end_at ||
       null,
+
+    effectivePlan:
+      company
+        .effectiveAccess
+        ? {
+            key:
+              company
+                .effectiveAccess
+                .planKey ||
+              null,
+
+            name:
+              company
+                .effectiveAccess
+                .planName ||
+              null,
+          }
+        : null,
+
+    effectiveLimits:
+      company
+        .effectiveAccess
+        ?.limits ||
+      {},
+
+    effectiveEntitlements:
+      company
+        .effectiveAccess
+        ?.entitlements ||
+      [],
+
+    companyOverrideEnabled:
+      company
+        .effectiveAccess
+        ?.overrideEnabled ===
+      true,
 
     mfaEnabled,
 

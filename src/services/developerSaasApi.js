@@ -30,6 +30,11 @@ export function getCompanies() {
   return request('GET', undefined, 'companies');
 }
 
+
+export function createCompany(payload) {
+  return request('POST', payload, 'companies');
+}
+
 export function updateCompany(payload) {
   return request('PATCH', payload, 'companies');
 }
