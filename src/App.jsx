@@ -63,6 +63,14 @@ const ResetPassword = lazy(() =>
   import('./pages/Auth/ResetPassword')
 );
 
+const ClientPortalApp = lazy(() =>
+  import('./clientPortal/ClientPortalApp')
+);
+
+const DemoPortalApp = lazy(() =>
+  import('./clientPortal/DemoPortalApp')
+);
+
 const DeveloperDashboard = lazy(() =>
   import('./pages/Dashboard/DeveloperDashboard')
 );
@@ -2104,6 +2112,30 @@ function PortalRoutes({
      SESSION STATE
   ======================================================= */
 
+  /* =======================================================
+     PUBLIC DEMO ON THE COMPANY PORTAL HOST
+
+     portal.buddyfleets.in/demo
+     portal.buddyfleets.in/demo/travels/dashboard
+     portal.buddyfleets.in/demo/cement/dashboard
+
+     Demo data is isolated in the browser and never authorizes
+     or reads a real company tenant.
+  ======================================================= */
+
+  const isCompanyDemoRoute =
+    portalType === 'company' &&
+    (location.pathname === '/demo' || location.pathname.startsWith('/demo/'));
+
+  if (isCompanyDemoRoute) {
+    return (
+      <LazyPage>
+        <DemoPortalApp />
+      </LazyPage>
+    );
+  }
+
+
   if (
     sessionState ===
       'checking' ||
@@ -2915,16 +2947,14 @@ function PortalRoutes({
         />
 
         <Route
-          path="/:companySlug/dashboard"
+          path="/:companySlug/*"
           element={
-            <CompanyDashboardPending
-              currentUser={
-                currentUser
-              }
-              onLogout={
-                onLogout
-              }
-            />
+            <LazyPage>
+              <ClientPortalApp
+                currentUser={currentUser}
+                onLogout={onLogout}
+              />
+            </LazyPage>
           }
         />
 
