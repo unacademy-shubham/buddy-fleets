@@ -2112,30 +2112,6 @@ function PortalRoutes({
      SESSION STATE
   ======================================================= */
 
-  /* =======================================================
-     PUBLIC DEMO ON THE COMPANY PORTAL HOST
-
-     portal.buddyfleets.in/demo
-     portal.buddyfleets.in/demo/travels/dashboard
-     portal.buddyfleets.in/demo/cement/dashboard
-
-     Demo data is isolated in the browser and never authorizes
-     or reads a real company tenant.
-  ======================================================= */
-
-  const isCompanyDemoRoute =
-    portalType === 'company' &&
-    (location.pathname === '/demo' || location.pathname.startsWith('/demo/'));
-
-  if (isCompanyDemoRoute) {
-    return (
-      <LazyPage>
-        <DemoPortalApp />
-      </LazyPage>
-    );
-  }
-
-
   if (
     sessionState ===
       'checking' ||
@@ -2189,6 +2165,39 @@ function PortalRoutes({
           SECURE_LOGIN_URL
         }
       />
+    );
+  }
+
+
+  /* =======================================================
+     SECURE AUTHENTICATED DEMO
+
+     Demo is no longer a public bypass. It uses the same Buddy
+     Fleets login + HttpOnly portal session as a real company.
+     The dedicated demo tenant must use company slug "demo".
+  ======================================================= */
+
+  const isAuthenticatedDemoRoute =
+    portalType === 'company' &&
+    (location.pathname === '/demo' || location.pathname.startsWith('/demo/'));
+
+  if (isAuthenticatedDemoRoute) {
+    if (authoritativeCompanySlug !== 'demo') {
+      return (
+        <Navigate
+          replace
+          to={authoritativeCompanySlug ? `/${authoritativeCompanySlug}/dashboard` : SECURE_LOGIN_URL}
+        />
+      );
+    }
+
+    return (
+      <LazyPage>
+        <DemoPortalApp
+          currentUser={currentUser}
+          onLogout={onLogout}
+        />
+      </LazyPage>
     );
   }
 

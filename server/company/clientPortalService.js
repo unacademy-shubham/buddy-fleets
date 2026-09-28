@@ -6,10 +6,15 @@ const SUPABASE_URL = process.env.SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const ACTIONS = ['view','create','edit','delete','approve','verify','print','export','manage'];
-const ALWAYS_MODULES = ['dashboard','sites','vehicles','drivers','parties','reports','users_roles','settings','notifications'];
+const ALWAYS_MODULES = ['dashboard','live_operations','sites','vehicles','vehicle_inspection','drivers','parties','expenses','fuel','driver_payments','invoices','party_ledgers','profit_loss','compliance','maintenance','tyres','spare_parts','challans','reports','users_roles','settings','notifications','subscription','audit_activity','approval_center'];
 const PACK_MODULES = {
-  travels: ['dashboard','sites','vehicles','drivers','parties','travel_enquiries','travel_quotations','travel_bookings','travel_availability','travel_tours','trips','route_planning','expenses','fuel','driver_payments','invoices','party_ledgers','compliance','maintenance','tyres','spare_parts','challans','reports','users_roles','settings','notifications'],
-  bagged_cement: ['dashboard','sites','vehicles','drivers','parties','cement_placement','cement_queue','cement_loading','cement_dispatch','trips','dispatch','cement_delivery','epod','cement_tat','expenses','fuel','driver_payments','invoices','party_ledgers','compliance','maintenance','tyres','spare_parts','challans','reports','users_roles','settings','notifications'],
+  travels: ['travel_bookings','travel_enquiries','travel_availability','travel_tours','travel_driver_duty','trips','route_planning','dispatch','epod','delivery_records'],
+  bagged_cement: ['cement_placement','cement_queue','cement_loading','cement_dispatch','cement_delivery','cement_tat','trips','route_planning','dispatch','epod','delivery_records'],
+  general_transport: ['goods_consignment','goods_load_planning','goods_delivery','goods_freight','lr_bilty','trips','route_planning','dispatch','epod','delivery_records'],
+  container: ['container_movement','container_port_ops','container_gate','container_empty_return','container_detention','lr_bilty','trips','route_planning','dispatch','epod','delivery_records'],
+  cement_bulker: ['bulker_placement','bulker_queue','bulker_loading','bulker_weighbridge','bulker_unloading','bulker_tat','trips','route_planning','dispatch','epod','delivery_records'],
+  staff_transport: ['staff_routes','staff_shifts','staff_roster','staff_allocation','staff_attendance','staff_contracts','trips','route_planning','dispatch'],
+  school_transport: ['school_routes','school_students','school_assignments','school_pickup_drop','school_attendance','school_attendants','trips','route_planning','dispatch'],
 };
 const BASIC_USER_MODULES = ['dashboard','vehicles','drivers','reports'];
 
@@ -36,7 +41,7 @@ async function audit(db,{companyId,userId,siteId=null,moduleKey=null,actionType,
   if(error) console.error('Client portal audit failed:', error.message);
 }
 
-function packFor(settings) { return ['travels','bagged_cement'].includes(settings?.fleet_pack) ? settings.fleet_pack : 'travels'; }
+function packFor(settings) { return ['travels','bagged_cement','general_transport','container','cement_bulker','staff_transport','school_transport'].includes(settings?.fleet_pack) ? settings.fleet_pack : 'travels'; }
 function recommendedModules(settings) { const pack=packFor(settings); const custom=Array.isArray(settings?.enabled_modules)?settings.enabled_modules.filter(Boolean):[]; return [...new Set([...ALWAYS_MODULES,...(PACK_MODULES[pack]||[]),...custom])]; }
 
 async function effectiveCompanyModules(db, companyId, settings) {
@@ -138,6 +143,22 @@ async function bootstrap({db,companyId,userId,currentUser}) {
   const users=await decoratePhotos(db,usersBase.map(u=>{const a=accessMap.get(u.user_id)||{},p=profileMap.get(u.user_id)||{},sec=securityMap.get(u.user_id)||{};const visibleSiteIds=a.all_sites?siteIds:(a.site_ids||[]);return {...u,id:u.user_id,full_name:p.full_name||u.full_name,email:p.email||u.email,mobile:p.mobile||u.mobile,designation:p.designation||u.designation,department:p.department||'',role_name:a.role_name||u.role_key||'Viewer',site_ids:visibleSiteIds,site_names:(sitesR.data||[]).filter(s=>visibleSiteIds.includes(s.id)).map(s=>s.name),module_permissions:a.permission_overrides||{},module_keys:Object.entries(a.permission_overrides||{}).filter(([,v])=>v?.view).map(([k])=>k),mfa_enabled:sec.mfa_enabled===true,photo_path:p.photo_path||null};}));
   const drivers=await decoratePhotos(db,scope(driversR.data||[],'primary_site_id'));
   const selfProfile={...(employeeCtx.profile||{}),photo_url:await signedUrl(db,employeeCtx.profile?.photo_path)};
+  // CLIENT PORTAL SUBSCRIPTION SNAPSHOT
+  // Uses existing Company 360 billing/subscription tables; no new storage or API function.
+  let billing={subscription:null,plan:null,limits:{},invoices:[],payments:[],receipts:[],usage:{vehicles:(vehiclesR.data||[]).length,users:(employeesR.data||[]).length,sites:(sitesR.data||[]).length}};
+  if(userAccess.isOwner||userAccess.isAdmin||userAccess.modulePermissions?.subscription?.view){
+    try{
+      const [accessSnapshot,invoiceR,paymentR,receiptR]=await Promise.all([
+        resolveCompanyAccess(db,companyId),
+        db.from('developer_company_invoices').select('*').eq('company_id',companyId).order('invoice_date',{ascending:false}).limit(100),
+        db.from('developer_company_payments').select('*').eq('company_id',companyId).order('payment_date',{ascending:false}).limit(100),
+        db.from('developer_company_receipts').select('*').eq('company_id',companyId).order('issued_at',{ascending:false}).limit(100),
+      ]);
+      if(invoiceR.error)throw invoiceR.error;if(paymentR.error)throw paymentR.error;if(receiptR.error)throw receiptR.error;
+      billing={subscription:accessSnapshot?.subscription||null,plan:accessSnapshot?.plan||null,limits:accessSnapshot?.limits||{},invoices:invoiceR.data||[],payments:paymentR.data||[],receipts:receiptR.data||[],usage:{vehicles:(vehiclesR.data||[]).length,users:(employeesR.data||[]).length,sites:(sitesR.data||[]).length}};
+    }catch(e){console.error('Client subscription snapshot fallback:',e.message);}
+  }
+
   return {
     ok:true,
     company:{...companyR.data,fleetPack:packFor(settings)},settings,sites:allowedSites,userAccess,
@@ -152,6 +173,7 @@ async function bootstrap({db,companyId,userId,currentUser}) {
       expenses: userAccess.modulePermissions?.expenses?.view ? scope((expensesR.data||[]).map(x=>({...x,date:x.expense_date})),'site_id') : [],
       selfProfile,
       sessions:sessionsR.data||[],
+      billing,
     }
   };
 }
@@ -195,7 +217,7 @@ async function action({db,companyId,userId,sessionId,currentUser,userAccess,acti
     assertPermission(userAccess,'cement_dispatch','create');const siteId=uuidLike(p.site_id)?p.site_id:null;assertSite(userAccess,siteId);if(!siteId)throw Object.assign(new Error('SITE_REQUIRED'),{status:400,code:'SITE_REQUIRED'});const row={company_id:companyId,site_id:siteId,dispatch_no:clean(p.dispatch_no,80),vehicle_number:clean(p.vehicle_number,30).toUpperCase(),driver_name:nullable(p.driver_name,150),dealer:nullable(p.dealer,180),destination:nullable(p.destination,250),material:clean(p.material,120)||'Bagged Cement',bags:num(p.bags,0)||0,gross_weight_mt:num(p.gross_weight_mt),tare_weight_mt:num(p.tare_weight_mt),net_weight_mt:num(p.net_weight_mt),loading_slip_no:nullable(p.loading_slip_no,100),weighbridge_slip_no:nullable(p.weighbridge_slip_no,100),reported_at:datetime(p.reported_at),loading_started_at:datetime(p.loading_started_at),dispatched_at:datetime(p.dispatched_at),delivered_at:datetime(p.delivered_at),received_by:nullable(p.received_by,150),receiver_mobile:nullable(p.receiver_mobile,30),pod_number:nullable(p.pod_number,100),pod_status:clean(p.pod_status,40)||'pending',shortage_bags:num(p.shortage_bags,0)||0,damage_bags:num(p.damage_bags,0)||0,turnaround_hours:num(p.turnaround_hours),detention_hours:num(p.detention_hours),status:clean(p.status,50)||'at_plant',remarks:nullable(p.remarks,1000)};if(!row.dispatch_no||!row.vehicle_number)throw Object.assign(new Error('INVALID_DISPATCH'),{status:400,code:'INVALID_DISPATCH'});const r=await db.from('company_portal_cement_dispatches').insert(row).select('*').single();if(r.error)throw r.error;await audit(db,{companyId,userId,siteId,moduleKey:'cement_dispatch',actionType:'create',entityType:'dispatch',entityId:r.data.id,description:`Created dispatch ${row.dispatch_no}`});return {ok:true,dispatch:r.data};
   }
   if(actionName==='save_settings'){
-    assertPermission(userAccess,'settings','edit'); const fleetPack=['travels','bagged_cement'].includes(p.fleet_pack)?p.fleet_pack:'travels'; const patch={fleet_pack:fleetPack,enabled_packs:[fleetPack],company_display_name:nullable(p.company_display_name,200),default_scope:p.default_scope==='primary'?'primary':'all',date_format:['DD/MM/YYYY','YYYY-MM-DD'].includes(p.date_format)?p.date_format:'DD/MM/YYYY',time_format:p.time_format==='24h'?'24h':'12h',updated_at:new Date().toISOString()};const r=await db.from('company_portal_settings').upsert({company_id:companyId,...patch},{onConflict:'company_id'}).select('*').single();if(r.error)throw r.error;await audit(db,{companyId,userId,moduleKey:'settings',actionType:'edit',entityType:'company_settings',entityId:companyId,description:'Updated company portal settings',afterData:patch});return {ok:true,settings:r.data};
+    assertPermission(userAccess,'settings','edit'); const fleetPack=['travels','bagged_cement','general_transport','container','cement_bulker','staff_transport','school_transport'].includes(p.fleet_pack)?p.fleet_pack:'travels'; const patch={fleet_pack:fleetPack,enabled_packs:[fleetPack],company_display_name:nullable(p.company_display_name,200),default_scope:p.default_scope==='primary'?'primary':'all',date_format:['DD/MM/YYYY','YYYY-MM-DD'].includes(p.date_format)?p.date_format:'DD/MM/YYYY',time_format:p.time_format==='24h'?'24h':'12h',updated_at:new Date().toISOString()};const r=await db.from('company_portal_settings').upsert({company_id:companyId,...patch},{onConflict:'company_id'}).select('*').single();if(r.error)throw r.error;await audit(db,{companyId,userId,moduleKey:'settings',actionType:'edit',entityType:'company_settings',entityId:companyId,description:'Updated company portal settings',afterData:patch});return {ok:true,settings:r.data};
   }
   if(actionName==='save_profile'){
     const existing=await db.from('company_portal_user_profiles').select('*').eq('company_id',companyId).eq('user_id',userId).maybeSingle();if(existing.error)throw existing.error;const patch={company_id:companyId,user_id:userId,full_name:nullable(p.full_name,150),mobile:nullable(p.mobile,30),alternate_mobile:nullable(p.alternate_mobile,30),designation:nullable(p.designation,120),address:nullable(p.address,600),emergency_contact:nullable(p.emergency_contact,120),updated_at:new Date().toISOString()};const r=await db.from('company_portal_user_profiles').upsert({...existing.data,...patch},{onConflict:'company_id,user_id'}).select('*').single();if(r.error)throw r.error;await audit(db,{companyId,userId,moduleKey:'profile',actionType:'edit',entityType:'user_profile',entityId:userId,description:'Updated profile'});return {ok:true,profile:r.data};

@@ -1,15 +1,94 @@
 import React, { useMemo } from 'react';
-import { AlertTriangle, BusFront, CalendarCheck2, Clock3, IndianRupee, PackageCheck, Route, Scale, Truck, UsersRound, Wrench } from 'lucide-react';
+import {
+  AlertTriangle, BusFront, CalendarCheck2, Clock3, IndianRupee, PackageCheck, Route,
+  Scale, Truck, UsersRound, Wrench, Building2, FileText, Boxes, GraduationCap,
+  Gauge, UserCheck
+} from 'lucide-react';
 import KpiCard from '../components/KpiCard';
 import DataTable from '../components/DataTable';
 import PageHeader from '../components/PageHeader';
 import { useClientPortal } from '../ClientPortalContext';
+import { getFleetPack } from '../config/fleetPacks';
 
 const siteName = (sites, id) => sites.find((s)=>s.id===id)?.name || '—';
+const ICONS = { Truck, UsersRound, Building2, Route, FileText, Boxes, Container: Boxes, GraduationCap, Gauge, UserCheck, IndianRupee, PackageCheck, Clock3, Scale, CalendarCheck2, BusFront, AlertTriangle, Wrench };
+
+function GenericFleetDashboard({ company, data, sites, selectedSiteId }) {
+  const pack = getFleetPack(company?.fleetPack) || getFleetPack('travels');
+  const filter = (rows=[]) => selectedSiteId === 'all' ? rows : rows.filter((row)=>(row.site_id || row.home_site_id || row.primary_site_id) === selectedSiteId);
+  const vehicles = filter(data?.vehicles || []);
+  const drivers = filter(data?.drivers || []);
+  const expenses = filter(data?.expenses || []);
+  const common = {
+    vehicles:vehicles.length,
+    drivers:drivers.filter(d=>d.status!=='inactive'&&d.status!=='blocked').length,
+    sites:selectedSiteId==='all' ? sites.length : Math.min(1, sites.length),
+    expenses:`₹${expenses.reduce((a,b)=>a+Number(b.amount||0),0).toLocaleString('en-IN')}`,
+  };
+  const defaultsByPack = {
+    general_transport:[
+      {title:'Total Vehicles',value:common.vehicles,icon:'Truck'}, {title:'Active Drivers',value:common.drivers,icon:'UsersRound'},
+      {title:'Active Consignments',value:'—',icon:'FileText'}, {title:'Vehicles on Trip',value:'—',icon:'Route',tone:'blue'},
+      {title:'Pending POD',value:'—',icon:'PackageCheck',tone:'orange'}, {title:'Dispatch Today',value:'—',icon:'Boxes'},
+      {title:'Authorized Sites',value:common.sites,icon:'Building2'}, {title:'Recorded Expenses',value:common.expenses,icon:'IndianRupee',tone:'orange'},
+    ],
+    container:[
+      {title:'Total Vehicles',value:common.vehicles,icon:'Truck'}, {title:'Containers in Movement',value:'—',icon:'Container'},
+      {title:'Gate In Today',value:'—',icon:'Route',tone:'green'}, {title:'Gate Out Today',value:'—',icon:'Truck',tone:'blue'},
+      {title:'Empty Return Pending',value:'—',icon:'Boxes',tone:'orange'}, {title:'Detention Cases',value:'—',icon:'Clock3',tone:'orange'},
+      {title:'Authorized Sites',value:common.sites,icon:'Building2'}, {title:'Recorded Expenses',value:common.expenses,icon:'IndianRupee'},
+    ],
+    cement_bulker:[
+      {title:'Total Bulkers',value:common.vehicles,icon:'Truck'}, {title:'Placement Required',value:'—',icon:'Truck'},
+      {title:'Reported at Plant',value:'—',icon:'Building2',tone:'blue'}, {title:'Loading',value:'—',icon:'Gauge',tone:'orange'},
+      {title:'Tonnage Today',value:'—',icon:'Scale'}, {title:'In Transit',value:'—',icon:'Route',tone:'blue'},
+      {title:'Avg Turnaround',value:'—',icon:'Clock3',tone:'green'}, {title:'Recorded Expenses',value:common.expenses,icon:'IndianRupee'},
+    ],
+    staff_transport:[
+      {title:'Total Vehicles',value:common.vehicles,icon:'Truck'}, {title:'Active Drivers',value:common.drivers,icon:'UsersRound'},
+      {title:'Routes Today',value:'—',icon:'Route'}, {title:'Active Shifts',value:'—',icon:'Clock3',tone:'blue'},
+      {title:'Vehicles Allocated',value:'—',icon:'BusFront',tone:'green'}, {title:'Employees Scheduled',value:'—',icon:'UsersRound'},
+      {title:'Authorized Sites',value:common.sites,icon:'Building2'}, {title:'Recorded Expenses',value:common.expenses,icon:'IndianRupee'},
+    ],
+    school_transport:[
+      {title:'School Buses',value:common.vehicles,icon:'BusFront'}, {title:'Active Drivers',value:common.drivers,icon:'UsersRound'},
+      {title:'Routes',value:'—',icon:'Route'}, {title:'Students Assigned',value:'—',icon:'GraduationCap'},
+      {title:'Pickup / Drop',value:'—',icon:'UserCheck',tone:'green'}, {title:'Late Routes',value:'—',icon:'Clock3',tone:'orange'},
+      {title:'Authorized Sites',value:common.sites,icon:'Building2'}, {title:'Inspection Due',value:'—',icon:'AlertTriangle',tone:'orange'},
+    ],
+  };
+  const defaults = defaultsByPack[company?.fleetPack] || [
+    { title:'Total Vehicles', value:common.vehicles, icon:'Truck' },
+    { title:'Active Drivers', value:common.drivers, icon:'UsersRound' },
+    { title:'Authorized Sites', value:common.sites, icon:'Building2' },
+    { title:'Recorded Expenses', value:common.expenses, icon:'IndianRupee', tone:'orange' },
+  ];
+  const metrics = (data?.dashboardMetrics?.length ? data.dashboardMetrics : defaults).slice(0, 8);
+  const tables = data?.dashboardTables || [];
+  return <>
+    <PageHeader
+      title={`${pack?.shortName || pack?.name || 'Fleet'} Dashboard`}
+      subtitle={selectedSiteId==='all' ? 'Consolidated view across all authorized sites.' : `Site view: ${siteName(sites, selectedSiteId)}`}
+    />
+    <div className="bf-grid bf-grid-4">
+      {metrics.map((metric, index)=>{
+        const Icon = ICONS[metric.icon] || Truck;
+        return <KpiCard key={`${metric.title}-${index}`} title={metric.title} value={metric.value} note={metric.note} icon={Icon} tone={metric.tone}/>;
+      })}
+    </div>
+    <div className="bf-grid bf-grid-2" style={{marginTop:16}}>
+      {(tables.length ? tables.slice(0,2) : [
+        { title:'Fleet Snapshot', columns:[{key:'vehicle_number',label:'Vehicle'},{key:'vehicle_type',label:'Type'},{key:'status',label:'Status',render:v=><span className={`bf-status ${v}`}>{v}</span>}], rows:vehicles.slice(0,7) },
+        { title:'Driver Snapshot', columns:[{key:'full_name',label:'Driver'},{key:'mobile',label:'Mobile'},{key:'status',label:'Status',render:v=><span className={`bf-status ${v}`}>{v}</span>}], rows:drivers.slice(0,7) },
+      ]).map((table, index)=><div className="bf-card" key={`${table.title}-${index}`}><div className="bf-card-head"><h3>{table.title}</h3></div><DataTable columns={(table.columns||[]).map(col=>({...col,render:col.key==='status'&&!col.render?(v=><span className={`bf-status ${v}`}>{v}</span>):col.render}))} rows={table.rows||[]}/></div>)}
+    </div>
+  </>;
+}
 
 export default function DashboardPage() {
   const { company, data, sites = [], selectedSiteId } = useClientPortal();
   const isCement = company?.fleetPack === 'bagged_cement';
+  const isTravels = company?.fleetPack === 'travels';
   const filter = (rows=[]) => selectedSiteId === 'all' ? rows : rows.filter((row)=>(row.site_id || row.home_site_id || row.primary_site_id) === selectedSiteId);
   const vehicles = filter(data?.vehicles || []);
   const drivers = filter(data?.drivers || []);
@@ -40,6 +119,8 @@ export default function DashboardPage() {
     drivers: drivers.length,
     expenses: expenses.reduce((a,b)=>a+Number(b.amount||0),0),
   }),[vehicles,bookings,drivers,expenses]);
+
+  if (!isCement && !isTravels) return <GenericFleetDashboard company={company} data={data} sites={sites} selectedSiteId={selectedSiteId}/>;
 
   return <>
     <PageHeader title="Dashboard" subtitle={selectedSiteId==='all' ? 'Consolidated view across all authorized sites.' : `Site view: ${siteName(sites, selectedSiteId)}`} />
