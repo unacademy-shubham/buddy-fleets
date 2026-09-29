@@ -2,7 +2,7 @@ import {
   clearDeveloperSessionCookie,
   requireDeveloperSession,
   setDeveloperApiHeaders,
-} from '../../server/auth/requireDeveloperSession.js';
+} from '../auth/requireDeveloperSession.js';
 
 const MAX_BODY_BYTES = 512 * 1024;
 const KEY_PATTERN = /^[a-z0-9][a-z0-9._:/-]{1,159}$/;

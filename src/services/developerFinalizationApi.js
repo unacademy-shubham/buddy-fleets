@@ -30,47 +30,47 @@ async function request(url, options = {}) {
 }
 
 export function getPlatformFinalizationSummary() {
-  return request('/api/developer/finalization?action=summary');
+  return request('/api/developer?route=finalization&action=summary');
 }
 
 export function getPlatformRecentActivity() {
-  return request('/api/developer/finalization?action=activity');
+  return request('/api/developer?route=finalization&action=activity');
 }
 
 export function searchDeveloperPlatform(query) {
   const q = encodeURIComponent(String(query || '').trim());
-  return request(`/api/developer/finalization?action=search&q=${q}`);
+  return request(`/api/developer?route=finalization&action=search&q=${q}`);
 }
 
 export function previewDeveloperCompany(companyId, targetUserId = '') {
   const params = new URLSearchParams({ action: 'preview_company', companyId });
   if (targetUserId) params.set('targetUserId', targetUserId);
-  return request(`/api/developer/finalization?${params.toString()}`);
+  return request(`/api/developer?route=finalization&${params.toString()}`);
 }
 
 export function updateDeveloperFeatureFlag(payload) {
-  return request('/api/developer/finalization', {
+  return request('/api/developer?route=finalization', {
     method: 'POST',
     body: JSON.stringify({ action: 'set_feature_flag', ...payload }),
   });
 }
 
 export function updateDeveloperMaintenanceMode(payload) {
-  return request('/api/developer/finalization', {
+  return request('/api/developer?route=finalization', {
     method: 'POST',
     body: JSON.stringify({ action: 'set_maintenance_mode', ...payload }),
   });
 }
 
 export function saveDeveloperWidgetPreset(payload) {
-  return request('/api/developer/finalization', {
+  return request('/api/developer?route=finalization', {
     method: 'POST',
     body: JSON.stringify({ action: 'save_widget_preset', ...payload }),
   });
 }
 
 export function queueDeveloperExport(payload) {
-  return request('/api/developer/finalization', {
+  return request('/api/developer?route=finalization', {
     method: 'POST',
     body: JSON.stringify({ action: 'queue_export', ...payload }),
   });

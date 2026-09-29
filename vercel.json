@@ -1,9 +1,43 @@
 {
-  "regions": ["sin1"],
+  "regions": [
+    "sin1"
+  ],
   "rewrites": [
     {
       "source": "/auth/callback",
       "destination": "/api/auth/callback"
+    },
+    {
+      "source": "/api/developer/account",
+      "destination": "/api/developer?route=account"
+    },
+    {
+      "source": "/api/developer/company-360",
+      "destination": "/api/developer?route=company-360"
+    },
+    {
+      "source": "/api/developer/control-plane",
+      "destination": "/api/developer?route=control-plane"
+    },
+    {
+      "source": "/api/developer/finalization",
+      "destination": "/api/developer?route=finalization"
+    },
+    {
+      "source": "/api/developer/health",
+      "destination": "/api/developer?route=health"
+    },
+    {
+      "source": "/api/developer/overview",
+      "destination": "/api/developer?route=overview"
+    },
+    {
+      "source": "/api/developer/platform-registry",
+      "destination": "/api/developer?route=platform-registry"
+    },
+    {
+      "source": "/api/developer/saas-management",
+      "destination": "/api/developer?route=saas-management"
     },
     {
       "source": "/(.*)",

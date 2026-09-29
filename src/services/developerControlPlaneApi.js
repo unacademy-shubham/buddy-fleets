@@ -20,17 +20,17 @@ async function request(method, payload, path) {
 }
 
 export function getDeveloperControlPlaneState(key) {
-  return request('GET', undefined, `/api/developer/control-plane?key=${encodeURIComponent(key)}`);
+  return request('GET', undefined, `/api/developer?route=control-plane&key=${encodeURIComponent(key)}`);
 }
 
 export function saveDeveloperControlPlaneState({ key, expectedRevision, payload }) {
-  return request('PUT', { key, expectedRevision, payload }, '/api/developer/control-plane');
+  return request('PUT', { key, expectedRevision, payload }, '/api/developer?route=control-plane');
 }
 
 export function getDeveloperControlPlaneHistory(key) {
-  return request('GET', undefined, `/api/developer/control-plane?key=${encodeURIComponent(key)}&history=1`);
+  return request('GET', undefined, `/api/developer?route=control-plane&key=${encodeURIComponent(key)}&history=1`);
 }
 
 export function rollbackDeveloperControlPlaneState({ key, expectedRevision, historyId }) {
-  return request('POST', { action: 'rollback', key, expectedRevision, historyId }, '/api/developer/control-plane');
+  return request('POST', { action: 'rollback', key, expectedRevision, historyId }, '/api/developer?route=control-plane');
 }

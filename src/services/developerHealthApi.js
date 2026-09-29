@@ -1,6 +1,6 @@
 export async function getDeveloperServiceHealth() {
   try {
-    const response = await fetch('/api/developer/health', {
+    const response = await fetch('/api/developer?route=health', {
       method: 'GET',
       credentials: 'include',
       cache: 'no-store',

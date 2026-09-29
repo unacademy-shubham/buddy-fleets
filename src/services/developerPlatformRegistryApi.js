@@ -2,8 +2,8 @@ async function request(method, payload, resource, params = {}) {
   try {
     const query = new URLSearchParams({ resource, ...Object.fromEntries(Object.entries(params).filter(([, value]) => value !== undefined && value !== null && value !== '')) });
     const path = method === 'GET'
-      ? `/api/developer/platform-registry?${query.toString()}`
-      : '/api/developer/platform-registry';
+      ? `/api/developer?route=platform-registry&${query.toString()}`
+      : '/api/developer?route=platform-registry';
     const response = await fetch(path, {
       method,
       credentials: 'include',

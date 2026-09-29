@@ -1,8 +1,8 @@
 async function request(method, payload, resource) {
   try {
     const path = method === 'GET'
-      ? `/api/developer/saas-management?resource=${encodeURIComponent(resource)}`
-      : '/api/developer/saas-management';
+      ? `/api/developer?route=saas-management&resource=${encodeURIComponent(resource)}`
+      : '/api/developer?route=saas-management';
 
     const response = await fetch(path, {
       method,

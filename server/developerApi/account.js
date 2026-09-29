@@ -2,7 +2,7 @@ import {
   clearDeveloperSessionCookie,
   requireDeveloperSession,
   setDeveloperApiHeaders,
-} from '../../server/auth/requireDeveloperSession.js';
+} from '../auth/requireDeveloperSession.js';
 
 function send(res,status,payload){setDeveloperApiHeaders(res);return res.status(status).json(payload);}
 function clean(v,max=500){return String(v??'').trim().slice(0,max);}

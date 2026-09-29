@@ -1,5 +1,5 @@
 async function request(method,payload){
-  try{const response=await fetch('/api/developer/account',{method,credentials:'include',cache:'no-store',referrerPolicy:'no-referrer',headers:{Accept:'application/json',...(payload?{'Content-Type':'application/json'}:{})},...(payload?{body:JSON.stringify(payload)}:{})});const data=await response.json().catch(()=>({}));return {...data,ok:Boolean(response.ok&&data?.ok),status:response.status};}catch{return {ok:false,status:0,code:'NETWORK_ERROR'};}
+  try{const response=await fetch('/api/developer?route=account',{method,credentials:'include',cache:'no-store',referrerPolicy:'no-referrer',headers:{Accept:'application/json',...(payload?{'Content-Type':'application/json'}:{})},...(payload?{body:JSON.stringify(payload)}:{})});const data=await response.json().catch(()=>({}));return {...data,ok:Boolean(response.ok&&data?.ok),status:response.status};}catch{return {ok:false,status:0,code:'NETWORK_ERROR'};}
 }
 export const getDeveloperAccount=()=>request('GET');
 export const updateDeveloperProfile=(payload)=>request('PATCH',payload);

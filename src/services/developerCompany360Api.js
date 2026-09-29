@@ -1,8 +1,8 @@
 async function request(method, companyId, payload) {
   try {
     const url = method === 'GET'
-      ? `/api/developer/company-360?companyId=${encodeURIComponent(companyId)}`
-      : '/api/developer/company-360';
+      ? `/api/developer?route=company-360&companyId=${encodeURIComponent(companyId)}`
+      : '/api/developer?route=company-360';
     const response = await fetch(url, {
       method,
       credentials: 'include',

@@ -2,7 +2,7 @@ import {
   clearDeveloperSessionCookie,
   requireDeveloperSession,
   setDeveloperApiHeaders,
-} from '../../server/auth/requireDeveloperSession.js';
+} from '../auth/requireDeveloperSession.js';
 
 function send(res, status, payload) {
   setDeveloperApiHeaders(res);

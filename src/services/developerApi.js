@@ -89,7 +89,7 @@ async function developerRequest(
 
 export async function getDeveloperOverview() {
   return await developerRequest(
-    '/api/developer/overview',
+    '/api/developer?route=overview',
     {
       method: 'GET',
     }
