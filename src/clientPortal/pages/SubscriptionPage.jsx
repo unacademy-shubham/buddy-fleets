@@ -65,7 +65,7 @@ function makeInvoicePdf({ company, invoice }) {
 }
 
 export default function SubscriptionPage({ section = '' }) {
-  const { company, currentUser, data, sites = [] } = useClientPortal();
+  const { company, currentUser, data, sites = [], runtime = {} } = useClientPortal();
   const billing = data?.billing || {};
   const subscription = billing.subscription || {};
   const plan = billing.plan || currentUser?.effectivePlan || {};
@@ -76,20 +76,23 @@ export default function SubscriptionPage({ section = '' }) {
   const users = data?.users || [];
   const vehicles = data?.vehicles || [];
   const usage = billing.usage || {};
-  const startDate = firstValue(subscription, ['start_date','current_period_start','trial_start','created_at']);
-  const endDate = firstValue(subscription, ['valid_until','end_date','current_period_end','trial_end','expires_at','expiry_date']);
+  const startDate = firstValue(subscription, ['subscription_start_at','trial_start_at','start_date','current_period_start','trial_start','created_at']);
+  const endDate = firstValue(subscription, ['subscription_end_at','trial_end_at','valid_until','end_date','current_period_end','trial_end','expires_at','expiry_date']);
   const remaining = daysRemaining(endDate);
-  const status = subscription.status || company?.status || currentUser?.companyStatus || 'active';
+  const status = runtime.lifecycleState || subscription.status || company?.status || currentUser?.companyStatus || 'active';
   const [message,setMessage] = useState('');
   const planName = plan.name || plan.plan_name || plan.plan_key || subscription.plan_name || subscription.plan_id || 'Not assigned';
   const billingCycle = subscription.billing_cycle || subscription.interval || subscription.cycle || '—';
   const normalizedSection = String(section || '').split('/')[0];
 
-  const usageRows = useMemo(()=>[
-    { id:'vehicles', resource:'Vehicles', used:usage.vehicles ?? vehicles.length, limit:limits.vehicles_max ?? limits.vehicles ?? 'Unlimited' },
-    { id:'users', resource:'Users', used:usage.users ?? users.length, limit:limits.users ?? 'Unlimited' },
-    { id:'sites', resource:'Sites / Branches', used:usage.sites ?? sites.length, limit:limits.sites ?? limits.branches ?? 'Unlimited' },
-  ],[vehicles.length,users.length,sites.length,limits,usage.vehicles,usage.users,usage.sites]);
+  const usageRows = useMemo(()=>{
+    const limitsActive = runtime?.limitsEnforced === true;
+    return [
+      { id:'vehicles', resource:'Vehicles', used:usage.vehicles ?? vehicles.length, limit:limitsActive ? (limits.vehicles_max ?? limits.vehicles ?? 'Unlimited') : 'Not enforced yet' },
+      { id:'users', resource:'Users', used:usage.users ?? users.length, limit:limitsActive ? (limits.users ?? 'Unlimited') : 'Not enforced yet' },
+      { id:'sites', resource:'Sites / Branches', used:usage.sites ?? sites.length, limit:limitsActive ? (limits.sites ?? limits.branches ?? 'Unlimited') : 'Not enforced yet' },
+    ];
+  },[vehicles.length,users.length,sites.length,limits,usage.vehicles,usage.users,usage.sites,runtime?.limitsEnforced]);
 
   const download = (invoice) => {
     try {
@@ -121,7 +124,7 @@ export default function SubscriptionPage({ section = '' }) {
   ];
 
   return <>
-    <PageHeader title="Subscription & Billing" subtitle="Plan validity, usage limits, subscription invoices and payment history." />
+    <PageHeader title="Subscription & Billing" subtitle="Plan validity, current usage, subscription invoices and payment history." />
     {message ? <div className="bf-note" style={{marginBottom:14}}>{message}</div> : null}
     <div className="bf-grid bf-grid-4" style={{marginBottom:16}}>
       <KpiCard title="Current Plan" value={planName} icon={IndianRupee}/>

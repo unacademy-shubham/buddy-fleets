@@ -10,6 +10,7 @@ import {
   NavLink,
   Outlet,
   useLocation,
+  useNavigate,
 } from 'react-router-dom';
 
 import {
@@ -309,6 +310,10 @@ const MENU_TREE = [
             to: '/saas-platform/companies/all-companies',
           },
           {
+            label: 'Provisioning & Onboarding',
+            to: '/saas-platform/companies/provisioning',
+          },
+          {
             label: 'Trials & Renewals',
             to: '/saas-platform/companies/trials-renewals',
           },
@@ -319,12 +324,38 @@ const MENU_TREE = [
         ],
       },
       {
+        label: 'Fleet Packs',
+        to: '/saas-platform/fleet-packs',
+        children: [
+          {
+            label: 'Fleet Pack Registry',
+            to: '/saas-platform/fleet-packs/registry',
+          },
+          {
+            label: 'Module Mapping',
+            to: '/saas-platform/fleet-packs/module-mapping',
+          },
+          {
+            label: 'Navigation Builder',
+            to: '/saas-platform/fleet-packs/navigation-builder',
+          },
+        ],
+      },
+      {
         label: 'Plans & Entitlements',
         to: '/saas-platform/plans-entitlements',
         children: [
           {
             label: 'Plans',
             to: '/saas-platform/plans-entitlements/plans',
+          },
+          {
+            label: 'Live Pricing',
+            to: '/saas-platform/plans-entitlements/pricing',
+          },
+          {
+            label: 'Plan × Fleet Matrix',
+            to: '/saas-platform/plans-entitlements/plan-fleet-matrix',
           },
           {
             label: 'Limits & Access',
@@ -4717,7 +4748,9 @@ function UserAvatar({
 function ProfilePopover({
   currentUser,
   onLogout,
+  onClose,
 }) {
+  const navigate = useNavigate();
   const displayName =
     currentUser?.name ||
     currentUser?.fullName ||
@@ -4728,30 +4761,11 @@ function ProfilePopover({
     '';
 
   const rows = [
-    [
-      'Profile',
-      User,
-    ],
-
-    [
-      'Settings',
-      Settings,
-    ],
-
-    [
-      'Mails',
-      Mail,
-    ],
-
-    [
-      'Friends',
-      Users,
-    ],
-
-    [
-      'Activity',
-      Activity,
-    ],
+    ['My Profile', User, '/developer-account#profile'],
+    ['My Security', ShieldCheck, '/developer-account#security'],
+    ['My Sessions', Activity, '/developer-account#sessions'],
+    ['Notifications', Bell, '/developer-account#notifications'],
+    ['Preferences', Settings, '/developer-account#preferences'],
   ];
 
 
@@ -4819,12 +4833,17 @@ function ProfilePopover({
           ([
             label,
             Icon,
+            to,
           ]) => (
             <button
               key={
                 label
               }
               type="button"
+              onClick={() => {
+                navigate(to);
+                onClose?.();
+              }}
               className="
                 flex
                 w-full
@@ -5018,6 +5037,53 @@ function HorizontalHeaderBrand({
    - 3-lines icon opens Utility drawer.
    - Rotating gear opens Theme Customizer ONLY.
 ============================================================ */
+
+function SessionCountdown() {
+  const [expiresAt, setExpiresAt] = useState(null);
+  const [remaining, setRemaining] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const sync = async () => {
+      try {
+        const response = await fetch('/api/auth/session', {
+          credentials: 'include',
+          cache: 'no-store',
+          headers: { Accept: 'application/json' },
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!cancelled && response.ok && data?.ok && data?.session?.expiresAt) {
+          setExpiresAt(new Date(data.session.expiresAt).getTime());
+        }
+      } catch {
+        // Session authority remains server-side; timer is display-only.
+      }
+    };
+    sync();
+    const poll = window.setInterval(sync, 60000);
+    return () => { cancelled = true; window.clearInterval(poll); };
+  }, []);
+
+  useEffect(() => {
+    if (!expiresAt) return undefined;
+    const tick = () => setRemaining(Math.max(0, expiresAt - Date.now()));
+    tick();
+    const timer = window.setInterval(tick, 1000);
+    return () => window.clearInterval(timer);
+  }, [expiresAt]);
+
+  if (remaining === null) return null;
+  const totalSeconds = Math.floor(remaining / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return (
+    <div className="hidden min-w-[112px] rounded-md border border-white/15 bg-black/10 px-2.5 py-1.5 text-right xl:block">
+      <div className="text-[8px] font-bold uppercase tracking-[.12em] text-[var(--bf-header-muted)]">Session</div>
+      <div className="text-[11px] font-bold tabular-nums text-[var(--bf-header-text)]">{String(minutes).padStart(2,'0')}:{String(seconds).padStart(2,'0')}</div>
+    </div>
+  );
+}
+
 
 function Header({
   config,
@@ -5313,6 +5379,8 @@ function Header({
             gap-2
           "
         >
+          <SessionCountdown />
+
           <HeaderIcon
             label={
               fullscreen
@@ -5513,6 +5581,7 @@ function Header({
                 onLogout={
                   onLogout
                 }
+                onClose={() => setOpenPopover(null)}
               />
             )}
           </div>

@@ -39,8 +39,10 @@ async function request({ method = 'GET', resource = '', action = '', payload = n
 export const clientPortalApi = {
   getEntitlements: () => request(),
   bootstrap: () => request({ resource: 'bootstrap' }),
+  demoBootstrap: (demoFleet) => request({ resource: 'demo-bootstrap', params: { demo_fleet: demoFleet } }),
   list: (resource, params) => request({ resource, params }),
   action: (action, payload) => request({ method: 'POST', action, payload }),
+  demoAction: (demoFleet, innerAction, payload) => request({ method: 'POST', action: 'demo_action', payload: { demo_fleet: demoFleet, inner_action: innerAction, payload } }),
   lookupGst: (gstin) => request({ method: 'POST', action: 'gst_lookup', payload: { gstin } }),
   saveUserAccess: (payload) => request({ method: 'POST', action: 'save_user_access', payload }),
   uploadPhoto: (payload) => request({ method: 'POST', action: 'upload_photo', payload }),

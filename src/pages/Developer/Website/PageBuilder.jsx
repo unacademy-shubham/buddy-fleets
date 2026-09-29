@@ -5,6 +5,7 @@ import {
   getWebsitePageDraft,
   saveWebsitePageDraft,
   migrateExistingWebsitePage,
+  publishWebsitePage,
 } from '../../../services/developerWebsiteApi';
 
 import {
@@ -261,6 +262,7 @@ export default function PageBuilder() {
   const [draftLoading, setDraftLoading] = useState(true);
   const [draftError, setDraftError] = useState('');
   const [draftSaving, setDraftSaving] = useState(false);
+  const [publishing, setPublishing] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [sectionEditorOpen, setSectionEditorOpen] = useState(false);
   const [sectionBeingEdited, setSectionBeingEdited] = useState(null);
@@ -417,6 +419,43 @@ export default function PageBuilder() {
     finally { savingRef.current = false; setDraftSaving(false); }
   };
 
+  const publishPage = async () => {
+    if (!selectedPageId || !activeDraft || dirty || draftSaving || publishing || creatingPage || sectionEditorOpen) {
+      if (dirty) notify('Save the draft before publishing.');
+      return;
+    }
+
+    if (!window.confirm('Publish this saved draft to the live website?')) return;
+
+    setPublishing(true);
+    setDraftError('');
+
+    try {
+      const result = await publishWebsitePage({
+        pageId: selectedPageId,
+        revision: activeDraft.revision,
+      });
+
+      if (result.ok) {
+        notify('Page published live successfully.');
+        const pagesResult = await getWebsitePages();
+        if (pagesResult.ok && Array.isArray(pagesResult.pages)) {
+          setPages(pagesResult.pages);
+        }
+      } else {
+        setDraftError(
+          result.status === 409
+            ? 'This draft changed elsewhere. Reload it before publishing.'
+            : 'Unable to publish this page.'
+        );
+      }
+    } catch {
+      setDraftError('Unable to publish this page.');
+    } finally {
+      setPublishing(false);
+    }
+  };
+
   const openPreview = () => {
     if (!selectedPageId || !activeDraft) {
       notify('Select a page before opening preview.');
@@ -499,9 +538,15 @@ export default function PageBuilder() {
               Preview
             </Button>
 
-            <fieldset disabled={!dirty || !activeDraft || draftSaving || creatingPage || sectionEditorOpen} className="m-0 inline-flex min-w-0 border-0 p-0 disabled:opacity-50">
-              <Button variant="primary" icon={Rocket} onClick={saveDraft}>
+            <fieldset disabled={!dirty || !activeDraft || draftSaving || creatingPage || sectionEditorOpen || publishing} className="m-0 inline-flex min-w-0 border-0 p-0 disabled:opacity-50">
+              <Button variant="primary" icon={PencilRuler} onClick={saveDraft}>
                 {draftSaving ? 'Saving...' : 'Save draft'}
+              </Button>
+            </fieldset>
+
+            <fieldset disabled={!activeDraft || dirty || draftSaving || creatingPage || sectionEditorOpen || publishing} className="m-0 inline-flex min-w-0 border-0 p-0 disabled:opacity-50">
+              <Button variant="primary" icon={Rocket} onClick={publishPage}>
+                {publishing ? 'Publishing...' : 'Publish live'}
               </Button>
             </fieldset>
           </>

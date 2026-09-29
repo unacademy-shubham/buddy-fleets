@@ -882,112 +882,32 @@ async function verifyPortalAuthorization(
     'company'
   ) {
     if (
-      !handoff.company_id
+      !handoff.company_id ||
+      handoff.target_host !== PORTAL_HOSTS.company
     ) {
       return false;
     }
-
 
     const {
-      data:
-        company,
-      error:
-        companyError,
-    } =
-      await adminClient
-        .from(
-          'companies'
-        )
-        .select(`
-          id,
-          status,
-          subdomain_slug
-        `)
-        .eq(
-          'id',
-          handoff.company_id
-        )
-        .maybeSingle();
+      data: bootstrap,
+      error: bootstrapError,
+    } = await adminClient.rpc(
+      'bf_resolve_company_portal_bootstrap',
+      {
+        p_company_id: handoff.company_id,
+        p_user_id: handoff.user_id,
+      }
+    );
 
-
-    if (
-      companyError
-    ) {
-      throw companyError;
+    if (bootstrapError) {
+      throw bootstrapError;
     }
-
-
-    if (
-      !company ||
-      !company.subdomain_slug
-    ) {
-      return false;
-    }
-
-
-    if (
-      ![
-        'trial_active',
-        'trial_expired',
-        'active',
-      ].includes(
-        company.status
-      )
-    ) {
-      return false;
-    }
-
-
-    const expectedHost =
-      PORTAL_HOSTS.company;
-
-
-    if (
-      handoff.target_host !==
-      expectedHost
-    ) {
-      return false;
-    }
-
-
-    const {
-      data:
-        membership,
-      error:
-        membershipError,
-    } =
-      await adminClient
-        .from(
-          'company_memberships'
-        )
-        .select(
-          'id, status'
-        )
-        .eq(
-          'company_id',
-          company.id
-        )
-        .eq(
-          'user_id',
-          handoff.user_id
-        )
-        .maybeSingle();
-
-
-    if (
-      membershipError
-    ) {
-      throw membershipError;
-    }
-
 
     return Boolean(
-      membership &&
-      membership.status ===
-        'active'
+      bootstrap?.ok === true &&
+      bootstrap?.access_granted === true
     );
   }
-
 
   return false;
 }

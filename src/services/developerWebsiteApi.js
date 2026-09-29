@@ -61,3 +61,27 @@ export function migrateExistingWebsitePage(pageId) {
     '/api/developer/website/migrate-existing'
   );
 }
+export function publishWebsitePage({ pageId, revision }) {
+  return request(
+    'POST',
+    { action: 'publish', pageId, revision },
+    '/api/developer/website/draft'
+  );
+}
+
+export function getWebsitePageHistory(pageId) {
+  return request(
+    'GET',
+    undefined,
+    `/api/developer/website/draft?pageId=${encodeURIComponent(pageId)}&mode=history`
+  );
+}
+
+export function rollbackWebsitePage({ pageId, versionId }) {
+  return request(
+    'POST',
+    { action: 'rollback', pageId, versionId },
+    '/api/developer/website/draft'
+  );
+}
+

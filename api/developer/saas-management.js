@@ -253,12 +253,13 @@ async function getCompanies(supabaseAdmin) {
   let subscriptions = [];
   let overrides = [];
   let profiles = [];
+  let portalSettings = [];
 
   if (ids.length) {
-    const [subscriptionResult, overrideResult, profileResult] = await Promise.all([
+    const [subscriptionResult, overrideResult, profileResult, portalSettingsResult] = await Promise.all([
       supabaseAdmin
         .from('subscriptions')
-        .select('company_id,status,plan_id,trial_start_at,trial_end_at,subscription_start_at,subscription_end_at')
+        .select('company_id,status,plan_id,plan_key,trial_start_at,trial_end_at,subscription_start_at,subscription_end_at')
         .in('company_id', ids),
       supabaseAdmin
         .from('developer_company_overrides')
@@ -268,25 +269,33 @@ async function getCompanies(supabaseAdmin) {
         .from('developer_company_profiles')
         .select('company_id,legal_name,trade_name,registration_type,business_type,gstin,pan,aadhaar_last4,cin,contact_email,contact_mobile,alternate_mobile,billing_email,website,owner_name,owner_email,owner_mobile,address_line1,address_line2,city,state,postal_code,country,notes,status_before_suspend,created_via,revision,updated_at')
         .in('company_id', ids),
+      supabaseAdmin
+        .from('company_portal_settings')
+        .select('company_id,fleet_pack,enabled_packs,fleet_pack_selection_status,fleet_pack_selected_at')
+        .in('company_id', ids),
     ]);
 
     if (subscriptionResult.error) throw subscriptionResult.error;
     if (overrideResult.error) throw overrideResult.error;
     if (profileResult.error) throw profileResult.error;
+    if (portalSettingsResult.error) throw portalSettingsResult.error;
     subscriptions = subscriptionResult.data || [];
     overrides = overrideResult.data || [];
     profiles = profileResult.data || [];
+    portalSettings = portalSettingsResult.data || [];
   }
 
   const subscriptionByCompany = new Map(subscriptions.map((item) => [item.company_id, item]));
   const overrideByCompany = new Map(overrides.map((item) => [item.company_id, item]));
   const profileByCompany = new Map(profiles.map((item) => [item.company_id, item]));
+  const portalSettingsByCompany = new Map(portalSettings.map((item) => [item.company_id, item]));
 
   return (companies || []).map((company) => ({
     ...company,
     subscription: subscriptionByCompany.get(company.id) || null,
     override: overrideByCompany.get(company.id) || null,
     profile: profileByCompany.get(company.id) || null,
+    portal_settings: portalSettingsByCompany.get(company.id) || null,
   }));
 }
 
@@ -295,6 +304,8 @@ async function createCompany({ supabaseAdmin, actorUserId, body }) {
   const companyName = text(body?.companyName, 180);
   const status = String(body?.status || 'trial_active').trim();
   const planKey = text(body?.planKey, 80).toLowerCase();
+  const fleetPack = text(body?.fleetPack, 120).toLowerCase();
+  const enabledPacks = normalizeStringArray(body?.enabledPacks, 20);
   const profile = normalizeCompanyProfile(body);
   const ownerPassword = String(body?.ownerPassword || '');
   const ownerEmail = profile?.owner_email || '';
@@ -312,6 +323,18 @@ async function createCompany({ supabaseAdmin, actorUserId, body }) {
     if (planError) throw planError;
     if (!plan || plan.status === 'archived') {
       return { status: 400, payload: { ok: false, code: 'PLAN_NOT_AVAILABLE' } };
+    }
+  }
+
+  if (fleetPack) {
+    const { data: pack, error: packError } = await supabaseAdmin
+      .from('developer_fleet_packs')
+      .select('pack_key,status')
+      .eq('pack_key', fleetPack)
+      .maybeSingle();
+    if (packError) throw packError;
+    if (!pack || pack.status !== 'active') {
+      return { status: 400, payload: { ok: false, code: 'FLEET_PACK_NOT_AVAILABLE' } };
     }
   }
 
@@ -422,6 +445,7 @@ async function createCompany({ supabaseAdmin, actorUserId, body }) {
         .insert({
           company_id: company.id,
           status: subscriptionStatus,
+          plan_key: planKey || null,
           trial_start_at: trialStartAt,
           trial_end_at: trialEndAt,
           subscription_start_at: status === 'active' ? new Date().toISOString() : null,
@@ -446,6 +470,16 @@ async function createCompany({ supabaseAdmin, actorUserId, body }) {
           updated_by: actorUserId,
         });
       if (overrideError) throw overrideError;
+    }
+
+    if (fleetPack) {
+      const normalizedEnabledPacks = [...new Set([fleetPack, ...enabledPacks])];
+      const { error: fleetPackError } = await supabaseAdmin.rpc('bf_set_company_fleet_packs', {
+        p_company_id: company.id,
+        p_primary_pack: fleetPack,
+        p_enabled_packs: normalizedEnabledPacks,
+      });
+      if (fleetPackError) throw fleetPackError;
     }
   } catch (error) {
     await supabaseAdmin.from('developer_company_employees').delete().eq('company_id', company.id);

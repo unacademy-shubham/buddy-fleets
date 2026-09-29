@@ -9,7 +9,7 @@ export default function PlansPage() {
     <BackendWorkspacePage
       workspaceKey='leaf:entitlements:plans'
       title='Plans'
-      description='Manage Starter, Growth, Enterprise and future Buddy Fleets commercial plans.'
+      description='Manage Launch, Accelerate, Scale and Apex commercial plans. Pricing is published separately from the live Pricing workspace.'
       onConfigureItem={(item) => {
         if (item.title === 'Configuration') return false;
         setDomainOpen(true);

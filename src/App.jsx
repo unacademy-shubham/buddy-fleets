@@ -18,6 +18,7 @@ import {
 import WebsiteLayout from './layouts/WebsiteLayout';
 import DeveloperLayout from './layouts/DeveloperLayout';
 import CompanyAnnouncementPopup from './components/CompanyAnnouncementPopup';
+import { PublishedSystemPage } from './cms/PublishedWebsitePage';
 
 /* =========================================================
    ROUTE-LEVEL CODE SPLITTING
@@ -41,6 +42,10 @@ const AboutUs = lazy(() =>
 
 const ContactUs = lazy(() =>
   import('./pages/Website/ContactUs')
+);
+
+const PublishedWebsitePage = lazy(() =>
+  import('./cms/PublishedWebsitePage')
 );
 
 const Login = lazy(() =>
@@ -170,6 +175,34 @@ const DeveloperCompanyOverrides = lazy(() =>
 
 const DeveloperPlans = lazy(() =>
   import('./pages/Developer/Entitlements/PlansPage')
+);
+
+const DeveloperPricingManagement = lazy(() =>
+  import('./pages/Developer/Entitlements/PricingManagementPage')
+);
+
+const DeveloperPlanFleetMatrix = lazy(() =>
+  import('./pages/Developer/Entitlements/PlanFleetMatrixPage')
+);
+
+const DeveloperFleetPackRegistry = lazy(() =>
+  import('./pages/Developer/FleetPacks/FleetPackRegistryPage')
+);
+
+const DeveloperFleetPackModules = lazy(() =>
+  import('./pages/Developer/FleetPacks/FleetPackModulesPage')
+);
+
+const DeveloperNavigationBuilder = lazy(() =>
+  import('./pages/Developer/FleetPacks/NavigationBuilderPage')
+);
+
+const DeveloperCompanyProvisioning = lazy(() =>
+  import('./pages/Developer/Companies/CompanyProvisioningPage')
+);
+
+const DeveloperAccountPage = lazy(() =>
+  import('./pages/Developer/Account/DeveloperAccountPage')
 );
 
 const DeveloperLimitsAccess = lazy(() =>
@@ -368,7 +401,7 @@ const PORTAL_BOOTSTRAP_MAX_AGE_MS =
   15 * 1000;
 
 const INACTIVITY_TIMEOUT_MS =
-  30 * 60 * 1000;
+  60 * 60 * 1000;
 
 const ACTIVITY_THROTTLE_MS =
   15 * 1000;
@@ -1931,7 +1964,7 @@ function MainWebsiteRoutes() {
           path="/"
           element={
             <LazyPage>
-              <Home />
+              <PublishedSystemPage path="/" fallback={<Home />} />
             </LazyPage>
           }
         />
@@ -1940,7 +1973,7 @@ function MainWebsiteRoutes() {
           path="/features"
           element={
             <LazyPage>
-              <Features />
+              <PublishedSystemPage path="/features" fallback={<Features />} />
             </LazyPage>
           }
         />
@@ -1949,7 +1982,7 @@ function MainWebsiteRoutes() {
           path="/pricing"
           element={
             <LazyPage>
-              <Pricing />
+              <PublishedSystemPage path="/pricing" fallback={<Pricing />} />
             </LazyPage>
           }
         />
@@ -1958,7 +1991,7 @@ function MainWebsiteRoutes() {
           path="/about"
           element={
             <LazyPage>
-              <AboutUs />
+              <PublishedSystemPage path="/about" fallback={<AboutUs />} />
             </LazyPage>
           }
         />
@@ -1967,7 +2000,7 @@ function MainWebsiteRoutes() {
           path="/contact-us"
           element={
             <LazyPage>
-              <ContactUs />
+              <PublishedSystemPage path="/contact-us" fallback={<ContactUs />} />
             </LazyPage>
           }
         />
@@ -2013,6 +2046,15 @@ function MainWebsiteRoutes() {
           element={
             <LazyPage>
               <ResetPassword />
+            </LazyPage>
+          }
+        />
+
+        <Route
+          path="*"
+          element={
+            <LazyPage>
+              <PublishedWebsitePage />
             </LazyPage>
           }
         />
@@ -2249,6 +2291,15 @@ function PortalRoutes({
           }
         >
           <Route
+            path="developer-account"
+            element={
+              <LazyPage>
+                <DeveloperAccountPage />
+              </LazyPage>
+            }
+          />
+
+          <Route
             path="dashboard"
             element={
               <LazyPage>
@@ -2424,6 +2475,15 @@ function PortalRoutes({
           />
 
           <Route
+            path="saas-platform/companies/provisioning"
+            element={
+              <LazyPage>
+                <DeveloperCompanyProvisioning />
+              </LazyPage>
+            }
+          />
+
+          <Route
             path="saas-platform/companies/trials-renewals"
             element={
               <LazyPage>
@@ -2442,10 +2502,55 @@ function PortalRoutes({
           />
 
           <Route
+            path="saas-platform/fleet-packs/registry"
+            element={
+              <LazyPage>
+                <DeveloperFleetPackRegistry />
+              </LazyPage>
+            }
+          />
+
+          <Route
+            path="saas-platform/fleet-packs/module-mapping"
+            element={
+              <LazyPage>
+                <DeveloperFleetPackModules />
+              </LazyPage>
+            }
+          />
+
+          <Route
+            path="saas-platform/fleet-packs/navigation-builder"
+            element={
+              <LazyPage>
+                <DeveloperNavigationBuilder />
+              </LazyPage>
+            }
+          />
+
+          <Route
             path="saas-platform/plans-entitlements/plans"
             element={
               <LazyPage>
                 <DeveloperPlans />
+              </LazyPage>
+            }
+          />
+
+          <Route
+            path="saas-platform/plans-entitlements/pricing"
+            element={
+              <LazyPage>
+                <DeveloperPricingManagement />
+              </LazyPage>
+            }
+          />
+
+          <Route
+            path="saas-platform/plans-entitlements/plan-fleet-matrix"
+            element={
+              <LazyPage>
+                <DeveloperPlanFleetMatrix />
               </LazyPage>
             }
           />

@@ -169,12 +169,13 @@ function failure(res, error, saving) {
 export default async function handler(req, res) {
   setDeveloperApiHeaders(res);
 
-  if (!['GET', 'PUT'].includes(req.method)) {
-    res.setHeader('Allow', 'GET, PUT');
+  if (!['GET', 'PUT', 'POST'].includes(req.method)) {
+    res.setHeader('Allow', 'GET, PUT, POST');
     return res.status(405).json({ ok: false, code: 'METHOD_NOT_ALLOWED' });
   }
 
   const saving = req.method === 'PUT';
+  const releasing = req.method === 'POST';
 
   try {
     const auth = await requireDeveloperSession(req);
@@ -189,7 +190,7 @@ export default async function handler(req, res) {
 
     let body;
 
-    if (saving) {
+    if (saving || releasing) {
       if (String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase() !== 'application/json') {
         return res.status(415).json({ ok: false, code: 'JSON_REQUIRED' });
       }
@@ -207,10 +208,89 @@ export default async function handler(req, res) {
       }
     }
 
-    const pageId = saving ? body?.pageId : req.query?.pageId;
+    const pageId = (saving || releasing) ? body?.pageId : req.query?.pageId;
 
     if (typeof pageId !== 'string' || !UUID.test(pageId)) {
       return res.status(400).json({ ok: false, code: 'INVALID_PAGE_ID' });
+    }
+
+    /* =======================================================
+       RELEASE HISTORY
+    ======================================================= */
+    if (req.method === 'GET' && String(req.query?.mode || '') === 'history') {
+      const { data: versions, error: versionsError } = await auth.supabaseAdmin
+        .from('website_page_versions')
+        .select('id,page_id,version_number,state,schema_version,revision,actor_user_id,created_at,updated_at,published_at')
+        .eq('page_id', pageId)
+        .order('version_number', { ascending: false })
+        .limit(50);
+
+      if (versionsError) throw versionsError;
+
+      const { data: releases, error: releasesError } = await auth.supabaseAdmin
+        .from('website_releases')
+        .select('id,page_id,version_id,action,actor_user_id,notes,created_at')
+        .eq('page_id', pageId)
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (releasesError) throw releasesError;
+
+      return res.status(200).json({ ok: true, versions: versions || [], releases: releases || [] });
+    }
+
+    /* =======================================================
+       PUBLISH / ROLLBACK
+    ======================================================= */
+    if (releasing) {
+      const action = String(body?.action || '').trim().toLowerCase();
+
+      if (!['publish', 'rollback'].includes(action)) {
+        return res.status(400).json({ ok: false, code: 'INVALID_RELEASE_ACTION' });
+      }
+
+      if (action === 'publish') {
+        const expectedRevision = Number(body?.revision);
+        if (!positiveInteger(expectedRevision)) {
+          return res.status(400).json({ ok: false, code: 'INVALID_REVISION' });
+        }
+
+        const { data, error } = await auth.supabaseAdmin.rpc('publish_website_page', {
+          p_page_id: pageId,
+          p_actor_user_id: auth.user.id,
+          p_expected_revision: expectedRevision,
+        });
+
+        if (error) {
+          const message = String(error.message || '');
+          if (/REVISION_CONFLICT/i.test(message)) return res.status(409).json({ ok: false, code: 'REVISION_CONFLICT' });
+          if (/PAGE_NOT_FOUND|DRAFT_NOT_FOUND/i.test(message)) return res.status(404).json({ ok: false, code: 'DRAFT_NOT_FOUND' });
+          throw error;
+        }
+
+        const result = Array.isArray(data) ? data[0] : data;
+        return res.status(200).json({ ok: true, release: result || {} });
+      }
+
+      const versionId = typeof body?.versionId === 'string' ? body.versionId : '';
+      if (!UUID.test(versionId)) {
+        return res.status(400).json({ ok: false, code: 'INVALID_VERSION_ID' });
+      }
+
+      const { data, error } = await auth.supabaseAdmin.rpc('rollback_website_page', {
+        p_page_id: pageId,
+        p_version_id: versionId,
+        p_actor_user_id: auth.user.id,
+      });
+
+      if (error) {
+        const message = String(error.message || '');
+        if (/PAGE_NOT_FOUND|VERSION_NOT_FOUND/i.test(message)) return res.status(404).json({ ok: false, code: 'VERSION_NOT_FOUND' });
+        throw error;
+      }
+
+      const result = Array.isArray(data) ? data[0] : data;
+      return res.status(200).json({ ok: true, release: result || {} });
     }
 
     if (saving && (!safeTree(body) || !positiveInteger(body.revision) || !validContent(body.content))) {
@@ -252,7 +332,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ ok: true, draft });
   } catch (error) {
-    console.error('Developer website draft API failed:', error?.message);
-    return failure(res, null, saving);
+    console.error('Developer website draft API failed:', error?.message || error);
+    return res.status(500).json({ ok: false, code: releasing ? 'WEBSITE_RELEASE_FAILED' : (saving ? 'DRAFT_SAVE_FAILED' : 'DRAFT_LOAD_FAILED') });
   }
 }

@@ -302,3 +302,143 @@ html.bf-theme-switching *::after {
 /* =========================================================
    END — BUDDY FLEETS
 ========================================================= */
+/* =========================================================
+   BUDDY FLEETS — FLUID PUBLIC / AUTH RESPONSIVE SYSTEM
+   Keeps the existing visual theme while letting 2K/4K screens
+   use available space instead of presenting a small fixed canvas.
+========================================================= */
+
+.bf-public-shell {
+  --bf-fluid-gutter: clamp(1rem, 2.6vw, 4.5rem);
+  --bf-fluid-reading: min(92vw, 96rem);
+}
+
+.bf-public-shell img,
+.bf-public-shell video,
+.bf-public-shell canvas,
+.bf-public-shell svg {
+  max-width: 100%;
+}
+
+.bf-public-shell main {
+  min-width: 0;
+}
+
+.bf-public-shell .bf-public-surface,
+.bf-public-shell .bf-auth-surface {
+  width: 100%;
+  min-width: 0;
+}
+
+@media (min-width: 1536px) {
+  .bf-public-shell .max-w-7xl {
+    max-width: min(90vw, 96rem);
+  }
+
+  .bf-public-shell .max-w-6xl {
+    max-width: min(86vw, 88rem);
+  }
+
+  .bf-public-shell .max-w-5xl {
+    max-width: min(82vw, 78rem);
+  }
+
+  .bf-public-shell .max-w-4xl {
+    max-width: min(76vw, 68rem);
+  }
+}
+
+@media (min-width: 1920px) {
+  .bf-public-shell .max-w-7xl {
+    max-width: min(88vw, 108rem);
+  }
+
+  .bf-public-shell .max-w-6xl {
+    max-width: min(84vw, 98rem);
+  }
+
+  .bf-public-shell .max-w-5xl {
+    max-width: min(78vw, 86rem);
+  }
+
+  .bf-public-shell .max-w-4xl {
+    max-width: min(70vw, 72rem);
+  }
+
+  .bf-public-shell .bf-public-surface {
+    font-size: clamp(1rem, 0.18vw + 0.84rem, 1.16rem);
+  }
+
+  .bf-public-shell .bf-auth-surface > * {
+    width: 100%;
+  }
+}
+
+@media (min-width: 2560px) {
+  .bf-public-shell .max-w-7xl {
+    max-width: min(86vw, 122rem);
+  }
+
+  .bf-public-shell .max-w-6xl {
+    max-width: min(80vw, 108rem);
+  }
+
+  .bf-public-shell .bf-public-surface {
+    font-size: 1.08rem;
+  }
+
+  .bf-public-shell .bf-auth-surface {
+    font-size: 1.04rem;
+  }
+}
+
+@media (max-width: 767px) {
+  .bf-public-shell button,
+  .bf-public-shell a,
+  .bf-public-shell input,
+  .bf-public-shell select,
+  .bf-public-shell textarea {
+    max-width: 100%;
+  }
+
+  .bf-public-shell table {
+    max-width: 100%;
+  }
+}
+
+/* =========================================================
+   AUTH HIGH-RESOLUTION CANVAS
+========================================================= */
+@media (min-width: 1920px) {
+  .bf-auth-surface .grid.max-w-7xl.items-center {
+    grid-template-columns: minmax(0, 1fr) minmax(30rem, 34rem);
+    column-gap: clamp(4rem, 6vw, 8rem);
+  }
+
+  .bf-auth-surface .max-w-\[440px\],
+  .bf-auth-surface .max-w-\[448px\],
+  .bf-auth-surface .max-w-\[460px\] {
+    max-width: 34rem;
+  }
+
+  .bf-auth-surface .max-w-2xl {
+    max-width: 50rem;
+  }
+
+  .bf-auth-surface .max-w-lg {
+    max-width: 38rem;
+  }
+}
+
+@media (min-width: 2560px) {
+  .bf-auth-surface .grid.max-w-7xl.items-center {
+    grid-template-columns: minmax(0, 1.15fr) minmax(34rem, 38rem);
+    column-gap: clamp(6rem, 7vw, 11rem);
+  }
+
+  .bf-auth-surface .max-w-\[440px\],
+  .bf-auth-surface .max-w-\[448px\],
+  .bf-auth-surface .max-w-\[460px\] {
+    max-width: 38rem;
+  }
+}

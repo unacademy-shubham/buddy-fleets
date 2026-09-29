@@ -1197,221 +1197,121 @@ async function getExpectedPortalContext(
     session.portal_type ===
     'company'
   ) {
-    if (
-      !session.company_id
-    ) {
+    if (!session.company_id) {
       return null;
     }
 
+    const [companyResult, membershipResult, subscriptionResult, employeeResult, bootstrapResult] =
+      await Promise.all([
+        supabaseAdmin
+          .from('companies')
+          .select(`
+            id,
+            company_code,
+            company_name,
+            status,
+            confirmed_at,
+            account_owner_user_id,
+            subdomain_slug
+          `)
+          .eq('id', session.company_id)
+          .maybeSingle(),
 
-    const {
-      data:
-        company,
-      error:
-        companyError,
-    } =
-      await supabaseAdmin
-        .from(
-          'companies'
-        )
-        .select(`
-          id,
-          company_code,
-          company_name,
-          status,
-          confirmed_at,
-          account_owner_user_id,
-          subdomain_slug
-        `)
-        .eq(
-          'id',
-          session.company_id
-        )
-        .maybeSingle();
+        supabaseAdmin
+          .from('company_memberships')
+          .select(`
+            id,
+            company_id,
+            user_id,
+            status,
+            access_scope,
+            joined_at
+          `)
+          .eq('company_id', session.company_id)
+          .eq('user_id', session.user_id)
+          .maybeSingle(),
 
+        supabaseAdmin
+          .from('subscriptions')
+          .select(`
+            id,
+            status,
+            plan_id,
+            plan_key,
+            trial_start_at,
+            trial_end_at,
+            subscription_start_at,
+            subscription_end_at
+          `)
+          .eq('company_id', session.company_id)
+          .maybeSingle(),
 
-    if (
-      companyError
-    ) {
-      throw companyError;
+        supabaseAdmin
+          .from('developer_company_employees')
+          .select('status')
+          .eq('company_id', session.company_id)
+          .eq('user_id', session.user_id)
+          .maybeSingle(),
+
+        supabaseAdmin.rpc('bf_resolve_company_portal_bootstrap', {
+          p_company_id: session.company_id,
+          p_user_id: session.user_id,
+        }),
+      ]);
+
+    for (const result of [companyResult, membershipResult, subscriptionResult, bootstrapResult]) {
+      if (result.error) throw result.error;
+    }
+    if (employeeResult.error && employeeResult.error.code !== '42P01') {
+      throw employeeResult.error;
     }
 
+    const company = companyResult.data;
+    const membership = membershipResult.data;
+    const subscription = subscriptionResult.data;
+    const bootstrap = bootstrapResult.data;
 
     if (
       !company ||
-      !company
-        .subdomain_slug
-    ) {
-      return null;
-    }
-
-
-    if (
-      ![
-        'trial_active',
-        'trial_expired',
-        'active',
-      ].includes(
-        company.status
-      )
-    ) {
-      return null;
-    }
-
-
-    const {
-      data:
-        membership,
-      error:
-        membershipError,
-    } =
-      await supabaseAdmin
-        .from(
-          'company_memberships'
-        )
-        .select(`
-          id,
-          company_id,
-          user_id,
-          status,
-          access_scope,
-          joined_at
-        `)
-        .eq(
-          'company_id',
-          company.id
-        )
-        .eq(
-          'user_id',
-          session.user_id
-        )
-        .maybeSingle();
-
-
-    if (
-      membershipError
-    ) {
-      throw membershipError;
-    }
-
-
-    if (
+      !company.subdomain_slug ||
       !membership ||
-      membership.status !==
-        'active'
+      membership.status !== 'active' ||
+      (employeeResult.data && !['active', 'invited'].includes(employeeResult.data.status)) ||
+      !bootstrap?.ok ||
+      bootstrap?.access_granted !== true
     ) {
       return null;
     }
-
-
-    /* Company 360 employee access control.
-       Existing companies/users without a Company 360 employee row remain compatible. */
-    const {
-      data: companyEmployeeAccess,
-      error: companyEmployeeAccessError,
-    } = await supabaseAdmin
-      .from('developer_company_employees')
-      .select('status')
-      .eq('company_id', company.id)
-      .eq('user_id', session.user_id)
-      .maybeSingle();
-
-    if (companyEmployeeAccessError && companyEmployeeAccessError.code !== '42P01') {
-      throw companyEmployeeAccessError;
-    }
-
-    if (
-      companyEmployeeAccess &&
-      companyEmployeeAccess.status !== 'active' &&
-      companyEmployeeAccess.status !== 'invited'
-    ) {
-      return null;
-    }
-
-
-    const {
-      data:
-        subscription,
-      error:
-        subscriptionError,
-    } =
-      await supabaseAdmin
-        .from(
-          'subscriptions'
-        )
-        .select(`
-          status,
-          plan_id,
-          trial_start_at,
-          trial_end_at,
-          subscription_start_at,
-          subscription_end_at
-        `)
-        .eq(
-          'company_id',
-          company.id
-        )
-        .maybeSingle();
-
-
-    if (
-      subscriptionError
-    ) {
-      throw subscriptionError;
-    }
-
-
-    let effectiveStatus =
-      company.status;
-
-
-    if (
-      company.status ===
-        'trial_active' &&
-      subscription
-        ?.trial_end_at &&
-      new Date(
-        subscription
-          .trial_end_at
-      ).getTime() <=
-        Date.now()
-    ) {
-      effectiveStatus =
-        'trial_expired';
-    }
-
-
-    const effectiveAccess =
-      await getEffectiveCompanyAccess(
-        company.id
-      );
-
 
     return {
-      expectedHost:
-        COMPANY_PORTAL_HOST,
-
-      portalType:
-        'company',
-
+      expectedHost: COMPANY_PORTAL_HOST,
+      portalType: 'company',
       company: {
         ...company,
-
-        effectiveStatus,
-
+        effectiveStatus: bootstrap.company_status || company.status,
         subscription,
-
-        effectiveAccess,
+        effectiveAccess: {
+          overrideEnabled: false,
+          planKey: bootstrap.effective_plan_key || null,
+          planName: null,
+          limits: {},
+          entitlements: [],
+          lifecycleState: bootstrap.lifecycle_state || null,
+          lifecycleAccess: bootstrap.lifecycle_access || 'blocked',
+          primaryPack: bootstrap.primary_pack || null,
+          enabledPacks: Array.isArray(bootstrap.enabled_packs) ? bootstrap.enabled_packs : [],
+          fleetPackSelectionStatus: bootstrap.fleet_pack_selection_status || 'pending',
+          fleetPackSetupRequired: bootstrap.fleet_pack_setup_required === true,
+          role: bootstrap.role || null,
+          siteScope: bootstrap.site_scope || null,
+          visibleModuleCount: Number(bootstrap.visible_module_count || 0),
+        },
+        bootstrap,
       },
-
       membership,
-
-      roles: [
-        'COMPANY_USER',
-      ],
+      roles: ['COMPANY_USER'],
     };
   }
-
 
   return null;
 }
@@ -1870,6 +1770,11 @@ function buildCurrentUser({
         ?.plan_id ||
       null,
 
+    planKey:
+      subscription
+        ?.plan_key ||
+      null,
+
     trialStartAt:
       subscription
         ?.trial_start_at ||
@@ -1925,6 +1830,76 @@ function buildCurrentUser({
         .effectiveAccess
         ?.overrideEnabled ===
       true,
+
+    lifecycleState:
+      company
+        .bootstrap
+        ?.lifecycle_state ||
+      company
+        .effectiveAccess
+        ?.lifecycleState ||
+      null,
+
+    lifecycleAccess:
+      company
+        .bootstrap
+        ?.lifecycle_access ||
+      company
+        .effectiveAccess
+        ?.lifecycleAccess ||
+      null,
+
+    primaryPack:
+      company
+        .bootstrap
+        ?.primary_pack ||
+      null,
+
+    enabledPacks:
+      Array.isArray(
+        company
+          .bootstrap
+          ?.enabled_packs
+      )
+        ? company
+            .bootstrap
+            .enabled_packs
+        : [],
+
+    fleetPackSelectionStatus:
+      company
+        .bootstrap
+        ?.fleet_pack_selection_status ||
+      'pending',
+
+    fleetPackSetupRequired:
+      company
+        .bootstrap
+        ?.fleet_pack_setup_required ===
+      true,
+
+    companyRole:
+      company
+        .bootstrap
+        ?.role ||
+      null,
+
+    siteScope:
+      company
+        .bootstrap
+        ?.site_scope ||
+      null,
+
+    visibleModuleCount:
+      Number(
+        company
+          .bootstrap
+          ?.visible_module_count ||
+        0
+      ),
+
+    limitsEnforced:
+      false,
 
     mfaEnabled,
 

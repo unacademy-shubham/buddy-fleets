@@ -8,11 +8,11 @@ import {
 import SiteSelector from './SiteSelector';
 import PortalFooter from './PortalFooter';
 import { useClientPortal } from '../ClientPortalContext';
-import { flattenNavigation, getVisibleNavigation, iconFor } from '../config/portalNavigation';
+import { getVisibleNavigation, iconFor } from '../config/portalNavigation';
 
 const STORAGE_KEY = 'bf_client_theme_config_v2';
 const LAST_ACTIVITY_KEY = 'buddy_fleets_last_activity';
-const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
+const SESSION_TIMEOUT_MS = 60 * 60 * 1000;
 
 const DEFAULT_THEME = {
   theme: 'light',
@@ -113,6 +113,44 @@ function nodeMatches(pathname, basePath, node) {
     if (pathname === url || pathname.startsWith(`${url}/`)) return true;
   }
   return Array.isArray(node.children) && node.children.some((child)=>nodeMatches(pathname,basePath,child));
+}
+
+function normalizeRuntimeNode(node, index=0) {
+  if (!node || typeof node !== 'object') return null;
+  const children = (Array.isArray(node.children) ? node.children : [])
+    .map((child, childIndex)=>normalizeRuntimeNode(child, childIndex))
+    .filter(Boolean);
+  return {
+    id: node.node_key || `runtime-${index}`,
+    nodeType: node.node_type || '',
+    label: node.label || node.node_key || 'Navigation',
+    icon: node.icon_key || (node.node_type === 'category' ? 'Circle' : ''),
+    route: node.route || null,
+    moduleKey: node.module_key || null,
+    children,
+  };
+}
+
+function normalizeRuntimeNavigation(nodes) {
+  return (Array.isArray(nodes) ? nodes : []).map(normalizeRuntimeNode).filter(Boolean);
+}
+
+function hasDeepRuntimeNavigation(nodes, depth=0) {
+  return (nodes || []).some((node)=>
+    ['submenu','level3'].includes(node.nodeType) ||
+    (depth >= 1 && (node.children || []).length > 0) ||
+    hasDeepRuntimeNavigation(node.children || [], depth + 1)
+  );
+}
+
+function flattenTreeNavigation(nodes, trail=[]) {
+  const out=[];
+  for (const node of nodes || []) {
+    const nextTrail=[...trail,node.label];
+    if (node.route) out.push({label:node.label,route:node.route,trail:nextTrail,moduleKey:node.moduleKey});
+    out.push(...flattenTreeNavigation(node.children || [], nextTrail));
+  }
+  return out;
 }
 
 function SessionTimer() {
@@ -244,7 +282,7 @@ function Header({ company, currentUser, demo, basePath, config, setConfig, onOpe
   const [query,setQuery]=useState('');
   const [full,setFull]=useState(Boolean(document.fullscreenElement));
   const profileRef=useRef(null);
-  const flat=useMemo(()=>flattenNavigation(company?.fleetPack||company?.fleet_pack||'travels'),[company]);
+  const flat=useMemo(()=>flattenTreeNavigation(navigation),[navigation]);
   const results=query.trim()?flat.filter(x=>x.label.toLowerCase().includes(query.toLowerCase())).slice(0,7):[];
   useEffect(()=>{
     const handler=(e)=>{ if(profileRef.current&&!profileRef.current.contains(e.target)) setProfileOpen(false); };
@@ -276,10 +314,18 @@ function Header({ company, currentUser, demo, basePath, config, setConfig, onOpe
 }
 
 export default function ClientPortalShell({ children }) {
-  const { company, currentUser, userAccess, demo, basePath, onLogout } = useClientPortal();
-  const packKey = company?.fleetPack || company?.fleet_pack || 'travels';
+  const { company, currentUser, userAccess, runtimeNavigation, runtime, demo, basePath, onLogout } = useClientPortal();
+  const packKey = company?.fleetPack || company?.fleet_pack || null;
   const allowedKeys = userAccess?.moduleKeys || [];
-  const navigation = useMemo(()=>getVisibleNavigation(packKey, allowedKeys),[packKey,allowedKeys]);
+  const navigation = useMemo(()=>{
+    if (!packKey) return [];
+    const local = getVisibleNavigation(packKey, allowedKeys);
+    const runtime = normalizeRuntimeNavigation(runtimeNavigation);
+    // The first DB seed contains category + module rows only. Keep the richer
+    // existing multi-level client hierarchy until Navigation Builder has real
+    // submenu/level-3 nodes; once it does, the DB tree becomes authoritative.
+    return runtime.length && hasDeepRuntimeNavigation(runtime) ? runtime : local;
+  },[packKey,allowedKeys,runtimeNavigation]);
   const [config,setConfig]=useState(readTheme);
   const [mobileOpen,setMobileOpen]=useState(false);
   const [collapsed,setCollapsed]=useState(()=>readTheme().sideMenuLayout==='compact');
@@ -293,9 +339,9 @@ export default function ClientPortalShell({ children }) {
   return <div className={cx('bf-client-shell-root',config.theme==='dark'&&'dark')} style={vars} data-theme={config.theme}>
     {vertical?<Sidebar navigation={navigation} basePath={basePath} company={company} currentUser={currentUser} demo={demo} collapsed={actualCollapsed} mobileOpen={mobileOpen} onCloseMobile={()=>setMobileOpen(false)} onToggleCollapse={()=>setCollapsed(v=>!v)} config={config}/>:null}
     <div className={cx('bf-client-main',vertical&&'with-sidebar',actualCollapsed&&'sidebar-collapsed')}>
-      <Header company={company} currentUser={currentUser} demo={demo} basePath={basePath} config={config} setConfig={setConfig} onOpenMobile={()=>setMobileOpen(true)} onToggleCollapse={()=>setCollapsed(v=>!v)} onOpenTheme={()=>setThemeOpen(true)} onLogout={onLogout} navigation={navigation} canBilling={allowedKeys.includes('subscription')}/>
+      <Header company={company} currentUser={currentUser} demo={demo} basePath={basePath} config={config} setConfig={setConfig} onOpenMobile={()=>setMobileOpen(true)} onToggleCollapse={()=>setCollapsed(v=>!v)} onOpenTheme={()=>setThemeOpen(true)} onLogout={onLogout} navigation={navigation} canBilling={allowedKeys.includes('subscription')||userAccess?.isAdmin===true}/>
       {!vertical?<HorizontalNav navigation={navigation} basePath={basePath}/>:null}
-      <main className="bf-client-content">{children}</main>
+      <main className="bf-client-content">{runtime?.lifecycleAccess==='read_only'?<div className="bf-client-lifecycle-banner"><ShieldCheck size={14}/><div><strong>Read-only access</strong><span>This company lifecycle currently allows viewing, printing and exporting only. Create/edit/delete actions are disabled by the server.</span></div></div>:null}{children}</main>
       <PortalFooter/>
     </div>
     <ThemeDrawer open={themeOpen} onClose={()=>setThemeOpen(false)} config={config} setConfig={setConfig}/>

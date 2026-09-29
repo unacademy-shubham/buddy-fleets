@@ -30,7 +30,7 @@ import { waitUntil } from '@vercel/functions';
 
 const MAX_HANDOFF_LENGTH = 200;
 const MIN_HANDOFF_LENGTH = 20;
-const HTTP_SESSION_LIFETIME_SECONDS = 30 * 60;
+const HTTP_SESSION_LIFETIME_SECONDS = 60 * 60;
 const BOOTSTRAP_LIFETIME_MS = 15 * 1000;
 
 const COOKIE_NAME = '__Host-bf_session';
@@ -1087,83 +1087,29 @@ async function verifyPortalAuthorization(
   ) {
     if (
       !handoff.company_id ||
-      normalizeHost(
-        handoff.target_host
-      ) !==
-      COMPANY_PORTAL_HOST
+      normalizeHost(handoff.target_host) !== COMPANY_PORTAL_HOST
     ) {
-      return {
-        authorized:
-          false,
-      };
+      return { authorized: false };
     }
 
-    const {
-      data:
-        company,
-      error:
-        companyError,
-    } =
-      await supabaseAdmin
-        .from(
-          'companies'
-        )
-        .select(`
-          id,
-          company_code,
-          company_name,
-          status,
-          confirmed_at,
-          account_owner_user_id,
-          subdomain_slug
-        `)
-        .eq(
-          'id',
-          handoff.company_id
-        )
-        .maybeSingle();
-
-    if (
-      companyError
-    ) {
-      throw companyError;
-    }
-
-    if (
-      !company ||
-      !company
-        .subdomain_slug
-    ) {
-      return {
-        authorized:
-          false,
-      };
-    }
-
-    if (
-      ![
-        'trial_active',
-        'trial_expired',
-        'active',
-      ].includes(
-        company.status
-      )
-    ) {
-      return {
-        authorized:
-          false,
-      };
-    }
-
-    const [
-      membershipResult,
-      subscriptionResult,
-    ] =
+    const [companyResult, membershipResult, subscriptionResult, bootstrapResult] =
       await Promise.all([
         supabaseAdmin
-          .from(
-            'company_memberships'
-          )
+          .from('companies')
+          .select(`
+            id,
+            company_code,
+            company_name,
+            status,
+            confirmed_at,
+            account_owner_user_id,
+            subdomain_slug
+          `)
+          .eq('id', handoff.company_id)
+          .maybeSingle(),
+
+        supabaseAdmin
+          .from('company_memberships')
           .select(`
             id,
             company_id,
@@ -1172,115 +1118,78 @@ async function verifyPortalAuthorization(
             access_scope,
             joined_at
           `)
-          .eq(
-            'company_id',
-            company.id
-          )
-          .eq(
-            'user_id',
-            handoff.user_id
-          )
+          .eq('company_id', handoff.company_id)
+          .eq('user_id', handoff.user_id)
           .maybeSingle(),
 
         supabaseAdmin
-          .from(
-            'subscriptions'
-          )
+          .from('subscriptions')
           .select(`
+            id,
             status,
             plan_id,
+            plan_key,
             trial_start_at,
             trial_end_at,
             subscription_start_at,
             subscription_end_at
           `)
-          .eq(
-            'company_id',
-            company.id
-          )
+          .eq('company_id', handoff.company_id)
           .maybeSingle(),
+
+        supabaseAdmin.rpc('bf_resolve_company_portal_bootstrap', {
+          p_company_id: handoff.company_id,
+          p_user_id: handoff.user_id,
+        }),
       ]);
 
-    if (
-      membershipResult.error
-    ) {
-      throw membershipResult.error;
+    for (const result of [companyResult, membershipResult, subscriptionResult, bootstrapResult]) {
+      if (result.error) throw result.error;
     }
 
-    if (
-      subscriptionResult.error
-    ) {
-      throw subscriptionResult.error;
-    }
-
-    const membership =
-      membershipResult.data;
-
-    const subscription =
-      subscriptionResult.data;
+    const company = companyResult.data;
+    const membership = membershipResult.data;
+    const subscription = subscriptionResult.data;
+    const bootstrap = bootstrapResult.data;
 
     if (
+      !company ||
+      !company.subdomain_slug ||
       !membership ||
-      membership.status !==
-      'active'
+      membership.status !== 'active' ||
+      !bootstrap?.ok ||
+      bootstrap?.access_granted !== true
     ) {
-      return {
-        authorized:
-          false,
-      };
+      return { authorized: false };
     }
-
-    let effectiveCompanyStatus =
-      company.status;
-
-    if (
-      company.status ===
-        'trial_active' &&
-      subscription
-        ?.trial_end_at &&
-      new Date(
-        subscription
-          .trial_end_at
-      ).getTime() <=
-        Date.now()
-    ) {
-      effectiveCompanyStatus =
-        'trial_expired';
-    }
-
-    const effectiveAccess =
-      await getEffectiveCompanyAccess(
-        company.id
-      );
-
 
     return {
-      authorized:
-        true,
-
-      portalType:
-        'company',
-
-      companySlug:
-        company
-          .subdomain_slug,
-
+      authorized: true,
+      portalType: 'company',
+      companySlug: company.subdomain_slug,
       company,
-
       membership,
-
       subscription,
-
-      effectiveCompanyStatus,
-
-      effectiveAccess,
-
-      roles: [
-        'COMPANY_USER',
-      ],
-
-      roleDetails:
-        [],
+      effectiveCompanyStatus: bootstrap.company_status || company.status,
+      effectiveAccess: {
+        overrideEnabled: false,
+        planKey: bootstrap.effective_plan_key || null,
+        planName: null,
+        limits: {},
+        entitlements: [],
+        lifecycleState: bootstrap.lifecycle_state || null,
+        lifecycleAccess: bootstrap.lifecycle_access || 'blocked',
+        primaryPack: bootstrap.primary_pack || null,
+        enabledPacks: Array.isArray(bootstrap.enabled_packs) ? bootstrap.enabled_packs : [],
+        fleetPackSelectionStatus: bootstrap.fleet_pack_selection_status || 'pending',
+        fleetPackSetupRequired: bootstrap.fleet_pack_setup_required === true,
+        role: bootstrap.role || null,
+        siteScope: bootstrap.site_scope || null,
+        visibleModuleCount: Number(bootstrap.visible_module_count || 0),
+      },
+      bootstrap,
+      roles: ['COMPANY_USER'],
+      roleDetails: [],
     };
   }
 
@@ -1538,6 +1447,11 @@ function buildSafeCurrentUser({
         ?.plan_id ||
       null,
 
+    planKey:
+      subscription
+        ?.plan_key ||
+      null,
+
     trialStartAt:
       subscription
         ?.trial_start_at ||
@@ -1593,6 +1507,76 @@ function buildSafeCurrentUser({
         .effectiveAccess
         ?.overrideEnabled ===
       true,
+
+    lifecycleState:
+      authorization
+        .bootstrap
+        ?.lifecycle_state ||
+      authorization
+        .effectiveAccess
+        ?.lifecycleState ||
+      null,
+
+    lifecycleAccess:
+      authorization
+        .bootstrap
+        ?.lifecycle_access ||
+      authorization
+        .effectiveAccess
+        ?.lifecycleAccess ||
+      null,
+
+    primaryPack:
+      authorization
+        .bootstrap
+        ?.primary_pack ||
+      null,
+
+    enabledPacks:
+      Array.isArray(
+        authorization
+          .bootstrap
+          ?.enabled_packs
+      )
+        ? authorization
+            .bootstrap
+            .enabled_packs
+        : [],
+
+    fleetPackSelectionStatus:
+      authorization
+        .bootstrap
+        ?.fleet_pack_selection_status ||
+      'pending',
+
+    fleetPackSetupRequired:
+      authorization
+        .bootstrap
+        ?.fleet_pack_setup_required ===
+      true,
+
+    companyRole:
+      authorization
+        .bootstrap
+        ?.role ||
+      null,
+
+    siteScope:
+      authorization
+        .bootstrap
+        ?.site_scope ||
+      null,
+
+    visibleModuleCount:
+      Number(
+        authorization
+          .bootstrap
+          ?.visible_module_count ||
+        0
+      ),
+
+    limitsEnforced:
+      false,
 
     mfaEnabled,
 

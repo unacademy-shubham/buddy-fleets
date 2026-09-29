@@ -70,3 +70,9 @@ html, body, #root { min-height:100%; }
 .bf-client-sidebar.collapsed .bf-client-category-head { justify-content:center; padding-left:0; padding-right:0; }
 .bf-client-sidebar.collapsed .bf-client-category { margin-bottom:4px; }
 .bf-client-badge-dot.soft { background:#38BDF8; }
+
+/* Part 03 — authenticated client security enrollment */
+.bf-mfa-enroll{margin-top:14px;display:grid;grid-template-columns:minmax(160px,210px) minmax(0,1fr);gap:14px;padding:14px;border:1px solid var(--bf-border);border-radius:9px;background:var(--bf-surface-2)}
+.bf-mfa-qr{min-height:160px;display:grid;place-items:center;padding:10px;border:1px solid var(--bf-border);border-radius:8px;background:#fff}.bf-mfa-qr img{display:block;width:100%;max-width:190px;aspect-ratio:1;object-fit:contain}.bf-mfa-setup{min-width:0}.bf-code-box{padding:10px;border:1px solid var(--bf-border);border-radius:7px;background:var(--bf-surface);color:var(--bf-text);font:700 10px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;overflow-wrap:anywhere}
+@media(max-width:620px){.bf-mfa-enroll{grid-template-columns:1fr}.bf-mfa-qr{max-width:220px;width:100%;margin:0 auto}}
+.bf-client-lifecycle-banner{display:flex;align-items:flex-start;gap:9px;margin:0 0 14px;padding:10px 12px;border:1px solid rgba(217,119,6,.24);border-radius:8px;background:rgba(245,158,11,.09);color:var(--bf-text)}.bf-client-lifecycle-banner>svg{flex:none;margin-top:1px;color:#d97706}.bf-client-lifecycle-banner strong{display:block;font-size:10px}.bf-client-lifecycle-banner span{display:block;margin-top:2px;color:var(--bf-text-2);font-size:9px;line-height:1.45}

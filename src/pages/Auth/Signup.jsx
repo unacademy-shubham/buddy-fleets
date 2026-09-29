@@ -257,6 +257,16 @@ function ShieldIcon({
   );
 }
 
+const FLEET_PACK_OPTIONS = [
+  { value: 'travels', label: 'Small Travels / Transport' },
+  { value: 'bagged_cement', label: 'Bagged Cement Transport' },
+  { value: 'general_transport', label: 'General Goods Transport' },
+  { value: 'container', label: 'Container Transport' },
+  { value: 'cement_bulker', label: 'Cement Bulker' },
+  { value: 'staff_transport', label: 'Staff Transport' },
+  { value: 'school_transport', label: 'School Transport' },
+];
+
 /* =========================================================
    SIGNUP
 ========================================================= */
@@ -267,6 +277,7 @@ export default function Signup() {
     setFormData,
   ] = useState({
     companyName: '',
+    fleetPack: '',
     yourName: '',
     email: '',
     mobile: '',
@@ -593,6 +604,12 @@ export default function Signup() {
 
                   company_name:
                     cleanCompanyName,
+
+                  fleet_pack:
+                    formData.fleetPack || null,
+
+                  company_type:
+                    formData.fleetPack || null,
 
                   full_name:
                     cleanFullName,
@@ -1426,6 +1443,34 @@ export default function Signup() {
                         }
                       />
                     </div>
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="fleetPack"
+                      className="mb-1 block text-[8px] font-bold uppercase tracking-[0.13em] text-[color:var(--bf-text-muted)] sm:text-[9px]"
+                    >
+                      Company / Fleet Type
+                    </label>
+
+                    <select
+                      id="fleetPack"
+                      name="fleetPack"
+                      disabled={loading}
+                      value={formData.fleetPack}
+                      onChange={handleChange}
+                      className={normalInput}
+                    >
+                      <option value="">Not sure yet — choose later</option>
+                      {FLEET_PACK_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-1 text-[8px] leading-4 text-[color:var(--bf-text-muted)] sm:text-[9px]">
+                      Your 5-day trial activates normally. If you select a type, Buddy Fleets will prepare the matching dashboard; otherwise setup stays pending until you choose later.
+                    </p>
                   </div>
 
                   {/* =============================================

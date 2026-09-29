@@ -239,6 +239,54 @@ const adminClient =
 
 
 /* ============================================================
+   FINAL PORTAL ACCESS REVALIDATION
+
+   MFA verification must never resurrect a stale company login.
+   Company lifecycle, plan, fleet-pack, role, user and site access
+   are re-evaluated immediately before the application session and
+   one-time portal handoff are created.
+============================================================ */
+
+async function revalidatePortalAccess(flow: any) {
+  if (flow?.portal_type !== 'company') {
+    return {
+      ok: true,
+      bootstrap: null,
+    };
+  }
+
+  if (!flow?.company_id || !flow?.user_id) {
+    return {
+      ok: false,
+      bootstrap: null,
+    };
+  }
+
+  const {
+    data: bootstrap,
+    error,
+  } = await adminClient.rpc(
+    'bf_resolve_company_portal_bootstrap',
+    {
+      p_company_id: flow.company_id,
+      p_user_id: flow.user_id,
+    }
+  );
+
+  if (error) {
+    throw error;
+  }
+
+  return {
+    ok:
+      bootstrap?.ok === true &&
+      bootstrap?.access_granted === true,
+    bootstrap: bootstrap || null,
+  };
+}
+
+
+/* ============================================================
    RESPONSE HELPERS
 ============================================================ */
 
@@ -2959,6 +3007,104 @@ Deno.serve(
 
             code:
               'SECURITY_SESSION_FAILED',
+          }
+        );
+      }
+
+
+      /* ======================================================
+         FINAL COMPANY / PORTAL ACCESS REVALIDATION
+      ====================================================== */
+
+      try {
+        const accessCheck =
+          await revalidatePortalAccess(
+            flow
+          );
+
+        if (!accessCheck.ok) {
+          await expireFlow(
+            flow.id
+          );
+
+          await authClient
+            .auth
+            .signOut({
+              scope:
+                'local',
+            })
+            .catch(
+              () => {}
+            );
+
+          await insertSecurityEvent({
+            userId:
+              flow.user_id,
+
+            companyId:
+              flow.company_id,
+
+            eventType:
+              'PORTAL_ACCESS_REVALIDATION_FAILED',
+
+            portalType:
+              flow.portal_type,
+
+            ipAddress,
+
+            userAgent,
+
+            metadata: {
+              lifecycle_state:
+                accessCheck.bootstrap
+                  ?.lifecycle_state ||
+                null,
+
+              lifecycle_access:
+                accessCheck.bootstrap
+                  ?.lifecycle_access ||
+                null,
+
+              fleet_pack_selection_status:
+                accessCheck.bootstrap
+                  ?.fleet_pack_selection_status ||
+                null,
+            },
+          });
+
+          return jsonResponse(
+            request,
+            403,
+            {
+              ok:
+                false,
+
+              code:
+                'PORTAL_ACCESS_DENIED',
+            }
+          );
+        }
+      } catch (
+        error
+      ) {
+        console.error(
+          'Final portal access revalidation failed:',
+          error
+        );
+
+        await expireFlow(
+          flow.id
+        );
+
+        return jsonResponse(
+          request,
+          503,
+          {
+            ok:
+              false,
+
+            code:
+              'SECURITY_SERVICE_UNAVAILABLE',
           }
         );
       }

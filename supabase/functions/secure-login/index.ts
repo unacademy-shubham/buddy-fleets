@@ -1240,219 +1240,151 @@ async function resolvePortal({
 
   /* ==========================================================
      COMPANY
+
+     Authorization authority is the central DB bootstrap resolver.
+     This keeps login aligned with plan, trial, fleet-pack, company,
+     role, user and site access without duplicating entitlement logic.
   ========================================================== */
 
   const {
-    data:
-      company,
-    error:
-      companyError,
-  } =
-    await adminClient
-      .from(
-        'companies'
-      )
-      .select(`
-        id,
-        company_code,
-        company_name,
-        status,
-        confirmed_at,
-        account_owner_user_id,
-        subdomain_slug
-      `)
-      .eq(
-        'company_code',
-        companyCode
-      )
-      .maybeSingle();
+    data: company,
+    error: companyError,
+  } = await adminClient
+    .from('companies')
+    .select(`
+      id,
+      company_code,
+      company_name,
+      status,
+      account_owner_user_id,
+      subdomain_slug
+    `)
+    .eq('company_code', companyCode)
+    .maybeSingle();
 
-
-  if (
-    companyError
-  ) {
+  if (companyError) {
     throw companyError;
   }
 
-
-  if (
-    !company ||
-    !company.subdomain_slug
-  ) {
+  if (!company?.id || !company.subdomain_slug) {
     return null;
   }
 
+  let {
+    data: bootstrap,
+    error: bootstrapError,
+  } = await adminClient.rpc('bf_resolve_company_portal_bootstrap', {
+    p_company_id: company.id,
+    p_user_id: userId,
+  });
 
-  if (
-    company.status ===
-      'pending_confirmation' ||
-    company.status ===
-      'suspended' ||
-    company.status ===
-      'cancelled'
-  ) {
+  if (bootstrapError) {
+    console.error('Company portal bootstrap resolution failed:', bootstrapError);
+    throw bootstrapError;
+  }
+
+  if (!bootstrap?.ok || bootstrap?.access_granted !== true) {
     return null;
   }
 
+  /* ==========================================================
+     SIGNUP FLEET PACK HANDOFF
+
+     New trial signups can optionally select their Company / Fleet
+     Type in the public signup form. The selection is stored in
+     Supabase Auth user metadata. Existing signups without a type
+     remain pending and are never treated as real Travels tenants.
+  ========================================================== */
 
   if (
-    ![
-      'trial_active',
-      'trial_expired',
-      'active',
-    ].includes(
-      company.status
-    )
+    bootstrap?.fleet_pack_selection_status !== 'selected' &&
+    company.account_owner_user_id === userId
   ) {
-    return null;
-  }
+    const allowedPacks = new Set([
+      'travels',
+      'bagged_cement',
+      'general_transport',
+      'container',
+      'cement_bulker',
+      'staff_transport',
+      'school_transport',
+    ]);
 
+    try {
+      const { data: authUserResult } = await adminClient.auth.admin.getUserById(userId);
+      const requestedPack = String(
+        authUserResult?.user?.user_metadata?.fleet_pack ||
+        authUserResult?.user?.user_metadata?.company_type ||
+        ''
+      ).trim().toLowerCase();
+
+      if (allowedPacks.has(requestedPack)) {
+        const { error: packError } = await adminClient.rpc('bf_set_company_fleet_packs', {
+          p_company_id: company.id,
+          p_primary_pack: requestedPack,
+          p_enabled_packs: [requestedPack],
+        });
+
+        if (!packError) {
+          const refreshed = await adminClient.rpc('bf_resolve_company_portal_bootstrap', {
+            p_company_id: company.id,
+            p_user_id: userId,
+          });
+          if (!refreshed.error && refreshed.data?.ok) {
+            bootstrap = refreshed.data;
+          }
+        } else {
+          console.warn('Signup Fleet Pack assignment failed:', packError.message);
+        }
+      }
+    } catch (error) {
+      console.warn('Signup Fleet Pack metadata check failed:', error?.message || error);
+    }
+  }
 
   const {
-    data:
-      membership,
-    error:
-      membershipError,
-  } =
-    await adminClient
-      .from(
-        'company_memberships'
-      )
-      .select(`
-        id,
-        status,
-        access_scope
-      `)
-      .eq(
-        'company_id',
-        company.id
-      )
-      .eq(
-        'user_id',
-        userId
-      )
-      .maybeSingle();
+    data: legacyMembership,
+    error: legacyMembershipError,
+  } = await adminClient
+    .from('company_memberships')
+    .select('id,access_scope')
+    .eq('company_id', company.id)
+    .eq('user_id', userId)
+    .maybeSingle();
 
-
-  if (
-    membershipError
-  ) {
-    throw membershipError;
+  if (legacyMembershipError) {
+    console.warn('Legacy membership metadata lookup failed:', legacyMembershipError);
   }
-
-
-  if (
-    !membership ||
-    membership.status !==
-      'active'
-  ) {
-    return null;
-  }
-
-
-  const {
-    data:
-      subscription,
-    error:
-      subscriptionError,
-  } =
-    await adminClient
-      .from(
-        'subscriptions'
-      )
-      .select(`
-        status,
-        plan_id,
-        trial_end_at
-      `)
-      .eq(
-        'company_id',
-        company.id
-      )
-      .maybeSingle();
-
-
-  if (
-    subscriptionError
-  ) {
-    throw subscriptionError;
-  }
-
-
-  let effectiveStatus =
-    company.status;
-
-
-  if (
-    company.status ===
-      'trial_active' &&
-    subscription
-      ?.trial_end_at &&
-    new Date(
-      subscription.trial_end_at
-    ).getTime() <=
-      Date.now()
-  ) {
-    effectiveStatus =
-      'trial_expired';
-  }
-
 
   return {
-    portalType:
-      'company',
-
-    companyId:
-      company.id,
-
-    /*
-      COMPANY PORTAL ARCHITECTURE
-
-      Fixed host:
-      portal.buddyfleets.in
-
-      Company identity is carried in the URL path later:
-      /{company_slug}/dashboard
-
-      IMPORTANT:
-      company_slug is routing identity only.
-      companyId remains the tenant/data authority.
-    */
-    targetHost:
-      'portal.buddyfleets.in',
-
+    portalType: 'company',
+    companyId: company.id,
+    targetHost: 'portal.buddyfleets.in',
     metadata: {
-      company_code:
-        company.company_code,
-
-      company_slug:
-        company.subdomain_slug,
-
-      company_status:
-        effectiveStatus,
-
-      membership_id:
-        membership.id,
-
-      access_scope:
-        membership.access_scope,
-
-      is_account_owner:
-        company
-          .account_owner_user_id ===
-        userId,
-
-      subscription_status:
-        subscription
-          ?.status ||
-        null,
-
-      plan_id:
-        subscription
-          ?.plan_id ||
-        null,
+      company_code: company.company_code,
+      company_name: company.company_name,
+      company_slug: company.subdomain_slug,
+      is_account_owner: company.account_owner_user_id === userId,
+      membership_id: legacyMembership?.id || null,
+      access_scope: legacyMembership?.access_scope || null,
+      company_status: bootstrap.company_status || company.status,
+      subscription_status: bootstrap.subscription_status || null,
+      selected_plan_key: bootstrap.selected_plan_key || null,
+      effective_plan_key: bootstrap.effective_plan_key || null,
+      lifecycle_state: bootstrap.lifecycle_state || null,
+      lifecycle_access: bootstrap.lifecycle_access || null,
+      fleet_pack_selection_status: bootstrap.fleet_pack_selection_status || 'pending',
+      fleet_pack_setup_required: bootstrap.fleet_pack_setup_required === true,
+      primary_pack: bootstrap.primary_pack || null,
+      enabled_packs: Array.isArray(bootstrap.enabled_packs) ? bootstrap.enabled_packs : [],
+      role: bootstrap.role || null,
+      site_scope: bootstrap.site_scope || null,
+      force_password_change: bootstrap.force_password_change === true,
+      visible_module_count: Number(bootstrap.visible_module_count || 0),
+      limits_enforced: false,
     },
   };
+
 }
 
 

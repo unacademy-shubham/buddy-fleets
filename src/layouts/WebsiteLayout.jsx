@@ -415,6 +415,11 @@ export default function WebsiteLayout() {
   const isDark =
     theme === 'dark';
 
+  const isAuthRoute =
+    ['/login', '/signup', '/forgot-password', '/confirm', '/reset-password'].some(
+      (path) => location.pathname === path || location.pathname.startsWith(`${path}/`)
+    );
+
   /* =======================================================
      COPYRIGHT
   ======================================================= */
@@ -829,6 +834,7 @@ export default function WebsiteLayout() {
           flex-col
           overflow-x-clip
           font-sans
+          bf-public-shell
 
           ${rootThemeClass}
         `}
@@ -1333,7 +1339,7 @@ export default function WebsiteLayout() {
 
         <main
           id="main-content"
-          className="
+          className={`
             relative
             flex
             w-full
@@ -1342,7 +1348,8 @@ export default function WebsiteLayout() {
             bg-[var(--bf-page-bg)]
             pt-[98px]
             lg:pt-[102px]
-          "
+            ${isAuthRoute ? 'bf-auth-surface' : 'bf-public-surface'}
+          `}
         >
           <Outlet />
         </main>

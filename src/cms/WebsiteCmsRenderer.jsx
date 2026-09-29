@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
   BadgeCheck,
@@ -20,6 +20,7 @@ import {
   WalletCards,
   Wrench,
 } from 'lucide-react';
+import { supabase } from "../supabaseClient";
 
 const ICONS = {
   truck: Truck,
@@ -366,17 +367,52 @@ function ImageTextSection({ section }) {
 
 function PricingSection({ section, baseUrl }) {
   const data = section.data || {};
-  const items = Array.isArray(data.items) ? data.items : [];
+  const cmsItems = Array.isArray(data.items) ? data.items : [];
   const [duration, setDuration] = useState(1);
+  const [livePlans, setLivePlans] = useState([]);
   const priceField = `price${duration}`;
-
   const money = useMemo(() => new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 }), []);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/public/pricing-plans', { headers: { Accept: 'application/json' } })
+      .then((response) => response.json().then((payload) => ({ response, payload })))
+      .then(({ response, payload }) => {
+        if (cancelled || !response.ok || !payload?.ok || !Array.isArray(payload.plans)) return;
+        setLivePlans(payload.plans);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  const items = cmsItems.map((entry, index) => {
+    const live = livePlans.find((plan) => plan.plan_key === entry.id || plan.name === entry.name) || livePlans[index];
+    if (!live) return entry;
+    const limits = live.limits || {};
+    const fleet = limits.vehicles_max == null
+      ? (limits.vehicles_min ? `${limits.vehicles_min}+ Vehicles` : entry.fleet)
+      : `${limits.vehicles_min || 1}–${limits.vehicles_max} Vehicles`;
+    return {
+      ...entry,
+      name: live.name || entry.name,
+      tagline: live.tagline || entry.tagline,
+      badge: live.badge || entry.badge,
+      fleet,
+      users: limits.users != null ? `${limits.users} User${Number(limits.users) === 1 ? '' : 's'}` : entry.users,
+      sites: limits.sites != null ? `${limits.sites} Site${Number(limits.sites) === 1 ? '' : 's'}` : entry.sites,
+      price1: live.prices?.['1'] ?? entry.price1,
+      price3: live.prices?.['3'] ?? entry.price3,
+      price6: live.prices?.['6'] ?? entry.price6,
+      price12: live.prices?.['12'] ?? entry.price12,
+      features: Array.isArray(live.entitlements) && live.entitlements.length ? live.entitlements : entry.features,
+    };
+  });
 
   return (
     <section className={sectionShell}>
       <div className="mx-auto max-w-[1500px]">
         <Heading eyebrow={data.eyebrow} heading={data.heading} description={data.description} center />
-        <div className="mx-auto mt-5 flex w-fit flex-wrap justify-center gap-2 rounded-xl border border-[color:var(--bf-border)] bg-[var(--bf-surface)] p-1.5">
+        <div className="mx-auto mt-5 flex w-fit max-w-full flex-wrap justify-center gap-2 rounded-xl border border-[color:var(--bf-border)] bg-[var(--bf-surface)] p-1.5">
           {[1, 3, 6, 12].map((months) => (
             <button
               key={months}
@@ -392,16 +428,16 @@ function PricingSection({ section, baseUrl }) {
           {items.map((entry, index) => {
             const price = Number(entry[priceField] || 0);
             return (
-              <article key={entry.id || index} className={`${card} relative flex flex-col p-5 ${entry.badge ? 'border-cyan-400/35' : ''}`}>
+              <article key={entry.id || index} className={`${card} relative flex min-w-0 flex-col p-5 ${entry.badge ? 'border-cyan-400/35' : ''}`}>
                 {entry.badge && <span className="absolute right-4 top-4 rounded-full bg-gradient-to-r from-[#12BFF2] via-[#078EE5] to-[#0AA23B] px-2.5 py-1 text-[7px] font-black uppercase tracking-[0.12em] text-white">{entry.badge}</span>}
-                <h3 className="text-xl font-black text-[color:var(--bf-text-primary)]">{entry.name}</h3>
+                <h3 className="pr-16 text-xl font-black text-[color:var(--bf-text-primary)]">{entry.name}</h3>
                 <p className="mt-1 text-[9px] font-semibold text-[color:var(--bf-text-muted)]">{entry.fleet}</p>
                 <p className="mt-3 min-h-[38px] text-[11px] leading-5 text-[color:var(--bf-text-muted)]">{entry.tagline}</p>
                 <div className="mt-4 grid grid-cols-3 gap-2 text-center">
                   {[['Fleet', entry.fleet], ['Users', entry.users], ['Sites', entry.sites]].map(([label, value]) => (
-                    <div key={label} className="rounded-xl border border-[color:var(--bf-border)] bg-[var(--bf-page-bg)] px-2 py-2.5">
+                    <div key={label} className="min-w-0 rounded-xl border border-[color:var(--bf-border)] bg-[var(--bf-page-bg)] px-2 py-2.5">
                       <p className="text-[7px] font-bold uppercase tracking-wide text-[color:var(--bf-text-muted)]">{label}</p>
-                      <p className="mt-1 text-[9px] font-black text-[color:var(--bf-text-primary)]">{value}</p>
+                      <p className="mt-1 break-words text-[9px] font-black text-[color:var(--bf-text-primary)]">{value}</p>
                     </div>
                   ))}
                 </div>
@@ -469,24 +505,87 @@ function CtaSection({ section, baseUrl }) {
 
 function ContactSection({ section }) {
   const data = section.data || {};
+  const [form, setForm] = useState({ name: '', company: '', email: '', mobile: '', enquiryType: 'Buddy Fleets', message: '' });
+  const [status, setStatus] = useState({ type: '', message: '' });
+  const [submitting, setSubmitting] = useState(false);
+  const [contacts, setContacts] = useState([]);
+
+  useEffect(() => {
+    let mounted = true;
+    supabase
+      .from('contact_people')
+      .select('id,name,role,email,instagram_handle,instagram_url,description,display_order')
+      .eq('is_active', true)
+      .eq('show_on_contact_page', true)
+      .order('display_order', { ascending: true })
+      .then(({ data: rows }) => { if (mounted) setContacts(rows || []); })
+      .catch(() => {});
+    return () => { mounted = false; };
+  }, []);
+
+  async function submit(event) {
+    event.preventDefault();
+    if (submitting) return;
+    const email = form.email.trim().toLowerCase();
+    if (!form.name.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !form.message.trim()) {
+      setStatus({ type: 'error', message: 'Please enter your name, a valid email and your message.' });
+      return;
+    }
+    try {
+      setSubmitting(true);
+      setStatus({ type: '', message: '' });
+      const { error } = await supabase.functions.invoke('contact-enquiry', {
+        body: { ...form, name: form.name.trim(), company: form.company.trim(), email, mobile: form.mobile.trim(), message: form.message.trim() },
+      });
+      if (error) throw error;
+      setStatus({ type: 'success', message: 'Your enquiry has been sent successfully.' });
+      setForm({ name: '', company: '', email: '', mobile: '', enquiryType: 'Buddy Fleets', message: '' });
+    } catch {
+      setStatus({ type: 'error', message: 'Unable to send your enquiry right now. Please try again.' });
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  const input = 'mt-1.5 h-11 w-full rounded-xl border border-[color:var(--bf-border)] bg-[var(--bf-page-bg)] px-3 text-sm outline-none transition focus:border-cyan-400/40';
+
   return (
     <section className={sectionShell}>
       <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[1.08fr_0.92fr] lg:gap-8">
-        <div className={`${card} p-5 sm:p-6`}>
+        <form onSubmit={submit} className={`${card} p-5 sm:p-6`}>
           <Heading eyebrow={data.eyebrow} heading={data.heading} description={data.description} />
           <div className="mt-6 grid gap-3 sm:grid-cols-2">
-            {['Name', 'Company', 'Email', 'Mobile'].map((label) => (
-              <label key={label} className="text-[10px] font-bold text-[color:var(--bf-text-muted)]">{label}<input disabled className="mt-1.5 h-10 w-full rounded-xl border border-[color:var(--bf-border)] bg-[var(--bf-page-bg)] px-3 opacity-80" /></label>
+            {[['name','Name'],['company','Company'],['email','Email'],['mobile','Mobile']].map(([name,label]) => (
+              <label key={name} className="text-[10px] font-bold text-[color:var(--bf-text-muted)]">{label}
+                <input name={name} value={form[name]} onChange={(e) => setForm((current) => ({ ...current, [name]: e.target.value }))} className={input} maxLength={name === 'email' ? 254 : 120} />
+              </label>
             ))}
           </div>
-          <label className="mt-3 block text-[10px] font-bold text-[color:var(--bf-text-muted)]">Message<textarea disabled rows={5} className="mt-1.5 w-full rounded-xl border border-[color:var(--bf-border)] bg-[var(--bf-page-bg)] p-3 opacity-80" /></label>
-          <button type="button" disabled className="mt-4 rounded-xl bg-gradient-to-r from-[#12BFF2] via-[#078EE5] to-[#0AA23B] px-5 py-3 text-xs font-black text-white opacity-70">Submit Enquiry</button>
-          <p className="mt-3 text-[10px] text-[color:var(--bf-text-muted)]">Preview only. The live Contact page keeps the existing secure enquiry submission flow.</p>
-        </div>
+          <label className="mt-3 block text-[10px] font-bold text-[color:var(--bf-text-muted)]">Enquiry Type
+            <select value={form.enquiryType} onChange={(e) => setForm((current) => ({ ...current, enquiryType: e.target.value }))} className={input}>
+              {['Buddy Fleets','5-Day Free Trial','Sales & Business','Technical Question','Other'].map((option) => <option key={option}>{option}</option>)}
+            </select>
+          </label>
+          <label className="mt-3 block text-[10px] font-bold text-[color:var(--bf-text-muted)]">Message
+            <textarea value={form.message} onChange={(e) => setForm((current) => ({ ...current, message: e.target.value }))} rows={5} maxLength={5000} className="mt-1.5 w-full rounded-xl border border-[color:var(--bf-border)] bg-[var(--bf-page-bg)] p-3 text-sm outline-none transition focus:border-cyan-400/40" />
+          </label>
+          {status.message && <p className={`mt-3 text-xs font-semibold ${status.type === 'success' ? 'text-emerald-500' : 'text-rose-500'}`}>{status.message}</p>}
+          <button type="submit" disabled={submitting} className="mt-4 min-h-11 rounded-xl bg-gradient-to-r from-[#12BFF2] via-[#078EE5] to-[#0AA23B] px-5 py-3 text-xs font-black text-white disabled:opacity-60">{submitting ? 'Sending…' : (data.formTitle || 'Submit Enquiry')}</button>
+        </form>
         <div className={`${card} p-5 sm:p-6`}>
           <p className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-500">Direct Contact</p>
           <h3 className="mt-3 text-2xl font-black text-[color:var(--bf-text-primary)]">People behind Buddy Fleets</h3>
-          <p className="mt-3 text-sm leading-7 text-[color:var(--bf-text-secondary)]">Contact-person records continue to come from the existing live database source. CMS migration does not replace that application data.</p>
+          <p className="mt-3 text-sm leading-7 text-[color:var(--bf-text-secondary)]">{data.formDescription || 'Contact-person details are loaded from the live Buddy Fleets database.'}</p>
+          <div className="mt-5 space-y-3">
+            {contacts.length ? contacts.map((person) => (
+              <article key={person.id} className="rounded-xl border border-[color:var(--bf-border)] bg-[var(--bf-page-bg)] p-4">
+                <p className="text-sm font-black text-[color:var(--bf-text-primary)]">{person.name}</p>
+                {person.role && <p className="mt-1 text-[10px] font-bold text-cyan-500">{person.role}</p>}
+                {person.description && <p className="mt-2 text-xs leading-5 text-[color:var(--bf-text-secondary)]">{person.description}</p>}
+                {person.email && <a href={`mailto:${person.email}`} className="mt-2 block break-all text-xs font-semibold text-cyan-500">{person.email}</a>}
+              </article>
+            )) : <p className="text-xs text-[color:var(--bf-text-muted)]">Use the enquiry form and the Buddy Fleets team will get back to you.</p>}
+          </div>
         </div>
       </div>
     </section>

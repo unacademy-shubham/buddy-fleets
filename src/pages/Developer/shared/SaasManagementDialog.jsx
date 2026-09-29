@@ -24,6 +24,7 @@ import {
   updateCompany,
   updatePlan,
 } from '../../../services/developerSaasApi';
+import { getFleetPacks, setCompanyFleetPacks } from '../../../services/developerPlatformRegistryApi';
 
 const inputClass = 'mt-1.5 h-10 w-full rounded-lg border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] px-3 text-[11px] text-[var(--bf-dev-text)] outline-none focus:border-[var(--bf-dev-primary)]';
 const textareaClass = 'mt-1.5 w-full rounded-lg border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] px-3 py-2 text-[11px] text-[var(--bf-dev-text)] outline-none focus:border-[var(--bf-dev-primary)]';
@@ -94,6 +95,8 @@ const blankCompanyForm = () => ({
   subdomainSlug: '',
   status: 'trial_active',
   planKey: '',
+  fleetPack: '',
+  enabledPacks: [],
   trialStartAt: formatDate(new Date()),
   trialEndAt: '',
   legalName: '',
@@ -126,13 +129,21 @@ const blankCompanyForm = () => ({
 
 function companyToForm(company) {
   const profile = company?.profile || {};
+  const portalSettings = company?.portal_settings || {};
+  const selectedFleetPack = portalSettings?.fleet_pack_selection_status === 'selected'
+    ? (portalSettings?.fleet_pack || '')
+    : '';
   return {
     ...blankCompanyForm(),
     companyName: company?.company_name || '',
     companyCode: company?.company_code || '',
     subdomainSlug: company?.subdomain_slug || '',
     status: company?.status || 'active',
-    planKey: company?.override?.plan_key || '',
+    planKey: company?.subscription?.plan_key || company?.override?.plan_key || '',
+    fleetPack: selectedFleetPack,
+    enabledPacks: portalSettings?.fleet_pack_selection_status === 'selected'
+      ? (Array.isArray(portalSettings?.enabled_packs) ? portalSettings.enabled_packs : (selectedFleetPack ? [selectedFleetPack] : []))
+      : [],
     trialStartAt: formatDate(company?.subscription?.trial_start_at),
     trialEndAt: formatDate(company?.subscription?.trial_end_at),
     legalName: profile.legal_name || '',
@@ -166,6 +177,7 @@ function CompaniesPanel({ trialOnly = false }) {
   const navigate = useNavigate();
   const [companies, setCompanies] = useState([]);
   const [plans, setPlans] = useState([]);
+  const [fleetPacks, setFleetPacks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState('');
   const [query, setQuery] = useState('');
@@ -176,13 +188,16 @@ function CompaniesPanel({ trialOnly = false }) {
   async function load() {
     setLoading(true);
     setError('');
-    const [companyResult, planResult] = await Promise.all([
+    const [companyResult, planResult, fleetPackResult] = await Promise.all([
       getCompanies(),
       getPlans(),
+      getFleetPacks(),
     ]);
     if (companyResult.ok && Array.isArray(companyResult.companies)) setCompanies(companyResult.companies);
     else setError(errorText(companyResult, 'Unable to load companies.'));
     if (planResult.ok && Array.isArray(planResult.plans)) setPlans(planResult.plans);
+    if (fleetPackResult.ok && Array.isArray(fleetPackResult.fleetPacks)) setFleetPacks(fleetPackResult.fleetPacks);
+    else if (fleetPackResult.ok && Array.isArray(fleetPackResult.fleet_packs)) setFleetPacks(fleetPackResult.fleet_packs);
     setLoading(false);
   }
 
@@ -257,13 +272,23 @@ function CompaniesPanel({ trialOnly = false }) {
       trialEndAt: endOfLocalDay(form.trialEndAt),
     };
 
-    const result = companyId
+    let result = companyId
       ? await updateCompany({
           action: 'update_profile',
           companyId,
           ...payload,
         })
       : await createCompany(payload);
+
+    if (result.ok && companyId && form.fleetPack) {
+      const enabledPacks = Array.from(new Set([form.fleetPack, ...(Array.isArray(form.enabledPacks) ? form.enabledPacks : [])]));
+      const fleetResult = await setCompanyFleetPacks({
+        companyId,
+        primaryPack: form.fleetPack,
+        enabledPacks,
+      });
+      if (!fleetResult.ok) result = fleetResult;
+    }
 
     if (result.ok) {
       setEditor(null);
@@ -292,6 +317,7 @@ function CompaniesPanel({ trialOnly = false }) {
         form={editor.form}
         companyId={editor.companyId}
         plans={plans}
+        fleetPacks={fleetPacks}
         saving={Boolean(savingId)}
         error={error}
         onCancel={() => {
@@ -361,9 +387,23 @@ function CompaniesPanel({ trialOnly = false }) {
   );
 }
 
-function CompanyEditor({ form: initialForm, companyId, plans, saving, error, onCancel, onSave }) {
+function CompanyEditor({ form: initialForm, companyId, plans, fleetPacks, saving, error, onCancel, onSave }) {
   const [form, setForm] = useState(initialForm);
   const edit = (key, value) => setForm((current) => ({ ...current, [key]: value }));
+  const toggleEnabledPack = (packKey) => setForm((current) => {
+    const next = new Set(Array.isArray(current.enabledPacks) ? current.enabledPacks : []);
+    if (next.has(packKey)) next.delete(packKey);
+    else next.add(packKey);
+    if (current.fleetPack) next.add(current.fleetPack);
+    return { ...current, enabledPacks: Array.from(next) };
+  });
+  const choosePrimaryPack = (packKey) => setForm((current) => ({
+    ...current,
+    fleetPack: packKey,
+    enabledPacks: packKey
+      ? Array.from(new Set([packKey, ...(Array.isArray(current.enabledPacks) ? current.enabledPacks : [])]))
+      : [],
+  }));
   const isNew = !companyId;
 
   return (
@@ -388,9 +428,27 @@ function CompanyEditor({ form: initialForm, companyId, plans, saving, error, onC
             <label className={labelClass}>Company code<input value={isNew ? 'Auto-generated on create' : form.companyCode} disabled className={inputClass} /></label>
             <label className={labelClass}>Portal slug {isNew ? '(auto if blank)' : ''}<input value={form.subdomainSlug} onChange={(e) => edit('subdomainSlug', e.target.value.toLowerCase())} className={inputClass} /></label>
             {isNew && <label className={labelClass}>Status<select value={form.status} onChange={(e) => edit('status', e.target.value)} className={inputClass}><option value="trial_active">Trial active</option><option value="active">Active</option><option value="pending_confirmation">Pending confirmation</option></select></label>}
+            <label className={labelClass}>Company / Fleet Type<select value={form.fleetPack} onChange={(e) => choosePrimaryPack(e.target.value)} className={inputClass}><option value="">Not selected yet</option>{(fleetPacks || []).filter((pack) => pack.status === 'active').map((pack) => <option key={pack.pack_key} value={pack.pack_key}>{pack.name}</option>)}</select></label>
             {isNew && <label className={labelClass}>Initial plan<select value={form.planKey} onChange={(e) => edit('planKey', e.target.value)} className={inputClass}><option value="">No plan yet</option>{plans.filter((plan) => plan.status === 'active').map((plan) => <option key={plan.id} value={plan.plan_key}>{plan.name}</option>)}</select></label>}
             {isNew && <label className={labelClass}>Trial start<input type="date" value={form.trialStartAt} onChange={(e) => edit('trialStartAt', e.target.value)} className={inputClass} /></label>}
             {isNew && <label className={labelClass}>Trial end {form.status === 'trial_active' ? '*' : ''}<input type="date" value={form.trialEndAt} onChange={(e) => edit('trialEndAt', e.target.value)} className={inputClass} /></label>}
+          </div>
+          <div className="mt-3 rounded-lg border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] p-3">
+            <div className="text-[10px] font-semibold text-[var(--bf-dev-text)]">Enabled Fleet Packs</div>
+            <p className="mt-1 text-[9px] leading-4 text-[var(--bf-dev-text-3)]">Primary Fleet Pack is always enabled. Leave Company / Fleet Type blank when the business type is not known yet; the portal will remain in setup-required state instead of being treated as Travels.</p>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {(fleetPacks || []).filter((pack) => pack.status === 'active').map((pack) => {
+                const checked = Array.isArray(form.enabledPacks) && form.enabledPacks.includes(pack.pack_key);
+                const primary = form.fleetPack === pack.pack_key;
+                return (
+                  <label key={pack.pack_key} className="flex items-center gap-2 rounded-md border border-[var(--bf-dev-border)] px-3 py-2 text-[10px] text-[var(--bf-dev-text-2)]">
+                    <input type="checkbox" checked={checked} disabled={!form.fleetPack || primary} onChange={() => toggleEnabledPack(pack.pack_key)} />
+                    <span className="min-w-0 flex-1">{pack.name}</span>
+                    {primary && <span className="text-[8px] font-bold uppercase tracking-[0.08em] text-[var(--bf-dev-primary)]">Primary</span>}
+                  </label>
+                );
+              })}
+            </div>
           </div>
         </section>
 
@@ -398,7 +456,7 @@ function CompanyEditor({ form: initialForm, companyId, plans, saving, error, onC
           <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--bf-dev-primary)]">Legal & Tax</div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <label className={labelClass}>Registration type<input placeholder="Proprietorship / Pvt Ltd / LLP..." value={form.registrationType} onChange={(e) => edit('registrationType', e.target.value)} className={inputClass} /></label>
-            <label className={labelClass}>Business type<input placeholder="Transport / Logistics..." value={form.businessType} onChange={(e) => edit('businessType', e.target.value)} className={inputClass} /></label>
+            <label className={labelClass}>Business description<input placeholder="Transport / Logistics / Legal activity..." value={form.businessType} onChange={(e) => edit('businessType', e.target.value)} className={inputClass} /></label>
             <label className={labelClass}>GSTIN<input maxLength={15} value={form.gstin} onChange={(e) => edit('gstin', e.target.value.toUpperCase())} className={inputClass} /></label>
             <label className={labelClass}>PAN<input maxLength={10} value={form.pan} onChange={(e) => edit('pan', e.target.value.toUpperCase())} className={inputClass} /></label>
             <label className={labelClass}>CIN / Registration no.<input value={form.cin} onChange={(e) => edit('cin', e.target.value.toUpperCase())} className={inputClass} /></label>
@@ -466,7 +524,10 @@ function CompanyRow({ company, trialOnly, saving, onStatus, onLifecycle, onEdit,
             {company.company_code || 'No code'} · portal.buddyfleets.in/{company.subdomain_slug || 'no-slug'}
           </div>
           <div className="mt-2 text-[9px] text-[var(--bf-dev-text-3)]">
-            Subscription: {company.subscription?.status || 'not found'} · Plan: {company.override?.plan_key || company.subscription?.plan_id || 'not assigned'}
+            Subscription: {company.subscription?.status || 'not found'} · Plan: {company.subscription?.plan_key || company.override?.plan_key || company.subscription?.plan_id || 'not assigned'}
+          </div>
+          <div className="mt-1 text-[9px] text-[var(--bf-dev-text-3)]">
+            Fleet: {company.portal_settings?.fleet_pack_selection_status === 'selected' ? (company.portal_settings?.fleet_pack || 'not assigned') : 'setup pending'}
           </div>
           {(profile.gstin || profile.pan || profile.owner_name) && (
             <div className="mt-1 text-[9px] text-[var(--bf-dev-text-3)]">
