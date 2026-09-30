@@ -102,34 +102,33 @@ function DemoFleetPicker({currentUser,onLogout}){
 
   return (
     <div
-      className="bf-demo-v4"
+      className="bf-demo-v3"
       data-theme={theme}
       style={pickerVars(theme)}
     >
-      <header className="bf-demo-v4-header">
-        <div className="bf-demo-v4-header-inner">
-          <div className="bf-demo-v4-brand">
+      <header className="bf-demo-v3-header">
+        <div className="bf-demo-v3-header-inner">
+          <div className="bf-demo-v3-brand">
             <div className="bf-client-brand-mark">BF</div>
+
             <div>
               <strong>Buddy Fleets Demo</strong>
-              <span>Interactive Fleet Workspace</span>
+              <span>Demo Control Center</span>
             </div>
           </div>
 
-          <div className="bf-demo-v4-header-actions">
-            <div className="bf-demo-v4-secure">
-              <span className="bf-demo-v4-online"/>
-              Secure Demo
-            </div>
-
-            <div className="bf-demo-v4-user">
-              <small>Signed in as</small>
-              <strong>{signedInAs}</strong>
+          <div className="bf-demo-v3-header-actions">
+            <div className="bf-demo-v3-user">
+              <span className="bf-demo-v3-online"/>
+              <div>
+                <small>Signed in as</small>
+                <strong>{signedInAs}</strong>
+              </div>
             </div>
 
             <button
               type="button"
-              className="bf-demo-v4-icon-btn"
+              className="bf-demo-v3-icon-btn"
               onClick={toggle}
               title="Light / Dark"
               aria-label="Toggle theme"
@@ -139,7 +138,7 @@ function DemoFleetPicker({currentUser,onLogout}){
 
             <button
               type="button"
-              className="bf-demo-v4-icon-btn"
+              className="bf-demo-v3-icon-btn"
               onClick={onLogout}
               title="Logout"
               aria-label="Logout demo"
@@ -150,129 +149,87 @@ function DemoFleetPicker({currentUser,onLogout}){
         </div>
       </header>
 
-      <main className="bf-demo-v4-main">
-        <section className="bf-demo-v4-hero">
-          <div className="bf-demo-v4-hero-copy">
-            <div className="bf-demo-v4-badge">
+      <main className="bf-demo-v3-main">
+        <section className="bf-demo-v3-page-head">
+          <div>
+            <div className="bf-demo-v3-badge">
               <span/>
-              7 Transport Workspaces â€¢ One Platform
+              Authenticated Demo Workspace
             </div>
 
-            <h1>
-              Pick a fleet.
-              <span> Explore the real workflow.</span>
-            </h1>
+            <h1>Choose a fleet dashboard</h1>
 
             <p>
-              Open any demo workspace and experience Buddy Fleets with
-              authenticated access, isolated sample data and the same
-              permission-driven architecture used by the live product.
+              Select a transport operation to open its isolated Buddy Fleets
+              demo workspace. Each dashboard runs through the authenticated
+              backend with sample data and the same permission-driven product
+              architecture.
             </p>
-
-            <div className="bf-demo-v4-hero-pills">
-              <span>Live-style Dashboard</span>
-              <span>Sample Operations</span>
-              <span>Role-based Access</span>
-              <span>Return Without Logout</span>
-            </div>
           </div>
 
-          <div className="bf-demo-v4-preview" aria-hidden="true">
-            <div className="bf-demo-v4-preview-top">
-              <div className="bf-demo-v4-preview-dots">
-                <span/><span/><span/>
-              </div>
-              <span>Demo Operations Console</span>
+          <div className="bf-demo-v3-stats">
+            <div>
+              <strong>7</strong>
+              <span>Fleet Packs</span>
             </div>
-
-            <div className="bf-demo-v4-preview-grid">
-              <div className="bf-demo-v4-preview-kpi">
-                <small>Active Vehicles</small>
-                <strong>124</strong>
-                <span>+8 today</span>
-              </div>
-              <div className="bf-demo-v4-preview-kpi">
-                <small>Trips Running</small>
-                <strong>38</strong>
-                <span>On schedule</span>
-              </div>
-              <div className="bf-demo-v4-preview-kpi">
-                <small>Alerts</small>
-                <strong>05</strong>
-                <span>Needs review</span>
-              </div>
+            <div>
+              <strong>Secure</strong>
+              <span>Access</span>
             </div>
-
-            <div className="bf-demo-v4-route-card">
-              <div className="bf-demo-v4-route-head">
-                <span>Live Fleet View</span>
-                <small>Updated now</small>
-              </div>
-
-              <div className="bf-demo-v4-map">
-                <span className="route route-a"/>
-                <span className="route route-b"/>
-                <span className="pin pin-a"/>
-                <span className="pin pin-b"/>
-                <span className="pin pin-c"/>
-              </div>
+            <div>
+              <strong>Isolated</strong>
+              <span>Sample Data</span>
             </div>
           </div>
         </section>
 
-        <section className="bf-demo-v4-workspaces">
-          <div className="bf-demo-v4-section-head">
+        <section className="bf-demo-v3-workspaces">
+          <div className="bf-demo-v3-section-head">
             <div>
-              <span>Choose your business type</span>
-              <h2>Demo fleet workspaces</h2>
+              <span>Available Demo Workspaces</span>
+              <h2>Select your transport business type</h2>
             </div>
 
             <p>
-              Each workspace has its own modules, sample data and operational flow.
+              Use the Demo Home button inside any fleet dashboard to return
+              here without logging out.
             </p>
           </div>
 
-          <div className="bf-demo-v4-grid">
+          <div className="bf-demo-v3-grid">
             {DEMO_FLEET_ORDER.map((key,index)=>{
               const pack=getFleetPack(key);
               const Icon=iconFor(pack?.icon);
-              const tone=`tone-${(index%7)+1}`;
 
               return (
                 <Link
-                  className={`bf-demo-v4-card ${tone}`}
+                  className="bf-demo-v3-card"
                   key={key}
                   to={`/demo/${pack.slug}/dashboard`}
                 >
-                  <div className="bf-demo-v4-card-glow"/>
-
-                  <div className="bf-demo-v4-card-head">
-                    <div className="bf-demo-v4-card-icon">
-                      <Icon size={25}/>
+                  <div className="bf-demo-v3-card-head">
+                    <div className="bf-demo-v3-card-icon">
+                      <Icon size={23}/>
                     </div>
 
-                    <span className="bf-demo-v4-card-no">
+                    <span className="bf-demo-v3-card-no">
                       {String(index+1).padStart(2,'0')}
                     </span>
                   </div>
 
-                  <div className="bf-demo-v4-card-body">
-                    <span className="bf-demo-v4-card-label">Fleet Pack</span>
+                  <div className="bf-demo-v3-card-body">
+                    <span className="bf-demo-v3-card-label">Demo Fleet Pack</span>
                     <h3>{pack.name}</h3>
                     <p>{pack.description}</p>
                   </div>
 
-                  <div className="bf-demo-v4-mini-data">
-                    <span><b>Demo</b><small>Workspace</small></span>
-                    <span><b>Live</b><small>Workflow</small></span>
-                    <span><b>Safe</b><small>Sample Data</small></span>
-                  </div>
-
-                  <div className="bf-demo-v4-card-action">
+                  <div className="bf-demo-v3-card-action">
                     <span>
                       Open Dashboard
                       <ChevronRight size={16}/>
                     </span>
+
+                    <small>Sample Data</small>
                   </div>
                 </Link>
               );
@@ -331,6 +288,5 @@ export default function DemoPortalApp({currentUser,onLogout}){
   if(!pack)return <DemoFleetPicker currentUser={currentUser} onLogout={onLogout}/>;
   return <DemoFleetWorkspace key={pack.key} pack={pack} currentUser={currentUser} onLogout={onLogout}/>;
 }
-
 
 
