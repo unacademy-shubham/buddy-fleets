@@ -30,7 +30,7 @@ import { waitUntil } from '@vercel/functions';
 
 const MAX_HANDOFF_LENGTH = 200;
 const MIN_HANDOFF_LENGTH = 20;
-const HTTP_SESSION_LIFETIME_SECONDS = 60 * 60;
+const HTTP_SESSION_LIFETIME_SECONDS = 30 * 60;
 const BOOTSTRAP_LIFETIME_MS = 15 * 1000;
 
 const COOKIE_NAME = '__Host-bf_session';
