@@ -415,9 +415,19 @@ export default function WebsiteLayout() {
   const isDark =
     theme === 'dark';
 
+  /* =======================================================
+     HIGH-RESOLUTION AUTOFIT ROUTE MARKER
+
+     Keeps the Version 1 visual template unchanged.
+     Current global responsive CSS can scale the public/auth
+     canvas on 2K/4K screens without redesigning page content.
+  ======================================================= */
+
   const isAuthRoute =
     ['/login', '/signup', '/forgot-password', '/confirm', '/reset-password'].some(
-      (path) => location.pathname === path || location.pathname.startsWith(`${path}/`)
+      (path) =>
+        location.pathname === path ||
+        location.pathname.startsWith(`${path}/`)
     );
 
   /* =======================================================
