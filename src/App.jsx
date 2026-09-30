@@ -1,4 +1,4 @@
-import React, {
+﻿import React, {
   Suspense,
   lazy,
   useCallback,
@@ -18,7 +18,6 @@ import {
 import WebsiteLayout from './layouts/WebsiteLayout';
 import DeveloperLayout from './layouts/DeveloperLayout';
 import CompanyAnnouncementPopup from './components/CompanyAnnouncementPopup';
-import { PublishedSystemPage } from './cms/PublishedWebsitePage';
 
 /* =========================================================
    ROUTE-LEVEL CODE SPLITTING
@@ -1464,9 +1463,9 @@ function CompanyDashboardPending({
               </p>
 
               <p className="mt-1 text-[10px] font-medium leading-5 text-slate-300">
-                Vehicles: {currentUser?.effectiveLimits?.vehicles_max ?? '—'} · Users:{' '}
-                {currentUser?.effectiveLimits?.users ?? '—'} · Sites:{' '}
-                {currentUser?.effectiveLimits?.sites ?? '—'}
+                Vehicles: {currentUser?.effectiveLimits?.vehicles_max ?? 'â€”'} Â· Users:{' '}
+                {currentUser?.effectiveLimits?.users ?? 'â€”'} Â· Sites:{' '}
+                {currentUser?.effectiveLimits?.sites ?? 'â€”'}
               </p>
             </div>
 
@@ -1549,7 +1548,7 @@ function CompanyDashboardPending({
           "
         >
           <span className="mr-1">
-            ©
+            Â©
           </span>
 
           Copyright by{' '}
@@ -1964,7 +1963,7 @@ function MainWebsiteRoutes() {
           path="/"
           element={
             <LazyPage>
-              <PublishedSystemPage path="/" fallback={<Home />} />
+              <Home />
             </LazyPage>
           }
         />
@@ -1973,7 +1972,7 @@ function MainWebsiteRoutes() {
           path="/features"
           element={
             <LazyPage>
-              <PublishedSystemPage path="/features" fallback={<Features />} />
+              <Features />
             </LazyPage>
           }
         />
@@ -1982,7 +1981,7 @@ function MainWebsiteRoutes() {
           path="/pricing"
           element={
             <LazyPage>
-              <PublishedSystemPage path="/pricing" fallback={<Pricing />} />
+              <Pricing />
             </LazyPage>
           }
         />
@@ -1991,7 +1990,7 @@ function MainWebsiteRoutes() {
           path="/about"
           element={
             <LazyPage>
-              <PublishedSystemPage path="/about" fallback={<AboutUs />} />
+              <AboutUs />
             </LazyPage>
           }
         />
@@ -2000,7 +1999,7 @@ function MainWebsiteRoutes() {
           path="/contact-us"
           element={
             <LazyPage>
-              <PublishedSystemPage path="/contact-us" fallback={<ContactUs />} />
+              <ContactUs />
             </LazyPage>
           }
         />
@@ -3577,12 +3576,12 @@ function AppRouter() {
      INITIAL PORTAL SESSION RESTORE
 
      Fresh login:
-     → dashboard instantly renders from verified bootstrap
-     → server validation runs silently
+     â†’ dashboard instantly renders from verified bootstrap
+     â†’ server validation runs silently
 
      Refresh/direct URL:
-     → no bootstrap
-     → server verification happens before protected UI
+     â†’ no bootstrap
+     â†’ server verification happens before protected UI
   ========================================================= */
 
   useEffect(
@@ -4004,3 +4003,4 @@ export default function App() {
     </BrowserRouter>
   );
 }
+

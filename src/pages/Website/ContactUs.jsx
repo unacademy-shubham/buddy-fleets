@@ -1,86 +1,24 @@
-import React, {
-  useEffect,
-  useRef,
-  useState,
-} from 'react';
-
-import { Link } from 'react-router-dom';
-
-import { supabase } from '../../supabaseClient';
+import React, { useState } from 'react';
+import { motion, useReducedMotion } from 'framer-motion';
 
 /* =========================================================
-   ENQUIRY OPTIONS
+   CONTACT DETAILS
 ========================================================= */
 
-const ENQUIRY_OPTIONS = [
-  {
-    value: 'Buddy Fleets',
-    label: 'Buddy Fleets',
-  },
-  {
-    value: 'Product Demo',
-    label: 'Product Demo',
-  },
-  {
-    value: 'Free Trial',
-    label: '5-Day Free Trial',
-  },
-  {
-    value: 'Sales',
-    label: 'Sales Enquiry',
-  },
-  {
-    value: 'Partnership',
-    label: 'Business / Partnership',
-  },
-  {
-    value: 'Technical',
-    label: 'Technical Enquiry',
-  },
-  {
-    value: 'Other',
-    label: 'Other',
-  },
-];
+const SHUBHAM_EMAIL = 'jangirshubham72@gmail.com';
+const NAVIN_EMAIL = 'navin4338@gmail.com';
 
-/* =========================================================
-   ENQUIRY TYPES
-========================================================= */
+const SHUBHAM_INSTAGRAM =
+  'https://www.instagram.com/happiest_banda';
 
-const ENQUIRY_TYPES = [
-  {
-    number: '01',
-    title: 'Product Enquiries',
-    description:
-      'Understand Buddy Fleets and how the platform approaches fleet operations.',
-  },
-  {
-    number: '02',
-    title: '5-Day Free Trial',
-    description:
-      'Questions related to starting or understanding your Buddy Fleets trial.',
-  },
-  {
-    number: '03',
-    title: 'Sales & Business',
-    description:
-      'Discuss product requirements, commercial conversations and business opportunities.',
-  },
-  {
-    number: '04',
-    title: 'Technical Questions',
-    description:
-      'Connect for platform, account or other technical Buddy Fleets enquiries.',
-  },
-];
+const NAVIN_INSTAGRAM =
+  'https://www.instagram.com/navin.sharma/';
 
 /* =========================================================
    ICONS
 ========================================================= */
 
-function MailIcon({
-  className = '',
-}) {
+function MailIcon({ className = '' }) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -109,9 +47,7 @@ function MailIcon({
   );
 }
 
-function InstagramIcon({
-  className = '',
-}) {
+function InstagramIcon({ className = '' }) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -147,9 +83,7 @@ function InstagramIcon({
   );
 }
 
-function UserIcon({
-  className = '',
-}) {
+function UserIcon({ className = '' }) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -175,9 +109,7 @@ function UserIcon({
   );
 }
 
-function BuildingIcon({
-  className = '',
-}) {
+function BuildingIcon({ className = '' }) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -201,9 +133,7 @@ function BuildingIcon({
   );
 }
 
-function PhoneIcon({
-  className = '',
-}) {
+function PhoneIcon({ className = '' }) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -222,9 +152,7 @@ function PhoneIcon({
   );
 }
 
-function MessageIcon({
-  className = '',
-}) {
+function MessageIcon({ className = '' }) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -249,9 +177,7 @@ function MessageIcon({
   );
 }
 
-function SendIcon({
-  className = '',
-}) {
+function SendIcon({ className = '' }) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -277,9 +203,7 @@ function SendIcon({
   );
 }
 
-function ArrowIcon({
-  className = '',
-}) {
+function ArrowIcon({ className = '' }) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -298,511 +222,48 @@ function ArrowIcon({
   );
 }
 
-function ChevronIcon({
-  className = '',
-}) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-hidden="true"
-      className={className}
-    >
-      <path
-        d="m6 9 6 6 6-6"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function CheckIcon({
-  className = '',
-}) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-hidden="true"
-      className={className}
-    >
-      <path
-        d="m5 12 4 4L19 6"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function CheckCircleIcon({
-  className = '',
-}) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-hidden="true"
-      className={className}
-    >
-      <circle
-        cx="12"
-        cy="12"
-        r="9"
-        stroke="currentColor"
-        strokeWidth="1.8"
-      />
-
-      <path
-        d="m8 12 2.5 2.5L16 9"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function AlertIcon({
-  className = '',
-}) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-hidden="true"
-      className={className}
-    >
-      <circle
-        cx="12"
-        cy="12"
-        r="9"
-        stroke="currentColor"
-        strokeWidth="1.8"
-      />
-
-      <path
-        d="M12 7v6M12 17h.01"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
 /* =========================================================
-   CUSTOM SELECT
-
-   No native browser <select>.
+   REVEAL
 ========================================================= */
 
-function CustomSelect({
-  value,
-  options,
-  onChange,
-  disabled = false,
+function Reveal({
+  children,
+  className = '',
+  delay = 0,
 }) {
-  const wrapperRef =
-    useRef(null);
-
-  const [
-    open,
-    setOpen,
-  ] = useState(false);
-
-  const [
-    activeIndex,
-    setActiveIndex,
-  ] = useState(0);
-
-  const selectedIndex =
-    Math.max(
-      0,
-      options.findIndex(
-        (option) =>
-          option.value ===
-          value
-      )
-    );
-
-  const selected =
-    options[selectedIndex] ||
-    options[0];
-
-  /* =======================================================
-     CLOSE OUTSIDE
-  ======================================================= */
-
-  useEffect(() => {
-    if (!open) {
-      return undefined;
-    }
-
-    function handleOutside(
-      event
-    ) {
-      if (
-        wrapperRef.current &&
-        !wrapperRef.current.contains(
-          event.target
-        )
-      ) {
-        setOpen(false);
-      }
-    }
-
-    document.addEventListener(
-      'pointerdown',
-      handleOutside
-    );
-
-    return () => {
-      document.removeEventListener(
-        'pointerdown',
-        handleOutside
-      );
-    };
-  }, [
-    open,
-  ]);
-
-  /* =======================================================
-     ACTIVE OPTION
-  ======================================================= */
-
-  useEffect(() => {
-    if (open) {
-      setActiveIndex(
-        selectedIndex
-      );
-    }
-  }, [
-    open,
-    selectedIndex,
-  ]);
-
-  function selectOption(
-    option
-  ) {
-    onChange(
-      option.value
-    );
-
-    setOpen(false);
-  }
-
-  function handleKeyDown(
-    event
-  ) {
-    if (disabled) {
-      return;
-    }
-
-    if (
-      event.key === 'Enter' ||
-      event.key === ' '
-    ) {
-      event.preventDefault();
-
-      if (!open) {
-        setOpen(true);
-      } else {
-        selectOption(
-          options[
-            activeIndex
-          ]
-        );
-      }
-
-      return;
-    }
-
-    if (
-      event.key ===
-      'ArrowDown'
-    ) {
-      event.preventDefault();
-
-      if (!open) {
-        setOpen(true);
-        return;
-      }
-
-      setActiveIndex(
-        (current) =>
-          Math.min(
-            current + 1,
-            options.length - 1
-          )
-      );
-
-      return;
-    }
-
-    if (
-      event.key ===
-      'ArrowUp'
-    ) {
-      event.preventDefault();
-
-      if (!open) {
-        setOpen(true);
-        return;
-      }
-
-      setActiveIndex(
-        (current) =>
-          Math.max(
-            current - 1,
-            0
-          )
-      );
-
-      return;
-    }
-
-    if (
-      event.key === 'Escape'
-    ) {
-      setOpen(false);
-    }
-  }
+  const reduceMotion = useReducedMotion();
 
   return (
-    <div
-      ref={wrapperRef}
-      className="relative"
-    >
-      <button
-        type="button"
-        disabled={disabled}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        onClick={() => {
-          if (!disabled) {
-            setOpen(
-              (current) =>
-                !current
-            );
-          }
-        }}
-        onKeyDown={
-          handleKeyDown
-        }
-        className={`
-          flex
-          min-h-11
-          w-full
-          items-center
-          justify-between
-          gap-4
-
-          rounded-xl
-          border
-
-          px-3.5
-          py-2.5
-
-          text-left
-          text-sm
-
-          outline-none
-
-          transition
-          duration-200
-
-          ${
-            open
-              ? `
-                border-cyan-400/40
-                bg-[var(--bf-page-bg)]
-                ring-2
-                ring-cyan-400/[0.06]
-              `
-              : `
-                border-[color:var(--bf-border)]
-                bg-[var(--bf-page-bg)]
-                hover:border-cyan-400/25
-              `
-          }
-
-          ${
-            disabled
-              ? `
-                cursor-not-allowed
-                opacity-60
-              `
-              : 'cursor-pointer'
-          }
-        `}
-      >
-        <span
-          className="
-            font-medium
-            text-[color:var(--bf-text-primary)]
-          "
-        >
-          {selected?.label}
-        </span>
-
-        <ChevronIcon
-          className={`
-            h-4
-            w-4
-            shrink-0
-
-            text-[color:var(--bf-text-muted)]
-
-            transition-transform
-            duration-200
-
-            ${
-              open
-                ? `
-                  rotate-180
-                  text-cyan-500
-                `
-                : ''
+    <motion.div
+      initial={
+        reduceMotion
+          ? false
+          : {
+              opacity: 0,
+              y: 30,
             }
-          `}
-        />
-      </button>
-
-      {open &&
-        !disabled && (
-          <div
-            role="listbox"
-            className="
-              absolute
-              left-0
-              right-0
-              top-[calc(100%+6px)]
-              z-50
-
-              max-h-64
-              overflow-y-auto
-
-              rounded-xl
-              border
-              border-[color:var(--bf-border)]
-
-              bg-[var(--bf-surface)]
-
-              p-1.5
-
-              shadow-2xl
-              shadow-black/25
-
-              backdrop-blur-2xl
-            "
-          >
-            {options.map(
-              (
-                option,
-                index
-              ) => {
-                const isSelected =
-                  option.value ===
-                  value;
-
-                const isActive =
-                  index ===
-                  activeIndex;
-
-                return (
-                  <button
-                    key={
-                      option.value
-                    }
-                    type="button"
-                    role="option"
-                    aria-selected={
-                      isSelected
-                    }
-                    onMouseEnter={() =>
-                      setActiveIndex(
-                        index
-                      )
-                    }
-                    onClick={() =>
-                      selectOption(
-                        option
-                      )
-                    }
-                    className={`
-                      flex
-                      w-full
-                      items-center
-                      justify-between
-                      gap-3
-
-                      rounded-lg
-
-                      px-3
-                      py-2.5
-
-                      text-left
-                      text-[11px]
-                      font-semibold
-
-                      transition
-
-                      ${
-                        isSelected
-                          ? `
-                            bg-cyan-500/[0.09]
-                            text-cyan-500
-                          `
-                          : isActive
-                            ? `
-                              bg-cyan-500/[0.04]
-                              text-[color:var(--bf-text-primary)]
-                            `
-                            : `
-                              text-[color:var(--bf-text-secondary)]
-                              hover:bg-cyan-500/[0.04]
-                            `
-                      }
-                    `}
-                  >
-                    <span>
-                      {
-                        option.label
-                      }
-                    </span>
-
-                    {isSelected && (
-                      <span
-                        className="
-                          flex
-                          h-5
-                          w-5
-                          items-center
-                          justify-center
-                          rounded-md
-                          bg-cyan-500/[0.08]
-                          text-cyan-500
-                        "
-                      >
-                        <CheckIcon
-                          className="h-3 w-3"
-                        />
-                      </span>
-                    )}
-                  </button>
-                );
-              }
-            )}
-          </div>
-        )}
-    </div>
+      }
+      whileInView={
+        reduceMotion
+          ? {}
+          : {
+              opacity: 1,
+              y: 0,
+            }
+      }
+      viewport={{
+        once: true,
+        amount: 0.15,
+      }}
+      transition={{
+        duration: 0.65,
+        delay,
+        ease: 'easeOut',
+      }}
+      className={className}
+    >
+      {children}
+    </motion.div>
   );
 }
 
@@ -815,100 +276,75 @@ function ContactPerson({
   role,
   description,
   email,
-  instagramUrl,
+  instagram,
   instagramHandle,
-  index = 0,
+  accent = 'cyan',
 }) {
-  const cyan =
-    index === 0;
+  const isCyan = accent === 'cyan';
 
   return (
-    <article
+    <div
       className="
         group
         relative
         overflow-hidden
-        rounded-[22px]
+        rounded-[26px]
         border
-        border-[color:var(--bf-border)]
-        bg-[var(--bf-surface)]
+        border-white/[0.08]
+        bg-white/[0.025]
         p-5
-        shadow-sm
         transition
-        duration-200
-        hover:-translate-y-0.5
-        hover:border-cyan-400/25
+        duration-500
+        hover:border-white/[0.14]
+        sm:p-6
       "
     >
       <div
-        aria-hidden="true"
         className={`
           pointer-events-none
           absolute
           -right-16
           -top-16
-          h-40
-          w-40
+          h-44
+          w-44
           rounded-full
           blur-[80px]
 
           ${
-            cyan
-              ? 'bg-cyan-500/[0.07]'
-              : 'bg-blue-500/[0.07]'
+            isCyan
+              ? 'bg-cyan-500/[0.08]'
+              : 'bg-violet-500/[0.09]'
           }
         `}
       />
 
       <div className="relative">
 
-        <div
-          className="
-            flex
-            items-start
-            gap-3
-          "
-        >
+        <div className="flex items-start gap-4">
+
           <div
             className={`
               flex
-              h-10
-              w-10
+              h-12
+              w-12
               shrink-0
               items-center
               justify-center
-              rounded-xl
+              rounded-2xl
               border
 
               ${
-                cyan
-                  ? `
-                    border-cyan-400/20
-                    bg-cyan-400/[0.07]
-                    text-cyan-500
-                  `
-                  : `
-                    border-blue-400/20
-                    bg-blue-400/[0.07]
-                    text-blue-500
-                  `
+                isCyan
+                  ? 'border-cyan-400/15 bg-cyan-400/[0.06] text-cyan-300'
+                  : 'border-violet-400/15 bg-violet-400/[0.06] text-violet-300'
               }
             `}
           >
-            <UserIcon
-              className="h-4 w-4"
-            />
+            <UserIcon className="h-5 w-5" />
           </div>
 
-          <div className="min-w-0">
-
-            <h3
-              className="
-                text-base
-                font-black
-                text-[color:var(--bf-text-primary)]
-              "
-            >
+          <div>
+            <h3 className="text-lg font-black text-white">
               {name}
             </h3>
 
@@ -918,245 +354,97 @@ function ContactPerson({
                 text-[8px]
                 font-black
                 uppercase
-                tracking-[0.16em]
+                tracking-[0.18em]
 
                 ${
-                  cyan
-                    ? 'text-cyan-500'
-                    : 'text-blue-500'
+                  isCyan
+                    ? 'text-cyan-400'
+                    : 'text-violet-400'
                 }
               `}
             >
               {role}
             </p>
           </div>
+
         </div>
 
-        {description && (
-          <p
+        <p className="mt-5 text-sm leading-7 text-slate-400">
+          {description}
+        </p>
+
+        <div className="mt-5 space-y-2">
+
+          <a
+            href={`mailto:${email}`}
             className="
-              mt-4
-              text-sm
-              leading-6
-              text-[color:var(--bf-text-secondary)]
+              flex
+              min-w-0
+              items-center
+              gap-3
+              rounded-xl
+              border
+              border-white/[0.06]
+              bg-white/[0.025]
+              px-3
+              py-3
+              text-[10px]
+              font-semibold
+              text-slate-400
+              transition
+
+              hover:border-cyan-400/20
+              hover:bg-cyan-400/[0.04]
+              hover:text-cyan-300
             "
           >
-            {description}
-          </p>
-        )}
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/[0.04] text-cyan-400">
+              <MailIcon className="h-4 w-4" />
+            </span>
 
-        <div
-          className="
-            mt-4
-            space-y-2
-          "
-        >
-          {email && (
-            <a
-              href={`mailto:${email}`}
-              className="
-                flex
-                min-w-0
-                items-center
-                gap-2.5
+            <span className="truncate">
+              {email}
+            </span>
+          </a>
 
-                rounded-xl
-
-                border
-                border-[color:var(--bf-border)]
-
-                bg-[var(--bf-page-bg)]
-
-                px-3
-                py-2.5
-
-                text-[10px]
-                font-semibold
-
-                text-[color:var(--bf-text-muted)]
-
-                transition
-
-                hover:border-cyan-400/25
-                hover:text-cyan-500
-              "
-            >
-              <span
-                className="
-                  flex
-                  h-7
-                  w-7
-                  shrink-0
-                  items-center
-                  justify-center
-                  rounded-lg
-                  bg-cyan-500/[0.07]
-                  text-cyan-500
-                "
-              >
-                <MailIcon
-                  className="h-3.5 w-3.5"
-                />
-              </span>
-
-              <span className="truncate">
-                {email}
-              </span>
-            </a>
-          )}
-
-          {instagramUrl && (
-            <a
-              href={
-                instagramUrl
-              }
-              target="_blank"
-              rel="noopener noreferrer"
-              className="
-                flex
-                min-w-0
-                items-center
-                gap-2.5
-
-                rounded-xl
-
-                border
-                border-[color:var(--bf-border)]
-
-                bg-[var(--bf-page-bg)]
-
-                px-3
-                py-2.5
-
-                text-[10px]
-                font-semibold
-
-                text-[color:var(--bf-text-muted)]
-
-                transition
-
-                hover:border-pink-400/25
-                hover:text-pink-500
-              "
-            >
-              <span
-                className="
-                  flex
-                  h-7
-                  w-7
-                  shrink-0
-                  items-center
-                  justify-center
-                  rounded-lg
-                  bg-pink-500/[0.07]
-                  text-pink-500
-                "
-              >
-                <InstagramIcon
-                  className="h-3.5 w-3.5"
-                />
-              </span>
-
-              <span className="truncate">
-                {instagramHandle ||
-                  'Instagram'}
-              </span>
-            </a>
-          )}
-        </div>
-      </div>
-    </article>
-  );
-}
-
-/* =========================================================
-   CONTACT LOADING CARD
-========================================================= */
-
-function ContactLoadingCard() {
-  return (
-    <div
-      className="
-        rounded-[22px]
-        border
-        border-[color:var(--bf-border)]
-        bg-[var(--bf-surface)]
-        p-5
-      "
-    >
-      <div
-        className="
-          flex
-          items-center
-          gap-3
-        "
-      >
-        <div
-          className="
-            h-10
-            w-10
-            animate-pulse
-            rounded-xl
-            bg-[var(--bf-page-bg)]
-          "
-        />
-
-        <div className="flex-1">
-
-          <div
+          <a
+            href={instagram}
+            target="_blank"
+            rel="noopener noreferrer"
             className="
-              h-3.5
-              w-36
-              animate-pulse
-              rounded
-              bg-[var(--bf-page-bg)]
-            "
-          />
+              flex
+              min-w-0
+              items-center
+              gap-3
+              rounded-xl
+              border
+              border-white/[0.06]
+              bg-white/[0.025]
+              px-3
+              py-3
+              text-[10px]
+              font-semibold
+              text-slate-400
+              transition
 
-          <div
-            className="
-              mt-2
-              h-2.5
-              w-20
-              animate-pulse
-              rounded
-              bg-[var(--bf-page-bg)]
+              hover:border-pink-400/20
+              hover:bg-pink-400/[0.04]
+              hover:text-pink-300
             "
-          />
+          >
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/[0.04] text-pink-400">
+              <InstagramIcon className="h-4 w-4" />
+            </span>
+
+            <span className="truncate">
+              {instagramHandle}
+            </span>
+          </a>
+
         </div>
+
       </div>
 
-      <div
-        className="
-          mt-4
-          h-3
-          w-full
-          animate-pulse
-          rounded
-          bg-[var(--bf-page-bg)]
-        "
-      />
-
-      <div
-        className="
-          mt-2
-          h-3
-          w-4/5
-          animate-pulse
-          rounded
-          bg-[var(--bf-page-bg)]
-        "
-      />
-
-      <div
-        className="
-          mt-4
-          h-10
-          animate-pulse
-          rounded-xl
-          bg-[var(--bf-page-bg)]
-        "
-      />
     </div>
   );
 }
@@ -1166,180 +454,38 @@ function ContactLoadingCard() {
 ========================================================= */
 
 export default function ContactUs() {
-  const [
-    contacts,
-    setContacts,
-  ] = useState([]);
+  const reduceMotion = useReducedMotion();
 
-  const [
-    contactsLoading,
-    setContactsLoading,
-  ] = useState(true);
-
-  const [
-    submitting,
-    setSubmitting,
-  ] = useState(false);
-
-  const [
-    formStatus,
-    setFormStatus,
-  ] = useState({
-    type: '',
-    message: '',
-  });
-
-  const [
-    formData,
-    setFormData,
-  ] = useState({
+  const [formData, setFormData] = useState({
     name: '',
     company: '',
     email: '',
     mobile: '',
-    enquiryType:
-      'Buddy Fleets',
+    enquiryType: 'Buddy Fleets',
     message: '',
   });
 
-  /* =======================================================
-     LOAD CONTACT PEOPLE
+  const [error, setError] = useState('');
 
-     Database remains source of truth.
-  ======================================================= */
-
-  useEffect(() => {
-    let mounted = true;
-
-    async function loadContacts() {
-      try {
-        setContactsLoading(
-          true
-        );
-
-        const {
-          data,
-          error,
-        } =
-          await supabase
-            .from(
-              'contact_people'
-            )
-            .select(`
-              id,
-              name,
-              role,
-              email,
-              instagram_handle,
-              instagram_url,
-              description,
-              display_order
-            `)
-            .eq(
-              'is_active',
-              true
-            )
-            .eq(
-              'show_on_contact_page',
-              true
-            )
-            .order(
-              'display_order',
-              {
-                ascending:
-                  true,
-              }
-            );
-
-        if (error) {
-          throw error;
-        }
-
-        if (mounted) {
-          setContacts(
-            data || []
-          );
-        }
-      } catch (error) {
-        console.error(
-          'Failed to load contact people:',
-          error
-        );
-
-        if (mounted) {
-          setContacts([]);
-        }
-      } finally {
-        if (mounted) {
-          setContactsLoading(
-            false
-          );
-        }
-      }
-    }
-
-    loadContacts();
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  /* =======================================================
-     INPUT CHANGE
-  ======================================================= */
-
-  function handleChange(
-    event
-  ) {
+  function handleChange(event) {
     const {
       name,
       value,
     } = event.target;
 
-    setFormData(
-      (previous) => ({
-        ...previous,
-        [name]: value,
-      })
-    );
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
 
-    if (
-      formStatus.message
-    ) {
-      setFormStatus({
-        type: '',
-        message: '',
-      });
+    if (error) {
+      setError('');
     }
   }
 
-  function handleEnquiryTypeChange(
-    value
-  ) {
-    setFormData(
-      (previous) => ({
-        ...previous,
-        enquiryType:
-          value,
-      })
-    );
+  function handleSubmit(event) {
+    event.preventDefault();
 
-    if (
-      formStatus.message
-    ) {
-      setFormStatus({
-        type: '',
-        message: '',
-      });
-    }
-  }
-
-  /* =======================================================
-     VALIDATION
-  ======================================================= */
-
-  function validateForm() {
     const name =
       formData.name.trim();
 
@@ -1350,987 +496,501 @@ export default function ContactUs() {
       formData.message.trim();
 
     if (!name) {
-      return 'Please enter your name.';
+      setError('Please enter your name.');
+      return;
     }
 
     if (!email) {
-      return 'Please enter your email address.';
-    }
-
-    const emailPattern =
-      /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-    if (
-      !emailPattern.test(
-        email
-      )
-    ) {
-      return 'Please enter a valid email address.';
+      setError('Please enter your email address.');
+      return;
     }
 
     if (!message) {
-      return 'Please enter your message.';
-    }
-
-    if (
-      message.length > 5000
-    ) {
-      return 'Message is too long.';
-    }
-
-    return '';
-  }
-
-  /* =======================================================
-     SUBMIT
-
-     IMPORTANT:
-     - NO mailto submission
-     - Supabase Edge Function remains authoritative
-  ======================================================= */
-
-  async function handleSubmit(
-    event
-  ) {
-    event.preventDefault();
-
-    if (submitting) {
+      setError('Please enter your message.');
       return;
     }
 
-    const validationError =
-      validateForm();
+    const subject =
+      `${formData.enquiryType} Enquiry - ${name}`;
 
-    if (validationError) {
-      setFormStatus({
-        type: 'error',
-        message:
-          validationError,
-      });
+    const body = [
+      'Hello Buddy Fleets,',
+      '',
+      `Name: ${name}`,
+      `Company: ${formData.company.trim() || 'Not provided'}`,
+      `Email: ${email}`,
+      `Mobile: ${formData.mobile.trim() || 'Not provided'}`,
+      `Enquiry Type: ${formData.enquiryType}`,
+      '',
+      'Message:',
+      message,
+      '',
+      'Sent from Buddy Fleets Contact Us page.',
+    ].join('\n');
 
-      return;
-    }
+    const mailto =
+      `mailto:${SHUBHAM_EMAIL}` +
+      `?subject=${encodeURIComponent(subject)}` +
+      `&body=${encodeURIComponent(body)}`;
 
-    try {
-      setSubmitting(true);
-
-      setFormStatus({
-        type: '',
-        message: '',
-      });
-
-      const {
-        data,
-        error,
-      } =
-        await supabase
-          .functions
-          .invoke(
-            'contact-enquiry',
-            {
-              body: {
-                name:
-                  formData.name
-                    .trim(),
-
-                company:
-                  formData.company
-                    .trim(),
-
-                email:
-                  formData.email
-                    .trim()
-                    .toLowerCase(),
-
-                mobile:
-                  formData.mobile
-                    .trim(),
-
-                enquiryType:
-                  formData.enquiryType,
-
-                message:
-                  formData.message
-                    .trim(),
-              },
-            }
-          );
-
-      if (error) {
-        console.error(
-          'Contact Edge Function error:',
-          error
-        );
-
-        throw new Error(
-          'Unable to submit enquiry.'
-        );
-      }
-
-      if (
-        !data?.success
-      ) {
-        throw new Error(
-          data?.message ||
-            'Unable to submit enquiry.'
-        );
-      }
-
-      setFormStatus({
-        type: 'success',
-        message:
-          data?.message ||
-          'Thank you! Your enquiry has been submitted successfully.',
-      });
-
-      setFormData({
-        name: '',
-        company: '',
-        email: '',
-        mobile: '',
-        enquiryType:
-          'Buddy Fleets',
-        message: '',
-      });
-    } catch (error) {
-      console.error(
-        'Contact submission failed:',
-        error
-      );
-
-      setFormStatus({
-        type: 'error',
-        message:
-          'We could not submit your enquiry right now. Please try again.',
-      });
-    } finally {
-      setSubmitting(false);
-    }
+    window.location.href = mailto;
   }
-
-  /* =======================================================
-     SHARED INPUT STYLE
-  ======================================================= */
 
   const inputClass = `
     w-full
-
-    rounded-xl
-
+    rounded-2xl
     border
-    border-[color:var(--bf-border)]
-
-    bg-[var(--bf-page-bg)]
-
-    px-3.5
-    py-2.5
-
+    border-white/[0.08]
+    bg-[#0b1527]
+    px-4
+    py-3.5
     text-sm
-
-    text-[color:var(--bf-text-primary)]
-
+    text-white
     outline-none
-
     transition
-    duration-200
 
-    placeholder:text-[color:var(--bf-text-muted)]
+    placeholder:text-slate-600
 
-    focus:border-cyan-400/40
-    focus:ring-2
+    focus:border-cyan-400/30
+    focus:bg-[#0d192d]
+    focus:ring-4
     focus:ring-cyan-400/[0.06]
-
-    disabled:cursor-not-allowed
-    disabled:opacity-60
   `;
 
   return (
-    <div
-      className="
-        relative
-        isolate
-        overflow-hidden
-
-        bg-[var(--bf-page-bg)]
-
-        text-[color:var(--bf-text-primary)]
-
-        transition-colors
-        duration-300
-      "
-    >
-      {/* =====================================================
-          PAGE BACKGROUND
-      ===================================================== */}
-
-      <div
-        aria-hidden="true"
-        className="
-          pointer-events-none
-          absolute
-          inset-0
-          -z-10
-          overflow-hidden
-        "
-      >
-        <div
-          className="
-            absolute
-            inset-0
-            bg-[var(--bf-page-bg)]
-          "
-        />
-
-        <div
-          className="
-            absolute
-            inset-0
-            opacity-[0.035]
-          "
-          style={{
-            backgroundImage:
-              'linear-gradient(rgba(100,116,139,0.28) 1px, transparent 1px), linear-gradient(90deg, rgba(100,116,139,0.28) 1px, transparent 1px)',
-            backgroundSize:
-              '72px 72px',
-          }}
-        />
-
-        <div
-          className="
-            absolute
-            -left-40
-            top-16
-            h-[400px]
-            w-[400px]
-            rounded-full
-            bg-cyan-500/[0.06]
-            blur-[120px]
-          "
-        />
-
-        <div
-          className="
-            absolute
-            -right-40
-            top-[30rem]
-            h-[430px]
-            w-[430px]
-            rounded-full
-            bg-blue-500/[0.06]
-            blur-[130px]
-          "
-        />
-      </div>
+    <div className="overflow-hidden bg-[#050914] text-white">
 
       {/* =====================================================
           HERO
       ===================================================== */}
 
-      <section
-        className="
-          relative
+      <section className="relative overflow-hidden border-b border-white/[0.05]">
 
-          px-5
-          pb-8
-          pt-8
+        <div className="pointer-events-none absolute inset-0">
 
-          text-center
+          <div className="absolute inset-0 bg-[#050914]" />
 
-          sm:px-8
-          sm:pb-10
-          sm:pt-10
+          <motion.div
+            animate={
+              reduceMotion
+                ? {}
+                : {
+                    x: [
+                      0,
+                      55,
+                      0,
+                    ],
+                    y: [
+                      0,
+                      25,
+                      0,
+                    ],
+                  }
+            }
+            transition={{
+              duration: 15,
+              repeat: Infinity,
+              ease: 'easeInOut',
+            }}
+            className="absolute -left-40 top-[-100px] h-[430px] w-[430px] rounded-full bg-cyan-500/[0.08] blur-[140px]"
+          />
 
-          lg:px-12
-          lg:pb-12
-          lg:pt-12
-        "
-      >
-        <div
-          className="
-            mx-auto
-            max-w-4xl
-          "
-        >
+          <motion.div
+            animate={
+              reduceMotion
+                ? {}
+                : {
+                    x: [
+                      0,
+                      -45,
+                      0,
+                    ],
+                  }
+            }
+            transition={{
+              duration: 17,
+              repeat: Infinity,
+              ease: 'easeInOut',
+            }}
+            className="absolute -right-40 top-[10%] h-[480px] w-[480px] rounded-full bg-violet-600/[0.1] blur-[150px]"
+          />
+
           <div
-            className="
-              inline-flex
-              items-center
-              gap-2.5
+            className="absolute inset-0 opacity-[0.035]"
+            style={{
+              backgroundImage:
+                'linear-gradient(rgba(56,189,248,.8) 1px, transparent 1px), linear-gradient(90deg, rgba(56,189,248,.8) 1px, transparent 1px)',
+              backgroundSize: '58px 58px',
+            }}
+          />
 
-              rounded-full
-
-              border
-              border-cyan-400/20
-
-              bg-cyan-400/[0.06]
-
-              px-4
-              py-2
-            "
-          >
-            <span
-              className="
-                h-1.5
-                w-1.5
-                rounded-full
-                bg-cyan-400
-              "
-            />
-
-            <span
-              className="
-                text-[9px]
-                font-black
-                uppercase
-                tracking-[0.2em]
-                text-cyan-500
-              "
-            >
-              Contact Buddy Fleets
-            </span>
-          </div>
-
-          <h1
-            className="
-              mx-auto
-              mt-4
-              max-w-4xl
-
-              text-[clamp(2.15rem,4.6vw,3.7rem)]
-
-              font-black
-
-              leading-[1.04]
-
-              tracking-[-0.03em]
-            "
-          >
-            <span
-              className="
-                bg-gradient-to-r
-                from-[#12BFF2]
-                via-[#078EE5]
-                to-[#0AA23B]
-
-                bg-clip-text
-                text-transparent
-              "
-            >
-              Let's talk about your fleet operations.
-            </span>
-          </h1>
-
-          <p
-            className="
-              mx-auto
-              mt-4
-              max-w-2xl
-
-              text-sm
-              leading-7
-
-              text-[color:var(--bf-text-secondary)]
-
-              sm:text-base
-            "
-          >
-            Have a question about Buddy Fleets,
-            your trial, product capabilities or
-            working with us? Send your enquiry and
-            connect directly with the people behind
-            the platform.
-          </p>
         </div>
+
+        <div className="relative mx-auto max-w-[1200px] px-5 py-20 text-center sm:px-8 sm:py-24 lg:px-12 lg:py-28">
+
+          <motion.div
+            initial={
+              reduceMotion
+                ? false
+                : {
+                    opacity: 0,
+                    y: 28,
+                  }
+            }
+            animate={{
+              opacity: 1,
+              y: 0,
+            }}
+            transition={{
+              duration: 0.8,
+            }}
+          >
+
+            <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/[0.05] px-4 py-2">
+
+              <span className="relative flex h-2 w-2">
+
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-cyan-400 opacity-50" />
+
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-cyan-400" />
+
+              </span>
+
+              <span className="text-[9px] font-black uppercase tracking-[0.22em] text-cyan-300">
+                Contact Buddy Fleets
+              </span>
+
+            </div>
+
+            <h1 className="mx-auto mt-6 max-w-5xl text-4xl font-black leading-[1.04] tracking-tight text-white sm:text-6xl lg:text-[68px]">
+
+              Let's talk about your
+
+              <span className="block bg-gradient-to-r from-cyan-300 via-blue-400 to-violet-400 bg-clip-text text-transparent">
+                fleet operations.
+              </span>
+
+            </h1>
+
+            <p className="mx-auto mt-6 max-w-2xl text-sm leading-7 text-slate-400 sm:text-base sm:leading-8">
+              Have a question about Buddy Fleets, your trial,
+              product capabilities or working with us? Send us
+              your enquiry and connect directly with the people
+              behind the platform.
+            </p>
+
+          </motion.div>
+
+        </div>
+
       </section>
 
       {/* =====================================================
-          FORM + DIRECT CONTACT
+          CONTACT FORM + DIRECT CONTACT
       ===================================================== */}
 
-      <section
-        className="
-          relative
+      <section className="relative py-20 sm:py-24 lg:py-28">
 
-          px-5
-          py-8
+        <div className="mx-auto grid max-w-[1280px] gap-8 px-5 sm:px-8 lg:grid-cols-[1.1fr_0.9fr] lg:px-12">
 
-          sm:px-8
-          sm:py-10
-
-          lg:px-12
-          lg:py-12
-        "
-      >
-        <div
-          className="
-            mx-auto
-            grid
-            max-w-7xl
-            gap-6
-
-            lg:grid-cols-[1.08fr_0.92fr]
-            lg:gap-8
-          "
-        >
           {/* =================================================
               FORM
           ================================================= */}
 
-          <div
-            className="
-              relative
-              overflow-visible
+          <Reveal>
 
-              rounded-[24px]
-
-              border
-              border-[color:var(--bf-border)]
-
-              bg-[var(--bf-surface)]
-
-              p-5
-
-              shadow-sm
-
-              sm:p-6
-            "
-          >
             <div
-              aria-hidden="true"
               className="
-                pointer-events-none
-                absolute
-                -right-24
-                -top-24
-                h-64
-                w-64
-                rounded-full
-                bg-blue-500/[0.06]
-                blur-[100px]
+                relative
+                overflow-hidden
+                rounded-[32px]
+                border
+                border-white/[0.08]
+                bg-[#081221]
+                p-5
+                shadow-2xl
+                shadow-black/20
+                sm:p-7
+                lg:p-8
               "
-            />
+            >
 
-            <div className="relative">
+              <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-blue-500/[0.08] blur-[110px]" />
 
-              <p
-                className="
-                  text-[9px]
-                  font-black
-                  uppercase
-                  tracking-[0.2em]
-                  text-cyan-500
-                "
-              >
-                Send an Enquiry
-              </p>
+              <div className="relative">
 
-              <h2
-                className="
-                  mt-2
-                  text-2xl
-                  font-black
-                  text-[color:var(--bf-text-primary)]
-                  sm:text-3xl
-                "
-              >
-                Tell us what you need.
-              </h2>
+                <p className="text-[9px] font-black uppercase tracking-[0.22em] text-cyan-400">
+                  Send an Enquiry
+                </p>
 
-              <p
-                className="
-                  mt-2
-                  max-w-2xl
-                  text-sm
-                  leading-6
-                  text-[color:var(--bf-text-secondary)]
-                "
-              >
-                Share your details and our team will receive your
-                enquiry directly.
-              </p>
+                <h2 className="mt-3 text-2xl font-black text-white sm:text-3xl">
+                  Tell us what you need.
+                </h2>
 
-              <form
-                onSubmit={
-                  handleSubmit
-                }
-                className="mt-5"
-                noValidate
-              >
-                {/* NAME + COMPANY */}
+                <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-400">
+                  Share a few details and your email application
+                  will open with your enquiry already prepared.
+                </p>
 
-                <div
-                  className="
-                    grid
-                    gap-4
-                    sm:grid-cols-2
-                  "
+                <form
+                  onSubmit={handleSubmit}
+                  className="mt-8"
                 >
-                  {/* NAME */}
 
-                  <div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+
+                    {/* NAME */}
+
+                    <div>
+
+                      <label
+                        htmlFor="name"
+                        className="mb-2 block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500"
+                      >
+                        Full Name *
+                      </label>
+
+                      <div className="relative">
+
+                        <UserIcon className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-600" />
+
+                        <input
+                          id="name"
+                          name="name"
+                          type="text"
+                          autoComplete="name"
+                          value={formData.name}
+                          onChange={handleChange}
+                          placeholder="Your name"
+                          className={`${inputClass} pl-11`}
+                        />
+
+                      </div>
+
+                    </div>
+
+                    {/* COMPANY */}
+
+                    <div>
+
+                      <label
+                        htmlFor="company"
+                        className="mb-2 block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500"
+                      >
+                        Company Name
+                      </label>
+
+                      <div className="relative">
+
+                        <BuildingIcon className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-600" />
+
+                        <input
+                          id="company"
+                          name="company"
+                          type="text"
+                          autoComplete="organization"
+                          value={formData.company}
+                          onChange={handleChange}
+                          placeholder="Company name"
+                          className={`${inputClass} pl-11`}
+                        />
+
+                      </div>
+
+                    </div>
+
+                    {/* EMAIL */}
+
+                    <div>
+
+                      <label
+                        htmlFor="email"
+                        className="mb-2 block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500"
+                      >
+                        Email Address *
+                      </label>
+
+                      <div className="relative">
+
+                        <MailIcon className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-600" />
+
+                        <input
+                          id="email"
+                          name="email"
+                          type="email"
+                          autoComplete="email"
+                          value={formData.email}
+                          onChange={handleChange}
+                          placeholder="name@company.com"
+                          className={`${inputClass} pl-11`}
+                        />
+
+                      </div>
+
+                    </div>
+
+                    {/* MOBILE */}
+
+                    <div>
+
+                      <label
+                        htmlFor="mobile"
+                        className="mb-2 block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500"
+                      >
+                        Mobile Number
+                      </label>
+
+                      <div className="relative">
+
+                        <PhoneIcon className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-600" />
+
+                        <input
+                          id="mobile"
+                          name="mobile"
+                          type="tel"
+                          autoComplete="tel"
+                          value={formData.mobile}
+                          onChange={handleChange}
+                          placeholder="+91"
+                          className={`${inputClass} pl-11`}
+                        />
+
+                      </div>
+
+                    </div>
+
+                  </div>
+
+                  {/* ENQUIRY TYPE */}
+
+                  <div className="mt-4">
 
                     <label
-                      htmlFor="name"
-                      className="
-                        mb-1.5
-                        block
-                        text-[9px]
-                        font-bold
-                        uppercase
-                        tracking-[0.12em]
-                        text-[color:var(--bf-text-muted)]
-                      "
+                      htmlFor="enquiryType"
+                      className="mb-2 block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500"
                     >
-                      Full Name *
+                      Enquiry About
+                    </label>
+
+                    <select
+                      id="enquiryType"
+                      name="enquiryType"
+                      value={formData.enquiryType}
+                      onChange={handleChange}
+                      className={inputClass}
+                    >
+                      <option value="Buddy Fleets">
+                        Buddy Fleets
+                      </option>
+
+                      <option value="Product Demo">
+                        Product Demo
+                      </option>
+
+                      <option value="Free Trial">
+                        5-Day Free Trial
+                      </option>
+
+                      <option value="Sales">
+                        Sales Enquiry
+                      </option>
+
+                      <option value="Partnership">
+                        Business / Partnership
+                      </option>
+
+                      <option value="Technical">
+                        Technical Enquiry
+                      </option>
+
+                      <option value="Other">
+                        Other
+                      </option>
+                    </select>
+
+                  </div>
+
+                  {/* MESSAGE */}
+
+                  <div className="mt-4">
+
+                    <label
+                      htmlFor="message"
+                      className="mb-2 block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500"
+                    >
+                      Message *
                     </label>
 
                     <div className="relative">
 
-                      <UserIcon
-                        className="
-                          pointer-events-none
-                          absolute
-                          left-3.5
-                          top-1/2
-                          h-4
-                          w-4
-                          -translate-y-1/2
-                          text-[color:var(--bf-text-muted)]
-                        "
+                      <MessageIcon className="pointer-events-none absolute left-4 top-4 h-4 w-4 text-slate-600" />
+
+                      <textarea
+                        id="message"
+                        name="message"
+                        rows="6"
+                        value={formData.message}
+                        onChange={handleChange}
+                        placeholder="Tell us how we can help..."
+                        className={`${inputClass} resize-none pl-11`}
                       />
 
-                      <input
-                        id="name"
-                        name="name"
-                        type="text"
-                        autoComplete="name"
-                        maxLength={120}
-                        disabled={
-                          submitting
-                        }
-                        value={
-                          formData.name
-                        }
-                        onChange={
-                          handleChange
-                        }
-                        placeholder="Your name"
-                        className={`${inputClass} pl-10`}
-                      />
                     </div>
+
                   </div>
 
-                  {/* COMPANY */}
+                  {/* ERROR */}
 
-                  <div>
-
-                    <label
-                      htmlFor="company"
-                      className="
-                        mb-1.5
-                        block
-                        text-[9px]
-                        font-bold
-                        uppercase
-                        tracking-[0.12em]
-                        text-[color:var(--bf-text-muted)]
-                      "
-                    >
-                      Company Name
-                    </label>
-
-                    <div className="relative">
-
-                      <BuildingIcon
-                        className="
-                          pointer-events-none
-                          absolute
-                          left-3.5
-                          top-1/2
-                          h-4
-                          w-4
-                          -translate-y-1/2
-                          text-[color:var(--bf-text-muted)]
-                        "
-                      />
-
-                      <input
-                        id="company"
-                        name="company"
-                        type="text"
-                        autoComplete="organization"
-                        maxLength={180}
-                        disabled={
-                          submitting
-                        }
-                        value={
-                          formData.company
-                        }
-                        onChange={
-                          handleChange
-                        }
-                        placeholder="Company name"
-                        className={`${inputClass} pl-10`}
-                      />
+                  {error && (
+                    <div className="mt-4 rounded-xl border border-red-400/15 bg-red-400/[0.05] px-4 py-3 text-xs font-semibold text-red-300">
+                      {error}
                     </div>
-                  </div>
-
-                  {/* EMAIL */}
-
-                  <div>
-
-                    <label
-                      htmlFor="email"
-                      className="
-                        mb-1.5
-                        block
-                        text-[9px]
-                        font-bold
-                        uppercase
-                        tracking-[0.12em]
-                        text-[color:var(--bf-text-muted)]
-                      "
-                    >
-                      Email Address *
-                    </label>
-
-                    <div className="relative">
-
-                      <MailIcon
-                        className="
-                          pointer-events-none
-                          absolute
-                          left-3.5
-                          top-1/2
-                          h-4
-                          w-4
-                          -translate-y-1/2
-                          text-[color:var(--bf-text-muted)]
-                        "
-                      />
-
-                      <input
-                        id="email"
-                        name="email"
-                        type="email"
-                        autoComplete="email"
-                        maxLength={254}
-                        disabled={
-                          submitting
-                        }
-                        value={
-                          formData.email
-                        }
-                        onChange={
-                          handleChange
-                        }
-                        placeholder="name@company.com"
-                        className={`${inputClass} pl-10`}
-                      />
-                    </div>
-                  </div>
-
-                  {/* MOBILE */}
-
-                  <div>
-
-                    <label
-                      htmlFor="mobile"
-                      className="
-                        mb-1.5
-                        block
-                        text-[9px]
-                        font-bold
-                        uppercase
-                        tracking-[0.12em]
-                        text-[color:var(--bf-text-muted)]
-                      "
-                    >
-                      Mobile Number
-                    </label>
-
-                    <div className="relative">
-
-                      <PhoneIcon
-                        className="
-                          pointer-events-none
-                          absolute
-                          left-3.5
-                          top-1/2
-                          h-4
-                          w-4
-                          -translate-y-1/2
-                          text-[color:var(--bf-text-muted)]
-                        "
-                      />
-
-                      <input
-                        id="mobile"
-                        name="mobile"
-                        type="tel"
-                        autoComplete="tel"
-                        maxLength={30}
-                        disabled={
-                          submitting
-                        }
-                        value={
-                          formData.mobile
-                        }
-                        onChange={
-                          handleChange
-                        }
-                        placeholder="+91"
-                        className={`${inputClass} pl-10`}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* ENQUIRY TYPE */}
-
-                <div
-                  className="
-                    relative
-                    z-30
-                    mt-4
-                  "
-                >
-                  <label
-                    className="
-                      mb-1.5
-                      block
-                      text-[9px]
-                      font-bold
-                      uppercase
-                      tracking-[0.12em]
-                      text-[color:var(--bf-text-muted)]
-                    "
-                  >
-                    Enquiry About
-                  </label>
-
-                  <CustomSelect
-                    value={
-                      formData.enquiryType
-                    }
-                    options={
-                      ENQUIRY_OPTIONS
-                    }
-                    onChange={
-                      handleEnquiryTypeChange
-                    }
-                    disabled={
-                      submitting
-                    }
-                  />
-                </div>
-
-                {/* MESSAGE */}
-
-                <div className="mt-4">
-
-                  <label
-                    htmlFor="message"
-                    className="
-                      mb-1.5
-                      block
-                      text-[9px]
-                      font-bold
-                      uppercase
-                      tracking-[0.12em]
-                      text-[color:var(--bf-text-muted)]
-                    "
-                  >
-                    Message *
-                  </label>
-
-                  <div className="relative">
-
-                    <MessageIcon
-                      className="
-                        pointer-events-none
-                        absolute
-                        left-3.5
-                        top-3.5
-                        h-4
-                        w-4
-                        text-[color:var(--bf-text-muted)]
-                      "
-                    />
-
-                    <textarea
-                      id="message"
-                      name="message"
-                      rows={5}
-                      maxLength={5000}
-                      disabled={
-                        submitting
-                      }
-                      value={
-                        formData.message
-                      }
-                      onChange={
-                        handleChange
-                      }
-                      placeholder="Tell us how we can help..."
-                      className={`${inputClass} resize-none pl-10`}
-                    />
-                  </div>
-
-                  <div
-                    className="
-                      mt-1.5
-                      text-right
-                      text-[8px]
-                      font-semibold
-                      text-[color:var(--bf-text-muted)]
-                    "
-                  >
-                    {
-                      formData.message
-                        .length
-                    }
-                    /5000
-                  </div>
-                </div>
-
-                {/* STATUS */}
-
-                {formStatus.message && (
-                  <div
-                    className={`
-                      mt-4
-                      flex
-                      items-start
-                      gap-2.5
-
-                      rounded-xl
-                      border
-
-                      px-3.5
-                      py-3
-
-                      text-xs
-                      font-semibold
-
-                      ${
-                        formStatus.type ===
-                        'success'
-                          ? `
-                            border-emerald-400/20
-                            bg-emerald-400/[0.06]
-                            text-emerald-500
-                          `
-                          : `
-                            border-red-400/20
-                            bg-red-400/[0.06]
-                            text-red-500
-                          `
-                      }
-                    `}
-                  >
-                    {formStatus.type ===
-                    'success' ? (
-                      <CheckCircleIcon
-                        className="
-                          mt-0.5
-                          h-4
-                          w-4
-                          shrink-0
-                        "
-                      />
-                    ) : (
-                      <AlertIcon
-                        className="
-                          mt-0.5
-                          h-4
-                          w-4
-                          shrink-0
-                        "
-                      />
-                    )}
-
-                    <span>
-                      {
-                        formStatus.message
-                      }
-                    </span>
-                  </div>
-                )}
-
-                {/* SUBMIT */}
-
-                <button
-                  type="submit"
-                  disabled={
-                    submitting
-                  }
-                  className="
-                    mt-4
-                    inline-flex
-                    min-h-11
-                    w-full
-                    items-center
-                    justify-center
-                    gap-2
-
-                    rounded-xl
-
-                    bg-gradient-to-r
-                    from-[#12BFF2]
-                    via-[#078EE5]
-                    to-[#0AA23B]
-
-                    px-6
-                    py-3
-
-                    text-sm
-                    font-black
-                    text-white
-
-                    shadow-lg
-                    shadow-blue-500/10
-
-                    transition
-
-                    hover:-translate-y-0.5
-
-                    disabled:cursor-not-allowed
-                    disabled:opacity-60
-                    disabled:hover:translate-y-0
-
-                    sm:w-auto
-                  "
-                >
-                  {submitting ? (
-                    <>
-                      <span
-                        className="
-                          h-4
-                          w-4
-                          animate-spin
-                          rounded-full
-                          border-2
-                          border-white/30
-                          border-t-white
-                        "
-                      />
-
-                      Sending Enquiry...
-                    </>
-                  ) : (
-                    <>
-                      Send Enquiry
-
-                      <SendIcon
-                        className="h-4 w-4"
-                      />
-                    </>
                   )}
-                </button>
-              </form>
+
+                  {/* SUBMIT */}
+
+                  <button
+                    type="submit"
+                    className="
+                      group
+                      mt-6
+                      inline-flex
+                      w-full
+                      items-center
+                      justify-center
+                      gap-2
+                      rounded-xl
+                      bg-gradient-to-r
+                      from-cyan-400
+                      via-blue-500
+                      to-violet-600
+                      px-6
+                      py-3.5
+                      text-sm
+                      font-black
+                      text-white
+                      shadow-xl
+                      shadow-blue-600/20
+                      transition
+
+                      hover:-translate-y-0.5
+                      hover:shadow-cyan-500/20
+
+                      sm:w-auto
+                    "
+                  >
+                    Send Enquiry
+
+                    <SendIcon className="h-4 w-4 transition-transform group-hover:translate-x-1 group-hover:-translate-y-0.5" />
+                  </button>
+
+                </form>
+
+              </div>
+
             </div>
-          </div>
+
+          </Reveal>
 
           {/* =================================================
               DIRECT CONTACT
@@ -2338,436 +998,259 @@ export default function ContactUs() {
 
           <div>
 
-            <div className="mb-4">
+            <Reveal>
 
-              <p
-                className="
-                  text-[9px]
-                  font-black
-                  uppercase
-                  tracking-[0.2em]
-                  text-cyan-500
-                "
-              >
-                Direct Contact
-              </p>
+              <div className="mb-6">
 
-              <h2
-                className="
-                  mt-2
-                  text-2xl
-                  font-black
-                  tracking-tight
-                  text-[color:var(--bf-text-primary)]
-                  sm:text-3xl
-                "
-              >
-                Connect with us directly.
-              </h2>
+                <p className="text-[9px] font-black uppercase tracking-[0.22em] text-cyan-400">
+                  Direct Contact
+                </p>
 
-              <p
-                className="
-                  mt-2
-                  max-w-xl
-                  text-sm
-                  leading-6
-                  text-[color:var(--bf-text-secondary)]
-                "
-              >
-                Reach the Buddy Fleets team directly for
-                product, technology, sales, business or
-                partnership-related discussions.
-              </p>
+                <h2 className="mt-3 text-3xl font-black tracking-tight text-white">
+                  Connect with us directly.
+                </h2>
+
+                <p className="mt-4 text-sm leading-7 text-slate-400">
+                  Buddy Fleets is being built with both technology
+                  and transport business operations in mind. Reach
+                  the relevant founder directly below.
+                </p>
+
+              </div>
+
+            </Reveal>
+
+            <div className="space-y-4">
+
+              <Reveal delay={0.05}>
+
+                <ContactPerson
+                  name="Shubham Jangir"
+                  role="Founder & Developer"
+                  description="For platform, technology, product development and technical enquiries related to Buddy Fleets."
+                  email={SHUBHAM_EMAIL}
+                  instagram={SHUBHAM_INSTAGRAM}
+                  instagramHandle="@happiest_banda"
+                  accent="cyan"
+                />
+
+              </Reveal>
+
+              <Reveal delay={0.1}>
+
+                <ContactPerson
+                  name="Navin Sharma"
+                  role="Founder"
+                  description="For operations, business development, sales, partnerships and product-related discussions."
+                  email={NAVIN_EMAIL}
+                  instagram={NAVIN_INSTAGRAM}
+                  instagramHandle="@navin.sharma"
+                  accent="violet"
+                />
+
+              </Reveal>
+
             </div>
 
-            <div className="space-y-3">
-
-              {contactsLoading ? (
-                <>
-                  <ContactLoadingCard />
-                  <ContactLoadingCard />
-                </>
-              ) : contacts.length >
-                0 ? (
-                contacts.map(
-                  (
-                    contact,
-                    index
-                  ) => (
-                    <ContactPerson
-                      key={
-                        contact.id
-                      }
-                      name={
-                        contact.name
-                      }
-                      role={
-                        contact.role
-                      }
-                      description={
-                        contact.description
-                      }
-                      email={
-                        contact.email
-                      }
-                      instagramUrl={
-                        contact.instagram_url
-                      }
-                      instagramHandle={
-                        contact.instagram_handle
-                      }
-                      index={
-                        index
-                      }
-                    />
-                  )
-                )
-              ) : (
-                <div
-                  className="
-                    rounded-[22px]
-
-                    border
-                    border-[color:var(--bf-border)]
-
-                    bg-[var(--bf-surface)]
-
-                    p-5
-                  "
-                >
-                  <MailIcon
-                    className="
-                      h-5
-                      w-5
-                      text-cyan-500
-                    "
-                  />
-
-                  <h3
-                    className="
-                      mt-3
-                      text-lg
-                      font-black
-                      text-[color:var(--bf-text-primary)]
-                    "
-                  >
-                    Send us an enquiry
-                  </h3>
-
-                  <p
-                    className="
-                      mt-2
-                      text-sm
-                      leading-6
-                      text-[color:var(--bf-text-secondary)]
-                    "
-                  >
-                    Direct contact information is temporarily
-                    unavailable. You can still use the enquiry
-                    form.
-                  </p>
-                </div>
-              )}
-            </div>
           </div>
+
         </div>
+
       </section>
 
       {/* =====================================================
-          ENQUIRY TYPES
+          CONTACT REASONS
       ===================================================== */}
 
-      <section
-        className="
-          relative
+      <section className="border-y border-white/[0.05] bg-[#070d19] py-20 sm:py-24">
 
-          px-5
-          py-8
+        <div className="mx-auto max-w-[1200px] px-5 sm:px-8 lg:px-12">
 
-          sm:px-8
-          sm:py-10
+          <Reveal>
 
-          lg:px-12
-          lg:py-12
-        "
-      >
-        <div
-          className="
-            mx-auto
-            max-w-7xl
-          "
-        >
-          <div
-            className="
-              mx-auto
-              max-w-3xl
-              text-center
-            "
-          >
-            <p
-              className="
-                text-[9px]
-                font-black
-                uppercase
-                tracking-[0.2em]
-                text-cyan-500
-              "
-            >
-              We're Here to Help
-            </p>
+            <div className="mx-auto max-w-3xl text-center">
 
-            <h2
-              className="
-                mt-3
-                text-3xl
-                font-black
-                tracking-tight
-                text-[color:var(--bf-text-primary)]
-                sm:text-4xl
-              "
-            >
-              Start the right conversation.
-            </h2>
+              <p className="text-[9px] font-black uppercase tracking-[0.22em] text-cyan-400">
+                We're Here to Help
+              </p>
 
-            <p
-              className="
-                mt-3
-                text-sm
-                leading-7
-                text-[color:var(--bf-text-secondary)]
-                sm:text-base
-              "
-            >
-              Whether you're exploring Buddy Fleets for the
-              first time or want to discuss your transport
-              operations, you can reach us directly.
-            </p>
-          </div>
+              <h2 className="mt-3 text-3xl font-black tracking-tight text-white sm:text-4xl">
+                Start the right conversation.
+              </h2>
 
-          <div
-            className="
-              mt-6
-              grid
-              gap-4
+              <p className="mt-4 text-sm leading-7 text-slate-400 sm:text-base">
+                Whether you're exploring Buddy Fleets for the
+                first time or want to discuss your transport
+                operations, you can reach us directly.
+              </p>
 
-              sm:grid-cols-2
-              lg:grid-cols-4
-            "
-          >
-            {ENQUIRY_TYPES.map(
-              (item) => (
-                <article
-                  key={
-                    item.number
+            </div>
+
+          </Reveal>
+
+          <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+
+            {[
+              {
+                number: '01',
+                title: 'Product Enquiries',
+                description:
+                  'Understand Buddy Fleets and how the platform approaches fleet operations.',
+              },
+              {
+                number: '02',
+                title: '5-Day Free Trial',
+                description:
+                  'Questions related to starting or understanding your Buddy Fleets trial.',
+              },
+              {
+                number: '03',
+                title: 'Sales & Business',
+                description:
+                  'Discuss product requirements, commercial conversations and business opportunities.',
+              },
+              {
+                number: '04',
+                title: 'Technical Questions',
+                description:
+                  'Connect for platform, account or other technical Buddy Fleets enquiries.',
+              },
+            ].map((item, index) => (
+              <Reveal
+                key={item.number}
+                delay={index * 0.05}
+              >
+
+                <motion.div
+                  whileHover={
+                    reduceMotion
+                      ? {}
+                      : {
+                          y: -6,
+                        }
                   }
                   className="
+                    group
                     h-full
-
-                    rounded-[22px]
-
+                    rounded-[24px]
                     border
-                    border-[color:var(--bf-border)]
-
-                    bg-[var(--bf-surface)]
-
+                    border-white/[0.07]
+                    bg-white/[0.025]
                     p-5
-
-                    shadow-sm
-
                     transition
-
-                    hover:-translate-y-0.5
-                    hover:border-cyan-400/25
+                    hover:border-cyan-400/15
+                    sm:p-6
                   "
                 >
-                  <span
-                    className="
-                      font-mono
-                      text-[9px]
-                      font-black
-                      tracking-[0.18em]
-                      text-cyan-500
-                    "
-                  >
-                    {
-                      item.number
-                    }
+                  <span className="text-[9px] font-black tracking-[0.2em] text-cyan-400/60">
+                    {item.number}
                   </span>
 
-                  <h3
-                    className="
-                      mt-4
-                      text-lg
-                      font-black
-                      text-[color:var(--bf-text-primary)]
-                    "
-                  >
-                    {
-                      item.title
-                    }
+                  <h3 className="mt-6 text-lg font-black text-white">
+                    {item.title}
                   </h3>
 
-                  <p
-                    className="
-                      mt-2
-                      text-xs
-                      leading-6
-                      text-[color:var(--bf-text-secondary)]
-                    "
-                  >
-                    {
-                      item.description
-                    }
+                  <p className="mt-3 text-xs leading-6 text-slate-400">
+                    {item.description}
                   </p>
-                </article>
-              )
-            )}
+
+                </motion.div>
+
+              </Reveal>
+            ))}
+
           </div>
+
         </div>
+
       </section>
 
       {/* =====================================================
           FINAL CTA
       ===================================================== */}
 
-      <section
-        className="
-          relative
+      <section className="relative overflow-hidden">
 
-          px-5
-          pb-10
-          pt-4
+        <div className="pointer-events-none absolute inset-0">
 
-          sm:px-8
-          sm:pb-12
-
-          lg:px-12
-        "
-      >
-        <div
-          className="
-            relative
-            mx-auto
-            max-w-5xl
-            overflow-hidden
-
-            rounded-[28px]
-
-            border
-            border-cyan-400/20
-
-            bg-[var(--bf-surface)]
-
-            px-6
-            py-8
-
-            text-center
-
-            shadow-sm
-
-            sm:px-10
-            sm:py-10
-          "
-        >
-          <div
-            aria-hidden="true"
-            className="
-              absolute
-              left-1/2
-              top-0
-              h-60
-              w-60
-              -translate-x-1/2
-              -translate-y-1/2
-              rounded-full
-              bg-cyan-400/[0.1]
-              blur-[90px]
-            "
+          <motion.div
+            animate={
+              reduceMotion
+                ? {}
+                : {
+                    x: [
+                      '-15%',
+                      '15%',
+                      '-15%',
+                    ],
+                  }
+            }
+            transition={{
+              duration: 14,
+              repeat: Infinity,
+              ease: 'easeInOut',
+            }}
+            className="absolute left-1/2 top-0 h-80 w-[70%] -translate-x-1/2 rounded-full bg-blue-500/[0.08] blur-[130px]"
           />
 
-          <div className="relative">
+        </div>
 
-            <p
-              className="
-                text-[9px]
-                font-black
-                uppercase
-                tracking-[0.22em]
-                text-cyan-500
-              "
-            >
+        <div className="relative mx-auto max-w-[950px] px-5 py-20 text-center sm:px-8 sm:py-24 lg:py-28">
+
+          <Reveal>
+
+            <p className="text-[9px] font-black uppercase tracking-[0.24em] text-cyan-400">
               Ready to Get Started?
             </p>
 
-            <h2
-              className="
-                mx-auto
-                mt-3
-                max-w-4xl
-                text-3xl
-                font-black
-                tracking-tight
-                text-[color:var(--bf-text-primary)]
-                sm:text-4xl
-              "
-            >
+            <h2 className="mx-auto mt-4 max-w-4xl text-3xl font-black tracking-tight text-white sm:text-4xl lg:text-5xl">
               Experience a simpler approach to fleet operations.
             </h2>
 
-            <p
-              className="
-                mx-auto
-                mt-3
-                max-w-2xl
-                text-sm
-                leading-6
-                text-[color:var(--bf-text-secondary)]
-              "
-            >
+            <p className="mx-auto mt-5 max-w-2xl text-sm leading-7 text-slate-400 sm:text-base">
               Start your 5-day free trial and explore Buddy Fleets.
             </p>
 
-            <Link
-              to="/signup"
+            <a
+              href="/signup"
               className="
-                mt-5
+                group
+                mt-8
                 inline-flex
-                min-h-11
                 items-center
                 justify-center
                 gap-2
-
                 rounded-xl
-
                 bg-gradient-to-r
-                from-[#12BFF2]
-                via-[#078EE5]
-                to-[#0AA23B]
-
-                px-6
-                py-3
-
-                text-sm
+                from-cyan-400
+                via-blue-500
+                to-violet-600
+                px-7
+                py-3.5
+                text-xs
                 font-black
                 text-white
-
-                shadow-lg
-                shadow-blue-500/10
-
+                shadow-xl
+                shadow-blue-600/20
                 transition
 
                 hover:-translate-y-0.5
+                hover:shadow-cyan-500/20
+
+                sm:text-sm
               "
             >
               Start 5-Day Free Trial
 
-              <ArrowIcon
-                className="h-4 w-4"
-              />
-            </Link>
-          </div>
+              <ArrowIcon className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+            </a>
+
+          </Reveal>
+
         </div>
+
       </section>
+
     </div>
   );
 }
