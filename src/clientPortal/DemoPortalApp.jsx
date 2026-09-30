@@ -5,6 +5,7 @@ import './clientPortal.css';
 import './clientPortalTheme.css';
 import {ClientPortalProvider} from './ClientPortalContext';
 import ClientPortalShell from './components/ClientPortalShell';
+import PortalFooter from './components/PortalFooter';
 import DashboardPage from './pages/DashboardPage';
 import SitesPage from './pages/SitesPage';
 import UsersPage from './pages/UsersPage';
@@ -26,7 +27,7 @@ import {getModuleByRoute} from './config/moduleCatalog';
 import {iconFor} from './config/portalNavigation';
 import {clientPortalApi} from './services/clientPortalApi';
 
-const THEME_KEY='bf_client_theme_config_v2';
+const THEME_KEY='bf_demo_picker_theme_v1';
 function readPickerTheme(){try{return {...JSON.parse(localStorage.getItem(THEME_KEY)||'{}')}}catch{return{}}}
 function pickerVars(theme){
   const dark=theme==='dark';
@@ -38,21 +39,21 @@ function pickerVars(theme){
 
     '--bf-bg':dark?'#0E1929':'#ECECF3',
     '--bf-surface':dark?'#172235':'#FFFFFF',
-    '--bf-surface-2':dark?'#131E2E':'#F7F8FB',
+    '--bf-surface-2':dark?'#1C293C':'#F7F8FB',
 
-    '--bf-text':dark?'#F4F7FB':'#25252B',
-    '--bf-text-2':dark?'#B4C0D0':'#667085',
-    '--bf-text-3':dark?'#8190A5':'#8B95A7',
+    '--bf-text':dark?'#F4F7FB':'#20242D',
+    '--bf-text-2':dark?'#C1CBDA':'#566277',
+    '--bf-text-3':dark?'#8E9CAF':'#7B879B',
 
-    '--bf-border':dark?'#2B384A':'#E1E5EC',
+    '--bf-border':dark?'#2B384A':'#DCE2EA',
     '--bf-shadow':dark
-      ?'0 18px 45px rgba(0,0,0,.20)'
-      :'0 16px 38px rgba(30,41,59,.08)',
+      ?'0 14px 34px rgba(0,0,0,.18)'
+      :'0 12px 30px rgba(30,41,59,.08)',
 
     '--bf-header-bg':'#5551D7',
     '--bf-header-text':'#FFFFFF',
-    '--bf-header-muted':'rgba(255,255,255,.78)',
-    '--bf-header-border':'rgba(255,255,255,.14)'
+    '--bf-header-muted':'rgba(255,255,255,.80)',
+    '--bf-header-border':'rgba(255,255,255,.16)'
   };
 }
 
@@ -90,12 +91,8 @@ function DemoFleetPicker({currentUser,onLogout}){
       localStorage.setItem(
         THEME_KEY,
         JSON.stringify({
-          ...readPickerTheme(),
           theme:next,
           primaryColor:'#5551D7',
-          backgroundDark:'#0E1929',
-          sidebarStyle:'dark',
-          headerStyle:'color',
         })
       );
     }catch{}
@@ -105,24 +102,24 @@ function DemoFleetPicker({currentUser,onLogout}){
 
   return (
     <div
-      className="bf-demo-v2 bf-demo-premium"
+      className="bf-demo-v3"
       data-theme={theme}
       style={pickerVars(theme)}
     >
-      <header className="bf-demo-v2-top">
-        <div className="bf-demo-v2-top-inner">
-          <div className="bf-demo-v2-brand">
+      <header className="bf-demo-v3-header">
+        <div className="bf-demo-v3-header-inner">
+          <div className="bf-demo-v3-brand">
             <div className="bf-client-brand-mark">BF</div>
 
-            <div className="bf-demo-v2-brand-copy">
+            <div>
               <strong>Buddy Fleets Demo</strong>
-              <span>Secure demo workspace</span>
+              <span>Demo Control Center</span>
             </div>
           </div>
 
-          <div className="bf-demo-v2-actions">
-            <div className="bf-demo-v2-user">
-              <span className="bf-demo-v2-user-dot"/>
+          <div className="bf-demo-v3-header-actions">
+            <div className="bf-demo-v3-user">
+              <span className="bf-demo-v3-online"/>
               <div>
                 <small>Signed in as</small>
                 <strong>{signedInAs}</strong>
@@ -131,123 +128,117 @@ function DemoFleetPicker({currentUser,onLogout}){
 
             <button
               type="button"
-              className="bf-client-header-icon"
+              className="bf-demo-v3-icon-btn"
               onClick={toggle}
               title="Light / Dark"
               aria-label="Toggle theme"
             >
-              {theme==='dark'?<Sun size={16}/>:<Moon size={16}/>}
+              {theme==='dark'?<Sun size={17}/>:<Moon size={17}/>}
             </button>
 
             <button
               type="button"
-              className="bf-client-header-icon"
+              className="bf-demo-v3-icon-btn"
               onClick={onLogout}
               title="Logout"
               aria-label="Logout demo"
             >
-              <LogOut size={16}/>
+              <LogOut size={17}/>
             </button>
           </div>
         </div>
       </header>
 
-      <main className="bf-demo-v2-body">
-        <section className="bf-demo-v2-hero">
-          <div className="bf-demo-v2-eyebrow">
-            <span className="bf-demo-v2-status-dot"/>
-            Authenticated Demo Workspace
-          </div>
-
-          <div className="bf-demo-v2-hero-grid">
-            <div>
-              <h1>Choose your fleet workspace</h1>
-
-              <p>
-                Explore each Buddy Fleets fleet pack using isolated sample data,
-                the same secure application shell and the same permission-driven
-                product architecture used by the live company portal.
-              </p>
+      <main className="bf-demo-v3-main">
+        <section className="bf-demo-v3-page-head">
+          <div>
+            <div className="bf-demo-v3-badge">
+              <span/>
+              Authenticated Demo Workspace
             </div>
 
-            <div className="bf-demo-v2-summary">
-              <div>
-                <strong>7</strong>
-                <span>Fleet Packs</span>
-              </div>
+            <h1>Choose a fleet dashboard</h1>
 
-              <div>
-                <strong>Secure</strong>
-                <span>Authenticated Access</span>
-              </div>
+            <p>
+              Select a transport operation to open its isolated Buddy Fleets
+              demo workspace. Each dashboard runs through the authenticated
+              backend with sample data and the same permission-driven product
+              architecture.
+            </p>
+          </div>
 
-              <div>
-                <strong>Isolated</strong>
-                <span>Demo Data</span>
-              </div>
+          <div className="bf-demo-v3-stats">
+            <div>
+              <strong>7</strong>
+              <span>Fleet Packs</span>
+            </div>
+            <div>
+              <strong>Secure</strong>
+              <span>Access</span>
+            </div>
+            <div>
+              <strong>Isolated</strong>
+              <span>Sample Data</span>
             </div>
           </div>
         </section>
 
-        <section className="bf-demo-v2-section">
-          <div className="bf-demo-v2-section-head">
+        <section className="bf-demo-v3-workspaces">
+          <div className="bf-demo-v3-section-head">
             <div>
-              <span>Fleet dashboards</span>
-              <h2>Select a transport operation</h2>
+              <span>Available Demo Workspaces</span>
+              <h2>Select your transport business type</h2>
             </div>
 
             <p>
-              Open any workspace below. You can return to this page from the
-              Demo Home control inside every demo dashboard.
+              Use the Demo Home button inside any fleet dashboard to return
+              here without logging out.
             </p>
           </div>
 
-          <div className="bf-demo-v2-grid">
+          <div className="bf-demo-v3-grid">
             {DEMO_FLEET_ORDER.map((key,index)=>{
               const pack=getFleetPack(key);
               const Icon=iconFor(pack?.icon);
 
               return (
                 <Link
-                  className="bf-demo-v2-card"
+                  className="bf-demo-v3-card"
                   key={key}
                   to={`/demo/${pack.slug}/dashboard`}
                 >
-                  <div className="bf-demo-v2-card-top">
-                    <div className="bf-demo-v2-card-icon">
-                      <Icon size={21}/>
+                  <div className="bf-demo-v3-card-head">
+                    <div className="bf-demo-v3-card-icon">
+                      <Icon size={23}/>
                     </div>
 
-                    <span className="bf-demo-v2-card-index">
+                    <span className="bf-demo-v3-card-no">
                       {String(index+1).padStart(2,'0')}
                     </span>
                   </div>
 
-                  <div className="bf-demo-v2-card-copy">
-                    <span className="bf-demo-v2-card-kicker">Demo Fleet Pack</span>
+                  <div className="bf-demo-v3-card-body">
+                    <span className="bf-demo-v3-card-label">Demo Fleet Pack</span>
                     <h3>{pack.name}</h3>
                     <p>{pack.description}</p>
                   </div>
 
-                  <div className="bf-demo-v2-card-foot">
+                  <div className="bf-demo-v3-card-action">
                     <span>
                       Open Dashboard
-                      <ChevronRight size={14}/>
+                      <ChevronRight size={16}/>
                     </span>
 
-                    <small>Sample data</small>
+                    <small>Sample Data</small>
                   </div>
                 </Link>
               );
             })}
           </div>
         </section>
-
-        <footer className="bf-demo-v2-footer">
-          <span>Buddy Fleets</span>
-          <span>Authenticated backend demo environment</span>
-        </footer>
       </main>
+
+      <PortalFooter/>
     </div>
   );
 }
@@ -297,4 +288,5 @@ export default function DemoPortalApp({currentUser,onLogout}){
   if(!pack)return <DemoFleetPicker currentUser={currentUser} onLogout={onLogout}/>;
   return <DemoFleetWorkspace key={pack.key} pack={pack} currentUser={currentUser} onLogout={onLogout}/>;
 }
+
 
