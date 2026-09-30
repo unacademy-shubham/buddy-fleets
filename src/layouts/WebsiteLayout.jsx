@@ -1383,7 +1383,7 @@ export default function WebsiteLayout() {
                 tracking-wide
               "
             >
-              Â© {copyrightYear}{' '}
+              © {copyrightYear}{' '}
 
               <a
                 href="https://www.instagram.com/buddy_computers"
