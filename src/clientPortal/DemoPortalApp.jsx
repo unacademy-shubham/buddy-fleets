@@ -1,4 +1,4 @@
-import React,{useCallback,useEffect,useMemo,useState} from 'react';
+﻿import React,{useCallback,useEffect,useMemo,useState} from 'react';
 import {Link,useLocation} from 'react-router-dom';
 import {ChevronRight,LogOut,Moon,Sun} from 'lucide-react';
 import './clientPortal.css';
@@ -30,11 +30,29 @@ const THEME_KEY='bf_client_theme_config_v2';
 function readPickerTheme(){try{return {...JSON.parse(localStorage.getItem(THEME_KEY)||'{}')}}catch{return{}}}
 function pickerVars(theme){
   const dark=theme==='dark';
+
   return {
-    '--bf-primary':'#7A00FF','--bf-primary-2':'#5F22D6','--bf-primary-rgb':'122 0 255',
-    '--bf-bg':dark?'#0E1929':'#F4F5F8','--bf-surface':dark?'#1B2433':'#FFFFFF','--bf-text':dark?'#F1F5F9':'#25252B',
-    '--bf-text-2':dark?'#B6C2D2':'#667085','--bf-border':dark?'#313B4B':'#E2E6EE','--bf-shadow':dark?'0 3px 16px rgba(0,0,0,.22)':'0 3px 16px rgba(15,23,42,.08)',
-    '--bf-header-bg':'#7A00FF','--bf-header-text':'#FFFFFF','--bf-header-muted':'rgba(255,255,255,.82)','--bf-header-border':'rgba(255,255,255,.14)'
+    '--bf-primary':'#5551D7',
+    '--bf-primary-2':'#4541BC',
+    '--bf-primary-rgb':'85 81 215',
+
+    '--bf-bg':dark?'#0E1929':'#ECECF3',
+    '--bf-surface':dark?'#172235':'#FFFFFF',
+    '--bf-surface-2':dark?'#131E2E':'#F7F8FB',
+
+    '--bf-text':dark?'#F4F7FB':'#25252B',
+    '--bf-text-2':dark?'#B4C0D0':'#667085',
+    '--bf-text-3':dark?'#8190A5':'#8B95A7',
+
+    '--bf-border':dark?'#2B384A':'#E1E5EC',
+    '--bf-shadow':dark
+      ?'0 18px 45px rgba(0,0,0,.20)'
+      :'0 16px 38px rgba(30,41,59,.08)',
+
+    '--bf-header-bg':'#5551D7',
+    '--bf-header-text':'#FFFFFF',
+    '--bf-header-muted':'rgba(255,255,255,.78)',
+    '--bf-header-border':'rgba(255,255,255,.14)'
   };
 }
 
@@ -62,22 +80,177 @@ function page(route,allowedKeys=[]){
 
 function DemoFleetPicker({currentUser,onLogout}){
   const saved=readPickerTheme();
-  const [theme,setTheme]=useState(saved.theme==='dark'?'dark':'light');
-  const toggle=()=>{const next=theme==='dark'?'light':'dark';setTheme(next);try{localStorage.setItem(THEME_KEY,JSON.stringify({...readPickerTheme(),theme:next,primaryColor:'#7A00FF'}));}catch{}};
-  return <div className="bf-demo-v2" data-theme={theme} style={pickerVars(theme)}>
-    <header className="bf-demo-v2-top">
-      <div className="bf-demo-v2-brand"><div className="bf-client-brand-mark">BF</div><div><strong>Buddy Fleets Demo</strong><span>Authenticated backend demo workspace • signed in as {currentUser?.name||currentUser?.email||'Demo User'}</span></div></div>
-      <div className="bf-demo-v2-actions"><button className="bf-client-header-icon" onClick={toggle} title="Light / Dark">{theme==='dark'?<Sun size={16}/>:<Moon size={16}/>}</button><button className="bf-client-header-icon" onClick={onLogout} title="Logout"><LogOut size={16}/></button></div>
-    </header>
-    <main className="bf-demo-v2-body">
-      <div className="bf-demo-v2-hero"><div><h1>Choose a fleet dashboard</h1><p>All seven demos run through the authenticated Buddy Fleets backend. Each fleet workspace has an isolated persisted demo snapshot, while the shell, permissions model and APIs remain the same product architecture.</p></div></div>
-      <div className="bf-demo-v2-grid">
-        {DEMO_FLEET_ORDER.map(key=>{const pack=getFleetPack(key);const Icon=iconFor(pack?.icon);return <Link className="bf-demo-v2-card" key={key} to={`/demo/${pack.slug}/dashboard`}><div className="bf-demo-v2-card-icon"><Icon size={20}/></div><h3>{pack.name}</h3><p>{pack.description}</p><span>Open Dashboard <ChevronRight size={12}/></span></Link>;})}
-      </div>
-    </main>
-  </div>;
-}
+  const [theme,setTheme]=useState(saved.theme==='light'?'light':'dark');
 
+  const toggle=()=>{
+    const next=theme==='dark'?'light':'dark';
+    setTheme(next);
+
+    try{
+      localStorage.setItem(
+        THEME_KEY,
+        JSON.stringify({
+          ...readPickerTheme(),
+          theme:next,
+          primaryColor:'#5551D7',
+          backgroundDark:'#0E1929',
+          sidebarStyle:'dark',
+          headerStyle:'color',
+        })
+      );
+    }catch{}
+  };
+
+  const signedInAs=currentUser?.name||currentUser?.email||'Demo User';
+
+  return (
+    <div
+      className="bf-demo-v2 bf-demo-premium"
+      data-theme={theme}
+      style={pickerVars(theme)}
+    >
+      <header className="bf-demo-v2-top">
+        <div className="bf-demo-v2-top-inner">
+          <div className="bf-demo-v2-brand">
+            <div className="bf-client-brand-mark">BF</div>
+
+            <div className="bf-demo-v2-brand-copy">
+              <strong>Buddy Fleets Demo</strong>
+              <span>Secure demo workspace</span>
+            </div>
+          </div>
+
+          <div className="bf-demo-v2-actions">
+            <div className="bf-demo-v2-user">
+              <span className="bf-demo-v2-user-dot"/>
+              <div>
+                <small>Signed in as</small>
+                <strong>{signedInAs}</strong>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              className="bf-client-header-icon"
+              onClick={toggle}
+              title="Light / Dark"
+              aria-label="Toggle theme"
+            >
+              {theme==='dark'?<Sun size={16}/>:<Moon size={16}/>}
+            </button>
+
+            <button
+              type="button"
+              className="bf-client-header-icon"
+              onClick={onLogout}
+              title="Logout"
+              aria-label="Logout demo"
+            >
+              <LogOut size={16}/>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <main className="bf-demo-v2-body">
+        <section className="bf-demo-v2-hero">
+          <div className="bf-demo-v2-eyebrow">
+            <span className="bf-demo-v2-status-dot"/>
+            Authenticated Demo Workspace
+          </div>
+
+          <div className="bf-demo-v2-hero-grid">
+            <div>
+              <h1>Choose your fleet workspace</h1>
+
+              <p>
+                Explore each Buddy Fleets fleet pack using isolated sample data,
+                the same secure application shell and the same permission-driven
+                product architecture used by the live company portal.
+              </p>
+            </div>
+
+            <div className="bf-demo-v2-summary">
+              <div>
+                <strong>7</strong>
+                <span>Fleet Packs</span>
+              </div>
+
+              <div>
+                <strong>Secure</strong>
+                <span>Authenticated Access</span>
+              </div>
+
+              <div>
+                <strong>Isolated</strong>
+                <span>Demo Data</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="bf-demo-v2-section">
+          <div className="bf-demo-v2-section-head">
+            <div>
+              <span>Fleet dashboards</span>
+              <h2>Select a transport operation</h2>
+            </div>
+
+            <p>
+              Open any workspace below. You can return to this page from the
+              Demo Home control inside every demo dashboard.
+            </p>
+          </div>
+
+          <div className="bf-demo-v2-grid">
+            {DEMO_FLEET_ORDER.map((key,index)=>{
+              const pack=getFleetPack(key);
+              const Icon=iconFor(pack?.icon);
+
+              return (
+                <Link
+                  className="bf-demo-v2-card"
+                  key={key}
+                  to={`/demo/${pack.slug}/dashboard`}
+                >
+                  <div className="bf-demo-v2-card-top">
+                    <div className="bf-demo-v2-card-icon">
+                      <Icon size={21}/>
+                    </div>
+
+                    <span className="bf-demo-v2-card-index">
+                      {String(index+1).padStart(2,'0')}
+                    </span>
+                  </div>
+
+                  <div className="bf-demo-v2-card-copy">
+                    <span className="bf-demo-v2-card-kicker">Demo Fleet Pack</span>
+                    <h3>{pack.name}</h3>
+                    <p>{pack.description}</p>
+                  </div>
+
+                  <div className="bf-demo-v2-card-foot">
+                    <span>
+                      Open Dashboard
+                      <ChevronRight size={14}/>
+                    </span>
+
+                    <small>Sample data</small>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+
+        <footer className="bf-demo-v2-footer">
+          <span>Buddy Fleets</span>
+          <span>Authenticated backend demo environment</span>
+        </footer>
+      </main>
+    </div>
+  );
+}
 function DemoFleetWorkspace({pack,currentUser,onLogout}){
   const location=useLocation();
   const basePath=`/demo/${pack.slug}`;
@@ -111,7 +284,7 @@ function DemoFleetWorkspace({pack,currentUser,onLogout}){
     };
   },[state,basePath,pack.key,pack.slug,currentUser,onLogout,load]);
 
-  if(state.loading)return <div className="bf-demo-home"><div className="bf-card bf-card-body">Loading persisted {pack.name} demo…</div></div>;
+  if(state.loading)return <div className="bf-demo-home"><div className="bf-card bf-card-body">Loading persisted {pack.name} demoâ€¦</div></div>;
   if(state.error)return <div className="bf-demo-home"><div className="bf-card bf-card-body"><h3>Demo workspace unavailable</h3><p className="bf-muted">{state.error}</p><button className="bf-btn bf-btn-primary" onClick={load}>Retry</button></div></div>;
 
   return <ClientPortalProvider value={value}><ClientPortalShell>{page(route,state.userAccess?.moduleKeys||[])}</ClientPortalShell></ClientPortalProvider>;
@@ -124,3 +297,4 @@ export default function DemoPortalApp({currentUser,onLogout}){
   if(!pack)return <DemoFleetPicker currentUser={currentUser} onLogout={onLogout}/>;
   return <DemoFleetWorkspace key={pack.key} pack={pack} currentUser={currentUser} onLogout={onLogout}/>;
 }
+
