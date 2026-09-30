@@ -1888,6 +1888,7 @@ export default async function handler(
   if (
     !handoff
   ) {
+    console.error('BF_CALLBACK_REJECT: HANDOFF_MISSING');
     return redirectToLogin(
       res,
       true
@@ -1909,6 +1910,12 @@ export default async function handler(
     expiry <=
       Date.now()
   ) {
+    console.error('BF_CALLBACK_REJECT: HANDOFF_STATE_INVALID', {
+      status: handoff.status || null,
+      consumed: Boolean(handoff.consumed_at),
+      expiryValid: Number.isFinite(expiry),
+      expired: Number.isFinite(expiry) ? expiry <= Date.now() : null,
+    });
     return redirectToLogin(
       res,
       true
@@ -2032,6 +2039,10 @@ export default async function handler(
     !security ||
     security.is_locked
   ) {
+    console.error('BF_CALLBACK_REJECT: SECURITY_INVALID', {
+      securityPresent: Boolean(security),
+      locked: Boolean(security?.is_locked),
+    });
     return redirectToLogin(
       res,
       true
@@ -2042,6 +2053,10 @@ export default async function handler(
     !authorization
       ?.authorized
   ) {
+    console.error('BF_CALLBACK_REJECT: AUTHORIZATION_DENIED', {
+      authorizationPresent: Boolean(authorization),
+      portalType: authorization?.portalType || null,
+    });
     return redirectToLogin(
       res,
       true
@@ -2051,6 +2066,7 @@ export default async function handler(
   if (
     !securitySession
   ) {
+    console.error('BF_CALLBACK_REJECT: SECURITY_SESSION_MISSING');
     return redirectToLogin(
       res,
       true
@@ -2117,7 +2133,8 @@ export default async function handler(
       decodeJwtPayload(
         accessToken
       );
-  } catch {
+  } catch (error) {
+    console.error('BF_CALLBACK_REJECT: JWT_DECODE_FAILED', error?.message || null);
     return redirectToLogin(
       res,
       true
@@ -2144,6 +2161,11 @@ export default async function handler(
       jwtAal
     )
   ) {
+    console.error('BF_CALLBACK_REJECT: JWT_BINDING_MISMATCH', {
+      subMatches: jwt.sub === handoff.user_id,
+      sessionMatches: jwt.session_id === handoff.auth_session_id,
+      aal: jwtAal || null,
+    });
     return redirectToLogin(
       res,
       true
@@ -2238,6 +2260,11 @@ export default async function handler(
       .id !==
       handoff.user_id
   ) {
+    console.error('BF_CALLBACK_REJECT: AUTH_USER_VERIFICATION', {
+      error: verifiedUserError?.message || null,
+      userPresent: Boolean(verifiedUser?.user),
+      userMatches: verifiedUser?.user?.id === handoff.user_id,
+    });
     return redirectToLogin(
       res,
       true
@@ -2267,6 +2294,10 @@ export default async function handler(
   if (
     !destination
   ) {
+    console.error('BF_CALLBACK_REJECT: DESTINATION_MISSING', {
+      portalType: handoff.portal_type || null,
+      companySlug: authorization?.companySlug || null,
+    });
     return redirectToLogin(
       res,
       true
@@ -2412,6 +2443,10 @@ export default async function handler(
     !finalized
       ?.ok
   ) {
+    console.error('BF_CALLBACK_REJECT: HTTP_SESSION_FINALIZER_REJECTED', {
+      code: finalized?.code || null,
+      reason: finalized?.reason || finalized?.message || null,
+    });
     return redirectToLogin(
       res,
       true
