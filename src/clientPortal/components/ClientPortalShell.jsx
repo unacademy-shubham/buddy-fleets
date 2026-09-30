@@ -1,7 +1,7 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
-  Bell, Check, ChevronDown, ChevronLeft, ChevronRight, Circle, Clock3, LogOut,
+  Bell, Check, ChevronDown, ChevronLeft, ChevronRight, Circle, Clock3, Home, LogOut,
   Maximize2, Menu, MessageCircle, MessageSquare, Minimize2, Moon, Search, Settings, ShieldCheck, SlidersHorizontal,
   Sun, User, X
 } from 'lucide-react';
@@ -216,7 +216,7 @@ function Sidebar({ navigation, basePath, company, currentUser, demo, collapsed, 
         <div className="bf-client-avatar">{currentUser?.photoUrl || currentUser?.photo_url ? <img src={currentUser.photoUrl||currentUser.photo_url} alt=""/> : initials(currentUser?.name||currentUser?.full_name)}</div>
         {!collapsed ? <div className="bf-client-profile-copy"><strong>{currentUser?.name||currentUser?.full_name||'Company User'}</strong><span>{currentUser?.roleName||currentUser?.role||'Company User'}</span><small>{company?.company_name||company?.companyName||'Buddy Fleets'}</small></div> : null}
       </div>
-      {demo && !collapsed ? <div className="bf-client-demo-chip">DEMO ACCOUNT • SAMPLE DATA</div> : null}
+      {demo && !collapsed ? <div className="bf-client-demo-chip">DEMO ACCOUNT â€¢ SAMPLE DATA</div> : null}
       <div className="bf-client-sidebar-scroll">
         {navigation.map((menu)=>{
           const Icon = iconFor(menu.icon);
@@ -290,25 +290,27 @@ function Header({ company, currentUser, demo, basePath, config, setConfig, onOpe
   },[]);
   const toggleFull=async()=>{ try{ if(document.fullscreenElement) await document.exitFullscreen(); else await document.documentElement.requestFullscreen(); setFull(Boolean(document.fullscreenElement)); }catch{} };
   const go=(route)=>{navigate(`${basePath}/${route}`.replace(/\/+/g,'/'));setProfileOpen(false);};
+  const goDemoHome=()=>{navigate('/demo');setProfileOpen(false);};
   return <header className="bf-client-header">
     <div className="bf-client-header-left">
       <button className="bf-client-header-icon mobile-only" onClick={onOpenMobile}><Menu size={18}/></button>
       <button className="bf-client-header-icon desktop-only" onClick={onToggleCollapse}><Menu size={18}/></button>
-      <div className="bf-client-header-title"><strong>{demo?'Demo Workspace':'Company Portal'}</strong><span>{company?.company_name||company?.companyName||'Buddy Fleets'} • {company?.company_code||company?.companyCode||''}</span></div>
+      <div className="bf-client-header-title"><strong>{demo?'Demo Workspace':'Company Portal'}</strong><span>{company?.company_name||company?.companyName||'Buddy Fleets'} â€¢ {company?.company_code||company?.companyCode||''}</span></div>
       <SessionTimer/>
     </div>
     <div className="bf-client-header-right">
+      {demo?<button className="bf-client-header-icon" onClick={goDemoHome} title="All Demo Fleets" aria-label="Back to Demo Home"><Home size={16}/></button>:null}
       <SiteSelector/>
       <div className="bf-client-search-wrap">
         <button className="bf-client-header-icon" onClick={()=>setSearchOpen(v=>!v)} title="Search"><Search size={16}/></button>
-        {searchOpen?<div className="bf-client-search-pop"><div className="bf-client-search-input"><Search size={14}/><input autoFocus value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search module…"/></div>{results.map(r=><button key={`${r.route}-${r.label}`} onClick={()=>{go(r.route);setSearchOpen(false);setQuery('');}}><span>{r.label}</span><small>{r.trail.slice(0,-1).join(' / ')}</small></button>)}{query&&!results.length?<div className="bf-client-search-empty">No module found</div>:null}</div>:null}
+        {searchOpen?<div className="bf-client-search-pop"><div className="bf-client-search-input"><Search size={14}/><input autoFocus value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search moduleâ€¦"/></div>{results.map(r=><button key={`${r.route}-${r.label}`} onClick={()=>{go(r.route);setSearchOpen(false);setQuery('');}}><span>{r.label}</span><small>{r.trail.slice(0,-1).join(' / ')}</small></button>)}{query&&!results.length?<div className="bf-client-search-empty">No module found</div>:null}</div>:null}
       </div>
       <button className="bf-client-header-icon desktop-only" onClick={toggleFull} title="Fullscreen">{full?<Minimize2 size={16}/>:<Maximize2 size={16}/>}</button>
       <button className="bf-client-header-icon" onClick={()=>setConfig(c=>({...c,theme:c.theme==='dark'?'light':'dark'}))} title="Light / Dark">{config.theme==='dark'?<Sun size={16}/>:<Moon size={16}/>}</button>
       <button className="bf-client-header-icon" onClick={onOpenTheme} title="Theme Settings"><SlidersHorizontal size={16}/></button>
       <div className="bf-client-pop-host"><button className="bf-client-header-icon" onClick={()=>{setMessageOpen(v=>!v);setNoticeOpen(false);}} title="Messages"><MessageCircle size={16}/><span className="bf-client-badge-dot soft"/></button>{messageOpen?<div className="bf-client-popover bf-client-notice-pop"><div className="bf-client-pop-title">Messages</div><div className="bf-client-notice"><MessageSquare size={15}/><div><strong>Company workspace</strong><span>Operational messages and announcements appear here.</span></div></div></div>:null}</div>
       <div className="bf-client-pop-host"><button className="bf-client-header-icon" onClick={()=>setNoticeOpen(v=>!v)} title="Notifications"><Bell size={16}/><span className="bf-client-badge-dot"/></button>{noticeOpen?<div className="bf-client-popover bf-client-notice-pop"><div className="bf-client-pop-title">Notifications</div><div className="bf-client-notice"><ShieldCheck size={15}/><div><strong>Secure session active</strong><span>Your portal session is verified.</span></div></div><div className="bf-client-notice"><MessageSquare size={15}/><div><strong>Fleet workspace ready</strong><span>{company?.fleetPack||company?.fleet_pack||'Fleet'} modules loaded.</span></div></div></div>:null}</div>
-      <div className="bf-client-pop-host" ref={profileRef}><button className="bf-client-profile-button" onClick={()=>setProfileOpen(v=>!v)}><span>{initials(currentUser?.name||currentUser?.full_name)}</span><div className="desktop-only"><strong>{currentUser?.name||currentUser?.full_name||'User'}</strong><small>{currentUser?.roleName||currentUser?.role||'User'}</small></div><ChevronDown size={12}/></button>{profileOpen?<div className="bf-client-popover bf-client-profile-pop"><div className="bf-client-profile-pop-head"><span className="bf-client-avatar">{initials(currentUser?.name||currentUser?.full_name)}</span><div><strong>{currentUser?.name||currentUser?.full_name||'User'}</strong><small>{currentUser?.email||''}</small></div></div><button onClick={()=>go('profile-security')}><User size={15}/>My Profile</button>{canBilling?<button onClick={()=>go('subscription')}><ShieldCheck size={15}/>Subscription & Billing</button>:null}<button onClick={()=>go('settings')}><Settings size={15}/>Company Settings</button><div className="bf-client-pop-sep"/><button className="danger" onClick={onLogout}><LogOut size={15}/>{demo?'Logout Demo Account':'Logout'}</button></div>:null}</div>
+      <div className="bf-client-pop-host" ref={profileRef}><button className="bf-client-profile-button" onClick={()=>setProfileOpen(v=>!v)}><span>{initials(currentUser?.name||currentUser?.full_name)}</span><div className="desktop-only"><strong>{currentUser?.name||currentUser?.full_name||'User'}</strong><small>{currentUser?.roleName||currentUser?.role||'User'}</small></div><ChevronDown size={12}/></button>{profileOpen?<div className="bf-client-popover bf-client-profile-pop"><div className="bf-client-profile-pop-head"><span className="bf-client-avatar">{initials(currentUser?.name||currentUser?.full_name)}</span><div><strong>{currentUser?.name||currentUser?.full_name||'User'}</strong><small>{currentUser?.email||''}</small></div></div><button onClick={()=>go('profile-security')}><User size={15}/>My Profile</button>{canBilling?<button onClick={()=>go('subscription')}><ShieldCheck size={15}/>Subscription & Billing</button>:null}<button onClick={()=>go('settings')}><Settings size={15}/>Company Settings</button>{demo?<button onClick={goDemoHome}><Home size={15}/>All Demo Fleets</button>:null}<div className="bf-client-pop-sep"/><button className="danger" onClick={onLogout}><LogOut size={15}/>{demo?'Logout Demo Account':'Logout'}</button></div>:null}</div>
     </div>
   </header>;
 }
@@ -348,3 +350,4 @@ export default function ClientPortalShell({ children }) {
     {themeOpen?<button className="bf-client-drawer-backdrop" aria-label="Close theme settings" onClick={()=>setThemeOpen(false)}/>:null}
   </div>;
 }
+
