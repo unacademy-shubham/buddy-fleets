@@ -4764,8 +4764,6 @@ function ProfilePopover({
     ['My Profile', User, '/developer-account#profile'],
     ['My Security', ShieldCheck, '/developer-account#security'],
     ['My Sessions', Activity, '/developer-account#sessions'],
-    ['Notifications', Bell, '/developer-account#notifications'],
-    ['Preferences', Settings, '/developer-account#preferences'],
   ];
 
 
@@ -5077,7 +5075,7 @@ function SessionCountdown() {
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
   return (
-    <div className="hidden min-w-[112px] rounded-md border border-white/15 bg-black/10 px-2.5 py-1.5 text-right xl:block">
+    <div className="hidden min-w-[112px] rounded-md border border-white/15 bg-black/10 px-2.5 py-1.5 text-center xl:block">
       <div className="text-[8px] font-bold uppercase tracking-[.12em] text-[var(--bf-header-muted)]">Session</div>
       <div className="text-[11px] font-bold tabular-nums text-[var(--bf-header-text)]">{String(minutes).padStart(2,'0')}:{String(seconds).padStart(2,'0')}</div>
     </div>
@@ -5483,36 +5481,6 @@ function Header({
             {openPopover ===
               'notifications' && (
               <NotificationsPopover />
-            )}
-          </div>
-
-
-          <div
-            className="
-              relative
-            "
-          >
-            <HeaderIcon
-              label="Messages"
-              badge={3}
-              active={
-                openPopover ===
-                'messages'
-              }
-              onClick={() =>
-                togglePopover(
-                  'messages'
-                )
-              }
-            >
-              <Mail
-                size={19}
-              />
-            </HeaderIcon>
-
-            {openPopover ===
-              'messages' && (
-              <MessagesPopover />
             )}
           </div>
 
