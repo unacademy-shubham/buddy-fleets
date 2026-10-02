@@ -1,3 +1,4 @@
+import SessionControl from '../components/SessionControl';
 import React, {
   useCallback,
   useEffect,
@@ -5059,49 +5060,7 @@ function HorizontalHeaderBrand({
 ============================================================ */
 
 function SessionCountdown() {
-  const [expiresAt, setExpiresAt] = useState(null);
-  const [remaining, setRemaining] = useState(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    const sync = async () => {
-      try {
-        const response = await fetch('/api/auth/session', {
-          credentials: 'include',
-          cache: 'no-store',
-          headers: { Accept: 'application/json' },
-        });
-        const data = await response.json().catch(() => ({}));
-        if (!cancelled && response.ok && data?.ok && data?.session?.expiresAt) {
-          setExpiresAt(new Date(data.session.expiresAt).getTime());
-        }
-      } catch {
-        // Session authority remains server-side; timer is display-only.
-      }
-    };
-    sync();
-    const poll = window.setInterval(sync, 60000);
-    return () => { cancelled = true; window.clearInterval(poll); };
-  }, []);
-
-  useEffect(() => {
-    if (!expiresAt) return undefined;
-    const tick = () => setRemaining(Math.max(0, expiresAt - Date.now()));
-    tick();
-    const timer = window.setInterval(tick, 1000);
-    return () => window.clearInterval(timer);
-  }, [expiresAt]);
-
-  if (remaining === null) return null;
-  const totalSeconds = Math.floor(remaining / 1000);
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return (
-    <div className="hidden min-w-[112px] rounded-md border border-white/15 bg-black/10 px-2.5 py-1.5 text-center xl:flex xl:flex-col xl:items-center xl:justify-center">
-      <div className="text-[8px] font-bold uppercase tracking-[.12em] text-[var(--bf-header-muted)]">Session</div>
-      <div className="text-[11px] font-bold tabular-nums text-[var(--bf-header-text)]">{String(minutes).padStart(2,'0')}:{String(seconds).padStart(2,'0')}</div>
-    </div>
-  );
+  return <SessionControl />;
 }
 
 

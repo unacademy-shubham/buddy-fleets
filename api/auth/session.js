@@ -1966,6 +1966,126 @@ function buildCurrentUser({
    MAIN
 ============================================================ */
 
+
+async function handleSessionActivityMutation(req, res) {
+  const requestHost = getRequestHost(req);
+
+  if (!requestHost || !isPortalHost(requestHost)) {
+    clearSessionCookie(res);
+    return sendJson(res, 403, { ok: false, code: 'PORTAL_NOT_ALLOWED' });
+  }
+
+  if (!originMatchesHost(req, requestHost)) {
+    return sendJson(res, 403, { ok: false, code: 'ORIGIN_NOT_ALLOWED' });
+  }
+
+  const secFetchSite = String(req.headers['sec-fetch-site'] || '').toLowerCase();
+  if (secFetchSite && !['same-origin', 'none'].includes(secFetchSite)) {
+    return sendJson(res, 403, { ok: false, code: 'CROSS_SITE_REQUEST_BLOCKED' });
+  }
+
+  const cookies = parseCookies(req.headers.cookie);
+  const sessionToken = cookies[COOKIE_NAME];
+
+  if (!sessionToken || sessionToken.length < 20 || sessionToken.length > 200) {
+    clearSessionCookie(res);
+    return sendJson(res, 401, { ok: false, code: 'SESSION_REQUIRED' });
+  }
+
+  let securitySession;
+  try {
+    securitySession = await getSecuritySession(sessionToken);
+  } catch (error) {
+    console.error('Session activity lookup failed:', error?.message);
+    return sendJson(res, 503, { ok: false, code: 'SECURITY_SERVICE_UNAVAILABLE' });
+  }
+
+  if (!securitySession) {
+    clearSessionCookie(res);
+    return sendJson(res, 401, { ok: false, code: 'SESSION_INVALID' });
+  }
+
+  const now = Date.now();
+  const currentExpiry = new Date(securitySession.http_session_expires_at).getTime();
+
+  if (!Number.isFinite(currentExpiry) || currentExpiry <= now) {
+    await invalidateSession({
+      sessionId: securitySession.id,
+      reason: 'HTTP_SESSION_EXPIRED',
+      expired: true,
+    });
+    clearSessionCookie(res);
+    return sendJson(res, 401, { ok: false, code: 'SESSION_EXPIRED' });
+  }
+
+  const accountSecurity = await getAccountSecurity(securitySession.user_id);
+  if (!accountSecurity || accountSecurity.is_locked) {
+    await invalidateSession({
+      sessionId: securitySession.id,
+      reason: 'ACCOUNT_SECURITY_LOCK',
+    });
+    clearSessionCookie(res);
+    return sendJson(res, 423, { ok: false, code: 'ACCOUNT_LOCKED' });
+  }
+
+  const currentIp = getClientIp(req);
+  if (securitySession.ip_address && (!currentIp || String(currentIp) !== String(securitySession.ip_address))) {
+    await invalidateSession({
+      sessionId: securitySession.id,
+      reason: 'IP_CHANGED',
+    });
+    clearSessionCookie(res);
+    return sendJson(res, 401, { ok: false, code: 'SECURITY_CONTEXT_CHANGED' });
+  }
+
+  const currentUserAgent = getUserAgent(req);
+  if (securitySession.user_agent && currentUserAgent !== securitySession.user_agent) {
+    await invalidateSession({
+      sessionId: securitySession.id,
+      reason: 'BROWSER_CHANGED',
+    });
+    clearSessionCookie(res);
+    return sendJson(res, 401, { ok: false, code: 'SECURITY_CONTEXT_CHANGED' });
+  }
+
+  const requestedAction = String(req.body?.action || 'TOUCH').trim().toUpperCase();
+  const requestedMinutes = Number(req.body?.timeoutMinutes);
+  const timeoutMinutes = [30, 60, 90].includes(requestedMinutes) ? requestedMinutes : 30;
+
+  if (!['TOUCH', 'EXTEND'].includes(requestedAction)) {
+    return sendJson(res, 400, { ok: false, code: 'INVALID_SESSION_ACTION' });
+  }
+
+  const nextExpiry = new Date(now + timeoutMinutes * 60 * 1000).toISOString();
+
+  const { error: updateError } = await supabaseAdmin
+    .from('security_sessions')
+    .update({
+      last_seen_at: new Date(now).toISOString(),
+      http_session_expires_at: nextExpiry,
+    })
+    .eq('id', securitySession.id)
+    .eq('status', 'active');
+
+  if (updateError) {
+    console.error('Session activity update failed:', updateError.message);
+    return sendJson(res, 503, { ok: false, code: 'SECURITY_SERVICE_UNAVAILABLE' });
+  }
+
+  return sendJson(res, 200, {
+    ok: true,
+    action: requestedAction,
+    session: {
+      expiresAt: nextExpiry,
+      timeoutMinutes,
+      lastSeenAt: new Date(now).toISOString(),
+    },
+    expiresAt: nextExpiry,
+    timeoutMinutes,
+  });
+}
+
+
 export default async function handler(
   req,
   res
@@ -1976,12 +2096,26 @@ export default async function handler(
 
 
   /* ========================================================
+     SESSION ACTIVITY / EXTENSION
+  ======================================================== */
+
+  if (
+    req.method ===
+    'POST'
+  ) {
+    return await handleSessionActivityMutation(
+      req,
+      res
+    );
+  }
+  /* ========================================================
      GET ONLY
   ======================================================== */
 
   if (
-    req.method !==
-    'GET'
+    !['GET', 'POST'].includes(
+      req.method
+    )
   ) {
     return sendJson(
       res,

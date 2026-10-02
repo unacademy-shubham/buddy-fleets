@@ -68,7 +68,7 @@ function base64ToBytes(value) {
 async function getEncryptionKey() {
   const raw = base64ToBytes(AUTH_FLOW_ENCRYPTION_KEY);
   if (raw.length !== 32) throw new Error('AUTH_FLOW_ENCRYPTION_KEY must decode to 32 bytes.');
-  return webcrypto.subtle.importKey('raw', raw, { name: 'AES-GCM' }, false, ['decrypt']);
+  return webcrypto.subtle.importKey('raw', raw, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
 }
 
 async function decryptSecret(encrypted, iv, key) {
@@ -79,6 +79,59 @@ async function decryptSecret(encrypted, iv, key) {
   );
   return new TextDecoder().decode(result);
 }
+
+
+async function encryptSecret(secret, encryptionKey) {
+  const iv = webcrypto.getRandomValues(new Uint8Array(12));
+  const encrypted = await webcrypto.subtle.encrypt(
+    { name: 'AES-GCM', iv },
+    encryptionKey,
+    new TextEncoder().encode(secret)
+  );
+
+  return {
+    encrypted: Buffer.from(encrypted).toString('base64'),
+    iv: Buffer.from(iv).toString('base64'),
+  };
+}
+
+async function persistCurrentAuthSession(applicationSession, userClient) {
+  const { data, error } = await userClient.auth.getSession();
+  if (error || !data?.session) throw new Error('AUTH_SESSION_REFRESH_FAILED');
+  if (data.session.user?.id !== applicationSession.user_id) {
+    throw new Error('AUTH_SESSION_USER_MISMATCH');
+  }
+
+  const encryptionKey = await getEncryptionKey();
+  const [access, refresh] = await Promise.all([
+    encryptSecret(data.session.access_token, encryptionKey),
+    encryptSecret(data.session.refresh_token, encryptionKey),
+  ]);
+
+  const now = new Date();
+  const nextExpiry = new Date(now.getTime() + 30 * 60 * 1000).toISOString();
+
+  const { error: updateError } = await admin
+    .from('security_sessions')
+    .update({
+      encrypted_access_token: access.encrypted,
+      access_token_iv: access.iv,
+      encrypted_refresh_token: refresh.encrypted,
+      refresh_token_iv: refresh.iv,
+      last_seen_at: now.toISOString(),
+      http_session_expires_at: nextExpiry,
+    })
+    .eq('id', applicationSession.id)
+    .eq('status', 'active');
+
+  if (updateError) throw updateError;
+
+  return {
+    expiresAt: nextExpiry,
+    session: data.session,
+  };
+}
+
 
 async function loadApplicationSession(req) {
   const host = requestHost(req);
@@ -281,10 +334,14 @@ export default async function handler(req, res) {
         );
       if (stateError) throw stateError;
 
+      const { error: refreshError } = await userClient.auth.refreshSession();
+      if (refreshError) throw refreshError;
+      await persistCurrentAuthSession(auth.session, userClient);
+
       await securityEvent(auth.session, 'MFA_ENABLED', { factor_id: factorId });
       await revokeBuddySessions(auth.session.user_id, 'MFA_ENABLED_REAUTH_REQUIRED', auth.session.id);
 
-      return send(res, 200, { ok: true, mfaEnabled: true, reauthRequired: true });
+      return send(res, 200, { ok: true, mfaEnabled: true, reauthRequired: false });
     }
 
     if (action === 'DISABLE') {
@@ -313,10 +370,14 @@ export default async function handler(req, res) {
         .eq('user_id', auth.session.user_id);
       if (stateError) throw stateError;
 
+      const { error: refreshError } = await userClient.auth.refreshSession();
+      if (refreshError) throw refreshError;
+      await persistCurrentAuthSession(auth.session, userClient);
+
       await securityEvent(auth.session, 'MFA_DISABLED', { factor_id: factorId });
       await revokeBuddySessions(auth.session.user_id, 'MFA_DISABLED_REAUTH_REQUIRED', auth.session.id);
 
-      return send(res, 200, { ok: true, mfaEnabled: false, reauthRequired: true });
+      return send(res, 200, { ok: true, mfaEnabled: false, reauthRequired: false });
     }
 
     return send(res, 400, { ok: false, code: 'INVALID_MFA_ACTION' });

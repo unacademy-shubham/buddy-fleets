@@ -1,4 +1,4 @@
-﻿import React, {
+import React, {
   Suspense,
   lazy,
   useCallback,
@@ -3324,6 +3324,11 @@ function AppRouter() {
       (
         isAutoTimeout = false
       ) => {
+      if (isAutoTimeout) {
+        window.dispatchEvent(new CustomEvent('bf-session-legacy-timeout'));
+        return;
+      }
+
         if (
           inactivityTimerRef.current
         ) {
