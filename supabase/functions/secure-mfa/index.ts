@@ -2725,6 +2725,77 @@ Deno.serve(
       }
 
 
+      /*
+        IMPORTANT: MFA challenges are short-lived and a failed/expired
+        challenge must never be reused. Supabase's documented sign-in
+        flow creates a fresh challenge for each verification attempt.
+        The login flow keeps the original challenge id for compatibility,
+        but every VERIFY request now creates and uses a new challenge.
+      */
+      const {
+        data:
+          freshChallenge,
+        error:
+          challengeError,
+      } =
+        await authClient
+          .auth
+          .mfa
+          .challenge({
+            factorId:
+              flow
+                .mfa_factor_id,
+          });
+
+      if (
+        challengeError ||
+        !freshChallenge
+          ?.id
+      ) {
+        console.error(
+          'MFA challenge creation failed:',
+          challengeError
+        );
+
+        return jsonResponse(
+          request,
+          503,
+          {
+            ok:
+              false,
+
+            code:
+              'MFA_SERVICE_UNAVAILABLE',
+          }
+        );
+      }
+
+      /* Keep the database flow synchronized with the challenge actually
+         being verified. */
+      try {
+        await adminClient
+          .from(
+            'auth_login_flows'
+          )
+          .update({
+            mfa_challenge_id:
+              freshChallenge.id,
+
+            updated_at:
+              new Date()
+                .toISOString(),
+          })
+          .eq(
+            'id',
+            flow.id
+          );
+      } catch (error) {
+        console.error(
+          'MFA challenge flow update failed:',
+          error
+        );
+      }
+
       const {
         data:
           verifyResult,
@@ -2740,8 +2811,7 @@ Deno.serve(
                 .mfa_factor_id,
 
             challengeId:
-              flow
-                .mfa_challenge_id,
+              freshChallenge.id,
 
             code:
               verificationCode,

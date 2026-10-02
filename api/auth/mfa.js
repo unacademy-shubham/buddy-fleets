@@ -139,9 +139,9 @@ async function createUserAuthClient(session) {
   return client;
 }
 
-async function revokeBuddySessions(userId, reason) {
+async function revokeBuddySessions(userId, reason, exceptSessionId = null) {
   const now = new Date().toISOString();
-  const { error } = await admin
+  let query = admin
     .from('security_sessions')
     .update({
       status: 'revoked',
@@ -155,6 +155,15 @@ async function revokeBuddySessions(userId, reason) {
     })
     .eq('user_id', userId)
     .eq('status', 'active');
+
+  /* When enabling MFA, the session that just completed the MFA
+     verification is allowed to remain active. All other application
+     sessions are revoked. */
+  if (exceptSessionId) {
+    query = query.neq('id', exceptSessionId);
+  }
+
+  const { error } = await query;
   if (error) throw error;
 }
 
@@ -273,7 +282,7 @@ export default async function handler(req, res) {
       if (stateError) throw stateError;
 
       await securityEvent(auth.session, 'MFA_ENABLED', { factor_id: factorId });
-      await revokeBuddySessions(auth.session.user_id, 'MFA_ENABLED_REAUTH_REQUIRED');
+      await revokeBuddySessions(auth.session.user_id, 'MFA_ENABLED_REAUTH_REQUIRED', auth.session.id);
 
       return send(res, 200, { ok: true, mfaEnabled: true, reauthRequired: true });
     }
