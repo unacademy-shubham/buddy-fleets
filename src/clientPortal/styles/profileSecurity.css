@@ -1,0 +1,31 @@
+.bf-password-modal{width:min(520px,100%);}
+.bf-security-modal{width:min(480px,100%);}
+.bf-modal-subtitle{display:block;margin-top:3px;color:var(--bf-text-3);font-size:8.5px;line-height:1.4;}
+.bf-modal-close{width:32px;height:32px;display:grid;place-items:center;border:1px solid var(--bf-border);border-radius:7px;background:transparent;color:var(--bf-text-2);cursor:pointer;flex:none;}
+.bf-modal-close:hover{color:var(--bf-text);background:rgb(var(--bf-primary-rgb)/.07);}
+.bf-password-fields{display:flex;flex-direction:column;gap:13px;}
+.bf-modal-error{padding:9px 10px;border:1px solid #fecaca;border-radius:8px;background:#fff1f2;color:#b91c1c;font-size:10px;line-height:1.45;margin-bottom:13px;}
+.bf-password-policy{margin-top:16px;padding:12px;border:1px solid var(--bf-border);border-radius:10px;background:var(--bf-surface-2);display:grid;gap:7px;color:var(--bf-text-3);font-size:9.5px;}
+.bf-password-policy-title{font-size:9px;font-weight:900;color:var(--bf-text);text-transform:uppercase;letter-spacing:.07em;margin-bottom:2px;}
+.bf-password-policy>div:not(.bf-password-policy-title){display:flex;align-items:center;gap:7px;}
+.bf-password-policy>div>span{width:15px;text-align:center;font-weight:900;color:var(--bf-text-3);}
+.bf-password-policy>div.valid{color:var(--bf-text-2);}
+.bf-password-policy>div.valid>span{color:#16a34a;}
+.bf-password-match{margin-top:9px;font-size:9px;color:var(--bf-text-3);}
+.bf-password-match.valid{color:#15803d;}
+.bf-password-match.invalid{color:#b91c1c;}
+.bf-security-callout{display:flex;gap:11px;padding:13px;border:1px solid rgb(var(--bf-primary-rgb)/.16);border-radius:10px;background:rgb(var(--bf-primary-rgb)/.06);color:var(--bf-text-2);}
+.bf-security-callout svg{flex:none;color:var(--bf-primary);}
+.bf-security-callout strong{display:block;color:var(--bf-text);font-size:10px;}
+.bf-security-callout span{display:block;margin-top:3px;font-size:9px;line-height:1.5;}
+.bf-otp-input{text-align:center;font-size:17px;font-weight:900;letter-spacing:.35em;}
+.bf-success-modal .bf-modal-body{text-align:center;padding:30px 24px;}
+.bf-success-icon{width:54px;height:54px;margin:0 auto 14px;border-radius:50%;display:grid;place-items:center;background:rgb(var(--bf-primary-rgb)/.10);color:var(--bf-primary);box-shadow:0 8px 24px rgb(var(--bf-primary-rgb)/.10);}
+.bf-success-modal h3{margin:0;color:var(--bf-text);font-size:17px;}
+.bf-success-modal p{max-width:360px;margin:8px auto 18px;color:var(--bf-text-2);font-size:10px;line-height:1.6;}
+@media (max-width:600px){
+  .bf-modal-backdrop{padding:12px;}
+  .bf-modal-body{padding:14px;}
+  .bf-modal-footer{padding:11px 14px;}
+  .bf-success-modal .bf-modal-body{padding:25px 18px;}
+}

@@ -314,7 +314,7 @@ export default async function handler(req, res) {
       if (stateError) throw stateError;
 
       await securityEvent(auth.session, 'MFA_DISABLED', { factor_id: factorId });
-      await revokeBuddySessions(auth.session.user_id, 'MFA_DISABLED_REAUTH_REQUIRED');
+      await revokeBuddySessions(auth.session.user_id, 'MFA_DISABLED_REAUTH_REQUIRED', auth.session.id);
 
       return send(res, 200, { ok: true, mfaEnabled: false, reauthRequired: true });
     }

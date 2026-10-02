@@ -434,8 +434,23 @@ async function action({db,companyId,userId,sessionId,currentUser,userAccess,acti
     assertPermission(userAccess,'users_roles','manage');if(!userAccess.isAdmin)throw Object.assign(new Error('ADMIN_REQUIRED'),{status:403,code:'ADMIN_REQUIRED'});const target=clean(p.user_id,80),password=String(p.temporary_password||'');await assertTargetIsNotAccountOwner(db,companyId,target);if(password.length<8)throw Object.assign(new Error('INVALID_PASSWORD'),{status:400,code:'INVALID_PASSWORD'});const emp=await db.from('developer_company_employees').select('user_id').eq('company_id',companyId).eq('user_id',target).maybeSingle();if(emp.error)throw emp.error;if(!emp.data)throw Object.assign(new Error('USER_NOT_FOUND'),{status:404,code:'USER_NOT_FOUND'});const u=await db.auth.admin.updateUserById(target,{password});if(u.error)throw u.error;await db.from('developer_company_employees').update({force_password_change:Boolean(p.force_password_change),updated_by:userId,updated_at:new Date().toISOString()}).eq('company_id',companyId).eq('user_id',target);await db.from('company_portal_user_access').upsert({company_id:companyId,user_id:target,force_password_change:Boolean(p.force_password_change),updated_at:new Date().toISOString()},{onConflict:'company_id,user_id'});await db.from('security_sessions').update({status:'revoked',revoked_at:new Date().toISOString(),revoke_reason:'PASSWORD_RESET_BY_COMPANY_ADMIN'}).eq('company_id',companyId).eq('user_id',target).eq('status','active');await audit(db,{companyId,userId,moduleKey:'users_roles',actionType:'password_reset',entityType:'user',entityId:target,description:'Admin reset user password and revoked active sessions'});return {ok:true};
   }
   if(actionName==='change_password'){
-    const current=String(p.current_password||''),next=String(p.new_password||'');if(current.length<1||next.length<8)throw Object.assign(new Error('INVALID_PASSWORD'),{status:400,code:'INVALID_PASSWORD'});if(!SUPABASE_URL||!SERVICE_KEY)throw new Error('AUTH_ENV_MISSING');const profile=await db.from('profiles').select('email').eq('id',userId).maybeSingle();if(profile.error)throw profile.error;const email=profile.data?.email||currentUser?.email;if(!email)throw Object.assign(new Error('EMAIL_NOT_FOUND'),{status:400,code:'EMAIL_NOT_FOUND'});const verifier=createClient(SUPABASE_URL,SERVICE_KEY,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}});const sign=await verifier.auth.signInWithPassword({email,password:current});if(sign.error||sign.data?.user?.id!==userId)throw Object.assign(new Error('CURRENT_PASSWORD_INVALID'),{status:401,code:'CURRENT_PASSWORD_INVALID'});const u=await db.auth.admin.updateUserById(userId,{password:next});if(u.error)throw u.error;await db.from('security_sessions').update({status:'revoked',revoked_at:new Date().toISOString(),revoke_reason:'PASSWORD_CHANGED'}).eq('company_id',companyId).eq('user_id',userId).eq('status','active').neq('id',sessionId);await audit(db,{companyId,userId,moduleKey:'profile',actionType:'password_change',entityType:'user',entityId:userId,description:'User changed password'});return {ok:true};
-  }
+  const current=String(p.current_password||''),next=String(p.new_password||'');
+  const validPassword=/^(?=.{8,64}$)(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[^A-Za-z0-9\s]).*$/.test(next);
+  if(current.length<1||!validPassword)throw Object.assign(new Error('INVALID_PASSWORD'),{status:400,code:'INVALID_PASSWORD'});
+  if(!SUPABASE_URL||!SERVICE_KEY)throw new Error('AUTH_ENV_MISSING');
+  const profile=await db.from('profiles').select('email').eq('id',userId).maybeSingle();
+  if(profile.error)throw profile.error;
+  const email=profile.data?.email||currentUser?.email;
+  if(!email)throw Object.assign(new Error('EMAIL_NOT_FOUND'),{status:400,code:'EMAIL_NOT_FOUND'});
+  const verifier=createClient(SUPABASE_URL,SERVICE_KEY,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}});
+  const sign=await verifier.auth.signInWithPassword({email,password:current});
+  if(sign.error||sign.data?.user?.id!==userId)throw Object.assign(new Error('CURRENT_PASSWORD_INVALID'),{status:401,code:'CURRENT_PASSWORD_INVALID'});
+  const u=await db.auth.admin.updateUserById(userId,{password:next});
+  if(u.error)throw u.error;
+  await db.from('security_sessions').update({status:'revoked',revoked_at:new Date().toISOString(),revoke_reason:'PASSWORD_CHANGED'}).eq('company_id',companyId).eq('user_id',userId).eq('status','active').neq('id',sessionId);
+  await audit(db,{companyId,userId,moduleKey:'profile',actionType:'password_change',entityType:'user',entityId:userId,description:'User changed password'});
+  return {ok:true};
+}
   if(actionName==='revoke_other_sessions'){
     const r=await db.from('security_sessions').update({status:'revoked',revoked_at:new Date().toISOString(),revoke_reason:'USER_REVOKED_OTHER_SESSIONS'}).eq('company_id',companyId).eq('user_id',userId).eq('status','active').neq('id',sessionId);if(r.error)throw r.error;await audit(db,{companyId,userId,moduleKey:'profile',actionType:'session_revoke',entityType:'user',entityId:userId,description:'User revoked other sessions'});return {ok:true};
   }
