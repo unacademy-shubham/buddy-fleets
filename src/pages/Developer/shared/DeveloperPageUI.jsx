@@ -254,12 +254,17 @@ export function Button({
   const styles = {
     default:
       'border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] text-[var(--bf-dev-text-2)] hover:bg-[var(--bf-dev-surface-2)] hover:text-[var(--bf-dev-text)]',
+    /*
+      Page Builder Preview is the master action-button treatment.
+      Keep all page-level action variants visually identical so
+      theme-color changes flow through the same glossy control.
+    */
     header:
-      'border-white/30 bg-white/12 text-white hover:border-white/45 hover:bg-white/20 hover:text-white',
+      'border-white/30 bg-white/12 text-white shadow-[inset_0_1px_0_rgba(255,255,255,.14),0_1px_2px_rgba(0,0,0,.08)] hover:border-white/45 hover:bg-white/20 hover:text-white',
     pageBand:
-      'border-white/30 bg-white/12 text-white hover:border-white/45 hover:bg-white/20 hover:text-white',
+      'border-white/30 bg-white/12 text-white shadow-[inset_0_1px_0_rgba(255,255,255,.14),0_1px_2px_rgba(0,0,0,.08)] hover:border-white/45 hover:bg-white/20 hover:text-white',
     primary:
-      'border-[var(--bf-dev-primary)] bg-[var(--bf-dev-primary)] text-white hover:bg-[var(--bf-dev-primary-strong)]',
+      'border-white/30 bg-white/12 text-white shadow-[inset_0_1px_0_rgba(255,255,255,.14),0_1px_2px_rgba(0,0,0,.08)] hover:border-white/45 hover:bg-white/20 hover:text-white',
     success:
       'border-emerald-500 bg-emerald-500 text-white hover:bg-emerald-600',
     danger:

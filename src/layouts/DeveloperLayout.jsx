@@ -4745,7 +4745,7 @@ function UserAvatar({
         <img
           src="/favicon.svg"
           alt="Buddy Fleets"
-          className="h-[72%] w-[72%] rounded-[22%] object-cover"
+          className="h-full w-full rounded-full object-cover"
         />
       )}
 
