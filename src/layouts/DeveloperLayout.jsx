@@ -849,6 +849,28 @@ function writeThemeConfig(
 }
 
 
+function getDisplayName(currentUser) {
+  const candidate =
+    currentUser?.name ||
+    currentUser?.fullName ||
+    '';
+
+  const normalized = String(candidate).trim();
+  const email = String(currentUser?.email || '').trim();
+
+  if (!normalized || (email && normalized.toLowerCase() === email.toLowerCase())) {
+    return 'Name not set';
+  }
+
+  return normalized;
+}
+
+
+function getDisplayCompanyName(currentUser) {
+  return String(currentUser?.companyName || '').trim() || 'Buddy Fleets';
+}
+
+
 function getInitials(value) {
   const text =
     String(value || '')
@@ -4661,9 +4683,10 @@ function UserAvatar({
   showStatus = false,
 }) {
   const name =
-    currentUser?.name ||
-    currentUser?.fullName ||
-    'Super Admin';
+    getDisplayName(currentUser);
+
+  const hasRealName =
+    name !== 'Name not set';
 
   const avatarUrl =
     currentUser?.avatar_url ||
@@ -4673,6 +4696,12 @@ function UserAvatar({
     currentUser?.image ||
     null;
 
+  const [imageFailed, setImageFailed] = useState(false);
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [avatarUrl]);
+
   const sizeClass =
     size === 'lg'
       ? 'h-14 w-14'
@@ -4680,6 +4709,8 @@ function UserAvatar({
         ? 'h-9 w-9'
         : 'h-10 w-10';
 
+  const showPhoto = Boolean(avatarUrl) && !imageFailed;
+  const showInitials = !showPhoto && hasRealName;
 
   return (
     <div
@@ -4690,7 +4721,7 @@ function UserAvatar({
           shrink-0
           items-center
           justify-center
-          overflow-visible
+          overflow-hidden
           rounded-full
           border
           border-[var(--bf-border)]
@@ -4701,27 +4732,21 @@ function UserAvatar({
         sizeClass
       )}
     >
-      {avatarUrl ? (
+      {showPhoto ? (
         <img
-          src={
-            avatarUrl
-          }
-          alt={
-            name
-          }
-          className="
-            h-full
-            w-full
-            rounded-full
-            object-cover
-          "
+          src={avatarUrl}
+          alt={name === 'Name not set' ? 'User profile' : name}
+          onError={() => setImageFailed(true)}
+          className="h-full w-full rounded-full object-cover"
         />
+      ) : showInitials ? (
+        <span>{getInitials(name)}</span>
       ) : (
-        <span>
-          {getInitials(
-            name
-          )}
-        </span>
+        <img
+          src="/favicon.svg"
+          alt="Buddy Fleets"
+          className="h-[72%] w-[72%] rounded-[22%] object-cover"
+        />
       )}
 
       {showStatus && (
@@ -4744,7 +4769,6 @@ function UserAvatar({
   );
 }
 
-
 function ProfilePopover({
   currentUser,
   onLogout,
@@ -4752,9 +4776,7 @@ function ProfilePopover({
 }) {
   const navigate = useNavigate();
   const displayName =
-    currentUser?.name ||
-    currentUser?.fullName ||
-    'Super Admin';
+    getDisplayName(currentUser);
 
   const email =
     currentUser?.email ||
@@ -5075,7 +5097,7 @@ function SessionCountdown() {
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
   return (
-    <div className="hidden min-w-[112px] rounded-md border border-white/15 bg-black/10 px-2.5 py-1.5 text-center xl:block">
+    <div className="hidden min-w-[112px] rounded-md border border-white/15 bg-black/10 px-2.5 py-1.5 text-center xl:flex xl:flex-col xl:items-center xl:justify-center">
       <div className="text-[8px] font-bold uppercase tracking-[.12em] text-[var(--bf-header-muted)]">Session</div>
       <div className="text-[11px] font-bold tabular-nums text-[var(--bf-header-text)]">{String(minutes).padStart(2,'0')}:{String(seconds).padStart(2,'0')}</div>
     </div>
@@ -5111,9 +5133,10 @@ function Header({
 
 
   const name =
-    currentUser?.name ||
-    currentUser?.fullName ||
-    'Super Admin';
+    getDisplayName(currentUser);
+
+  const companyName =
+    getDisplayCompanyName(currentUser);
 
 
   const horizontal =
@@ -5513,14 +5536,39 @@ function Header({
               <span
                 className="
                   hidden
-                  max-w-[145px]
-                  truncate
-                  text-[13px]
-                  font-semibold
-                  xl:block
+                  min-w-0
+                  max-w-[175px]
+                  flex-col
+                  items-start
+                  justify-center
+                  leading-none
+                  xl:flex
                 "
               >
-                {name}
+                <span
+                  className="
+                    max-w-full
+                    truncate
+                    text-[12px]
+                    font-semibold
+                    text-[var(--bf-header-text)]
+                  "
+                >
+                  {name}
+                </span>
+
+                <span
+                  className="
+                    mt-1
+                    max-w-full
+                    truncate
+                    text-[9px]
+                    font-medium
+                    text-[var(--bf-header-muted)]
+                  "
+                >
+                  {companyName}
+                </span>
               </span>
 
               <UserAvatar

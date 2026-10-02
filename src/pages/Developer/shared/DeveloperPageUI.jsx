@@ -255,7 +255,7 @@ export function Button({
     default:
       'border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] text-[var(--bf-dev-text-2)] hover:bg-[var(--bf-dev-surface-2)] hover:text-[var(--bf-dev-text)]',
     header:
-      'border-[var(--bf-dev-primary)] bg-[var(--bf-dev-primary)] text-white hover:bg-[var(--bf-dev-primary-strong)]',
+      'border-white/30 bg-white/12 text-white hover:border-white/45 hover:bg-white/20 hover:text-white',
     pageBand:
       'border-white/30 bg-white/12 text-white hover:border-white/45 hover:bg-white/20 hover:text-white',
     primary:

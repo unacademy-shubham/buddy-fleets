@@ -1553,6 +1553,24 @@ function buildCurrentUser({
           ?.mobile ||
         null,
 
+      avatarUrl:
+        authUser
+          ?.user_metadata
+          ?.avatar_url ||
+        authUser
+          ?.user_metadata
+          ?.avatarUrl ||
+        authUser
+          ?.user_metadata
+          ?.photoURL ||
+        authUser
+          ?.user_metadata
+          ?.photo_url ||
+        authUser
+          ?.user_metadata
+          ?.picture ||
+        null,
+
       role:
         'SUPER_ADMIN',
 
@@ -1623,6 +1641,24 @@ function buildCurrentUser({
       mobile:
         profile
           ?.mobile ||
+        null,
+
+      avatarUrl:
+        authUser
+          ?.user_metadata
+          ?.avatar_url ||
+        authUser
+          ?.user_metadata
+          ?.avatarUrl ||
+        authUser
+          ?.user_metadata
+          ?.photoURL ||
+        authUser
+          ?.user_metadata
+          ?.photo_url ||
+        authUser
+          ?.user_metadata
+          ?.picture ||
         null,
 
       role:
@@ -1707,6 +1743,24 @@ function buildCurrentUser({
     mobile:
       profile
         ?.mobile ||
+      null,
+
+    avatarUrl:
+      authUser
+        ?.user_metadata
+        ?.avatar_url ||
+      authUser
+        ?.user_metadata
+        ?.avatarUrl ||
+      authUser
+        ?.user_metadata
+        ?.photoURL ||
+      authUser
+        ?.user_metadata
+        ?.photo_url ||
+      authUser
+        ?.user_metadata
+        ?.picture ||
       null,
 
     role:
