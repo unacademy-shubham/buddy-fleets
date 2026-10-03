@@ -25,7 +25,7 @@ export default function ServiceHealthPage() {
       <section className="bg-[var(--bf-dev-primary)] px-4 pb-8 pt-6 text-white sm:px-6 lg:px-8">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div><h1 className="text-[clamp(24px,2vw,30px)] font-semibold tracking-[-.03em]">Service Health</h1><p className="mt-1.5 max-w-3xl text-[13px] leading-5 text-white/80">Live server-side health probes for tenant data, sessions, Fleet Packs, modules, entitlements, CMS and Part 05 platform foundations.</p></div>
-          <button type="button" onClick={load} disabled={loading} className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-white/20 bg-white/10 px-4 text-[11px] font-bold text-white disabled:opacity-50"><RefreshCw size={14} className={loading ? 'animate-spin' : ''} />Refresh</button>
+          <button type="button" onClick={load} disabled={loading} className="inline-flex min-h-[32px] items-center justify-center gap-1.5 rounded-[4px] border border-white/30 bg-white/12 px-3 py-1.5 text-[10px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,.14),0_1px_2px_rgba(0,0,0,.08)] transition hover:border-white/45 hover:bg-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"><RefreshCw size={14} className={loading ? 'animate-spin' : ''} />Refresh</button>
         </div>
       </section>
 

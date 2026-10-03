@@ -42,21 +42,23 @@ const card = 'rounded-xl border border-[var(--bf-dev-border)] bg-[var(--bf-dev-s
 const input = 'h-10 w-full rounded-lg border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] px-3 text-[12px] text-[var(--bf-dev-text)] outline-none focus:border-[var(--bf-dev-primary)]';
 const label = 'space-y-1.5 text-[10px] font-semibold uppercase tracking-[.07em] text-[var(--bf-dev-text-3)]';
 
-function Button({ children, primary = false, danger = false, icon: Icon, disabled = false, onClick, type = 'button' }) {
+function Button({ children, primary = false, danger = false, header = false, icon: Icon, disabled = false, onClick, type = 'button' }) {
   return (
     <button
       type={type}
       disabled={disabled}
       onClick={onClick}
-      className={`inline-flex min-h-9 items-center justify-center gap-2 rounded-lg border px-3 text-[11px] font-bold transition disabled:cursor-not-allowed disabled:opacity-50 ${
-        primary
-          ? 'border-[var(--bf-dev-primary)] bg-[var(--bf-dev-primary)] text-white'
-          : danger
-            ? 'border-rose-500/30 bg-rose-500/10 text-rose-500'
-            : 'border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] text-[var(--bf-dev-text-2)] hover:text-[var(--bf-dev-text)]'
+      className={`inline-flex items-center justify-center gap-2 border px-3 font-bold transition disabled:cursor-not-allowed disabled:opacity-50 ${
+        header
+          ? 'min-h-[32px] rounded-[4px] text-[10px] border-white/30 bg-white/12 text-white shadow-[inset_0_1px_0_rgba(255,255,255,.14),0_1px_2px_rgba(0,0,0,.08)] hover:border-white/45 hover:bg-white/20 hover:text-white'
+          : 'min-h-9 rounded-lg text-[11px] ' + (primary
+            ? 'border-[var(--bf-dev-primary)] bg-[var(--bf-dev-primary)] text-white'
+            : danger
+              ? 'border-rose-500/30 bg-rose-500/10 text-rose-500'
+              : 'border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] text-[var(--bf-dev-text-2)] hover:text-[var(--bf-dev-text)]')
       }`}
     >
-      {Icon ? <Icon size={14} /> : null}
+      {Icon ? <Icon size={header ? 13 : 14} /> : null}
       {children}
     </button>
   );
@@ -225,7 +227,7 @@ export default function DeveloperPlatformToolsPage() {
             <h1 className="text-[clamp(24px,2vw,30px)] font-semibold tracking-[-.03em]">Platform Tools & Add-ons</h1>
             <p className="mt-1.5 max-w-3xl text-[13px] leading-5 text-white/80">Feature flags, audited company preview, dashboard widgets, export queue, maintenance controls and final platform operations.</p>
           </div>
-          <Button icon={RefreshCw} onClick={load} disabled={loading}>Refresh</Button>
+          <Button header icon={RefreshCw} onClick={load} disabled={loading}>Refresh</Button>
         </div>
       </section>
 

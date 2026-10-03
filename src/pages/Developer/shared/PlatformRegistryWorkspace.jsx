@@ -30,14 +30,15 @@ const input = 'h-10 w-full rounded-lg border border-[var(--bf-dev-border)] bg-[v
 const textarea = 'min-h-[92px] w-full rounded-lg border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] px-3 py-2 text-[12px] text-[var(--bf-dev-text)] outline-none focus:border-[var(--bf-dev-primary)]';
 const label = 'block text-[10px] font-semibold text-[var(--bf-dev-text-2)]';
 
-function Button({ children, primary = false, danger = false, icon: Icon, ...props }) {
+function Button({ children, primary = false, danger = false, header = false, icon: Icon, ...props }) {
+  const headerStyle = 'border-white/30 bg-white/12 text-white shadow-[inset_0_1px_0_rgba(255,255,255,.14),0_1px_2px_rgba(0,0,0,.08)] hover:border-white/45 hover:bg-white/20 hover:text-white';
   return (
     <button
       type="button"
       {...props}
-      className={`inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg border px-3 text-[11px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${primary ? 'border-[var(--bf-dev-primary)] bg-[var(--bf-dev-primary)] text-white' : danger ? 'border-rose-500/30 bg-rose-500/10 text-rose-500' : 'border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] text-[var(--bf-dev-text-2)] hover:bg-[var(--bf-dev-surface-2)]'}`}
+      className={`inline-flex items-center justify-center gap-1.5 border px-3 font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${header ? 'min-h-[32px] rounded-[4px] text-[10px] ' + headerStyle : 'min-h-9 rounded-lg text-[11px] ' + (primary ? 'border-[var(--bf-dev-primary)] bg-[var(--bf-dev-primary)] text-white' : danger ? 'border-rose-500/30 bg-rose-500/10 text-rose-500' : 'border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] text-[var(--bf-dev-text-2)] hover:bg-[var(--bf-dev-surface-2)]')}`}
     >
-      {Icon && <Icon size={14} />}{children}
+      {Icon && <Icon size={header ? 13 : 14} />}{children}
     </button>
   );
 }
@@ -48,7 +49,7 @@ function Header({ title, description, loading, reload }) {
       <section className="bg-[var(--bf-dev-primary)] px-5 pb-9 pt-6 text-white sm:px-7 lg:px-8">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div><h1 className="text-[clamp(24px,2vw,31px)] font-semibold tracking-[-.025em]">{title}</h1><p className="mt-1.5 max-w-4xl text-[13px] leading-5 text-white/80">{description}</p></div>
-          <Button icon={RefreshCcw} onClick={reload} disabled={loading}>{loading ? 'Refreshing…' : 'Refresh'}</Button>
+          <Button header icon={RefreshCcw} onClick={reload} disabled={loading}>{loading ? 'Refreshing…' : 'Refresh'}</Button>
         </div>
       </section>
     </>

@@ -158,16 +158,34 @@ export function PageHeader({
           </div>
 
           {actions && (
-            <div
-              className="
-                flex
-                flex-wrap
-                items-center
-                gap-2
-              "
-            >
-              {actions}
-            </div>
+            <>
+              <style>{`
+                .bf-dev-page-actions button {
+                  min-height: 32px !important;
+                  border-radius: 4px !important;
+                  border-color: rgba(255,255,255,.30) !important;
+                  background: rgba(255,255,255,.12) !important;
+                  color: #fff !important;
+                  box-shadow: inset 0 1px 0 rgba(255,255,255,.14), 0 1px 2px rgba(0,0,0,.08) !important;
+                }
+                .bf-dev-page-actions button:hover {
+                  border-color: rgba(255,255,255,.45) !important;
+                  background: rgba(255,255,255,.20) !important;
+                  color: #fff !important;
+                }
+              `}</style>
+              <div
+                className="
+                  bf-dev-page-actions
+                  flex
+                  flex-wrap
+                  items-center
+                  gap-2
+                "
+              >
+                {actions}
+              </div>
+            </>
           )}
         </div>
       </div>
