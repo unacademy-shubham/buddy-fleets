@@ -9,6 +9,7 @@ import {
 import SiteSelector from './SiteSelector';
 import PortalFooter from './PortalFooter';
 import UniversalDashboardShell from './UniversalDashboardShell';
+import TrialExpiredPricing from './TrialExpiredPricing';
 import { useClientPortal } from '../ClientPortalContext';
 import { getVisibleNavigation, iconFor } from '../config/portalNavigation';
 
@@ -89,6 +90,7 @@ export default function ClientPortalShell({ children }) {
     userAccess,
     runtimeNavigation,
     runtime,
+    data,
     demo,
     basePath,
     onLogout,
@@ -96,6 +98,24 @@ export default function ClientPortalShell({ children }) {
 
   const navigate = useNavigate();
   const location = useLocation();
+
+  const subscriptionStatus =
+    String(
+      data?.billing?.subscription?.status ||
+      currentUser?.companyStatus ||
+      company?.status ||
+      ''
+    ).toLowerCase();
+
+  const isExpiredTrial =
+    runtime?.lifecycleState === 'expired' &&
+    (subscriptionStatus === 'trial_expired' || subscriptionStatus === 'trial_active');
+
+  const normalizedPath = location.pathname.replace(/\/+$/, '') || '/';
+  const normalizedBasePath = basePath.replace(/\/+$/, '') || '/';
+  const isDashboardRoute =
+    normalizedPath === normalizedBasePath ||
+    normalizedPath === `${normalizedBasePath}/dashboard`;
 
   const packKey = company?.fleetPack || company?.fleet_pack || null;
   const allowedKeys = userAccess?.moduleKeys || [];
@@ -206,15 +226,30 @@ export default function ClientPortalShell({ children }) {
 
   const content = (
     <>
-      {runtime?.lifecycleAccess === 'read_only' ? (
-        <div className="bf-note mb-4 flex items-center gap-2">
-          <ShieldCheck size={14} />
-          <div>
-            <strong>Read-only access</strong>
-            <span className="ml-2">
-              This company lifecycle currently allows viewing, printing and exporting only.
-            </span>
+      {isExpiredTrial && isDashboardRoute ? (
+        <TrialExpiredPricing />
+      ) : runtime?.lifecycleAccess === 'read_only' ? (
+        <div className="bf-note mb-4 flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-2">
+            <ShieldCheck size={14} className="shrink-0" />
+            <div>
+              <strong>{isExpiredTrial ? 'Trial expired · Read-only access' : 'Read-only access'}</strong>
+              <span className="ml-2">
+                {isExpiredTrial
+                  ? 'Your data remains available, but operational changes are disabled until a subscription is activated.'
+                  : 'This company lifecycle currently allows viewing, printing and exporting only.'}
+              </span>
+            </div>
           </div>
+          {isExpiredTrial ? (
+            <button
+              type="button"
+              className="bf-btn bf-btn-secondary shrink-0"
+              onClick={() => navigate(`${basePath}/dashboard`)}
+            >
+              View Plans
+            </button>
+          ) : null}
         </div>
       ) : null}
       {children}

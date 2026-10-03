@@ -924,8 +924,8 @@ export function getSecureAuthMessage(
   ) {
     case 'ACCOUNT_LOCKED':
       return (
-        'This account has been security locked. ' +
-        'Please contact your authorized administrator.'
+        'Your account has been locked due to multiple invalid password attempts. ' +
+        'Please reset your password or contact your administrator.'
       );
 
 

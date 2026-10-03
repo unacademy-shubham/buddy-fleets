@@ -274,6 +274,25 @@ function genericAuthFailure(
 }
 
 
+function accountLockedFailure(
+  request: Request
+) {
+  return jsonResponse(
+    request,
+    423,
+    {
+      ok: false,
+
+      code:
+        'ACCOUNT_LOCKED',
+
+      message:
+        'Your account has been locked due to multiple invalid password attempts. Reset your password or contact your administrator.',
+    }
+  );
+}
+
+
 /* ============================================================
    CRYPTO HELPERS
 ============================================================ */
@@ -2521,7 +2540,7 @@ Deno.serve(
           });
 
 
-          return genericAuthFailure(
+          return accountLockedFailure(
             request
           );
         }
@@ -2611,14 +2630,39 @@ Deno.serve(
         )
       ) {
         try {
-          await registerFailedPassword({
-            userId:
-              resolvedUserId,
+          const failedLoginState =
+            await registerFailedPassword({
+              userId:
+                resolvedUserId,
 
-            ipAddress,
+              ipAddress,
 
-            userAgent,
-          });
+              userAgent,
+            });
+
+
+          /*
+            The failed-login RPC locks the account on the configured
+            threshold (currently 3 failed password attempts). Surface
+            that state immediately on the attempt that causes the lock,
+            instead of making the user submit one more login request.
+          */
+
+          if (
+            failedLoginState &&
+            typeof failedLoginState ===
+              'object' &&
+            !Array.isArray(
+              failedLoginState
+            ) &&
+            (failedLoginState as {
+              locked?: boolean;
+            }).locked === true
+          ) {
+            return accountLockedFailure(
+              request
+            );
+          }
         } catch (
           error
         ) {
@@ -2778,7 +2822,7 @@ Deno.serve(
         });
 
 
-        return genericAuthFailure(
+        return accountLockedFailure(
           request
         );
       }
