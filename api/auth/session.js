@@ -1524,6 +1524,23 @@ function buildCurrentUser({
       ?.mfa_enabled ===
     true;
 
+  const userMetadata =
+    authUser?.user_metadata ||
+    {};
+
+  const avatarUrl =
+    userMetadata.avatar_url ||
+    userMetadata.avatarUrl ||
+    userMetadata.photoURL ||
+    userMetadata.photo_url ||
+    userMetadata.picture ||
+    null;
+
+  const gender =
+    userMetadata.gender ||
+    userMetadata.sex ||
+    null;
+
 
   /* ==========================================================
      DEVELOPER
@@ -1553,23 +1570,9 @@ function buildCurrentUser({
           ?.mobile ||
         null,
 
-      avatarUrl:
-        authUser
-          ?.user_metadata
-          ?.avatar_url ||
-        authUser
-          ?.user_metadata
-          ?.avatarUrl ||
-        authUser
-          ?.user_metadata
-          ?.photoURL ||
-        authUser
-          ?.user_metadata
-          ?.photo_url ||
-        authUser
-          ?.user_metadata
-          ?.picture ||
-        null,
+      avatarUrl,
+
+      gender,
 
       role:
         'SUPER_ADMIN',
@@ -1643,23 +1646,9 @@ function buildCurrentUser({
           ?.mobile ||
         null,
 
-      avatarUrl:
-        authUser
-          ?.user_metadata
-          ?.avatar_url ||
-        authUser
-          ?.user_metadata
-          ?.avatarUrl ||
-        authUser
-          ?.user_metadata
-          ?.photoURL ||
-        authUser
-          ?.user_metadata
-          ?.photo_url ||
-        authUser
-          ?.user_metadata
-          ?.picture ||
-        null,
+      avatarUrl,
+
+      gender,
 
       role:
         'INTERNAL_TEAM',
@@ -1745,23 +1734,9 @@ function buildCurrentUser({
         ?.mobile ||
       null,
 
-    avatarUrl:
-      authUser
-        ?.user_metadata
-        ?.avatar_url ||
-      authUser
-        ?.user_metadata
-        ?.avatarUrl ||
-      authUser
-        ?.user_metadata
-        ?.photoURL ||
-      authUser
-        ?.user_metadata
-        ?.photo_url ||
-      authUser
-        ?.user_metadata
-        ?.picture ||
-      null,
+    avatarUrl,
+
+    gender,
 
     role:
       'COMPANY_USER',

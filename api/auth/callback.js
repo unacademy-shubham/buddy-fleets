@@ -1211,6 +1211,23 @@ function buildSafeCurrentUser({
       ?.mfa_enabled ===
     true;
 
+  const userMetadata =
+    authUser?.user_metadata ||
+    {};
+
+  const avatarUrl =
+    userMetadata.avatar_url ||
+    userMetadata.avatarUrl ||
+    userMetadata.photoURL ||
+    userMetadata.photo_url ||
+    userMetadata.picture ||
+    null;
+
+  const gender =
+    userMetadata.gender ||
+    userMetadata.sex ||
+    null;
+
   if (
     authorization.portalType ===
     'developer'
@@ -1234,6 +1251,10 @@ function buildSafeCurrentUser({
         profile
           ?.mobile ||
         null,
+
+      avatarUrl,
+
+      gender,
 
       role:
         'SUPER_ADMIN',
@@ -1302,6 +1323,10 @@ function buildSafeCurrentUser({
         profile
           ?.mobile ||
         null,
+
+      avatarUrl,
+
+      gender,
 
       role:
         'INTERNAL_TEAM',
@@ -1384,6 +1409,10 @@ function buildSafeCurrentUser({
       profile
         ?.mobile ||
       null,
+
+    avatarUrl,
+
+    gender,
 
     role:
       'COMPANY_USER',

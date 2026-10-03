@@ -906,6 +906,98 @@ function getInitials(value) {
 }
 
 
+function formatRoleLabel(value) {
+  const raw =
+    String(value || '')
+      .trim();
+
+  if (!raw) {
+    return 'Not assigned';
+  }
+
+  const normalized =
+    raw
+      .replace(/[_-]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLowerCase();
+
+  return normalized
+    .split(' ')
+    .filter(Boolean)
+    .map((part) =>
+      part.charAt(0).toUpperCase() +
+      part.slice(1)
+    )
+    .join(' ');
+}
+
+
+function getCurrentUserRoleLabel(currentUser) {
+  return formatRoleLabel(
+    currentUser?.roleName ||
+    currentUser?.companyRole ||
+    currentUser?.role ||
+    currentUser?.roles?.[0] ||
+    ''
+  );
+}
+
+
+function getCurrentUserGender(currentUser) {
+  const raw =
+    String(
+      currentUser?.gender ||
+      currentUser?.sex ||
+      ''
+    )
+      .trim()
+      .toLowerCase();
+
+  if ([
+    'female',
+    'f',
+    'woman',
+    'girl',
+  ].includes(raw)) {
+    return 'female';
+  }
+
+  if ([
+    'male',
+    'm',
+    'man',
+    'boy',
+  ].includes(raw)) {
+    return 'male';
+  }
+
+  return 'neutral';
+}
+
+
+function getSidebarNameFontSize(name) {
+  const length =
+    Array.from(
+      String(name || '')
+    ).length;
+
+  if (length <= 18) {
+    return 14;
+  }
+
+  if (length <= 24) {
+    return 12.5;
+  }
+
+  if (length <= 32) {
+    return 11;
+  }
+
+  return 9.5;
+}
+
+
 function nodeMatchesPath(
   pathname,
   node
@@ -1209,20 +1301,32 @@ function buildVars({
     config.sidebarStyle === 'color' ||
     config.sidebarStyle === 'gradient';
 
+  const darkSidebar =
+    config.sidebarStyle === 'dark';
+
+  /*
+     Menu contrast is driven by the selected MENU style, not the
+     page theme. This keeps Light Menu readable in Dark Theme and
+     Dark/Color/Gradient menus readable in Light Theme.
+  */
   const sidebarActiveText =
-    coloredSidebar
+    coloredSidebar || darkSidebar
       ? '#FFFFFF'
       : primary;
 
   const sidebarHoverBg =
     coloredSidebar
       ? 'rgba(255,255,255,.12)'
-      : `rgb(${rgb.r} ${rgb.g} ${rgb.b} / .08)`;
+      : darkSidebar
+        ? `rgb(${rgb.r} ${rgb.g} ${rgb.b} / .14)`
+        : `rgb(${rgb.r} ${rgb.g} ${rgb.b} / .08)`;
 
   const sidebarActiveBg =
     coloredSidebar
       ? 'rgba(255,255,255,.16)'
-      : `rgb(${rgb.r} ${rgb.g} ${rgb.b} / .10)`;
+      : darkSidebar
+        ? `rgb(${rgb.r} ${rgb.g} ${rgb.b} / .22)`
+        : `rgb(${rgb.r} ${rgb.g} ${rgb.b} / .10)`;
 
 
   /* ========================================================
@@ -1587,16 +1691,30 @@ function GlobalStyle() {
           }
         }
 
-        .bf-dev-sidebar-parent:hover,
-        .bf-dev-sidebar-parent:hover svg,
-        .bf-dev-sidebar-child:hover {
+        /*
+          Sidebar links/buttons must use sidebar tokens explicitly.
+          Relying on inherited page text caused the menu labels to
+          become unreadable when Theme and Menu styles were mixed.
+        */
+        .bf-dev-sidebar-bg .bf-dev-sidebar-parent,
+        .bf-dev-sidebar-bg .bf-dev-sidebar-child {
+          color: var(--bf-sidebar-text) !important;
+        }
+
+        .bf-dev-sidebar-bg .bf-dev-sidebar-parent svg {
+          color: var(--bf-sidebar-muted) !important;
+        }
+
+        .bf-dev-sidebar-bg .bf-dev-sidebar-parent:hover,
+        .bf-dev-sidebar-bg .bf-dev-sidebar-parent:hover svg,
+        .bf-dev-sidebar-bg .bf-dev-sidebar-child:hover {
           color: var(--bf-sidebar-active-text) !important;
           background: var(--bf-sidebar-hover-bg) !important;
         }
 
-        .bf-dev-sidebar-active,
-        .bf-dev-sidebar-active svg,
-        .bf-dev-sidebar-child[aria-current='page'] {
+        .bf-dev-sidebar-bg .bf-dev-sidebar-active,
+        .bf-dev-sidebar-bg .bf-dev-sidebar-active svg,
+        .bf-dev-sidebar-bg .bf-dev-sidebar-child[aria-current='page'] {
           color: var(--bf-sidebar-active-text) !important;
           background: var(--bf-sidebar-active-bg) !important;
         }
@@ -2271,121 +2389,274 @@ function ChildLink({
    SIDEBAR LAYOUT HELPERS
 ============================================================ */
 
-function SidebarProfile({
-  compact = false,
+function DefaultSidebarAvatar({
+  gender,
 }) {
-  if (compact) {
+  if (gender === 'female') {
     return (
-      <div
-        className="
-          flex
-          justify-center
-          py-5
-        "
+      <svg
+        viewBox="0 0 64 64"
+        aria-hidden="true"
+        className="h-[78%] w-[78%]"
+        fill="none"
       >
-        <div
-          className="
-            relative
-            flex
-            h-10
-            w-10
-            items-center
-            justify-center
-            rounded-full
-            border
-            border-[var(--bf-sidebar-border)]
-            bg-[rgb(var(--bf-primary-rgb)/.10)]
-            text-[10px]
-            font-black
-            text-[var(--bf-primary)]
-          "
-        >
-          SA
+        <path
+          d="M18 31c0-12 6-20 14-20s14 8 14 20c0 3-.5 5.6-1.4 8-3.2-3.8-7.6-6-12.6-6s-9.4 2.2-12.6 6c-.9-2.4-1.4-5-1.4-8Z"
+          fill="currentColor"
+          opacity=".34"
+        />
+        <circle
+          cx="32"
+          cy="26"
+          r="9"
+          fill="currentColor"
+          opacity=".9"
+        />
+        <path
+          d="M12 57c1.8-11.6 9.3-18 20-18s18.2 6.4 20 18H12Z"
+          fill="currentColor"
+          opacity=".9"
+        />
+      </svg>
+    );
+  }
 
-          <span
-            className="
-              bf-dev-online-dot
-              absolute
-              -right-0.5
-              -top-0.5
-              h-2.5
-              w-2.5
-              rounded-full
-              border-2
-              border-[var(--bf-sidebar-solid)]
-              bg-emerald-500
-            "
-          />
-        </div>
-      </div>
+  if (gender === 'male') {
+    return (
+      <svg
+        viewBox="0 0 64 64"
+        aria-hidden="true"
+        className="h-[76%] w-[76%]"
+        fill="none"
+      >
+        <circle
+          cx="32"
+          cy="23"
+          r="10"
+          fill="currentColor"
+          opacity=".9"
+        />
+        <path
+          d="M11 57c2-12.2 10-19 21-19s19 6.8 21 19H11Z"
+          fill="currentColor"
+          opacity=".9"
+        />
+      </svg>
     );
   }
 
   return (
-    <div
-      className="
-        shrink-0
-        border-b
-        border-[var(--bf-sidebar-border)]
-        py-7
-        text-center
-      "
+    <svg
+      viewBox="0 0 64 64"
+      aria-hidden="true"
+      className="h-[76%] w-[76%]"
+      fill="none"
     >
-      <div
-        className="
+      <circle
+        cx="32"
+        cy="23"
+        r="10"
+        fill="currentColor"
+        opacity=".82"
+      />
+      <path
+        d="M11 57c2-12.2 10-19 21-19s19 6.8 21 19H11Z"
+        fill="currentColor"
+        opacity=".82"
+      />
+    </svg>
+  );
+}
+
+
+function SidebarUserAvatar({
+  currentUser,
+  compact = false,
+}) {
+  const avatarUrl =
+    currentUser?.avatar_url ||
+    currentUser?.avatarUrl ||
+    currentUser?.photoURL ||
+    currentUser?.photoUrl ||
+    currentUser?.image ||
+    null;
+
+  const gender =
+    getCurrentUserGender(
+      currentUser
+    );
+
+  const [imageFailed, setImageFailed] =
+    useState(false);
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [avatarUrl]);
+
+  const showPhoto =
+    Boolean(avatarUrl) &&
+    !imageFailed;
+
+  return (
+    <div
+      className={cx(
+        `
           relative
           mx-auto
           flex
-          h-16
-          w-16
+          shrink-0
           items-center
           justify-center
+          overflow-visible
           rounded-full
           border
           border-[var(--bf-sidebar-border)]
           bg-[rgb(var(--bf-primary-rgb)/.10)]
-          text-[13px]
-          font-black
-          text-[var(--bf-primary)]
-        "
-      >
-        SA
+          text-[var(--bf-sidebar-muted)]
+        `,
+        compact
+          ? 'h-10 w-10'
+          : 'h-16 w-16'
+      )}
+    >
+      <div className="h-full w-full overflow-hidden rounded-full">
+        {showPhoto ? (
+          <img
+            src={avatarUrl}
+            alt={`${getDisplayName(currentUser)} profile`}
+            onError={() =>
+              setImageFailed(true)
+            }
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <div
+            className="flex h-full w-full items-center justify-center"
+            aria-label={`${gender} default profile avatar`}
+          >
+            <DefaultSidebarAvatar
+              gender={gender}
+            />
+          </div>
+        )}
+      </div>
 
-        <span
-          className="
+      <span
+        className={cx(
+          `
             bf-dev-online-dot
             absolute
-            -right-0.5
-            -top-0.5
-            h-3
-            w-3
             rounded-full
             border-2
             border-[var(--bf-sidebar-solid)]
             bg-emerald-500
-          "
+          `,
+          compact
+            ? '-right-0.5 -top-0.5 h-2.5 w-2.5'
+            : '-right-0.5 -top-0.5 h-3 w-3'
+        )}
+      />
+    </div>
+  );
+}
+
+
+function SidebarProfile({
+  compact = false,
+  currentUser,
+}) {
+  if (compact) {
+    return (
+      <div
+        className="flex justify-center py-5"
+      >
+        <SidebarUserAvatar
+          currentUser={currentUser}
+          compact
         />
       </div>
+    );
+  }
+
+  const displayName =
+    getDisplayName(currentUser);
+
+  const roleLabel =
+    getCurrentUserRoleLabel(
+      currentUser
+    );
+
+  const companyName =
+    getDisplayCompanyName(
+      currentUser
+    );
+
+  const companyCode =
+    String(
+      currentUser?.companyCode ||
+      currentUser?.company_code ||
+      '—'
+    ).trim() || '—';
+
+  const nameFontSize =
+    getSidebarNameFontSize(
+      displayName
+    );
+
+  return (
+    <div
+      className="shrink-0 border-b border-[var(--bf-sidebar-border)] px-3 py-6 text-center"
+    >
+      <SidebarUserAvatar
+        currentUser={currentUser}
+      />
 
       <div
-        className="
-          mt-3
-          text-[13px]
-          font-bold
-          text-[var(--bf-sidebar-text)]
-        "
+        className="mx-auto mt-3 max-w-full font-extrabold text-[var(--bf-sidebar-text)]"
+        style={{
+          fontSize:
+            `${nameFontSize}px`,
+          lineHeight: 1.2,
+          whiteSpace: 'nowrap',
+          letterSpacing:
+            nameFontSize <= 11
+              ? '-0.02em'
+              : '-0.01em',
+        }}
+        title={displayName}
       >
-        Super Admin
+        {displayName}
       </div>
 
       <div
-        className="
-          mt-0.5
-          text-[10px]
-          text-[var(--bf-sidebar-muted)]
-        "
+        className="mx-auto mt-3 w-full max-w-[218px] space-y-1.5 rounded-md border border-[var(--bf-sidebar-border)] bg-[var(--bf-sidebar-hover-bg)] px-3 py-2.5 text-left"
       >
-        Platform Developer
+        <div className="flex items-start gap-2">
+          <span className="w-[72px] shrink-0 text-[10px] font-semibold text-[var(--bf-sidebar-muted)]">
+            Role
+          </span>
+          <span className="min-w-0 flex-1 text-[10px] font-semibold leading-4 text-[var(--bf-sidebar-text)]">
+            {roleLabel}
+          </span>
+        </div>
+
+        <div className="flex items-start gap-2">
+          <span className="w-[72px] shrink-0 text-[10px] font-semibold text-[var(--bf-sidebar-muted)]">
+            Company
+          </span>
+          <span className="min-w-0 flex-1 break-words text-[10px] font-medium leading-4 text-[var(--bf-sidebar-text)]">
+            {companyName}
+          </span>
+        </div>
+
+        <div className="flex items-start gap-2">
+          <span className="w-[72px] shrink-0 text-[10px] font-semibold text-[var(--bf-sidebar-muted)]">
+            Company Code
+          </span>
+          <span className="min-w-0 flex-1 break-all text-[10px] font-semibold leading-4 text-[var(--bf-sidebar-text)]">
+            {companyCode}
+          </span>
+        </div>
       </div>
     </div>
   );
@@ -2780,6 +3051,7 @@ function Sidebar({
   config,
   mobileOpen,
   setMobileOpen,
+  currentUser,
 }) {
   const location =
     useLocation();
@@ -3041,6 +3313,7 @@ function Sidebar({
               </div>
 
               <SidebarProfile
+                currentUser={currentUser}
                 compact
               />
 
@@ -3318,7 +3591,9 @@ function Sidebar({
 
             {isDefault &&
               visuallyExpanded && (
-                <SidebarProfile />
+                <SidebarProfile
+                  currentUser={currentUser}
+                />
               )}
 
 
@@ -3332,6 +3607,7 @@ function Sidebar({
               isHoverMenu
             ) && (
               <SidebarProfile
+                currentUser={currentUser}
                 compact
               />
             )}
@@ -7830,6 +8106,9 @@ export default function DeveloperLayout({
           }
           setMobileOpen={
             setMobileOpen
+          }
+          currentUser={
+            currentUser
           }
         />
 
