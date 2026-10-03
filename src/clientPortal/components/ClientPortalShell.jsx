@@ -214,10 +214,6 @@ export default function ClientPortalShell({ children }) {
     </>
   );
 
-  const headerLabel = demo ? 'Demo Workspace' : 'Company Portal';
-  const headerSubLabel = companyCode
-    ? `${companyName} • ${companyCode}`
-    : companyName;
 
   const brandSubtitle = demo ? 'Demo Portal' : 'Company Portal';
   const profileMeta = demo
@@ -263,8 +259,8 @@ export default function ClientPortalShell({ children }) {
       menuTree={menuTree}
       brandName="Buddy Fleets"
       brandSubtitle={brandSubtitle}
-      portalLabel={headerLabel}
-      headerSubLabel={headerSubLabel}
+      companyName={companyName}
+      companyCode={companyCode || '—'}
       headerExtra={headerExtra}
       profileActions={profileActions}
       profileRole={role}

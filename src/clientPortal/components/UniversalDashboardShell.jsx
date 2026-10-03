@@ -15,7 +15,6 @@ import {
 
 import {
   Activity,
-  AlignJustify,
   BadgeCheck,
   Bell,
   Blocks,
@@ -34,7 +33,6 @@ import {
   Globe2,
   LayoutDashboard,
   LogOut,
-  Mail,
   Maximize2,
   Minimize2,
   Menu,
@@ -389,6 +387,7 @@ function readThemeConfig() {
     return {
       ...THEME_DEFAULTS,
       ...parsed,
+      direction: 'ltr',
     };
   } catch {
     return {
@@ -409,6 +408,23 @@ function writeThemeConfig(
   } catch {
     // Theme persistence is non-critical.
   }
+}
+
+
+function getDisplayName(currentUser) {
+  const candidate =
+    currentUser?.name ||
+    currentUser?.fullName ||
+    '';
+
+  const normalized = String(candidate).trim();
+  const email = String(currentUser?.email || '').trim();
+
+  if (!normalized || (email && normalized.toLowerCase() === email.toLowerCase())) {
+    return 'Name not set';
+  }
+
+  return normalized;
 }
 
 
@@ -443,6 +459,87 @@ function getInitials(value) {
       ][0]
     }`
   ).toUpperCase();
+}
+
+
+function formatRoleLabel(value) {
+  const raw =
+    String(value || '')
+      .trim();
+
+  if (!raw) {
+    return 'Not assigned';
+  }
+
+  const normalized =
+    raw
+      .replace(/[_-]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLowerCase();
+
+  return normalized
+    .split(' ')
+    .filter(Boolean)
+    .map((part) =>
+      part.charAt(0).toUpperCase() +
+      part.slice(1)
+    )
+    .join(' ');
+}
+
+
+function getCurrentUserGender(currentUser) {
+  const raw =
+    String(
+      currentUser?.gender ||
+      currentUser?.sex ||
+      ''
+    )
+      .trim()
+      .toLowerCase();
+
+  if ([
+    'female',
+    'f',
+    'woman',
+    'girl',
+  ].includes(raw)) {
+    return 'female';
+  }
+
+  if ([
+    'male',
+    'm',
+    'man',
+    'boy',
+  ].includes(raw)) {
+    return 'male';
+  }
+
+  return 'neutral';
+}
+
+
+function getSidebarNameFontSize(name) {
+  const length =
+    Array.from(
+      String(name || '')
+    ).length;
+
+  if (length <= 18) {
+    return 14;
+  }
+
+  if (length <= 24) {
+    return 12.5;
+  }
+
+  if (length <= 32) {
+    return 11;
+  }
+
+  return 9.5;
 }
 
 
@@ -747,6 +844,38 @@ function buildVars({
   }
 
 
+  const coloredSidebar =
+    config.sidebarStyle === 'color' ||
+    config.sidebarStyle === 'gradient';
+
+  const darkSidebar =
+    config.sidebarStyle === 'dark';
+
+  /*
+     Menu contrast is driven by the selected MENU style, not the
+     page theme. This keeps Light Menu readable in Dark Theme and
+     Dark/Color/Gradient menus readable in Light Theme.
+  */
+  const sidebarActiveText =
+    coloredSidebar || darkSidebar
+      ? '#FFFFFF'
+      : primary;
+
+  const sidebarHoverBg =
+    coloredSidebar
+      ? 'rgba(255,255,255,.12)'
+      : darkSidebar
+        ? `rgb(${rgb.r} ${rgb.g} ${rgb.b} / .14)`
+        : `rgb(${rgb.r} ${rgb.g} ${rgb.b} / .08)`;
+
+  const sidebarActiveBg =
+    coloredSidebar
+      ? 'rgba(255,255,255,.16)'
+      : darkSidebar
+        ? `rgb(${rgb.r} ${rgb.g} ${rgb.b} / .22)`
+        : `rgb(${rgb.r} ${rgb.g} ${rgb.b} / .10)`;
+
+
   /* ========================================================
      HEADER COLORS
   ======================================================== */
@@ -897,6 +1026,15 @@ function buildVars({
 
     '--bf-sidebar-border':
       sidebarBorder,
+
+    '--bf-sidebar-active-text':
+      sidebarActiveText,
+
+    '--bf-sidebar-hover-bg':
+      sidebarHoverBg,
+
+    '--bf-sidebar-active-bg':
+      sidebarActiveBg,
 
     '--bf-header-bg':
       headerBg,
@@ -1100,10 +1238,31 @@ function GlobalStyle() {
           }
         }
 
-        .bf-dev-sidebar-parent:hover,
-        .bf-dev-sidebar-parent:hover svg,
-        .bf-dev-sidebar-child:hover {
-          color: var(--bf-primary) !important;
+        /*
+          Sidebar links/buttons must use sidebar tokens explicitly.
+          This keeps all Menu Styles readable in both Light and Dark themes.
+        */
+        .bf-dev-sidebar-bg .bf-dev-sidebar-parent,
+        .bf-dev-sidebar-bg .bf-dev-sidebar-child {
+          color: var(--bf-sidebar-text) !important;
+        }
+
+        .bf-dev-sidebar-bg .bf-dev-sidebar-parent svg {
+          color: var(--bf-sidebar-muted) !important;
+        }
+
+        .bf-dev-sidebar-bg .bf-dev-sidebar-parent:hover,
+        .bf-dev-sidebar-bg .bf-dev-sidebar-parent:hover svg,
+        .bf-dev-sidebar-bg .bf-dev-sidebar-child:hover {
+          color: var(--bf-sidebar-active-text) !important;
+          background: var(--bf-sidebar-hover-bg) !important;
+        }
+
+        .bf-dev-sidebar-bg .bf-dev-sidebar-active,
+        .bf-dev-sidebar-bg .bf-dev-sidebar-active svg,
+        .bf-dev-sidebar-bg .bf-dev-sidebar-child[aria-current='page'] {
+          color: var(--bf-sidebar-active-text) !important;
+          background: var(--bf-sidebar-active-bg) !important;
         }
 
         .bf-dev-horizontal-menu {
@@ -1761,11 +1920,11 @@ function ChildLink({
               rounded-md
               text-[12px]
               transition
-              hover:bg-[rgb(var(--bf-primary-rgb)/.08)]
-              hover:text-[var(--bf-primary)]
+              hover:bg-[var(--bf-sidebar-hover-bg)]
+              hover:text-[var(--bf-sidebar-active-text)]
             `,
             active
-              ? 'bg-[rgb(var(--bf-primary-rgb)/.10)] font-semibold text-[var(--bf-primary)]'
+              ? 'bf-dev-sidebar-active bg-[var(--bf-sidebar-active-bg)] font-semibold text-[var(--bf-sidebar-active-text)]'
               : 'text-[var(--bf-sidebar-text)]'
           )}
         >
@@ -1799,11 +1958,11 @@ function ChildLink({
               rounded-md
               text-[12px]
               transition
-              hover:bg-[rgb(var(--bf-primary-rgb)/.08)]
-              hover:text-[var(--bf-primary)]
+              hover:bg-[var(--bf-sidebar-hover-bg)]
+              hover:text-[var(--bf-sidebar-active-text)]
             `,
             isActive
-              ? 'bg-[rgb(var(--bf-primary-rgb)/.10)] font-semibold text-[var(--bf-primary)]'
+              ? 'bf-dev-sidebar-active bg-[var(--bf-sidebar-active-bg)] font-semibold text-[var(--bf-sidebar-active-text)]'
               : 'text-[var(--bf-sidebar-text)]'
           )
         }
@@ -1863,11 +2022,11 @@ function ChildLink({
               text-[12px]
               transition
               duration-150
-              hover:bg-[rgb(var(--bf-primary-rgb)/.08)]
-              hover:text-[var(--bf-primary)]
+              hover:bg-[var(--bf-sidebar-hover-bg)]
+              hover:text-[var(--bf-sidebar-active-text)]
             `,
             active
-              ? 'bg-[rgb(var(--bf-primary-rgb)/.10)] font-semibold text-[var(--bf-primary)]'
+              ? 'bf-dev-sidebar-active bg-[var(--bf-sidebar-active-bg)] font-semibold text-[var(--bf-sidebar-active-text)]'
               : 'text-[var(--bf-sidebar-text)]'
           )}
           style={{
@@ -1950,11 +2109,11 @@ function ChildLink({
             text-[12px]
             transition
             duration-150
-            hover:bg-[rgb(var(--bf-primary-rgb)/.08)]
-            hover:text-[var(--bf-primary)]
+            hover:bg-[var(--bf-sidebar-hover-bg)]
+            hover:text-[var(--bf-sidebar-active-text)]
           `,
           isActive
-            ? 'bg-[rgb(var(--bf-primary-rgb)/.10)] font-semibold text-[var(--bf-primary)]'
+            ? 'bf-dev-sidebar-active bg-[var(--bf-sidebar-active-bg)] font-semibold text-[var(--bf-sidebar-active-text)]'
             : 'text-[var(--bf-sidebar-text)]'
         )
       }
@@ -1990,36 +2149,243 @@ function ChildLink({
    SIDEBAR LAYOUT HELPERS
 ============================================================ */
 
-function SidebarProfile({
-  compact = false,
-  currentUser,
-  profileRole = 'Company Owner',
-  profileMeta = '',
+function DefaultSidebarAvatar({
+  gender,
 }) {
-  const displayName = currentUser?.name || currentUser?.fullName || currentUser?.full_name || currentUser?.email || 'Portal User';
-  const avatarUrl = currentUser?.avatar_url || currentUser?.avatarUrl || currentUser?.photoUrl || currentUser?.photoURL || null;
-  const initials = getInitials(displayName);
-
-  if (compact) {
+  if (gender === 'female') {
     return (
-      <div className="flex justify-center py-5">
-        <div className="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-[var(--bf-sidebar-border)] bg-[rgb(var(--bf-primary-rgb)/.10)] text-[10px] font-black text-[var(--bf-primary)]">
-          {avatarUrl ? <img src={avatarUrl} alt={displayName} className="h-full w-full object-cover" /> : initials}
-          <span className="bf-dev-online-dot absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-[var(--bf-sidebar-solid)] bg-emerald-500" />
-        </div>
-      </div>
+      <svg
+        viewBox="0 0 64 64"
+        aria-hidden="true"
+        className="h-[78%] w-[78%]"
+        fill="none"
+      >
+        <path
+          d="M18 31c0-12 6-20 14-20s14 8 14 20c0 3-.5 5.6-1.4 8-3.2-3.8-7.6-6-12.6-6s-9.4 2.2-12.6 6c-.9-2.4-1.4-5-1.4-8Z"
+          fill="currentColor"
+          opacity=".34"
+        />
+        <circle
+          cx="32"
+          cy="26"
+          r="9"
+          fill="currentColor"
+          opacity=".9"
+        />
+        <path
+          d="M12 57c1.8-11.6 9.3-18 20-18s18.2 6.4 20 18H12Z"
+          fill="currentColor"
+          opacity=".9"
+        />
+      </svg>
+    );
+  }
+
+  if (gender === 'male') {
+    return (
+      <svg
+        viewBox="0 0 64 64"
+        aria-hidden="true"
+        className="h-[76%] w-[76%]"
+        fill="none"
+      >
+        <circle
+          cx="32"
+          cy="23"
+          r="10"
+          fill="currentColor"
+          opacity=".9"
+        />
+        <path
+          d="M11 57c2-12.2 10-19 21-19s19 6.8 21 19H11Z"
+          fill="currentColor"
+          opacity=".9"
+        />
+      </svg>
     );
   }
 
   return (
-    <div className="shrink-0 border-b border-[var(--bf-sidebar-border)] py-7 text-center">
-      <div className="relative mx-auto flex h-16 w-16 items-center justify-center overflow-hidden rounded-full border border-[var(--bf-sidebar-border)] bg-[rgb(var(--bf-primary-rgb)/.10)] text-[13px] font-black text-[var(--bf-primary)]">
-        {avatarUrl ? <img src={avatarUrl} alt={displayName} className="h-full w-full object-cover" /> : initials}
-        <span className="bf-dev-online-dot absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-[var(--bf-sidebar-solid)] bg-emerald-500" />
+    <svg
+      viewBox="0 0 64 64"
+      aria-hidden="true"
+      className="h-[76%] w-[76%]"
+      fill="none"
+    >
+      <circle
+        cx="32"
+        cy="23"
+        r="10"
+        fill="currentColor"
+        opacity=".82"
+      />
+      <path
+        d="M11 57c2-12.2 10-19 21-19s19 6.8 21 19H11Z"
+        fill="currentColor"
+        opacity=".82"
+      />
+    </svg>
+  );
+}
+
+
+function SidebarUserAvatar({
+  currentUser,
+  compact = false,
+}) {
+  const avatarUrl =
+    currentUser?.avatar_url ||
+    currentUser?.avatarUrl ||
+    currentUser?.photoURL ||
+    currentUser?.photoUrl ||
+    currentUser?.image ||
+    null;
+
+  const gender =
+    getCurrentUserGender(
+      currentUser
+    );
+
+  const [imageFailed, setImageFailed] =
+    useState(false);
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [avatarUrl]);
+
+  const showPhoto =
+    Boolean(avatarUrl) &&
+    !imageFailed;
+
+  return (
+    <div
+      className={cx(
+        `
+          relative
+          mx-auto
+          flex
+          shrink-0
+          items-center
+          justify-center
+          overflow-visible
+          rounded-full
+          border
+          border-[var(--bf-sidebar-border)]
+          bg-[rgb(var(--bf-primary-rgb)/.10)]
+          text-[var(--bf-sidebar-muted)]
+        `,
+        compact
+          ? 'h-10 w-10'
+          : 'h-16 w-16'
+      )}
+    >
+      <div className="h-full w-full overflow-hidden rounded-full">
+        {showPhoto ? (
+          <img
+            src={avatarUrl}
+            alt={`${getDisplayName(currentUser)} profile`}
+            onError={() =>
+              setImageFailed(true)
+            }
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <div
+            className="flex h-full w-full items-center justify-center"
+            aria-label={`${gender} default profile avatar`}
+          >
+            <DefaultSidebarAvatar
+              gender={gender}
+            />
+          </div>
+        )}
       </div>
-      <div className="mt-3 truncate px-3 text-[13px] font-bold text-[var(--bf-sidebar-text)]">{displayName}</div>
-      <div className="mt-0.5 text-[10px] text-[var(--bf-sidebar-muted)]">{profileRole}</div>
-      {profileMeta ? <div className="mt-0.5 truncate px-3 text-[9px] text-[var(--bf-sidebar-muted)]">{profileMeta}</div> : null}
+
+      <span
+        className={cx(
+          `
+            bf-dev-online-dot
+            absolute
+            rounded-full
+            border-2
+            border-[var(--bf-sidebar-solid)]
+            bg-emerald-500
+          `,
+          compact
+            ? '-right-0.5 -top-0.5 h-2.5 w-2.5'
+            : '-right-0.5 -top-0.5 h-3 w-3'
+        )}
+      />
+    </div>
+  );
+}
+
+
+function SidebarProfile({
+  compact = false,
+  currentUser,
+  profileRole = 'Company Owner',
+}) {
+  if (compact) {
+    return (
+      <div
+        className="flex justify-center py-5"
+      >
+        <SidebarUserAvatar
+          currentUser={currentUser}
+          compact
+        />
+      </div>
+    );
+  }
+
+  const displayName =
+    getDisplayName(currentUser);
+
+  const roleLabel =
+    formatRoleLabel(
+      profileRole ||
+      currentUser?.roleName ||
+      currentUser?.role ||
+      ''
+    );
+
+  const nameFontSize =
+    getSidebarNameFontSize(
+      displayName
+    );
+
+  return (
+    <div
+      className="shrink-0 border-b border-[var(--bf-sidebar-border)] px-3 py-6 text-center"
+    >
+      <SidebarUserAvatar
+        currentUser={currentUser}
+      />
+
+      <div
+        className="mx-auto mt-3 max-w-full font-extrabold text-[var(--bf-sidebar-text)]"
+        style={{
+          fontSize:
+            `${nameFontSize}px`,
+          lineHeight: 1.2,
+          whiteSpace: 'nowrap',
+          letterSpacing:
+            nameFontSize <= 11
+              ? '-0.02em'
+              : '-0.01em',
+        }}
+        title={displayName}
+      >
+        {displayName}
+      </div>
+
+      <div
+        className="mt-1.5 text-[11px] font-medium text-[var(--bf-sidebar-muted)]"
+      >
+        <span className="font-semibold">Role:</span>{' '}
+        <span className="text-[var(--bf-sidebar-text)]">{roleLabel}</span>
+      </div>
     </div>
   );
 }
@@ -2145,11 +2511,11 @@ function FlyoutNode({
               text-left
               text-[11px]
               transition
-              hover:bg-[rgb(var(--bf-primary-rgb)/.08)]
-              hover:text-[var(--bf-primary)]
+              hover:bg-[var(--bf-sidebar-hover-bg)]
+              hover:text-[var(--bf-sidebar-active-text)]
             `,
             active
-              ? 'bg-[rgb(var(--bf-primary-rgb)/.10)] font-semibold text-[var(--bf-primary)]'
+              ? 'bf-dev-sidebar-active bg-[var(--bf-sidebar-active-bg)] font-semibold text-[var(--bf-sidebar-active-text)]'
               : 'text-[var(--bf-text-2)]'
           )}
           style={{
@@ -2230,11 +2596,11 @@ function FlyoutNode({
             py-2.5
             text-[11px]
             transition
-            hover:bg-[rgb(var(--bf-primary-rgb)/.08)]
-            hover:text-[var(--bf-primary)]
+            hover:bg-[var(--bf-sidebar-hover-bg)]
+            hover:text-[var(--bf-sidebar-active-text)]
           `,
           isActive
-            ? 'bg-[rgb(var(--bf-primary-rgb)/.10)] font-semibold text-[var(--bf-primary)]'
+            ? 'bf-dev-sidebar-active bg-[var(--bf-sidebar-active-bg)] font-semibold text-[var(--bf-sidebar-active-text)]'
             : 'text-[var(--bf-text-2)]'
         )
       }
@@ -2371,8 +2737,8 @@ function CompactMenuButton({
           transition
         `,
         active
-          ? 'text-[var(--bf-primary)]'
-          : 'text-[var(--bf-sidebar-text)] hover:text-[var(--bf-primary)]'
+          ? 'bf-dev-sidebar-active text-[var(--bf-sidebar-active-text)]'
+          : 'text-[var(--bf-sidebar-text)] hover:text-[var(--bf-sidebar-active-text)]'
       )}
     >
       <Icon
@@ -2786,7 +3152,7 @@ function Sidebar({
                               doubleMenuId ===
                                 menu.id
                                 ? 'bg-[var(--bf-primary)] text-white'
-                                : 'text-[var(--bf-sidebar-text)] hover:text-[var(--bf-primary)]'
+                                : 'text-[var(--bf-sidebar-text)] hover:text-[var(--bf-sidebar-active-text)]'
                             )}
                           >
                             <Icon
@@ -3371,11 +3737,11 @@ function HorizontalFlyoutNode({
               text-left
               text-[11px]
               transition
-              hover:bg-[rgb(var(--bf-primary-rgb)/.08)]
-              hover:text-[var(--bf-primary)]
+              hover:bg-[var(--bf-sidebar-hover-bg)]
+              hover:text-[var(--bf-sidebar-active-text)]
             `,
             active
-              ? 'bg-[rgb(var(--bf-primary-rgb)/.10)] font-semibold text-[var(--bf-primary)]'
+              ? 'bf-dev-sidebar-active bg-[var(--bf-sidebar-active-bg)] font-semibold text-[var(--bf-sidebar-active-text)]'
               : 'text-[var(--bf-text-2)]'
           )}
         >
@@ -3429,10 +3795,10 @@ function HorizontalFlyoutNode({
                 text-[11px]
                 transition
                 hover:bg-[rgb(var(--bf-primary-rgb)/.08)]
-                hover:text-[var(--bf-primary)]
+                hover:text-[var(--bf-sidebar-active-text)]
               `,
               isActive
-                ? 'bg-[rgb(var(--bf-primary-rgb)/.10)] font-semibold text-[var(--bf-primary)]'
+                ? 'bf-dev-sidebar-active bg-[var(--bf-sidebar-active-bg)] font-semibold text-[var(--bf-sidebar-active-text)]'
                 : 'text-[var(--bf-text-2)]'
             )
           }
@@ -3515,10 +3881,10 @@ function HorizontalFlyoutNode({
                           text-[11px]
                           transition
                           hover:bg-[rgb(var(--bf-primary-rgb)/.08)]
-                          hover:text-[var(--bf-primary)]
+                          hover:text-[var(--bf-sidebar-active-text)]
                         `,
                         isActive
-                          ? 'bg-[rgb(var(--bf-primary-rgb)/.10)] font-semibold text-[var(--bf-primary)]'
+                          ? 'bf-dev-sidebar-active bg-[var(--bf-sidebar-active-bg)] font-semibold text-[var(--bf-sidebar-active-text)]'
                           : 'text-[var(--bf-text-2)]'
                       )
                     }
@@ -3700,7 +4066,7 @@ function HorizontalNavigation({
                       text-[11px]
                       font-medium
                       transition
-                      hover:text-[var(--bf-primary)]
+                      hover:text-[var(--bf-sidebar-active-text)]
                     `,
                     active
                       ? 'text-[var(--bf-primary)]'
@@ -3890,31 +4256,6 @@ function Popover({
    MESSAGES POPOVER
 ============================================================ */
 
-function MessagesPopover() {
-  return (
-    <Popover width={405}>
-      <div className="flex items-center justify-between border-b border-[var(--bf-border)] px-5 py-4">
-        <div className="text-[13px] font-semibold text-[var(--bf-primary)]">Messages</div>
-        <span className="rounded-full bg-[var(--bf-primary)] px-2.5 py-1 text-[10px] font-bold text-white">Workspace</span>
-      </div>
-      <div className="bf-dev-scroll max-h-[335px] overflow-y-auto">
-        {[
-          ['Workspace ready','Your secure portal workspace is active.','Now'],
-          ['Navigation updated','Available modules are ready to use.','Today'],
-          ['Support available','Use your account controls for profile and settings.','Today'],
-        ].map(([title,text,time]) => (
-          <div key={title} className="flex gap-3 border-b border-[var(--bf-border)] px-4 py-4">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[rgb(var(--bf-primary-rgb)/.12)] text-[11px] font-black text-[var(--bf-primary)]">BF</div>
-            <div className="min-w-0 flex-1"><div className="text-[13px] font-semibold text-[var(--bf-text)]">{title}</div><div className="mt-1 text-[11px] leading-5 text-[var(--bf-text-2)]">{text}</div></div>
-            <span className="text-[9px] text-[var(--bf-text-3)]">{time}</span>
-          </div>
-        ))}
-      </div>
-    </Popover>
-  );
-}
-
-
 function NotificationsPopover() {
   return (
     <Popover width={360}>
@@ -4059,9 +4400,7 @@ function UserAvatar({
   showStatus = false,
 }) {
   const name =
-    currentUser?.name ||
-    currentUser?.fullName ||
-    'Portal User';
+    getDisplayName(currentUser);
 
   const avatarUrl =
     currentUser?.avatar_url ||
@@ -4315,10 +4654,9 @@ function SessionCountdown() {
 
 function Header({
   config,
-  menuTree = [],
   brandName = 'Buddy Fleets',
-  portalLabel = 'Portal',
-  headerSubLabel = '',
+  companyName = 'Buddy Fleets',
+  companyCode = '—',
   headerExtra = null,
   profileActions = [],
   updateConfig,
@@ -4327,7 +4665,6 @@ function Header({
   onLogout,
   openPopover,
   setOpenPopover,
-  utilityDrawerOpen,
   setUtilityDrawerOpen,
   themeDrawerOpen,
   setThemeDrawerOpen,
@@ -4347,9 +4684,23 @@ function Header({
 
 
   const name =
-    currentUser?.name ||
-    currentUser?.fullName ||
-    'Portal User';
+    getDisplayName(currentUser);
+
+  const displayCompanyName =
+    String(
+      companyName ||
+      currentUser?.companyName ||
+      brandName ||
+      'Buddy Fleets'
+    ).trim() || 'Buddy Fleets';
+
+  const displayCompanyCode =
+    String(
+      companyCode ||
+      currentUser?.companyCode ||
+      currentUser?.company_code ||
+      '—'
+    ).trim() || '—';
 
 
   const horizontal =
@@ -4574,10 +4925,10 @@ function Header({
           className={cx(
             `
               hidden
-              items-center
-              gap-1.5
-              text-[13px]
-              font-semibold
+              min-w-0
+              flex-col
+              justify-center
+              leading-tight
               text-[var(--bf-header-text)]
               md:flex
             `,
@@ -4586,20 +4937,21 @@ function Header({
               : 'ml-4'
           )}
         >
-          <span>{portalLabel}</span>
+          <div
+            className="max-w-[240px] truncate text-[15px] font-extrabold tracking-[-0.01em]"
+            title={displayCompanyName}
+          >
+            {displayCompanyName}
+          </div>
 
-          <ChevronDown
-            size={12}
-            className="
-              text-[var(--bf-header-muted)]
-            "
-          />
+          <div
+            className="mt-0.5 max-w-[240px] truncate text-[9px] font-semibold uppercase tracking-[0.06em] text-[var(--bf-header-muted)]"
+            title={`Company Code - ${displayCompanyCode}`}
+          >
+            Company Code - {displayCompanyCode}
+          </div>
         </div>
 
-
-        {headerSubLabel ? (
-          <div className="hidden max-w-[250px] truncate text-[10px] text-[var(--bf-header-muted)] lg:block">{headerSubLabel}</div>
-        ) : null}
 
         <div
           className="
@@ -4722,36 +5074,6 @@ function Header({
           <div
             className="
               relative
-            "
-          >
-            <HeaderIcon
-              label="Messages"
-              badge={3}
-              active={
-                openPopover ===
-                'messages'
-              }
-              onClick={() =>
-                togglePopover(
-                  'messages'
-                )
-              }
-            >
-              <Mail
-                size={19}
-              />
-            </HeaderIcon>
-
-            {openPopover ===
-              'messages' && (
-              <MessagesPopover />
-            )}
-          </div>
-
-
-          <div
-            className="
-              relative
               ml-1
             "
           >
@@ -4777,14 +5099,36 @@ function Header({
               <span
                 className="
                   hidden
-                  max-w-[145px]
-                  truncate
-                  text-[13px]
-                  font-semibold
-                  xl:block
+                  min-w-max
+                  flex-col
+                  items-start
+                  justify-center
+                  leading-none
+                  xl:flex
                 "
               >
-                {name}
+                <span
+                  className="
+                    whitespace-nowrap
+                    text-[12px]
+                    font-semibold
+                    text-[var(--bf-header-text)]
+                  "
+                >
+                  {name}
+                </span>
+
+                <span
+                  className="
+                    mt-1
+                    whitespace-nowrap
+                    text-[9px]
+                    font-medium
+                    text-[var(--bf-header-muted)]
+                  "
+                >
+                  {displayCompanyName}
+                </span>
               </span>
 
               <UserAvatar
@@ -4818,32 +5162,6 @@ function Header({
               />
             )}
           </div>
-
-
-          <HeaderIcon
-            label="Open utility panel"
-            active={
-              utilityDrawerOpen
-            }
-            onClick={() => {
-              setOpenPopover(
-                null
-              );
-
-              setThemeDrawerOpen(
-                false
-              );
-
-              setUtilityDrawerOpen(
-                (current) =>
-                  !current
-              );
-            }}
-          >
-            <AlignJustify
-              size={19}
-            />
-          </HeaderIcon>
 
 
           <HeaderIcon
@@ -5222,39 +5540,6 @@ function ThemeSettings({
         pb-6
       "
     >
-      <SectionTitle>
-        LTR and RTL Versions
-      </SectionTitle>
-
-      <SettingRow
-        label="LTR"
-        selected={
-          config.direction ===
-          'ltr'
-        }
-        onClick={() =>
-          updateConfig({
-            direction:
-              'ltr',
-          })
-        }
-      />
-
-      <SettingRow
-        label="RTL"
-        selected={
-          config.direction ===
-          'rtl'
-        }
-        onClick={() =>
-          updateConfig({
-            direction:
-              'rtl',
-          })
-        }
-      />
-
-
       <SectionTitle>
         Navigation Style
       </SectionTitle>
@@ -5963,8 +6248,7 @@ function ThemeDrawer({
             fixed
             inset-0
             z-40
-            bg-slate-950/20
-            lg:hidden
+            bg-transparent
           "
         />
       )}
@@ -6102,8 +6386,8 @@ export default function UniversalDashboardShell({
   menuTree = [],
   brandName = 'Buddy Fleets',
   brandSubtitle = 'Portal',
-  portalLabel = 'Portal',
-  headerSubLabel = '',
+  companyName = 'Buddy Fleets',
+  companyCode = '—',
   headerExtra = null,
   profileActions = [],
   profileRole = 'Company Owner',
@@ -6268,7 +6552,7 @@ export default function UniversalDashboardShell({
 
   useEffect(() => {
     document.documentElement.dir =
-      config.direction;
+      'ltr';
 
     /*
       Keep visual colors fully controlled by our tokens.
@@ -6277,7 +6561,6 @@ export default function UniversalDashboardShell({
     document.documentElement.dataset.bfTheme =
       config.theme;
   }, [
-    config.direction,
     config.theme,
   ]);
 
@@ -6301,9 +6584,7 @@ export default function UniversalDashboardShell({
         style={
           vars
         }
-        dir={
-          config.direction
-        }
+        dir="ltr"
       >
         <Sidebar
           config={config}
@@ -6322,8 +6603,8 @@ export default function UniversalDashboardShell({
           config={config}
           menuTree={menuTree}
           brandName={brandName}
-          portalLabel={portalLabel}
-          headerSubLabel={headerSubLabel}
+          companyName={companyName}
+          companyCode={companyCode}
           headerExtra={headerExtra}
           profileActions={profileActions}
           updateConfig={
