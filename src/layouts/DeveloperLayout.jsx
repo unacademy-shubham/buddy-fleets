@@ -2586,18 +2586,6 @@ function SidebarProfile({
       currentUser
     );
 
-  const companyName =
-    getDisplayCompanyName(
-      currentUser
-    );
-
-  const companyCode =
-    String(
-      currentUser?.companyCode ||
-      currentUser?.company_code ||
-      '—'
-    ).trim() || '—';
-
   const nameFontSize =
     getSidebarNameFontSize(
       displayName
@@ -2629,34 +2617,10 @@ function SidebarProfile({
       </div>
 
       <div
-        className="mx-auto mt-3 w-full max-w-[218px] space-y-1.5 rounded-md border border-[var(--bf-sidebar-border)] bg-[var(--bf-sidebar-hover-bg)] px-3 py-2.5 text-left"
+        className="mt-1.5 text-[11px] font-medium text-[var(--bf-sidebar-muted)]"
       >
-        <div className="flex items-start gap-2">
-          <span className="w-[72px] shrink-0 text-[10px] font-semibold text-[var(--bf-sidebar-muted)]">
-            Role
-          </span>
-          <span className="min-w-0 flex-1 text-[10px] font-semibold leading-4 text-[var(--bf-sidebar-text)]">
-            {roleLabel}
-          </span>
-        </div>
-
-        <div className="flex items-start gap-2">
-          <span className="w-[72px] shrink-0 text-[10px] font-semibold text-[var(--bf-sidebar-muted)]">
-            Company
-          </span>
-          <span className="min-w-0 flex-1 break-words text-[10px] font-medium leading-4 text-[var(--bf-sidebar-text)]">
-            {companyName}
-          </span>
-        </div>
-
-        <div className="flex items-start gap-2">
-          <span className="w-[72px] shrink-0 text-[10px] font-semibold text-[var(--bf-sidebar-muted)]">
-            Company Code
-          </span>
-          <span className="min-w-0 flex-1 break-all text-[10px] font-semibold leading-4 text-[var(--bf-sidebar-text)]">
-            {companyCode}
-          </span>
-        </div>
+        <span className="font-semibold">Role:</span>{' '}
+        <span className="text-[var(--bf-sidebar-text)]">{roleLabel}</span>
       </div>
     </div>
   );
@@ -5408,6 +5372,13 @@ function Header({
   const companyName =
     getDisplayCompanyName(currentUser);
 
+  const companyCode =
+    String(
+      currentUser?.companyCode ||
+      currentUser?.company_code ||
+      '—'
+    ).trim() || '—';
+
 
   const horizontal =
     config.navigationStyle !==
@@ -5637,10 +5608,10 @@ function Header({
           className={cx(
             `
               hidden
-              items-center
-              gap-1.5
-              text-[13px]
-              font-semibold
+              min-w-0
+              flex-col
+              justify-center
+              leading-tight
               text-[var(--bf-header-text)]
               md:flex
             `,
@@ -5649,16 +5620,19 @@ function Header({
               : 'ml-4'
           )}
         >
-          <span>
-            Developer
-          </span>
+          <div
+            className="max-w-[220px] truncate text-[15px] font-extrabold tracking-[-0.01em]"
+            title={companyName}
+          >
+            {companyName}
+          </div>
 
-          <ChevronDown
-            size={12}
-            className="
-              text-[var(--bf-header-muted)]
-            "
-          />
+          <div
+            className="mt-0.5 max-w-[220px] truncate text-[9px] font-semibold uppercase tracking-[0.06em] text-[var(--bf-header-muted)]"
+            title={`Company Code - ${companyCode}`}
+          >
+            Company Code - {companyCode}
+          </div>
         </div>
 
 
