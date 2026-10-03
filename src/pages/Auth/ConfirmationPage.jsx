@@ -470,6 +470,8 @@ export default function ConfirmationPage() {
                 company.status ===
                   'trial_active' ||
                 company.status ===
+                  'trial_expired' ||
+                company.status ===
                   'active'
               )
             ) {

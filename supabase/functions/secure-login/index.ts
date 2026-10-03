@@ -1284,6 +1284,33 @@ async function resolvePortal({
   }
 
   if (!bootstrap?.ok || bootstrap?.access_granted !== true) {
+    try {
+      const repaired = await repairLegacyCompanyOwnerProvisioning({
+        company,
+        userId,
+      });
+
+      if (repaired) {
+        const refreshed = await adminClient.rpc('bf_resolve_company_portal_bootstrap', {
+          p_company_id: company.id,
+          p_user_id: userId,
+        });
+
+        if (refreshed.error) {
+          throw refreshed.error;
+        }
+
+        bootstrap = refreshed.data;
+      }
+    } catch (error) {
+      console.warn(
+        'Legacy company owner provisioning repair failed:',
+        error instanceof Error ? error.message : error
+      );
+    }
+  }
+
+  if (!bootstrap?.ok || bootstrap?.access_granted !== true) {
     return null;
   }
 
@@ -1385,6 +1412,391 @@ async function resolvePortal({
     },
   };
 
+}
+
+
+/* ============================================================
+   LEGACY COMPANY OWNER PROVISIONING REPAIR
+
+   Why this exists:
+   - Companies created before the normalized Client Portal runtime
+     may have a valid Auth user + legacy company membership but no
+     company_portal_* owner rows.
+   - The central bootstrap resolver correctly rejects incomplete
+     runtime access, which previously surfaced as a generic invalid
+     credentials message even after a successful password reset.
+
+   Safety rules:
+   - Only the authoritative account owner is repaired.
+   - If account_owner_user_id is still null, ownership is inferred
+     ONLY from an already-active legacy membership plus the original
+     public signup metadata (signup_type=company_trial).
+   - Existing blocked/revoked memberships or employee rows are never
+     reactivated here.
+   - Existing portal access/configuration is preserved; only missing
+     foundation rows are created.
+============================================================ */
+
+async function repairLegacyCompanyOwnerProvisioning({
+  company,
+  userId,
+}: {
+  company: {
+    id: string;
+    company_code?: string | null;
+    company_name?: string | null;
+    status?: string | null;
+    account_owner_user_id?: string | null;
+  };
+  userId: string;
+}) {
+  if (!company?.id || !userId) {
+    return false;
+  }
+
+  if (!['trial_active', 'trial_expired', 'active'].includes(String(company.status || ''))) {
+    return false;
+  }
+
+  const now = new Date().toISOString();
+
+  const [membershipResult, authUserResult] = await Promise.all([
+    adminClient
+      .from('company_memberships')
+      .select('id,status,access_scope')
+      .eq('company_id', company.id)
+      .eq('user_id', userId)
+      .maybeSingle(),
+
+    adminClient.auth.admin.getUserById(userId),
+  ]);
+
+  if (membershipResult.error) {
+    throw membershipResult.error;
+  }
+
+  if (authUserResult.error) {
+    throw authUserResult.error;
+  }
+
+  const authUser = authUserResult.data?.user || null;
+  const metadata = authUser?.user_metadata || {};
+  let membership = membershipResult.data || null;
+
+  let isAuthoritativeOwner = company.account_owner_user_id === userId;
+
+  /*
+    Very old public signups can predate account_owner_user_id wiring.
+    Never claim a company from the entered code alone: require an
+    already-active legacy membership and original signup metadata.
+  */
+  if (
+    !company.account_owner_user_id &&
+    membership?.status === 'active' &&
+    String(metadata?.signup_type || '').trim().toLowerCase() === 'company_trial'
+  ) {
+    const ownerUpdate = await adminClient
+      .from('companies')
+      .update({ account_owner_user_id: userId })
+      .eq('id', company.id)
+      .is('account_owner_user_id', null);
+
+    if (ownerUpdate.error) {
+      throw ownerUpdate.error;
+    }
+
+    company.account_owner_user_id = userId;
+    isAuthoritativeOwner = true;
+  }
+
+  if (!isAuthoritativeOwner) {
+    return false;
+  }
+
+  /*
+    A legacy membership must already exist and be active. Login repair must
+    never recreate a deleted/revoked membership because that could bypass an
+    intentional access revocation.
+  */
+  if (!membership || membership.status !== 'active') {
+    return false;
+  }
+
+  const fullName = String(
+    metadata?.full_name ||
+    company.company_name ||
+    'Company Owner'
+  ).trim().slice(0, 150);
+
+  const email = String(authUser?.email || '').trim().toLowerCase().slice(0, 254);
+  const mobile = String(metadata?.mobile || '').trim().slice(0, 30);
+
+  const allowedPacks = new Set([
+    'travels',
+    'bagged_cement',
+    'general_transport',
+    'container',
+    'cement_bulker',
+    'staff_transport',
+    'school_transport',
+  ]);
+
+  const requestedPack = String(
+    metadata?.fleet_pack || metadata?.company_type || ''
+  ).trim().toLowerCase();
+
+  const selectedPack = allowedPacks.has(requestedPack)
+    ? requestedPack
+    : null;
+
+  /* Company 360 employee row */
+  const employeeResult = await adminClient
+    .from('developer_company_employees')
+    .select('id,status')
+    .eq('company_id', company.id)
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (employeeResult.error && employeeResult.error.code !== '42P01') {
+    throw employeeResult.error;
+  }
+
+  if (employeeResult.data && !['active', 'invited'].includes(employeeResult.data.status)) {
+    return false;
+  }
+
+  if (!employeeResult.data && employeeResult.error?.code !== '42P01') {
+    const employeeInsert = await adminClient
+      .from('developer_company_employees')
+      .insert({
+        company_id: company.id,
+        user_id: userId,
+        full_name: fullName,
+        email,
+        mobile,
+        designation: 'Company Owner',
+        role_key: 'owner',
+        status: 'active',
+      });
+
+    if (employeeInsert.error && employeeInsert.error.code !== '42P01') {
+      throw employeeInsert.error;
+    }
+  }
+
+  /* Portal settings */
+  const settingsResult = await adminClient
+    .from('company_portal_settings')
+    .select('company_id,fleet_pack_selection_status')
+    .eq('company_id', company.id)
+    .maybeSingle();
+
+  if (settingsResult.error && settingsResult.error.code !== '42P01') {
+    throw settingsResult.error;
+  }
+
+  if (!settingsResult.data && settingsResult.error?.code !== '42P01') {
+    const settingsInsert = await adminClient
+      .from('company_portal_settings')
+      .insert({
+        company_id: company.id,
+        fleet_pack: selectedPack || 'travels',
+        enabled_packs: selectedPack ? [selectedPack] : ['travels'],
+        fleet_pack_selection_status: selectedPack ? 'selected' : 'pending',
+        fleet_pack_selected_at: selectedPack ? now : null,
+      });
+
+    if (settingsInsert.error && settingsInsert.error.code !== '42P01') {
+      throw settingsInsert.error;
+    }
+  } else if (
+    settingsResult.data?.fleet_pack_selection_status !== 'selected' &&
+    selectedPack
+  ) {
+    const packResult = await adminClient.rpc('bf_set_company_fleet_packs', {
+      p_company_id: company.id,
+      p_primary_pack: selectedPack,
+      p_enabled_packs: [selectedPack],
+    });
+
+    if (packResult.error) {
+      console.warn('Legacy owner Fleet Pack repair failed:', packResult.error.message);
+    }
+  }
+
+  /* Company portal config used by the normalized runtime. */
+  const portalConfigResult = await adminClient
+    .from('developer_company_portal_config')
+    .select('company_id')
+    .eq('company_id', company.id)
+    .maybeSingle();
+
+  if (portalConfigResult.error && portalConfigResult.error.code !== '42P01') {
+    throw portalConfigResult.error;
+  }
+
+  if (!portalConfigResult.data && portalConfigResult.error?.code !== '42P01') {
+    const portalConfigInsert = await adminClient
+      .from('developer_company_portal_config')
+      .insert({
+        company_id: company.id,
+        dashboard_widgets: [],
+        sidebar_overrides: {},
+        branding: {},
+        landing_path: '/dashboard',
+      });
+
+    if (portalConfigInsert.error && portalConfigInsert.error.code !== '42P01') {
+      throw portalConfigInsert.error;
+    }
+  }
+
+  /* Sites: preserve existing sites; create a primary HQ only when none exist. */
+  const sitesResult = await adminClient
+    .from('company_portal_sites')
+    .select('id,is_primary,status,created_at')
+    .eq('company_id', company.id)
+    .order('created_at', { ascending: true });
+
+  if (sitesResult.error && sitesResult.error.code !== '42P01') {
+    throw sitesResult.error;
+  }
+
+  let activeSites = (sitesResult.data || []).filter((site) => site.status === 'active');
+
+  if (activeSites.length === 0 && sitesResult.error?.code !== '42P01') {
+    const siteInsert = await adminClient
+      .from('company_portal_sites')
+      .insert({
+        company_id: company.id,
+        code: 'HQ',
+        name: `${String(company.company_name || 'Company').slice(0, 120)} HQ`,
+        site_type: 'Head Office',
+        is_primary: true,
+        status: 'active',
+      })
+      .select('id,is_primary,status,created_at')
+      .single();
+
+    if (siteInsert.error) {
+      throw siteInsert.error;
+    }
+
+    activeSites = [siteInsert.data];
+  }
+
+  let primarySite = activeSites.find((site) => site.is_primary) || activeSites[0] || null;
+
+  if (primarySite && !primarySite.is_primary) {
+    const primaryUpdate = await adminClient
+      .from('company_portal_sites')
+      .update({ is_primary: true, updated_at: now })
+      .eq('id', primarySite.id);
+
+    if (primaryUpdate.error) {
+      throw primaryUpdate.error;
+    }
+
+    primarySite = { ...primarySite, is_primary: true };
+  }
+
+  /* Owner role */
+  const roleResult = await adminClient
+    .from('company_portal_roles')
+    .select('id,role_key,name')
+    .eq('company_id', company.id)
+    .eq('role_key', 'owner')
+    .maybeSingle();
+
+  if (roleResult.error && roleResult.error.code !== '42P01') {
+    throw roleResult.error;
+  }
+
+  let ownerRole = roleResult.data || null;
+
+  if (!ownerRole && roleResult.error?.code !== '42P01') {
+    const roleInsert = await adminClient
+      .from('company_portal_roles')
+      .insert({
+        company_id: company.id,
+        role_key: 'owner',
+        name: 'Company Owner',
+        description: 'System account owner',
+        is_system: true,
+      })
+      .select('id,role_key,name')
+      .single();
+
+    if (roleInsert.error) {
+      throw roleInsert.error;
+    }
+
+    ownerRole = roleInsert.data;
+  }
+
+  /* Owner runtime access */
+  const accessResult = await adminClient
+    .from('company_portal_user_access')
+    .select('company_id,user_id')
+    .eq('company_id', company.id)
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (accessResult.error && accessResult.error.code !== '42P01') {
+    throw accessResult.error;
+  }
+
+  if (!accessResult.data && accessResult.error?.code !== '42P01') {
+    const accessInsert = await adminClient
+      .from('company_portal_user_access')
+      .insert({
+        company_id: company.id,
+        user_id: userId,
+        role_id: ownerRole?.id || null,
+        role_name: ownerRole?.name || 'Company Owner',
+        primary_site_id: primarySite?.id || null,
+        site_ids: activeSites.map((site) => site.id),
+        all_sites: true,
+        module_overrides: {},
+        permission_overrides: {},
+        force_password_change: false,
+      });
+
+    if (accessInsert.error) {
+      throw accessInsert.error;
+    }
+  }
+
+  /* Owner profile */
+  const profileResult = await adminClient
+    .from('company_portal_user_profiles')
+    .select('company_id,user_id')
+    .eq('company_id', company.id)
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (profileResult.error && profileResult.error.code !== '42P01') {
+    throw profileResult.error;
+  }
+
+  if (!profileResult.data && profileResult.error?.code !== '42P01') {
+    const profileInsert = await adminClient
+      .from('company_portal_user_profiles')
+      .insert({
+        company_id: company.id,
+        user_id: userId,
+        full_name: fullName,
+        designation: 'Company Owner',
+        email,
+        mobile,
+      });
+
+    if (profileInsert.error) {
+      throw profileInsert.error;
+    }
+  }
+
+  return true;
 }
 
 
