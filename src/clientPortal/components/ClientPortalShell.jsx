@@ -7,7 +7,6 @@ import {
   User,
 } from 'lucide-react';
 import SiteSelector from './SiteSelector';
-import PortalFooter from './PortalFooter';
 import UniversalDashboardShell from './UniversalDashboardShell';
 import TrialExpiredPricing from './TrialExpiredPricing';
 import { useClientPortal } from '../ClientPortalContext';
@@ -265,9 +264,8 @@ export default function ClientPortalShell({ children }) {
       profileActions={profileActions}
       profileRole={role}
       profileMeta={profileMeta}
-      footer={<PortalFooter />}
     >
-      <div className="w-full min-w-0 px-4 py-5 sm:px-5 lg:px-6">
+      <div className="bf-client-content">
         {content}
       </div>
     </UniversalDashboardShell>

@@ -1419,26 +1419,187 @@ function GlobalStyle() {
           color: var(--bf-text);
         }
 
+        /* ========================================================
+           CLIENT / DEMO CONTENT AREA
+
+           Keep the existing Fleet Pack modules and page markup, but
+           render them through the same visual architecture as the
+           finalized Developer dashboard:
+           - primary page band
+           - overlapping first content row
+           - 24px desktop gutters / 14px mobile gutters
+           - compact 5px cards
+           - identical card headers, KPI geometry and footer language
+        ======================================================== */
         .bf-dev-shell .bf-client-content {
           width: 100%;
           min-width: 0;
+          min-height: calc(100dvh - var(--bf-header-height));
           padding: 0;
-          background: transparent;
+          overflow-x: hidden;
+          background: var(--bf-page);
+          color: var(--bf-text);
+        }
+
+        .bf-dev-shell .bf-client-content > * + * {
+          margin-top: 24px;
+        }
+
+        .bf-dev-shell .bf-client-content > :not(.bf-page-head) {
+          margin-left: 24px;
+          margin-right: 24px;
+        }
+
+        .bf-dev-shell .bf-client-content > .bf-page-head + * {
+          position: relative;
+          z-index: 2;
+          margin-top: -22px;
+        }
+
+        .bf-dev-shell .bf-client-content > :last-child {
+          margin-bottom: 24px;
         }
 
         .bf-dev-shell .bf-page-head {
-          margin-bottom: 20px;
+          position: relative;
+          min-height: 104px;
+          margin: 0 !important;
+          padding: 24px 32px 32px;
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 16px;
+          overflow: hidden;
+          background: var(--bf-primary);
+          color: #fff;
+        }
+
+        .bf-dev-shell .bf-page-head > div:first-child {
+          min-width: 0;
+          position: relative;
+          z-index: 1;
+        }
+
+        .bf-dev-shell .bf-page-head h1 {
+          margin: 0;
+          color: #fff !important;
+          font-size: 27px !important;
+          line-height: 1.18;
+          font-weight: 600;
+          letter-spacing: -.02em;
+        }
+
+        .bf-dev-shell .bf-page-head p {
+          max-width: 48rem;
+          margin: 6px 0 0;
+          color: rgba(255,255,255,.72) !important;
+          font-size: 10px !important;
+          line-height: 20px;
+        }
+
+        .bf-dev-shell .bf-page-actions {
+          position: relative;
+          z-index: 1;
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          justify-content: flex-end;
+          gap: 8px;
+          flex: 0 0 auto;
+        }
+
+        /* Page-level action buttons use the finalized Developer glossy treatment. */
+        .bf-dev-shell .bf-page-head .bf-btn,
+        .bf-dev-shell .bf-page-head button,
+        .bf-dev-shell .bf-page-head a[role="button"] {
+          min-height: 32px !important;
+          border: 1px solid rgba(255,255,255,.30) !important;
+          border-radius: 4px !important;
+          background: rgba(255,255,255,.12) !important;
+          color: #fff !important;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,.14), 0 1px 2px rgba(0,0,0,.08) !important;
+        }
+
+        .bf-dev-shell .bf-page-head .bf-btn:hover,
+        .bf-dev-shell .bf-page-head button:hover,
+        .bf-dev-shell .bf-page-head a[role="button"]:hover {
+          border-color: rgba(255,255,255,.45) !important;
+          background: rgba(255,255,255,.20) !important;
+          color: #fff !important;
+        }
+
+        .bf-dev-shell .bf-grid {
+          gap: 16px;
         }
 
         .bf-dev-shell .bf-card {
+          overflow: hidden;
+          border: 1px solid var(--bf-border);
+          border-radius: 5px !important;
           background: var(--bf-surface);
-          border-color: var(--bf-border);
-          box-shadow: var(--bf-shadow);
+          color: var(--bf-text);
+          box-shadow: 0 1px 2px rgba(0,0,0,.04) !important;
         }
 
         .bf-dev-shell .bf-card-head {
-          border-bottom-color: var(--bf-border);
+          min-height: 55px;
+          padding: 12px 20px;
+          border-bottom: 1px solid var(--bf-border);
           background: transparent;
+        }
+
+        .bf-dev-shell .bf-card-head h3 {
+          margin: 0;
+          color: var(--bf-text) !important;
+          font-size: 15px;
+          font-weight: 500;
+        }
+
+        .bf-dev-shell .bf-card-body {
+          padding: 16px;
+        }
+
+        /* Developer Dashboard metric-card geometry. */
+        .bf-dev-shell .bf-kpi {
+          min-height: 118px;
+          padding: 20px;
+          display: flex;
+          align-items: center;
+          gap: 16px;
+        }
+
+        .bf-dev-shell .bf-kpi-icon,
+        .bf-dev-shell [class*="bf-tone-"] .bf-kpi-icon {
+          width: 44px;
+          height: 44px;
+          flex: 0 0 44px;
+          border-radius: 5px;
+          background: var(--bf-primary) !important;
+          color: #fff !important;
+        }
+
+        .bf-dev-shell .bf-kpi-title {
+          color: var(--bf-text) !important;
+          font-size: 13px !important;
+          line-height: 1.35;
+          font-weight: 500 !important;
+          text-transform: none !important;
+          letter-spacing: 0 !important;
+        }
+
+        .bf-dev-shell .bf-kpi-value {
+          margin-top: 2px;
+          color: var(--bf-text) !important;
+          font-size: 24px !important;
+          line-height: 1;
+          font-weight: 600 !important;
+          letter-spacing: -.02em;
+        }
+
+        .bf-dev-shell .bf-kpi-note {
+          margin-top: 8px;
+          color: var(--bf-text-3) !important;
+          font-size: 10px;
         }
 
         .bf-dev-shell .bf-table th {
@@ -1456,15 +1617,12 @@ function GlobalStyle() {
           background: rgb(var(--bf-primary-rgb)/.06);
         }
 
-        .bf-dev-shell .bf-page-head h1,
-        .bf-dev-shell .bf-card-head h3,
         .bf-dev-shell .bf-section-title {
           color: var(--bf-text);
         }
 
-        .bf-dev-shell .bf-page-head p,
         .bf-dev-shell .bf-muted,
-        .bf-dev-shell .bf-kpi-note {
+        .bf-dev-shell .bf-help {
           color: var(--bf-text-2);
         }
 
@@ -1564,13 +1722,41 @@ function GlobalStyle() {
           border-color: var(--bf-border);
         }
 
-        .bf-dev-shell .bf-help,
         .bf-dev-shell .bf-action-checks label {
           color: var(--bf-text-3);
         }
 
         .bf-dev-shell .bf-list-row {
           border-bottom-color: var(--bf-border);
+        }
+
+        @media (max-width: 767px) {
+          .bf-dev-shell .bf-client-content > * + * {
+            margin-top: 16px;
+          }
+
+          .bf-dev-shell .bf-client-content > :not(.bf-page-head) {
+            margin-left: 14px;
+            margin-right: 14px;
+          }
+
+          .bf-dev-shell .bf-client-content > .bf-page-head + * {
+            margin-top: -14px;
+          }
+
+          .bf-dev-shell .bf-page-head {
+            min-height: 96px;
+            padding: 20px 14px 28px;
+            flex-direction: column;
+          }
+
+          .bf-dev-shell .bf-page-head h1 {
+            font-size: 25px !important;
+          }
+
+          .bf-dev-shell .bf-page-actions {
+            justify-content: flex-start;
+          }
         }
 
         .bf-dev-shell .bf-toolbar {
