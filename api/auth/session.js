@@ -64,6 +64,12 @@ import {
 const COOKIE_NAME =
   '__Host-bf_session';
 
+const SESSION_IDLE_TIMEOUT_MINUTES =
+  30;
+
+const SESSION_IDLE_TIMEOUT_SECONDS =
+  SESSION_IDLE_TIMEOUT_MINUTES * 60;
+
 
 const DEVELOPER_HOST =
   'developer.buddyfleets.in';
@@ -275,6 +281,28 @@ function clearSessionCookie(
       'Secure',
       'SameSite=Strict',
       'Max-Age=0',
+    ].join(
+      '; '
+    )
+  );
+}
+
+
+function refreshSessionCookie(
+  res,
+  token
+) {
+  res.setHeader(
+    'Set-Cookie',
+    [
+      `${COOKIE_NAME}=${encodeURIComponent(
+        token
+      )}`,
+      'Path=/',
+      'HttpOnly',
+      'Secure',
+      'SameSite=Strict',
+      `Max-Age=${SESSION_IDLE_TIMEOUT_SECONDS}`,
     ].join(
       '; '
     )
@@ -2023,15 +2051,31 @@ async function handleSessionActivityMutation(req, res) {
     return sendJson(res, 401, { ok: false, code: 'SECURITY_CONTEXT_CHANGED' });
   }
 
-  const requestedAction = String(req.body?.action || 'TOUCH').trim().toUpperCase();
-  const requestedMinutes = Number(req.body?.timeoutMinutes);
-  const timeoutMinutes = [30, 60, 90].includes(requestedMinutes) ? requestedMinutes : 30;
+  const requestedAction = String(
+    req.body?.action || 'TOUCH'
+  )
+    .trim()
+    .toUpperCase();
 
-  if (!['TOUCH', 'EXTEND'].includes(requestedAction)) {
-    return sendJson(res, 400, { ok: false, code: 'INVALID_SESSION_ACTION' });
+  if (requestedAction !== 'TOUCH') {
+    return sendJson(
+      res,
+      400,
+      {
+        ok: false,
+        code: 'INVALID_SESSION_ACTION',
+      }
+    );
   }
 
-  const nextExpiry = new Date(now + timeoutMinutes * 60 * 1000).toISOString();
+  const timeoutMinutes =
+    SESSION_IDLE_TIMEOUT_MINUTES;
+
+  const nextExpiry = new Date(
+    now +
+      SESSION_IDLE_TIMEOUT_SECONDS *
+        1000
+  ).toISOString();
 
   const { error: updateError } = await supabaseAdmin
     .from('security_sessions')
@@ -2046,6 +2090,18 @@ async function handleSessionActivityMutation(req, res) {
     console.error('Session activity update failed:', updateError.message);
     return sendJson(res, 503, { ok: false, code: 'SECURITY_SERVICE_UNAVAILABLE' });
   }
+
+  /*
+    Keep the browser's host-only HttpOnly cookie on the same
+    sliding 30-minute inactivity window as the database row.
+
+    Without refreshing Max-Age here, the DB expiry moves forward
+    while the browser cookie still dies 30 minutes after login.
+  */
+  refreshSessionCookie(
+    res,
+    sessionToken
+  );
 
   return sendJson(res, 200, {
     ok: true,

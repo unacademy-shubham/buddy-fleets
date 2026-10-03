@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Clock3, ShieldAlert } from 'lucide-react';
 
 const DEFAULT_MINUTES = 30;
-const ALLOWED_MINUTES = [30, 60, 90];
 const TOUCH_THROTTLE_MS = 15000;
 const RUNTIME_KEY = 'bf_session_runtime_v2';
 const ACTIVITY_KEY = 'buddy_fleets_last_activity';
@@ -13,10 +12,10 @@ function readRuntime() {
     if (!raw) return null;
     const value = JSON.parse(raw);
     if (!value || !Number.isFinite(Number(value.expiresAt))) return null;
-    const minutes = ALLOWED_MINUTES.includes(Number(value.timeoutMinutes))
-      ? Number(value.timeoutMinutes)
-      : DEFAULT_MINUTES;
-    return { expiresAt: Number(value.expiresAt), timeoutMinutes: minutes };
+    return {
+      expiresAt: Number(value.expiresAt),
+      timeoutMinutes: DEFAULT_MINUTES,
+    };
   } catch {
     return null;
   }
@@ -37,7 +36,7 @@ function formatRemaining(ms) {
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 }
 
-async function sessionMutation(action, minutes) {
+async function sessionMutation(action) {
   const response = await fetch('/api/auth/session', {
     method: 'POST',
     credentials: 'include',
@@ -48,7 +47,6 @@ async function sessionMutation(action, minutes) {
     },
     body: JSON.stringify({
       action,
-      timeoutMinutes: minutes,
     }),
   });
   const data = await response.json().catch(() => ({}));
@@ -81,10 +79,10 @@ export default function SessionControl() {
       }
       const expiresAt = Date.parse(data?.session?.expiresAt || '');
       if (!Number.isFinite(expiresAt)) return;
-      const timeoutMinutes = ALLOWED_MINUTES.includes(Number(data?.session?.timeoutMinutes))
-        ? Number(data.session.timeoutMinutes)
-        : DEFAULT_MINUTES;
-      const next = { expiresAt, timeoutMinutes };
+      const next = {
+        expiresAt,
+        timeoutMinutes: DEFAULT_MINUTES,
+      };
       setRuntime(next);
       writeRuntime(next);
       setExpired(false);
@@ -114,12 +112,11 @@ export default function SessionControl() {
     if (now - lastTouchRef.current < TOUCH_THROTTLE_MS) return;
     lastTouchRef.current = now;
 
-    const minutes = runtime?.timeoutMinutes || DEFAULT_MINUTES;
-    const result = await sessionMutation('TOUCH', minutes);
+    const result = await sessionMutation('TOUCH');
     if (result.ok && result.expiresAt) {
       const next = {
         expiresAt: Date.parse(result.expiresAt),
-        timeoutMinutes: Number(result.timeoutMinutes) || minutes,
+        timeoutMinutes: DEFAULT_MINUTES,
       };
       setRuntime(next);
       writeRuntime(next);
@@ -132,29 +129,25 @@ export default function SessionControl() {
       setExpired(true);
       expiredRef.current = true;
     }
-  }, [runtime?.timeoutMinutes]);
+  }, []);
 
   useEffect(() => {
     const events = ['pointerdown', 'keydown', 'touchstart', 'wheel', 'scroll', 'mousemove'];
     const handler = () => {
       if (expiredRef.current) return;
       const now = Date.now();
-      const minutes = runtime?.timeoutMinutes || DEFAULT_MINUTES;
 
       if (now - lastLocalActivityRef.current >= 1000) {
         lastLocalActivityRef.current = now;
-        const optimistic = {
-          expiresAt: now + minutes * 60 * 1000,
-          timeoutMinutes: minutes,
-        };
-        setRuntime(optimistic);
-        writeRuntime(optimistic);
-        setRemaining(optimistic.expiresAt - now);
+        try {
+          window.localStorage.setItem(ACTIVITY_KEY, String(now));
+        } catch {}
       }
 
-      try {
-        window.localStorage.setItem(ACTIVITY_KEY, String(now));
-      } catch {}
+      /*
+        The visible timer now follows the server-confirmed expiry.
+        We do not optimistically reset it before TOUCH succeeds.
+      */
       void touch();
     };
     events.forEach((event) => window.addEventListener(event, handler, { passive: true }));
@@ -180,7 +173,7 @@ export default function SessionControl() {
       events.forEach((event) => window.removeEventListener(event, handler));
       window.removeEventListener('storage', onStorage);
     };
-  }, [runtime?.timeoutMinutes, syncFromServer, touch]);
+  }, [syncFromServer, touch]);
 
   useEffect(() => {
     if (!runtime?.expiresAt) return undefined;
