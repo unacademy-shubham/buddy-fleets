@@ -16,7 +16,6 @@ import {
 
 import {
   Activity,
-  AlignJustify,
   BadgeCheck,
   Bell,
   Blocks,
@@ -827,6 +826,7 @@ function readThemeConfig() {
     return {
       ...THEME_DEFAULTS,
       ...parsed,
+      direction: 'ltr',
     };
   } catch {
     return {
@@ -1205,6 +1205,26 @@ function buildVars({
   }
 
 
+  const coloredSidebar =
+    config.sidebarStyle === 'color' ||
+    config.sidebarStyle === 'gradient';
+
+  const sidebarActiveText =
+    coloredSidebar
+      ? '#FFFFFF'
+      : primary;
+
+  const sidebarHoverBg =
+    coloredSidebar
+      ? 'rgba(255,255,255,.12)'
+      : `rgb(${rgb.r} ${rgb.g} ${rgb.b} / .08)`;
+
+  const sidebarActiveBg =
+    coloredSidebar
+      ? 'rgba(255,255,255,.16)'
+      : `rgb(${rgb.r} ${rgb.g} ${rgb.b} / .10)`;
+
+
   /* ========================================================
      HEADER COLORS
   ======================================================== */
@@ -1355,6 +1375,15 @@ function buildVars({
 
     '--bf-sidebar-border':
       sidebarBorder,
+
+    '--bf-sidebar-active-text':
+      sidebarActiveText,
+
+    '--bf-sidebar-hover-bg':
+      sidebarHoverBg,
+
+    '--bf-sidebar-active-bg':
+      sidebarActiveBg,
 
     '--bf-header-bg':
       headerBg,
@@ -1561,7 +1590,15 @@ function GlobalStyle() {
         .bf-dev-sidebar-parent:hover,
         .bf-dev-sidebar-parent:hover svg,
         .bf-dev-sidebar-child:hover {
-          color: var(--bf-primary) !important;
+          color: var(--bf-sidebar-active-text) !important;
+          background: var(--bf-sidebar-hover-bg) !important;
+        }
+
+        .bf-dev-sidebar-active,
+        .bf-dev-sidebar-active svg,
+        .bf-dev-sidebar-child[aria-current='page'] {
+          color: var(--bf-sidebar-active-text) !important;
+          background: var(--bf-sidebar-active-bg) !important;
         }
 
         .bf-dev-horizontal-menu {
@@ -1814,8 +1851,8 @@ function ParentMenuItem({
           ? 'justify-center'
           : 'gap-3 px-3',
         active
-          ? 'text-[var(--bf-primary)]'
-          : 'text-[var(--bf-sidebar-text)] hover:bg-[rgb(var(--bf-primary-rgb)/.06)]'
+          ? 'bf-dev-sidebar-active text-[var(--bf-sidebar-active-text)]'
+          : 'text-[var(--bf-sidebar-text)] hover:bg-[var(--bf-sidebar-hover-bg)]'
       )}
     >
       <Icon
@@ -1823,7 +1860,7 @@ function ParentMenuItem({
         className={cx(
           'shrink-0',
           active
-            ? 'text-[var(--bf-primary)]'
+            ? 'text-[var(--bf-sidebar-active-text)]'
             : 'text-[var(--bf-sidebar-muted)]'
         )}
       />
@@ -2005,11 +2042,11 @@ function ChildLink({
               rounded-md
               text-[12px]
               transition
-              hover:bg-[rgb(var(--bf-primary-rgb)/.08)]
-              hover:text-[var(--bf-primary)]
+              hover:bg-[var(--bf-sidebar-hover-bg)]
+              hover:text-[var(--bf-sidebar-active-text)]
             `,
             active
-              ? 'bg-[rgb(var(--bf-primary-rgb)/.10)] font-semibold text-[var(--bf-primary)]'
+              ? 'bf-dev-sidebar-active bg-[var(--bf-sidebar-active-bg)] font-semibold text-[var(--bf-sidebar-active-text)]'
               : 'text-[var(--bf-sidebar-text)]'
           )}
         >
@@ -2043,11 +2080,11 @@ function ChildLink({
               rounded-md
               text-[12px]
               transition
-              hover:bg-[rgb(var(--bf-primary-rgb)/.08)]
-              hover:text-[var(--bf-primary)]
+              hover:bg-[var(--bf-sidebar-hover-bg)]
+              hover:text-[var(--bf-sidebar-active-text)]
             `,
             isActive
-              ? 'bg-[rgb(var(--bf-primary-rgb)/.10)] font-semibold text-[var(--bf-primary)]'
+              ? 'bf-dev-sidebar-active bg-[var(--bf-sidebar-active-bg)] font-semibold text-[var(--bf-sidebar-active-text)]'
               : 'text-[var(--bf-sidebar-text)]'
           )
         }
@@ -2107,11 +2144,11 @@ function ChildLink({
               text-[12px]
               transition
               duration-150
-              hover:bg-[rgb(var(--bf-primary-rgb)/.08)]
-              hover:text-[var(--bf-primary)]
+              hover:bg-[var(--bf-sidebar-hover-bg)]
+              hover:text-[var(--bf-sidebar-active-text)]
             `,
             active
-              ? 'bg-[rgb(var(--bf-primary-rgb)/.10)] font-semibold text-[var(--bf-primary)]'
+              ? 'bf-dev-sidebar-active bg-[var(--bf-sidebar-active-bg)] font-semibold text-[var(--bf-sidebar-active-text)]'
               : 'text-[var(--bf-sidebar-text)]'
           )}
           style={{
@@ -2194,11 +2231,11 @@ function ChildLink({
             text-[12px]
             transition
             duration-150
-            hover:bg-[rgb(var(--bf-primary-rgb)/.08)]
-            hover:text-[var(--bf-primary)]
+            hover:bg-[var(--bf-sidebar-hover-bg)]
+            hover:text-[var(--bf-sidebar-active-text)]
           `,
           isActive
-            ? 'bg-[rgb(var(--bf-primary-rgb)/.10)] font-semibold text-[var(--bf-primary)]'
+            ? 'bf-dev-sidebar-active bg-[var(--bf-sidebar-active-bg)] font-semibold text-[var(--bf-sidebar-active-text)]'
             : 'text-[var(--bf-sidebar-text)]'
         )
       }
@@ -2475,11 +2512,11 @@ function FlyoutNode({
               text-left
               text-[11px]
               transition
-              hover:bg-[rgb(var(--bf-primary-rgb)/.08)]
-              hover:text-[var(--bf-primary)]
+              hover:bg-[var(--bf-sidebar-hover-bg)]
+              hover:text-[var(--bf-sidebar-active-text)]
             `,
             active
-              ? 'bg-[rgb(var(--bf-primary-rgb)/.10)] font-semibold text-[var(--bf-primary)]'
+              ? 'bf-dev-sidebar-active bg-[var(--bf-sidebar-active-bg)] font-semibold text-[var(--bf-sidebar-active-text)]'
               : 'text-[var(--bf-text-2)]'
           )}
           style={{
@@ -2560,11 +2597,11 @@ function FlyoutNode({
             py-2.5
             text-[11px]
             transition
-            hover:bg-[rgb(var(--bf-primary-rgb)/.08)]
-            hover:text-[var(--bf-primary)]
+            hover:bg-[var(--bf-sidebar-hover-bg)]
+            hover:text-[var(--bf-sidebar-active-text)]
           `,
           isActive
-            ? 'bg-[rgb(var(--bf-primary-rgb)/.10)] font-semibold text-[var(--bf-primary)]'
+            ? 'bf-dev-sidebar-active bg-[var(--bf-sidebar-active-bg)] font-semibold text-[var(--bf-sidebar-active-text)]'
             : 'text-[var(--bf-text-2)]'
         )
       }
@@ -2701,8 +2738,8 @@ function CompactMenuButton({
           transition
         `,
         active
-          ? 'text-[var(--bf-primary)]'
-          : 'text-[var(--bf-sidebar-text)] hover:text-[var(--bf-primary)]'
+          ? 'bf-dev-sidebar-active text-[var(--bf-sidebar-active-text)]'
+          : 'text-[var(--bf-sidebar-text)] hover:text-[var(--bf-sidebar-active-text)]'
       )}
     >
       <Icon
@@ -3104,7 +3141,7 @@ function Sidebar({
                               doubleMenuId ===
                                 menu.id
                                 ? 'bg-[var(--bf-primary)] text-white'
-                                : 'text-[var(--bf-sidebar-text)] hover:text-[var(--bf-primary)]'
+                                : 'text-[var(--bf-sidebar-text)] hover:text-[var(--bf-sidebar-active-text)]'
                             )}
                           >
                             <Icon
@@ -5055,7 +5092,6 @@ function HorizontalHeaderBrand({
    Important:
    - Theme switch changes content + menu theme.
    - Header style stays independent.
-   - 3-lines icon opens Utility drawer.
    - Rotating gear opens Theme Customizer ONLY.
 ============================================================ */
 
@@ -5072,7 +5108,6 @@ function Header({
   onLogout,
   openPopover,
   setOpenPopover,
-  utilityDrawerOpen,
   setUtilityDrawerOpen,
   themeDrawerOpen,
   setThemeDrawerOpen,
@@ -5495,8 +5530,7 @@ function Header({
               <span
                 className="
                   hidden
-                  min-w-0
-                  max-w-[175px]
+                  min-w-max
                   flex-col
                   items-start
                   justify-center
@@ -5506,8 +5540,7 @@ function Header({
               >
                 <span
                   className="
-                    max-w-full
-                    truncate
+                    whitespace-nowrap
                     text-[12px]
                     font-semibold
                     text-[var(--bf-header-text)]
@@ -5519,8 +5552,7 @@ function Header({
                 <span
                   className="
                     mt-1
-                    max-w-full
-                    truncate
+                    whitespace-nowrap
                     text-[9px]
                     font-medium
                     text-[var(--bf-header-muted)]
@@ -5560,32 +5592,6 @@ function Header({
               />
             )}
           </div>
-
-
-          <HeaderIcon
-            label="Open utility panel"
-            active={
-              utilityDrawerOpen
-            }
-            onClick={() => {
-              setOpenPopover(
-                null
-              );
-
-              setThemeDrawerOpen(
-                false
-              );
-
-              setUtilityDrawerOpen(
-                (current) =>
-                  !current
-              );
-            }}
-          >
-            <AlignJustify
-              size={19}
-            />
-          </HeaderIcon>
 
 
           <HeaderIcon
@@ -5964,39 +5970,6 @@ function ThemeSettings({
         pb-6
       "
     >
-      <SectionTitle>
-        LTR and RTL Versions
-      </SectionTitle>
-
-      <SettingRow
-        label="LTR"
-        selected={
-          config.direction ===
-          'ltr'
-        }
-        onClick={() =>
-          updateConfig({
-            direction:
-              'ltr',
-          })
-        }
-      />
-
-      <SettingRow
-        label="RTL"
-        selected={
-          config.direction ===
-          'rtl'
-        }
-        onClick={() =>
-          updateConfig({
-            direction:
-              'rtl',
-          })
-        }
-      />
-
-
       <SectionTitle>
         Navigation Style
       </SectionTitle>
@@ -7256,7 +7229,7 @@ function UtilitySettingsTab() {
 
 /* ============================================================
    UTILITY DRAWER
-   Opened by the 3-lines icon.
+   Auxiliary drawer used by workspace actions.
 ============================================================ */
 
 function UtilityDrawer({
@@ -7458,8 +7431,7 @@ function ThemeDrawer({
             fixed
             inset-0
             z-40
-            bg-slate-950/20
-            lg:hidden
+            bg-transparent
           "
         />
       )}
@@ -7815,7 +7787,7 @@ export default function DeveloperLayout({
 
   useEffect(() => {
     document.documentElement.dir =
-      config.direction;
+      'ltr';
 
     /*
       Keep visual colors fully controlled by our tokens.
@@ -7824,7 +7796,6 @@ export default function DeveloperLayout({
     document.documentElement.dataset.bfTheme =
       config.theme;
   }, [
-    config.direction,
     config.theme,
   ]);
 
@@ -7848,9 +7819,7 @@ export default function DeveloperLayout({
         style={
           vars
         }
-        dir={
-          config.direction
-        }
+        dir="ltr"
       >
         <Sidebar
           config={
@@ -7886,9 +7855,6 @@ export default function DeveloperLayout({
           }
           setOpenPopover={
             setOpenPopover
-          }
-          utilityDrawerOpen={
-            utilityDrawerOpen
           }
           setUtilityDrawerOpen={
             setUtilityDrawerOpen

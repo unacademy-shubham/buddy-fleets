@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Clock3, ShieldAlert, TimerReset, X } from 'lucide-react';
+import { Clock3, ShieldAlert } from 'lucide-react';
 
 const DEFAULT_MINUTES = 30;
 const ALLOWED_MINUTES = [30, 60, 90];
@@ -55,12 +55,10 @@ async function sessionMutation(action, minutes) {
   return { ...data, status: response.status, ok: Boolean(response.ok && data?.ok) };
 }
 
-export default function SessionControl({ onLogout }) {
+export default function SessionControl() {
   const [runtime, setRuntime] = useState(() => readRuntime());
   const [remaining, setRemaining] = useState(null);
-  const [open, setOpen] = useState(false);
   const [expired, setExpired] = useState(false);
-  const [notice, setNotice] = useState('');
   const lastTouchRef = useRef(0);
   const lastLocalActivityRef = useRef(0);
   const lastCrossTabSyncRef = useRef(0);
@@ -203,28 +201,6 @@ export default function SessionControl({ onLogout }) {
     return () => window.clearInterval(timer);
   }, [runtime?.expiresAt]);
 
-  const extend = useCallback(async (minutes) => {
-    if (!ALLOWED_MINUTES.includes(minutes) || expiredRef.current) return;
-    const result = await sessionMutation('EXTEND', minutes);
-    if (!result.ok || !result.expiresAt) {
-      if ([401, 403, 423].includes(result.status)) {
-        expiredRef.current = true;
-        setExpired(true);
-      }
-      return;
-    }
-    const next = {
-      expiresAt: Date.parse(result.expiresAt),
-      timeoutMinutes: minutes,
-    };
-    setRuntime(next);
-    writeRuntime(next);
-    setRemaining(next.expiresAt - Date.now());
-    setOpen(false);
-    setNotice(`Your session has been extended by ${minutes} minutes.`);
-    window.setTimeout(() => setNotice(''), 3000);
-  }, []);
-
   const display = useMemo(() => {
     if (remaining === null) return '--:--';
     return formatRemaining(remaining);
@@ -249,51 +225,18 @@ export default function SessionControl({ onLogout }) {
 
   return (
     <>
-      <div className="relative hidden xl:block">
-        <button
-          type="button"
-          onClick={() => setOpen((value) => !value)}
-          className="flex min-w-[112px] flex-col items-center justify-center rounded-md border border-white/20 bg-white/[.08] px-3 py-1.5 text-center text-white shadow-[inset_0_1px_0_rgba(255,255,255,.12),0_1px_2px_rgba(0,0,0,.08)] backdrop-blur-sm transition hover:border-white/35 hover:bg-white/[.14]"
-          aria-label="Session controls"
+      <div className="hidden xl:block">
+        <div
+          className="flex min-w-[112px] cursor-default flex-col items-center justify-center rounded-md border border-white/20 bg-white/[.08] px-3 py-1.5 text-center text-white shadow-[inset_0_1px_0_rgba(255,255,255,.12),0_1px_2px_rgba(0,0,0,.08)] backdrop-blur-sm"
+          aria-label="Session time remaining"
+          title="Session time remaining"
         >
           <span className="flex items-center gap-1 text-[8px] font-bold uppercase tracking-[.12em] text-[var(--bf-header-muted)]">
             <Clock3 size={9} /> Session
           </span>
           <span className="text-[11px] font-bold tabular-nums text-[var(--bf-header-text)]">{display}</span>
-        </button>
-
-        {open && !expired ? (
-          <div className="absolute right-0 top-[calc(100%+8px)] z-[80] w-[310px] overflow-hidden rounded-xl border border-[var(--bf-border)] bg-[var(--bf-surface)] p-3 shadow-2xl">
-            <div className="mb-3 flex items-center justify-between">
-              <div>
-                <div className="text-[12px] font-bold text-[var(--bf-text)]">Session time</div>
-                <div className="mt-0.5 text-[9px] text-[var(--bf-text-3)]">Choose how long the inactivity window should be.</div>
-              </div>
-              <TimerReset size={16} className="text-[var(--bf-primary)]" />
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-              {ALLOWED_MINUTES.map((minutes) => (
-                <button
-                  key={minutes}
-                  type="button"
-                  onClick={() => void extend(minutes)}
-                  className="rounded-lg border border-[var(--bf-border)] bg-[var(--bf-surface-2)] px-2 py-3 text-center transition hover:border-[var(--bf-primary)] hover:bg-[rgb(var(--bf-primary-rgb)/.08)]"
-                >
-                  <div className="text-[12px] font-bold text-[var(--bf-text)]">{minutes} min</div>
-                  <div className="mt-1 text-[8px] text-[var(--bf-text-3)]">Extend session</div>
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : null}
-      </div>
-
-      {notice ? (
-        <div className="fixed right-5 top-5 z-[120] flex items-center gap-2 rounded-lg border border-emerald-400/30 bg-[var(--bf-surface)] px-4 py-3 text-[11px] font-semibold text-[var(--bf-text)] shadow-2xl">
-          <ShieldAlert size={15} className="text-emerald-500" />
-          {notice}
         </div>
-      ) : null}
+      </div>
 
       {expired ? (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/75 px-4 backdrop-blur-sm">
