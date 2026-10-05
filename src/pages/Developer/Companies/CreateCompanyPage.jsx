@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Card, Page, PageHeader } from '../shared/DeveloperPageUI';
-import { COUNTRIES, COUNTRY_BY_CODE } from '../../../data/countries';
+import { COUNTRIES, COUNTRY_BY_CODE } from '../../../Data/countries';
 import {
   getCompanyCreateMetadata,
   getCompanySlugPreview,
@@ -1064,4 +1064,5 @@ export default function CreateCompanyPage() {
     </Page>
   );
 }
+
 
