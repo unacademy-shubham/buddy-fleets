@@ -143,6 +143,276 @@ function normalizeSlug(value) {
     .slice(0, 63);
 }
 
+
+function normalizeCin(value) {
+  const cin = text(value, 21).toUpperCase().replace(/\s+/g, '');
+  if (!cin) return '';
+  return /^[LU]\d{5}[A-Z]{2}\d{4}[A-Z]{3}\d{6}$/.test(cin) ? cin : null;
+}
+
+function mapFleetCompanyType(value) {
+  const source = String(value || '').trim();
+  const normalized = source.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  if (!normalized) return { companyType: 'Other', rawConstitution: source || null };
+  if (normalized.includes('one person')) return { companyType: 'One Person Company (OPC)', rawConstitution: source };
+  if (normalized.includes('limited liability partnership') || normalized === 'llp') return { companyType: 'Limited Liability Partnership (LLP)', rawConstitution: source };
+  if (normalized.includes('private limited') || normalized.includes('private ltd')) return { companyType: 'Private Limited Company', rawConstitution: source };
+  if (normalized.includes('public limited') || normalized.includes('public ltd')) return { companyType: 'Public Limited Company', rawConstitution: source };
+  if (normalized.includes('partnership')) return { companyType: 'Partnership Firm', rawConstitution: source };
+  if (normalized.includes('proprietor') || normalized.includes('proprietorship') || normalized.includes('sole propriet')) return { companyType: 'Proprietorship', rawConstitution: source };
+  return { companyType: 'Other', rawConstitution: source };
+}
+
+async function fetchJsonWithTimeout(url, options = {}, timeoutMs = 7500) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, { ...options, signal: controller.signal });
+    const payload = await response.json().catch(() => null);
+    return { response, payload };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function getCompanyCreateMetadata(supabaseAdmin) {
+  const [plansResult, packsResult, trialPolicyResult, entitlementResult] = await Promise.all([
+    supabaseAdmin
+      .from('developer_plans')
+      .select('id,plan_key,name,tagline,badge,status,currency,display_order,prices,limits')
+      .eq('status', 'active')
+      .order('display_order', { ascending: true }),
+    supabaseAdmin
+      .from('developer_fleet_packs')
+      .select('pack_key,name,short_name,status,display_order')
+      .eq('status', 'active')
+      .order('display_order', { ascending: true }),
+    supabaseAdmin
+      .from('developer_lifecycle_access_policy')
+      .select('policy_key,config')
+      .eq('policy_key', 'trial')
+      .maybeSingle(),
+    supabaseAdmin
+      .from('developer_plan_fleet_entitlements')
+      .select('plan_key,pack_key,module_key,access_level'),
+  ]);
+
+  if (plansResult.error) throw plansResult.error;
+  if (packsResult.error) throw packsResult.error;
+  if (trialPolicyResult.error) throw trialPolicyResult.error;
+  if (entitlementResult.error) throw entitlementResult.error;
+
+  const accessSummary = {};
+  for (const row of entitlementResult.data || []) {
+    const key = `${row.plan_key}:${row.pack_key}`;
+    if (!accessSummary[key]) accessSummary[key] = { full: 0, read_only: 0, blocked: 0, total: 0 };
+    const level = String(row.access_level || '').toLowerCase();
+    if (level === 'full') accessSummary[key].full += 1;
+    else if (level === 'read_only') accessSummary[key].read_only += 1;
+    else accessSummary[key].blocked += 1;
+    accessSummary[key].total += 1;
+  }
+
+  const plans = (plansResult.data || []).map((plan) => ({
+    ...plan,
+    prices: {
+      1: Number(plan.prices?.['1'] || 0),
+      6: Number(plan.prices?.['6'] || 0),
+      12: Number(plan.prices?.['12'] || 0),
+    },
+  }));
+
+  const trialConfig = isObject(trialPolicyResult.data?.config) ? trialPolicyResult.data.config : {};
+  return {
+    plans,
+    fleetPacks: packsResult.data || [],
+    billingCycles: [1, 6, 12],
+    trialDurations: [
+      { weeks: 1, label: '1 Week' },
+      { weeks: 2, label: '2 Weeks' },
+      { weeks: 3, label: '3 Weeks' },
+      { weeks: 4, label: '4 Weeks' },
+    ],
+    trialPolicy: {
+      vehicleLimit: Number(trialConfig.vehicle_limit || 0) || null,
+      userLimit: Number(trialConfig.employee_limit || 0) || null,
+      siteLimit: Number(trialConfig.branch_limit || 0) || null,
+      defaultAccess: String(trialConfig.default_access || 'full'),
+    },
+    accessSummary,
+    gstProviderConfigured: Boolean(process.env.GSTIN_API_KEY || process.env.GSTINAPI_KEY),
+  };
+}
+
+async function getCompanySlugPreview(supabaseAdmin, query = {}) {
+  const requested = normalizeSlug(queryText(query.slug, 80));
+  const base = requested || normalizeSlug(queryText(query.name, 180));
+  if (!base || base.length < 2) {
+    return { status: 400, payload: { ok: false, code: 'INVALID_SLUG_SOURCE' } };
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('companies')
+    .select('subdomain_slug')
+    .ilike('subdomain_slug', `${base}%`)
+    .limit(500);
+  if (error) throw error;
+
+  const taken = new Set((data || []).map((row) => String(row.subdomain_slug || '').toLowerCase()));
+  const available = !taken.has(base);
+  const suggestions = [];
+  for (let suffix = 2; suggestions.length < 3 && suffix < 1000; suffix += 1) {
+    const candidate = `${base.slice(0, Math.max(1, 63 - String(suffix).length - 1))}-${suffix}`;
+    if (!taken.has(candidate)) suggestions.push(candidate);
+  }
+
+  return {
+    status: 200,
+    payload: {
+      ok: true,
+      slug: base,
+      available,
+      suggestions,
+    },
+  };
+}
+
+async function lookupPostalCode(query = {}) {
+  const countryCode = queryText(query.country, 3).toUpperCase() || 'IN';
+  const postalCode = queryText(query.postalCode, 20).replace(/\s+/g, '');
+
+  if (countryCode !== 'IN') {
+    return {
+      status: 200,
+      payload: {
+        ok: true,
+        supported: false,
+        countryCode,
+        postalCode,
+        state: '',
+        city: '',
+        localities: [],
+      },
+    };
+  }
+
+  const pin = normalizePostalCode(postalCode);
+  if (!pin) return { status: 400, payload: { ok: false, code: 'INVALID_INDIAN_PINCODE' } };
+
+  try {
+    const { response, payload } = await fetchJsonWithTimeout(`https://api.postalpincode.in/pincode/${encodeURIComponent(pin)}`);
+    const record = Array.isArray(payload) ? payload[0] : null;
+    const offices = Array.isArray(record?.PostOffice) ? record.PostOffice : [];
+    if (response.ok && String(record?.Status || '').toLowerCase() === 'success' && offices.length) {
+      const first = offices[0] || {};
+      return {
+        status: 200,
+        payload: {
+          ok: true,
+          supported: true,
+          countryCode: 'IN',
+          postalCode: pin,
+          state: String(first.State || '').trim(),
+          city: String(first.District || first.Division || '').trim(),
+          district: String(first.District || '').trim(),
+          localities: [...new Set(offices.map((office) => String(office?.Name || '').trim()).filter(Boolean))].slice(0, 50),
+          provider: 'postalpincode.in',
+        },
+      };
+    }
+    if (response.status === 404 || String(record?.Status || '').toLowerCase() === 'error') {
+      return { status: 404, payload: { ok: false, code: 'PINCODE_NOT_FOUND' } };
+    }
+  } catch {
+    // Try the secondary provider below.
+  }
+
+  try {
+    const { response, payload } = await fetchJsonWithTimeout(`https://api.pincodeapi.in/v1/pincode/${encodeURIComponent(pin)}`);
+    const root = payload?.data || payload || {};
+    const offices = Array.isArray(root.post_offices) ? root.post_offices : Array.isArray(root.postOffices) ? root.postOffices : [];
+    const first = offices[0] || root;
+    const state = String(first.state || first.State || root.state || '').trim();
+    const city = String(first.district || first.District || root.district || '').trim();
+    if (response.ok && (state || city)) {
+      return {
+        status: 200,
+        payload: {
+          ok: true,
+          supported: true,
+          countryCode: 'IN',
+          postalCode: pin,
+          state,
+          city,
+          district: city,
+          localities: [...new Set(offices.map((office) => String(office?.office_name || office?.name || office?.Name || '').trim()).filter(Boolean))].slice(0, 50),
+          provider: 'pincodeapi.in',
+        },
+      };
+    }
+  } catch {
+    // Surface a controlled provider error below.
+  }
+
+  return { status: 502, payload: { ok: false, code: 'POSTAL_LOOKUP_UNAVAILABLE' } };
+}
+
+async function verifyGstin(body = {}) {
+  const gstin = normalizeGstin(body?.gstin);
+  if (!gstin) return { status: 400, payload: { ok: false, code: 'INVALID_GSTIN' } };
+
+  const apiKey = String(process.env.GSTIN_API_KEY || process.env.GSTINAPI_KEY || '').trim();
+  if (!apiKey) {
+    return { status: 503, payload: { ok: false, code: 'GST_PROVIDER_NOT_CONFIGURED' } };
+  }
+
+  const baseUrl = String(process.env.GSTIN_API_BASE_URL || 'https://www.gstinapi.in/v1/gstin').replace(/\/+$/, '');
+  let response;
+  let payload;
+  try {
+    ({ response, payload } = await fetchJsonWithTimeout(
+      `${baseUrl}/${encodeURIComponent(gstin)}`,
+      { headers: { Accept: 'application/json', 'x-api-key': apiKey } },
+      9000
+    ));
+  } catch {
+    return { status: 502, payload: { ok: false, code: 'GST_PROVIDER_UNAVAILABLE' } };
+  }
+
+  if (!response.ok) {
+    const upstreamCode = String(payload?.code || payload?.error?.code || '').trim();
+    if (response.status === 404) return { status: 404, payload: { ok: false, code: 'GSTIN_NOT_FOUND' } };
+    if ([401, 403].includes(response.status)) return { status: 502, payload: { ok: false, code: 'GST_PROVIDER_AUTH_FAILED' } };
+    if (response.status === 402) return { status: 402, payload: { ok: false, code: 'GST_PROVIDER_CREDITS_EXHAUSTED' } };
+    if (response.status === 429) return { status: 429, payload: { ok: false, code: 'GST_PROVIDER_RATE_LIMITED' } };
+    return { status: 502, payload: { ok: false, code: upstreamCode || 'GST_PROVIDER_ERROR' } };
+  }
+
+  const source = payload?.data || payload?.profile || payload || {};
+  const legalName = text(source.legal_name ?? source.legalName, 180);
+  const tradeName = text(source.trade_name ?? source.tradeName, 180);
+  const gstStatus = text(source.status ?? source.gstin_status, 80);
+  const constitution = text(source.business_constitution ?? source.constitution_of_business ?? source.constitution, 160);
+  if (!legalName || !gstStatus) {
+    return { status: 502, payload: { ok: false, code: 'GST_PROVIDER_RESPONSE_INVALID' } };
+  }
+
+  const mapped = mapFleetCompanyType(constitution);
+  return {
+    status: 200,
+    payload: {
+      ok: true,
+      verified: true,
+      gstin,
+      legalName,
+      tradeName: tradeName || legalName,
+      gstStatus,
+      companyType: mapped.companyType,
+      rawConstitution: mapped.rawConstitution,
+    },
+  };
+}
+
 function randomCompanyCode() {
   return `BF${randomBytes(4).toString('hex').toUpperCase()}`;
 }
@@ -1619,6 +1889,17 @@ export default async function handler(req, res) {
         const directory = await getCompanyDirectory(auth.supabaseAdmin, req.query || {});
         return send(res, 200, { ok: true, ...directory });
       }
+      if (resource === 'company-create-metadata') {
+        return send(res, 200, { ok: true, ...(await getCompanyCreateMetadata(auth.supabaseAdmin)) });
+      }
+      if (resource === 'company-slug-preview') {
+        const result = await getCompanySlugPreview(auth.supabaseAdmin, req.query || {});
+        return send(res, result.status, result.payload);
+      }
+      if (resource === 'postal-lookup') {
+        const result = await lookupPostalCode(req.query || {});
+        return send(res, result.status, result.payload);
+      }
       if (resource === 'plans') {
         return send(res, 200, { ok: true, plans: await listPlans(auth.supabaseAdmin) });
       }
@@ -1650,7 +1931,9 @@ export default async function handler(req, res) {
     const bodyResource = String(body?.resource || '').trim().toLowerCase();
     let result;
 
-    if (bodyResource === 'companies' && req.method === 'POST') {
+    if (bodyResource === 'gst-verify' && req.method === 'POST') {
+      result = await verifyGstin(body);
+    } else if (bodyResource === 'companies' && req.method === 'POST') {
       result = await createCompany({ supabaseAdmin: auth.supabaseAdmin, actorUserId: auth.user.id, body });
     } else if (bodyResource === 'companies' && req.method === 'PATCH') {
       result = await updateCompany({ supabaseAdmin: auth.supabaseAdmin, actorUserId: auth.user.id, body });

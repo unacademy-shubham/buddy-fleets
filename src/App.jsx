@@ -168,6 +168,10 @@ const DeveloperCompany360 = lazy(() =>
   import('./pages/Developer/Companies/Company360Page')
 );
 
+const DeveloperCreateCompany = lazy(() =>
+  import('./pages/Developer/Companies/CreateCompanyPage')
+);
+
 const DeveloperCompanyOverrides = lazy(() =>
   import('./pages/Developer/Companies/CompanyOverridesPage')
 );
@@ -2463,6 +2467,15 @@ function PortalRoutes({
               so the existing secure developer portal/session gate
               remains authoritative and unchanged.
           ===================================================== */}
+
+          <Route
+            path="saas-platform/companies/create"
+            element={
+              <LazyPage>
+                <DeveloperCreateCompany />
+              </LazyPage>
+            }
+          />
 
           <Route
             path="saas-platform/companies/:companyId"

@@ -423,24 +423,6 @@ function LifecycleDialog({ company, mode, onClose, onSubmit, saving }) {
   );
 }
 
-function PhaseNotice({ onClose }) {
-  return (
-    <div className="fixed inset-0 z-[140] flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-[6px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] p-5 shadow-[0_24px_80px_rgba(2,6,23,.35)]">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <div className="text-[9px] font-bold uppercase tracking-[.08em] text-[var(--bf-dev-primary)]">Create Company</div>
-            <div className="mt-1 text-[17px] font-extrabold text-[var(--bf-dev-text)]">Wizard is intentionally held for the next phase.</div>
-            <p className="mt-2 text-[9px] leading-4 text-[var(--bf-dev-text-3)]">The old create form is not opened here because its fields and password flow no longer match the locked Create Company specification.</p>
-          </div>
-          <button type="button" onClick={onClose} className="text-[var(--bf-dev-text-3)] hover:text-[var(--bf-dev-text)]"><X size={16} /></button>
-        </div>
-        <div className="mt-5 flex justify-end"><SoftButton onClick={onClose}>Close</SoftButton></div>
-      </div>
-    </div>
-  );
-}
-
 function filterOptions(filters) {
   return {
     lifecycle: [
@@ -498,7 +480,6 @@ export default function AllCompaniesPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [lifecycleDialog, setLifecycleDialog] = useState(null);
-  const [createNotice, setCreateNotice] = useState(false);
 
   const options = useMemo(() => filterOptions(data.filters), [data.filters]);
 
@@ -607,7 +588,7 @@ export default function AllCompaniesPage() {
         actions={(
           <>
             <HeaderAction icon={RefreshCcw} disabled={loading || saving} onClick={load}>Refresh</HeaderAction>
-            <HeaderAction icon={Plus} onClick={() => setCreateNotice(true)}>Create Company</HeaderAction>
+            <HeaderAction icon={Plus} onClick={() => navigate('/saas-platform/companies/create')}>Create Company</HeaderAction>
           </>
         )}
       />
@@ -759,7 +740,6 @@ export default function AllCompaniesPage() {
           onSubmit={submitLifecycle}
         />
       )}
-      {createNotice && <PhaseNotice onClose={() => setCreateNotice(false)} />}
     </Page>
   );
 }

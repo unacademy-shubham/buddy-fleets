@@ -61,6 +61,49 @@ export async function getCompanyDirectory(params = {}) {
 }
 
 
+
+export function getCompanyCreateMetadata() {
+  return request('GET', undefined, 'company-create-metadata');
+}
+
+export async function getCompanySlugPreview({ name = '', slug = '' } = {}) {
+  try {
+    const search = new URLSearchParams({ route: 'saas-management', resource: 'company-slug-preview' });
+    if (name) search.set('name', name);
+    if (slug) search.set('slug', slug);
+    const response = await fetch(`/api/developer?${search.toString()}`, {
+      method: 'GET',
+      credentials: 'include',
+      cache: 'no-store',
+      headers: { Accept: 'application/json' },
+    });
+    const data = await response.json().catch(() => ({}));
+    return { ...data, ok: Boolean(response.ok && data?.ok), status: response.status };
+  } catch {
+    return { ok: false, status: 0, code: 'NETWORK_ERROR' };
+  }
+}
+
+export async function lookupCompanyPostalCode({ country = 'IN', postalCode = '' } = {}) {
+  try {
+    const search = new URLSearchParams({ route: 'saas-management', resource: 'postal-lookup', country, postalCode });
+    const response = await fetch(`/api/developer?${search.toString()}`, {
+      method: 'GET',
+      credentials: 'include',
+      cache: 'no-store',
+      headers: { Accept: 'application/json' },
+    });
+    const data = await response.json().catch(() => ({}));
+    return { ...data, ok: Boolean(response.ok && data?.ok), status: response.status };
+  } catch {
+    return { ok: false, status: 0, code: 'NETWORK_ERROR' };
+  }
+}
+
+export function verifyCompanyGstin(gstin) {
+  return request('POST', { gstin }, 'gst-verify');
+}
+
 export function createCompany(payload) {
   return request('POST', payload, 'companies');
 }
