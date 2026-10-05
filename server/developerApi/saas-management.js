@@ -300,6 +300,495 @@ async function getCompanies(supabaseAdmin) {
 }
 
 
+
+
+function queryText(value, max = 120) {
+  const raw = Array.isArray(value) ? value[0] : value;
+  return text(raw, max);
+}
+
+function queryInteger(value, fallback, min, max) {
+  const raw = Array.isArray(value) ? value[0] : value;
+  return integer(raw, fallback, min, max);
+}
+
+function chunks(values, size = 180) {
+  const result = [];
+  for (let index = 0; index < values.length; index += size) result.push(values.slice(index, index + size));
+  return result;
+}
+
+async function selectInChunks(supabaseAdmin, table, columns, field, values, extra = null) {
+  const uniqueValues = [...new Set((values || []).filter(Boolean))];
+  if (!uniqueValues.length) return [];
+  const output = [];
+  for (const batch of chunks(uniqueValues)) {
+    let query = supabaseAdmin.from(table).select(columns).in(field, batch);
+    if (typeof extra === 'function') query = extra(query);
+    const { data, error } = await query;
+    if (error) throw error;
+    output.push(...(data || []));
+  }
+  return output;
+}
+
+async function listAllCompanies(supabaseAdmin) {
+  const pageSize = 1000;
+  const output = [];
+  for (let start = 0; start < 10000; start += pageSize) {
+    const { data, error } = await supabaseAdmin
+      .from('companies')
+      .select('id,company_code,company_name,status,confirmed_at,account_owner_user_id,subdomain_slug,created_at,updated_at')
+      .order('company_name', { ascending: true })
+      .range(start, start + pageSize - 1);
+    if (error) throw error;
+    output.push(...(data || []));
+    if ((data || []).length < pageSize) break;
+  }
+  return output;
+}
+
+function latestIso(values) {
+  let winner = null;
+  let winnerTime = -1;
+  for (const value of values || []) {
+    if (!value) continue;
+    const time = Date.parse(value);
+    if (Number.isFinite(time) && time > winnerTime) {
+      winner = value;
+      winnerTime = time;
+    }
+  }
+  return winner;
+}
+
+function lifecycleFor(company, subscription) {
+  const companyStatus = String(company?.status || '').trim();
+  const subscriptionStatus = String(subscription?.status || '').trim();
+  const now = Date.now();
+  const subscriptionExpired = subscription?.subscription_end_at && Date.parse(subscription.subscription_end_at) <= now;
+  const trialExpired = subscription?.trial_end_at && Date.parse(subscription.trial_end_at) <= now;
+
+  if (companyStatus === 'suspended') return { key: 'suspended', label: 'Suspended', tone: 'danger' };
+  if (companyStatus === 'pending_confirmation') return { key: 'pending_confirmation', label: 'Pending', tone: 'neutral' };
+  if (companyStatus === 'trial_expired' || subscriptionStatus === 'trial_expired' || (companyStatus === 'trial_active' && trialExpired)) {
+    return { key: 'expired', label: 'Expired', tone: 'warning' };
+  }
+  if (['expired', 'past_due'].includes(subscriptionStatus) || subscriptionExpired) {
+    return { key: 'expired', label: 'Expired', tone: 'warning' };
+  }
+  if (companyStatus === 'trial_active' || subscriptionStatus === 'trial_active') {
+    return { key: 'trial_active', label: 'Trial', tone: 'warning' };
+  }
+  return { key: 'active', label: 'Active', tone: 'success' };
+}
+
+function accessFor(lifecycle) {
+  if (lifecycle.key === 'suspended' || lifecycle.key === 'pending_confirmation') return { key: 'blocked', label: 'Blocked' };
+  if (lifecycle.key === 'expired') return { key: 'read_only', label: 'Read Only' };
+  return { key: 'full', label: 'Full' };
+}
+
+function provisioningFor({ portalSettings, sites, systemRoles, portalAccess, portalProfiles, employees, company, subscription, portalConfig }) {
+  const ownerId = company?.account_owner_user_id || null;
+  const checks = {
+    portal_settings: Boolean(portalSettings),
+    fleet_pack_selected: portalSettings?.fleet_pack_selection_status === 'selected',
+    primary_site: (sites || []).some((site) => site.is_primary && site.status === 'active'),
+    system_roles: (systemRoles || []).filter((role) => role.is_system).length >= 6,
+    owner_access: Boolean(ownerId && (portalAccess || []).some((row) => row.user_id === ownerId)),
+    owner_profile: Boolean(ownerId && (portalProfiles || []).some((row) => row.user_id === ownerId)),
+    developer_owner_employee: Boolean(ownerId && (employees || []).some((row) => row.user_id === ownerId)),
+    portal_config: Boolean(portalConfig),
+    subscription: Boolean(subscription),
+  };
+  const missing = Object.entries(checks).filter(([, value]) => !value).map(([key]) => key);
+  const criticalMissing = new Set(['portal_settings', 'primary_site', 'owner_access', 'owner_profile', 'developer_owner_employee', 'subscription']);
+  const criticalCount = missing.filter((key) => criticalMissing.has(key)).length;
+  const level = missing.length === 0 ? 'healthy' : criticalCount >= 2 || missing.length >= 4 ? 'incomplete' : 'attention';
+  return {
+    level,
+    label: level === 'healthy' ? 'Healthy' : level === 'incomplete' ? 'Incomplete' : 'Attention',
+    checks,
+    missing,
+  };
+}
+
+function securityFor({ company, employees, memberships, securityRows }) {
+  const ownerId = company?.account_owner_user_id || null;
+  const employeeByUser = new Map((employees || []).filter((row) => row.user_id).map((row) => [row.user_id, row]));
+  const membershipByUser = new Map((memberships || []).filter((row) => row.user_id).map((row) => [row.user_id, row]));
+  const securityByUser = new Map((securityRows || []).filter((row) => row.user_id).map((row) => [row.user_id, row]));
+  const userIds = [...new Set([ownerId, ...employeeByUser.keys(), ...membershipByUser.keys()].filter(Boolean))];
+
+  let lockedCount = 0;
+  let restrictedCount = 0;
+  let failedLoginAlerts = 0;
+  let mfaAlerts = 0;
+  const eventTimes = [];
+  const alerts = [];
+
+  for (const userId of userIds) {
+    const employee = employeeByUser.get(userId);
+    const membership = membershipByUser.get(userId);
+    const security = securityByUser.get(userId);
+    const actorLabel = employee?.full_name || employee?.email || (userId === ownerId ? 'Company Owner' : 'Company user');
+    const isOwner = userId === ownerId;
+    if (security?.is_locked) {
+      lockedCount += 1;
+      alerts.push({
+        userId,
+        name: actorLabel,
+        type: isOwner ? 'Owner Locked' : 'Locked',
+        reason: security.lock_reason || `${Number(security.failed_password_attempts || 0)} failed password attempts`,
+        severity: isOwner ? 'critical' : 'warning',
+        at: security.locked_at || security.last_failed_at || null,
+      });
+    }
+    const employeeRestricted = Boolean(employee && employee.status !== 'active');
+    const membershipRestricted = Boolean(membership && membership.status !== 'active');
+    if (employeeRestricted || membershipRestricted) {
+      restrictedCount += 1;
+      alerts.push({
+        userId,
+        name: actorLabel,
+        type: isOwner ? 'Owner Restricted' : 'Restricted',
+        reason: employeeRestricted ? `Employee status: ${employee.status}` : `Membership status: ${membership.status}`,
+        severity: isOwner ? 'critical' : 'warning',
+        at: employee?.updated_at || membership?.updated_at || null,
+      });
+    }
+    if (Number(security?.failed_password_attempts || 0) >= 2 && !security?.is_locked) {
+      failedLoginAlerts += 1;
+      alerts.push({
+        userId,
+        name: actorLabel,
+        type: 'Failed Login Warning',
+        reason: `${Number(security.failed_password_attempts || 0)} recent failed password attempts`,
+        severity: 'warning',
+        at: security.last_failed_at || null,
+      });
+    }
+    if (Number(security?.failed_mfa_attempts || 0) >= 2) {
+      mfaAlerts += 1;
+      alerts.push({
+        userId,
+        name: actorLabel,
+        type: 'MFA Warning',
+        reason: `${Number(security.failed_mfa_attempts || 0)} failed MFA attempts`,
+        severity: 'warning',
+        at: security.last_failed_mfa_at || null,
+      });
+    }
+    eventTimes.push(security?.locked_at, security?.last_failed_at, security?.last_failed_mfa_at);
+  }
+
+  const ownerSecurity = ownerId ? securityByUser.get(ownerId) : null;
+  const ownerEmployee = ownerId ? employeeByUser.get(ownerId) : null;
+  const ownerMembership = ownerId ? membershipByUser.get(ownerId) : null;
+  const ownerLocked = Boolean(ownerSecurity?.is_locked);
+  const ownerRestricted = Boolean(ownerId && ((ownerEmployee && ownerEmployee.status !== 'active') || (ownerMembership && ownerMembership.status !== 'active')));
+  const alertCount = lockedCount + restrictedCount + failedLoginAlerts + mfaAlerts;
+  const level = ownerLocked || ownerRestricted ? 'critical' : alertCount > 0 ? 'warning' : 'clear';
+  const label = ownerLocked ? 'Owner Locked' : ownerRestricted ? 'Owner Restricted' : alertCount > 0 ? `${alertCount} Alert${alertCount === 1 ? '' : 's'}` : 'Clear';
+
+  return {
+    level,
+    label,
+    ownerLocked,
+    ownerRestricted,
+    lockedCount,
+    restrictedCount,
+    failedLoginAlerts,
+    mfaAlerts,
+    alertCount,
+    lastEventAt: latestIso(eventTimes),
+    alerts: alerts
+      .sort((a, b) => (a.severity === 'critical' ? -1 : 0) - (b.severity === 'critical' ? -1 : 0))
+      .slice(0, 8),
+  };
+}
+
+function expiryFor(lifecycle, subscription) {
+  if (lifecycle.key === 'trial_active' || (lifecycle.key === 'expired' && subscription?.trial_end_at)) return subscription?.trial_end_at || null;
+  return subscription?.subscription_end_at || subscription?.trial_end_at || null;
+}
+
+function daysUntil(value) {
+  if (!value) return null;
+  const time = Date.parse(value);
+  if (!Number.isFinite(time)) return null;
+  return Math.ceil((time - Date.now()) / 86400000);
+}
+
+function companySearchBlob(row) {
+  return [
+    row.company_name,
+    row.company_code,
+    row.subdomain_slug,
+    row.owner?.name,
+    row.owner?.email,
+    row.plan?.name,
+    row.plan?.key,
+    row.fleet?.primary?.name,
+    row.fleet?.primary?.key,
+    ...(row.fleet?.enabled || []).map((item) => item.name || item.key),
+  ].filter(Boolean).join(' ').toLowerCase();
+}
+
+async function getCompanyDirectory(supabaseAdmin, requestQuery = {}) {
+  const companies = await listAllCompanies(supabaseAdmin);
+  const companyIds = companies.map((company) => company.id).filter(Boolean);
+  const ownerIds = companies.map((company) => company.account_owner_user_id).filter(Boolean);
+
+  const [
+    subscriptions,
+    overrides,
+    profiles,
+    portalSettings,
+    sites,
+    employees,
+    memberships,
+    sessions,
+    invoices,
+    plansResult,
+    packsResult,
+    roles,
+    portalAccess,
+    portalProfiles,
+    portalConfigs,
+  ] = await Promise.all([
+    selectInChunks(supabaseAdmin, 'subscriptions', 'company_id,status,plan_id,plan_key,trial_start_at,trial_end_at,subscription_start_at,subscription_end_at,created_at,updated_at', 'company_id', companyIds),
+    selectInChunks(supabaseAdmin, 'developer_company_overrides', 'id,company_id,enabled,plan_key,limits_override,entitlements_override,notes,revision,updated_at', 'company_id', companyIds),
+    selectInChunks(supabaseAdmin, 'developer_company_profiles', 'company_id,legal_name,trade_name,gstin,pan,owner_name,owner_email,owner_mobile,contact_email,contact_mobile,city,state,country,revision,updated_at', 'company_id', companyIds),
+    selectInChunks(supabaseAdmin, 'company_portal_settings', 'company_id,fleet_pack,enabled_packs,fleet_pack_selection_status,fleet_pack_selected_at,updated_at', 'company_id', companyIds),
+    selectInChunks(supabaseAdmin, 'company_portal_sites', 'id,company_id,name,is_primary,status,created_at,updated_at', 'company_id', companyIds),
+    selectInChunks(supabaseAdmin, 'developer_company_employees', 'id,company_id,user_id,full_name,email,role_key,status,created_at,updated_at', 'company_id', companyIds),
+    selectInChunks(supabaseAdmin, 'company_memberships', 'id,company_id,user_id,status,access_scope,created_at,updated_at', 'company_id', companyIds),
+    selectInChunks(supabaseAdmin, 'security_sessions', 'id,company_id,user_id,status,last_seen_at,created_at,revoked_at', 'company_id', companyIds),
+    selectInChunks(supabaseAdmin, 'developer_company_invoices', 'id,company_id,due_date,grand_total,paid_amount,status,created_at,updated_at', 'company_id', companyIds),
+    supabaseAdmin.from('developer_plans').select('id,plan_key,name,status,display_order').order('display_order', { ascending: true }),
+    supabaseAdmin.from('developer_fleet_packs').select('pack_key,name,short_name,status,display_order').order('display_order', { ascending: true }),
+    selectInChunks(supabaseAdmin, 'company_portal_roles', 'id,company_id,role_key,name,is_system', 'company_id', companyIds),
+    selectInChunks(supabaseAdmin, 'company_portal_user_access', 'company_id,user_id,role_id,role_name,primary_site_id,site_ids,all_sites', 'company_id', companyIds),
+    selectInChunks(supabaseAdmin, 'company_portal_user_profiles', 'company_id,user_id,full_name,email,mobile', 'company_id', companyIds),
+    selectInChunks(supabaseAdmin, 'developer_company_portal_config', 'company_id,revision,updated_at', 'company_id', companyIds),
+  ]);
+
+  if (plansResult.error) throw plansResult.error;
+  if (packsResult.error) throw packsResult.error;
+
+  const allUserIds = [...new Set([...ownerIds, ...employees.map((row) => row.user_id).filter(Boolean), ...memberships.map((row) => row.user_id).filter(Boolean)])];
+  const securityRows = await selectInChunks(
+    supabaseAdmin,
+    'user_security',
+    'user_id,failed_password_attempts,is_locked,locked_at,lock_reason,last_failed_at,last_successful_login_at,failed_mfa_attempts,last_failed_mfa_at,mfa_enabled,updated_at',
+    'user_id',
+    allUserIds
+  );
+
+  const group = (rows, key = 'company_id') => {
+    const map = new Map();
+    for (const row of rows || []) {
+      const value = row[key];
+      if (!value) continue;
+      if (!map.has(value)) map.set(value, []);
+      map.get(value).push(row);
+    }
+    return map;
+  };
+  const one = (rows, key = 'company_id') => new Map((rows || []).filter((row) => row[key]).map((row) => [row[key], row]));
+
+  const subscriptionMap = one(subscriptions);
+  const overrideMap = one(overrides);
+  const profileMap = one(profiles);
+  const portalSettingsMap = one(portalSettings);
+  const sitesMap = group(sites);
+  const employeeMap = group(employees);
+  const membershipMap = group(memberships);
+  const sessionMap = group(sessions);
+  const invoiceMap = group(invoices);
+  const rolesMap = group(roles);
+  const accessMap = group(portalAccess);
+  const portalProfilesMap = group(portalProfiles);
+  const portalConfigMap = one(portalConfigs);
+  const securityMap = new Map(securityRows.map((row) => [row.user_id, row]));
+  const planByKey = new Map();
+  for (const plan of plansResult.data || []) {
+    planByKey.set(plan.plan_key, plan);
+    planByKey.set(plan.id, plan);
+  }
+  const packByKey = new Map((packsResult.data || []).map((pack) => [pack.pack_key, pack]));
+
+  const today = new Date().toISOString().slice(0, 10);
+  const rows = companies.map((company) => {
+    const subscription = subscriptionMap.get(company.id) || null;
+    const override = overrideMap.get(company.id) || null;
+    const profile = profileMap.get(company.id) || null;
+    const settings = portalSettingsMap.get(company.id) || null;
+    const companySites = sitesMap.get(company.id) || [];
+    const companyEmployees = employeeMap.get(company.id) || [];
+    const companyMemberships = membershipMap.get(company.id) || [];
+    const companySessions = sessionMap.get(company.id) || [];
+    const companyInvoices = invoiceMap.get(company.id) || [];
+    const companyRoles = rolesMap.get(company.id) || [];
+    const companyAccess = accessMap.get(company.id) || [];
+    const companyPortalProfiles = portalProfilesMap.get(company.id) || [];
+    const companyPortalConfig = portalConfigMap.get(company.id) || null;
+    const lifecycle = lifecycleFor(company, subscription);
+    const access = accessFor(lifecycle);
+    const planKey = override?.enabled && override?.plan_key ? override.plan_key : subscription?.plan_key || subscription?.plan_id || '';
+    const plan = planByKey.get(planKey) || null;
+    const enabledPackKeys = [...new Set([settings?.fleet_pack, ...(Array.isArray(settings?.enabled_packs) ? settings.enabled_packs : [])].filter(Boolean))];
+    const enabledPacks = enabledPackKeys.map((key) => {
+      const pack = packByKey.get(key);
+      return { key, name: pack?.name || pack?.short_name || key };
+    });
+    const primaryPack = settings?.fleet_pack ? enabledPacks.find((pack) => pack.key === settings.fleet_pack) || { key: settings.fleet_pack, name: settings.fleet_pack } : null;
+    const ownerEmployee = companyEmployees.find((row) => row.user_id === company.account_owner_user_id) || companyEmployees.find((row) => row.role_key === 'owner') || null;
+    const ownerPortalProfile = companyPortalProfiles.find((row) => row.user_id === company.account_owner_user_id) || null;
+    const owner = {
+      userId: company.account_owner_user_id || ownerEmployee?.user_id || null,
+      name: profile?.owner_name || ownerEmployee?.full_name || ownerPortalProfile?.full_name || '',
+      email: profile?.owner_email || ownerEmployee?.email || ownerPortalProfile?.email || '',
+    };
+    const companySecurityRows = [...new Set([
+      company.account_owner_user_id,
+      ...companyEmployees.map((row) => row.user_id),
+      ...companyMemberships.map((row) => row.user_id),
+    ].filter(Boolean))]
+      .map((userId) => securityMap.get(userId)).filter(Boolean);
+    const security = securityFor({ company, employees: companyEmployees, memberships: companyMemberships, securityRows: companySecurityRows });
+    const provisioning = provisioningFor({
+      portalSettings: settings,
+      sites: companySites,
+      systemRoles: companyRoles,
+      portalAccess: companyAccess,
+      portalProfiles: companyPortalProfiles,
+      employees: companyEmployees,
+      company,
+      subscription,
+      portalConfig: companyPortalConfig,
+    });
+    const activeSites = companySites.filter((site) => site.status === 'active').length;
+    const overdueInvoices = companyInvoices.filter((invoice) => {
+      const status = String(invoice.status || '').toLowerCase();
+      const outstanding = Number(invoice.grand_total || 0) - Number(invoice.paid_amount || 0);
+      return invoice.due_date && invoice.due_date < today && outstanding > 0 && !['paid', 'cancelled', 'void'].includes(status);
+    });
+    const overdueOutstanding = overdueInvoices.reduce((sum, invoice) => sum + Math.max(0, Number(invoice.grand_total || 0) - Number(invoice.paid_amount || 0)), 0);
+    const expiryAt = expiryFor(lifecycle, subscription);
+    const remaining = daysUntil(expiryAt);
+    const lastActivityAt = latestIso([
+      ...companySessions.map((row) => row.last_seen_at || row.created_at),
+      ...companySecurityRows.map((row) => row.last_successful_login_at),
+    ]);
+
+    const attentionReasons = [];
+    if (provisioning.level !== 'healthy') attentionReasons.push(`Provisioning ${provisioning.label.toLowerCase()}`);
+    if (security.level !== 'clear') attentionReasons.push(security.label);
+    if (overdueInvoices.length) attentionReasons.push(`${overdueInvoices.length} overdue invoice${overdueInvoices.length === 1 ? '' : 's'}`);
+    if (lifecycle.key === 'expired') attentionReasons.push('Lifecycle expired');
+    if (lifecycle.key === 'trial_active' && Number.isFinite(remaining) && remaining <= 7) attentionReasons.push('Trial ending soon');
+    if (!plan && lifecycle.key === 'active') attentionReasons.push('Plan not assigned');
+
+    return {
+      id: company.id,
+      company_code: company.company_code,
+      company_name: company.company_name,
+      subdomain_slug: company.subdomain_slug,
+      status: company.status,
+      created_at: company.created_at,
+      owner,
+      plan: plan
+        ? { id: plan.id, key: plan.plan_key, name: plan.name }
+        : { id: null, key: planKey || '', name: planKey || (subscription?.trial_start_at ? 'Trial Policy' : '') },
+      fleet: {
+        primary: primaryPack,
+        enabled: enabledPacks,
+        additionalCount: Math.max(0, enabledPacks.length - (primaryPack ? 1 : 0)),
+        selectionStatus: settings?.fleet_pack_selection_status || 'pending',
+      },
+      lifecycle,
+      access,
+      provisioning,
+      security,
+      sites: { active: activeSites, total: companySites.length },
+      billing: { overdueInvoices: overdueInvoices.length, overdueOutstanding },
+      expiryAt,
+      daysRemaining: remaining,
+      lastActivityAt,
+      attention: { required: attentionReasons.length > 0, reasons: attentionReasons },
+      raw: { company, profile, subscription, override, portal_settings: settings },
+    };
+  });
+
+  const summary = {
+    total: rows.length,
+    active: rows.filter((row) => row.lifecycle.key === 'active').length,
+    trial: rows.filter((row) => row.lifecycle.key === 'trial_active').length,
+    expired: rows.filter((row) => row.lifecycle.key === 'expired').length,
+    suspended: rows.filter((row) => row.lifecycle.key === 'suspended').length,
+    needsAttention: rows.filter((row) => row.attention.required).length,
+  };
+
+  const search = queryText(requestQuery.search, 160).toLowerCase();
+  const lifecycle = queryText(requestQuery.lifecycle, 50);
+  const planFilter = queryText(requestQuery.plan, 80);
+  const fleetPack = queryText(requestQuery.fleetPack, 120);
+  const accessFilter = queryText(requestQuery.access, 30);
+  const provisioningFilter = queryText(requestQuery.provisioning, 30);
+  const securityFilter = queryText(requestQuery.security, 30);
+  const quick = queryText(requestQuery.quick, 50);
+  const sort = queryText(requestQuery.sort, 40) || 'name_asc';
+  const pageSize = queryInteger(requestQuery.pageSize, 25, 25, 100);
+  let page = queryInteger(requestQuery.page, 1, 1, 100000);
+
+  let filtered = rows.filter((row) => {
+    if (search && !companySearchBlob(row).includes(search)) return false;
+    if (lifecycle && row.lifecycle.key !== lifecycle) return false;
+    if (planFilter && row.plan?.key !== planFilter && row.plan?.id !== planFilter) return false;
+    if (fleetPack && !(row.fleet?.enabled || []).some((pack) => pack.key === fleetPack)) return false;
+    if (accessFilter && row.access.key !== accessFilter) return false;
+    if (provisioningFilter && row.provisioning.level !== provisioningFilter) return false;
+    if (securityFilter && row.security.level !== securityFilter) return false;
+    if (quick === 'needs_attention' && !row.attention.required) return false;
+    if (quick === 'trials_ending' && !(row.lifecycle.key === 'trial_active' && Number.isFinite(row.daysRemaining) && row.daysRemaining >= 0 && row.daysRemaining <= 7)) return false;
+    if (quick === 'expired' && row.lifecycle.key !== 'expired') return false;
+    if (quick === 'suspended' && row.lifecycle.key !== 'suspended') return false;
+    return true;
+  });
+
+  const dateScore = (value, fallback) => {
+    if (!value) return fallback;
+    const score = Date.parse(value);
+    return Number.isFinite(score) ? score : fallback;
+  };
+  filtered = [...filtered].sort((a, b) => {
+    if (sort === 'name_desc') return String(b.company_name || '').localeCompare(String(a.company_name || ''));
+    if (sort === 'expiry_asc') return dateScore(a.expiryAt, Number.MAX_SAFE_INTEGER) - dateScore(b.expiryAt, Number.MAX_SAFE_INTEGER);
+    if (sort === 'activity_desc') return dateScore(b.lastActivityAt, 0) - dateScore(a.lastActivityAt, 0);
+    if (sort === 'created_desc') return dateScore(b.created_at, 0) - dateScore(a.created_at, 0);
+    return String(a.company_name || '').localeCompare(String(b.company_name || ''));
+  });
+
+  const total = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  if (page > totalPages) page = totalPages;
+  const start = (page - 1) * pageSize;
+  const pageRows = filtered.slice(start, start + pageSize);
+
+  return {
+    rows: pageRows,
+    summary,
+    filters: {
+      plans: (plansResult.data || []).filter((plan) => plan.status !== 'archived').map((plan) => ({ value: plan.plan_key, label: plan.name })),
+      fleetPacks: (packsResult.data || []).filter((pack) => pack.status === 'active').map((pack) => ({ value: pack.pack_key, label: pack.name })),
+    },
+    pagination: { page, pageSize, total, totalPages },
+  };
+}
+
 async function createCompany({ supabaseAdmin, actorUserId, body }) {
   const companyName = text(body?.companyName, 180);
   const status = String(body?.status || 'trial_active').trim();
@@ -599,6 +1088,11 @@ async function updateCompany({ supabaseAdmin, actorUserId, body }) {
   }
 
   if (action === 'suspend') {
+    const reasonCategory = text(body?.reasonCategory, 80);
+    const reasonNote = text(body?.reasonNote, 1000);
+    if (body?.source === 'all_companies' && !reasonCategory) {
+      return { status: 400, payload: { ok: false, code: 'LIFECYCLE_REASON_REQUIRED' } };
+    }
     if (beforeCompany.status === 'suspended') {
       return { status: 200, payload: { ok: true, company: beforeCompany } };
     }
@@ -629,11 +1123,35 @@ async function updateCompany({ supabaseAdmin, actorUserId, body }) {
       .single();
     if (error) throw error;
 
-    await writeHistory(supabaseAdmin, actorUserId, 'company', companyId, 'suspend', beforeCompany, data);
+    const { error: sessionRevokeError } = await supabaseAdmin
+      .from('security_sessions')
+      .update({
+        status: 'revoked',
+        revoked_at: new Date().toISOString(),
+        revoke_reason: 'COMPANY_SUSPENDED_BY_DEVELOPER',
+      })
+      .eq('company_id', companyId)
+      .eq('status', 'active');
+    if (sessionRevokeError) throw sessionRevokeError;
+
+    await writeHistory(
+      supabaseAdmin,
+      actorUserId,
+      'company',
+      companyId,
+      'suspend',
+      beforeCompany,
+      { company: data, reason: { category: reasonCategory || 'not_supplied', note: reasonNote } }
+    );
     return { status: 200, payload: { ok: true, company: data } };
   }
 
   if (action === 'restore') {
+    const reasonCategory = text(body?.reasonCategory, 80);
+    const reasonNote = text(body?.reasonNote, 1000);
+    if (body?.source === 'all_companies' && !reasonCategory) {
+      return { status: 400, payload: { ok: false, code: 'LIFECYCLE_REASON_REQUIRED' } };
+    }
     if (beforeCompany.status !== 'suspended') {
       return { status: 409, payload: { ok: false, code: 'COMPANY_NOT_SUSPENDED' } };
     }
@@ -684,7 +1202,15 @@ async function updateCompany({ supabaseAdmin, actorUserId, body }) {
       })
       .eq('company_id', companyId);
 
-    await writeHistory(supabaseAdmin, actorUserId, 'company', companyId, 'restore', beforeCompany, data);
+    await writeHistory(
+      supabaseAdmin,
+      actorUserId,
+      'company',
+      companyId,
+      'restore',
+      beforeCompany,
+      { company: data, reason: { category: reasonCategory || 'not_supplied', note: reasonNote } }
+    );
     return { status: 200, payload: { ok: true, company: data } };
   }
 
@@ -1088,6 +1614,10 @@ export default async function handler(req, res) {
     if (req.method === 'GET') {
       if (resource === 'companies') {
         return send(res, 200, { ok: true, companies: await getCompanies(auth.supabaseAdmin) });
+      }
+      if (resource === 'company-directory') {
+        const directory = await getCompanyDirectory(auth.supabaseAdmin, req.query || {});
+        return send(res, 200, { ok: true, ...directory });
       }
       if (resource === 'plans') {
         return send(res, 200, { ok: true, plans: await listPlans(auth.supabaseAdmin) });

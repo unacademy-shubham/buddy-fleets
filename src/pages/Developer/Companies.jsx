@@ -1,3 +1,3 @@
-import { DeveloperCompaniesPage } from './DeveloperWorkspace';
+import AllCompaniesPage from './Companies/AllCompaniesPage';
 
-export default DeveloperCompaniesPage;
+export default AllCompaniesPage;

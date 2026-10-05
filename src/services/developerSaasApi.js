@@ -31,6 +31,36 @@ export function getCompanies() {
 }
 
 
+export async function getCompanyDirectory(params = {}) {
+  try {
+    const search = new URLSearchParams({
+      route: 'saas-management',
+      resource: 'company-directory',
+    });
+
+    for (const [key, value] of Object.entries(params || {})) {
+      if (value === undefined || value === null || value === '') continue;
+      search.set(key, String(value));
+    }
+
+    const response = await fetch(`/api/developer?${search.toString()}`, {
+      method: 'GET',
+      credentials: 'include',
+      cache: 'no-store',
+      headers: { Accept: 'application/json' },
+    });
+    const data = await response.json().catch(() => ({}));
+    return {
+      ...data,
+      ok: Boolean(response.ok && data?.ok),
+      status: response.status,
+    };
+  } catch {
+    return { ok: false, status: 0, code: 'NETWORK_ERROR' };
+  }
+}
+
+
 export function createCompany(payload) {
   return request('POST', payload, 'companies');
 }
