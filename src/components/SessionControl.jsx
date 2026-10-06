@@ -1,33 +1,50 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Clock3, ShieldAlert } from 'lucide-react';
+import { Clock3, ShieldAlert, WifiOff } from 'lucide-react';
 
-const DEFAULT_MINUTES = 30;
-const TOUCH_THROTTLE_MS = 15000;
-const RUNTIME_KEY = 'bf_session_runtime_v2';
-const ACTIVITY_KEY = 'buddy_fleets_last_activity';
+import {
+  clearSessionRuntime,
+  getAuthoritativeNow,
+  publishSessionInvalidated,
+  publishSessionLogout,
+  publishSessionUpdated,
+  readSessionRuntime,
+  runtimeFromServerPayload,
+  subscribeSessionEvents,
+  writeSessionRuntime,
+} from '../services/sessionRuntime';
 
-function readRuntime() {
-  try {
-    const raw = window.localStorage.getItem(RUNTIME_KEY);
-    if (!raw) return null;
-    const value = JSON.parse(raw);
-    if (!value || !Number.isFinite(Number(value.expiresAt))) return null;
-    return {
-      expiresAt: Number(value.expiresAt),
-      timeoutMinutes: DEFAULT_MINUTES,
-    };
-  } catch {
-    return null;
-  }
-}
+const TOUCH_THROTTLE_MS = 60 * 1000;
+const SERVER_POLL_MS = 60 * 1000;
+const EXPIRY_RECHECK_GRACE_MS = 5000;
 
-function writeRuntime(runtime) {
-  try {
-    window.localStorage.setItem(RUNTIME_KEY, JSON.stringify(runtime));
-  } catch {
-    // UI state only.
-  }
-}
+const DEFINITIVE_SESSION_STATUSES = new Set([401, 403, 423]);
+
+const SESSION_MESSAGES = {
+  SESSION_EXPIRED: {
+    title: 'Session expired',
+    body: 'Your session ended after 30 minutes of inactivity. Log in again to continue.',
+  },
+  ACCOUNT_LOCKED: {
+    title: 'Account locked',
+    body: 'Your account is currently locked. Log in again after the account security issue is resolved.',
+  },
+  ACCESS_REVOKED: {
+    title: 'Access changed',
+    body: 'Your access to this portal is no longer available. Log in again if your access has been restored.',
+  },
+  MFA_AAL2_REQUIRED: {
+    title: 'Security verification required',
+    body: 'Your security requirements changed and this session can no longer continue. Please log in again.',
+  },
+  SESSION_INVALID: {
+    title: 'Session ended',
+    body: 'This secure session is no longer valid. Please log in again to continue.',
+  },
+  SESSION_REQUIRED: {
+    title: 'Session ended',
+    body: 'Your secure session is no longer available. Please log in again to continue.',
+  },
+};
 
 function formatRemaining(ms) {
   const total = Math.max(0, Math.ceil(ms / 1000));
@@ -36,174 +53,431 @@ function formatRemaining(ms) {
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 }
 
-async function sessionMutation(action) {
-  const response = await fetch('/api/auth/session', {
-    method: 'POST',
-    credentials: 'include',
-    cache: 'no-store',
-    headers: {
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      action,
-    }),
-  });
-  const data = await response.json().catch(() => ({}));
-  return { ...data, status: response.status, ok: Boolean(response.ok && data?.ok) };
+async function readResponseJson(response) {
+  try {
+    return await response.json();
+  } catch {
+    return {};
+  }
 }
 
-export default function SessionControl() {
-  const [runtime, setRuntime] = useState(() => readRuntime());
-  const [remaining, setRemaining] = useState(null);
-  const [expired, setExpired] = useState(false);
-  const lastTouchRef = useRef(0);
-  const lastLocalActivityRef = useRef(0);
-  const lastCrossTabSyncRef = useRef(0);
-  const expiredRef = useRef(false);
+async function fetchSession() {
+  try {
+    const response = await fetch('/api/auth/session', {
+      method: 'GET',
+      credentials: 'include',
+      cache: 'no-store',
+      headers: { Accept: 'application/json' },
+      referrerPolicy: 'no-referrer',
+    });
 
-  const syncFromServer = useCallback(async () => {
-    try {
-      const response = await fetch('/api/auth/session', {
-        credentials: 'include',
-        cache: 'no-store',
-        headers: { Accept: 'application/json' },
+    const data = await readResponseJson(response);
+
+    return {
+      ...data,
+      status: response.status,
+      ok: Boolean(response.ok && data?.ok),
+    };
+  } catch {
+    return {
+      ok: false,
+      status: 0,
+      code: 'NETWORK_ERROR',
+    };
+  }
+}
+
+async function touchSession() {
+  try {
+    const response = await fetch('/api/auth/session', {
+      method: 'POST',
+      credentials: 'include',
+      cache: 'no-store',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      referrerPolicy: 'no-referrer',
+      body: JSON.stringify({ action: 'TOUCH' }),
+    });
+
+    const data = await readResponseJson(response);
+
+    return {
+      ...data,
+      status: response.status,
+      ok: Boolean(response.ok && data?.ok),
+    };
+  } catch {
+    return {
+      ok: false,
+      status: 0,
+      code: 'NETWORK_ERROR',
+    };
+  }
+}
+
+function normalizeReason(result) {
+  return String(result?.code || 'SESSION_INVALID').trim() || 'SESSION_INVALID';
+}
+
+export default function SessionControl({ showBadge = true }) {
+  const [runtime, setRuntime] = useState(() => readSessionRuntime());
+  const [remaining, setRemaining] = useState(null);
+  const [phase, setPhase] = useState('checking');
+  const [endReason, setEndReason] = useState(null);
+
+  const runtimeRef = useRef(runtime);
+  const phaseRef = useRef(phase);
+  const syncRequestRef = useRef(null);
+  const touchRequestRef = useRef(null);
+  const lastTouchRef = useRef(0);
+  const expiryCheckRef = useRef(0);
+
+  const applyRuntime = useCallback((nextRuntime, { broadcast = false } = {}) => {
+    if (!nextRuntime) return false;
+
+    runtimeRef.current = nextRuntime;
+    setRuntime(nextRuntime);
+    writeSessionRuntime(nextRuntime);
+    setPhase('active');
+    phaseRef.current = 'active';
+    setEndReason(null);
+
+    if (broadcast) {
+      publishSessionUpdated(nextRuntime);
+    }
+
+    return true;
+  }, []);
+
+  const markSessionEnded = useCallback((reason, { broadcast = true } = {}) => {
+    const normalizedReason = String(reason || 'SESSION_INVALID');
+    const sessionId = runtimeRef.current?.sessionId || null;
+
+    setEndReason(normalizedReason);
+    setPhase('ended');
+    phaseRef.current = 'ended';
+
+    if (broadcast) {
+      publishSessionInvalidated({
+        sessionId,
+        reason: normalizedReason,
       });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok || !data?.ok) {
-        if ([401, 403, 423].includes(response.status)) {
-          setExpired(true);
-          expiredRef.current = true;
-        }
-        return;
-      }
-      const expiresAt = Date.parse(data?.session?.expiresAt || '');
-      if (!Number.isFinite(expiresAt)) return;
-      const next = {
-        expiresAt,
-        timeoutMinutes: DEFAULT_MINUTES,
-      };
-      setRuntime(next);
-      writeRuntime(next);
-      setExpired(false);
-      expiredRef.current = false;
-    } catch {
-      // Temporary network failures do not expire the UI session.
     }
   }, []);
 
+  const syncFromServer = useCallback(async ({ silent = false } = {}) => {
+    if (navigator.onLine === false) {
+      setPhase('offline');
+      phaseRef.current = 'offline';
+      return {
+        ok: false,
+        status: 0,
+        code: 'OFFLINE',
+      };
+    }
+
+    if (syncRequestRef.current) {
+      return await syncRequestRef.current;
+    }
+
+    if (!silent && phaseRef.current !== 'ended') {
+      setPhase('revalidating');
+      phaseRef.current = 'revalidating';
+    }
+
+    const request = (async () => {
+      const result = await fetchSession();
+
+      if (result.ok) {
+        const nextRuntime = runtimeFromServerPayload(result);
+        if (nextRuntime) {
+          applyRuntime(nextRuntime);
+        }
+        return result;
+      }
+
+      if (DEFINITIVE_SESSION_STATUSES.has(result.status)) {
+        markSessionEnded(normalizeReason(result));
+        return result;
+      }
+
+      if (result.status === 0) {
+        setPhase(navigator.onLine === false ? 'offline' : 'revalidating');
+        phaseRef.current = navigator.onLine === false ? 'offline' : 'revalidating';
+        return result;
+      }
+
+      if (phaseRef.current !== 'ended') {
+        setPhase('revalidating');
+        phaseRef.current = 'revalidating';
+      }
+
+      return result;
+    })();
+
+    syncRequestRef.current = request;
+
+    try {
+      return await request;
+    } finally {
+      if (syncRequestRef.current === request) {
+        syncRequestRef.current = null;
+      }
+    }
+  }, [applyRuntime, markSessionEnded]);
+
+  const touch = useCallback(async () => {
+    if (phaseRef.current === 'ended') return null;
+
+    if (navigator.onLine === false) {
+      setPhase('offline');
+      phaseRef.current = 'offline';
+      return null;
+    }
+
+    const now = Date.now();
+    if (now - lastTouchRef.current < TOUCH_THROTTLE_MS) {
+      return null;
+    }
+
+    if (touchRequestRef.current) {
+      return await touchRequestRef.current;
+    }
+
+    lastTouchRef.current = now;
+
+    const request = (async () => {
+      const result = await touchSession();
+
+      if (result.ok) {
+        const nextRuntime = runtimeFromServerPayload(result);
+        if (nextRuntime) {
+          applyRuntime(nextRuntime, { broadcast: true });
+        }
+        return result;
+      }
+
+      if (DEFINITIVE_SESSION_STATUSES.has(result.status)) {
+        markSessionEnded(normalizeReason(result));
+        return result;
+      }
+
+      if (result.status === 0) {
+        setPhase(navigator.onLine === false ? 'offline' : 'revalidating');
+        phaseRef.current = navigator.onLine === false ? 'offline' : 'revalidating';
+      }
+
+      return result;
+    })();
+
+    touchRequestRef.current = request;
+
+    try {
+      return await request;
+    } finally {
+      if (touchRequestRef.current === request) {
+        touchRequestRef.current = null;
+      }
+    }
+  }, [applyRuntime, markSessionEnded]);
+
   useEffect(() => {
-    let cancelled = false;
-    const run = async () => {
-      if (cancelled) return;
-      await syncFromServer();
+    runtimeRef.current = runtime;
+  }, [runtime]);
+
+  useEffect(() => {
+    phaseRef.current = phase;
+  }, [phase]);
+
+  useEffect(() => {
+    void syncFromServer({ silent: Boolean(runtimeRef.current) });
+
+    const poll = window.setInterval(() => {
+      if (
+        phaseRef.current !== 'ended' &&
+        document.visibilityState === 'visible'
+      ) {
+        void syncFromServer({ silent: true });
+      }
+    }, SERVER_POLL_MS);
+
+    return () => window.clearInterval(poll);
+  }, [syncFromServer]);
+
+  useEffect(() => {
+    const meaningfulEvents = [
+      'pointerdown',
+      'keydown',
+      'input',
+      'change',
+      'touchstart',
+      'wheel',
+      'scroll',
+    ];
+
+    const handleActivity = () => {
+      if (phaseRef.current === 'ended') return;
+      void touch();
     };
-    run();
-    const poll = window.setInterval(run, 60000);
+
+    meaningfulEvents.forEach((eventName) => {
+      window.addEventListener(eventName, handleActivity, { passive: true });
+    });
+
     return () => {
-      cancelled = true;
-      window.clearInterval(poll);
+      meaningfulEvents.forEach((eventName) => {
+        window.removeEventListener(eventName, handleActivity);
+      });
+    };
+  }, [touch]);
+
+  useEffect(() => {
+    const revalidateOnResume = () => {
+      if (phaseRef.current === 'ended') return;
+      void syncFromServer({ silent: false });
+    };
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        revalidateOnResume();
+      }
+    };
+
+    const onPageShow = (event) => {
+      if (event.persisted) {
+        revalidateOnResume();
+      }
+    };
+
+    const onOnline = () => revalidateOnResume();
+    const onOffline = () => {
+      if (phaseRef.current !== 'ended') {
+        setPhase('offline');
+        phaseRef.current = 'offline';
+      }
+    };
+
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('focus', revalidateOnResume);
+    window.addEventListener('pageshow', onPageShow);
+    window.addEventListener('online', onOnline);
+    window.addEventListener('offline', onOffline);
+
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('focus', revalidateOnResume);
+      window.removeEventListener('pageshow', onPageShow);
+      window.removeEventListener('online', onOnline);
+      window.removeEventListener('offline', onOffline);
     };
   }, [syncFromServer]);
 
-  const touch = useCallback(async () => {
-    if (expiredRef.current) return;
-    const now = Date.now();
-    if (now - lastTouchRef.current < TOUCH_THROTTLE_MS) return;
-    lastTouchRef.current = now;
-
-    const result = await sessionMutation('TOUCH');
-    if (result.ok && result.expiresAt) {
-      const next = {
-        expiresAt: Date.parse(result.expiresAt),
-        timeoutMinutes: DEFAULT_MINUTES,
-      };
-      setRuntime(next);
-      writeRuntime(next);
-      try {
-        window.localStorage.setItem(ACTIVITY_KEY, String(now));
-      } catch {}
-      return;
-    }
-    if ([401, 403, 423].includes(result.status)) {
-      setExpired(true);
-      expiredRef.current = true;
-    }
-  }, []);
-
   useEffect(() => {
-    const events = ['pointerdown', 'keydown', 'touchstart', 'wheel', 'scroll', 'mousemove'];
-    const handler = () => {
-      if (expiredRef.current) return;
-      const now = Date.now();
+    return subscribeSessionEvents((event) => {
+      const currentSessionId = runtimeRef.current?.sessionId || null;
 
-      if (now - lastLocalActivityRef.current >= 1000) {
-        lastLocalActivityRef.current = now;
-        try {
-          window.localStorage.setItem(ACTIVITY_KEY, String(now));
-        } catch {}
-      }
+      if (event.type === 'SESSION_UPDATED') {
+        if (!event.runtime) return;
 
-      /*
-        The visible timer now follows the server-confirmed expiry.
-        We do not optimistically reset it before TOUCH succeeds.
-      */
-      void touch();
-    };
-    events.forEach((event) => window.addEventListener(event, handler, { passive: true }));
-    const onStorage = (event) => {
-      if (event.key === RUNTIME_KEY) {
-        const next = readRuntime();
-        if (next) {
-          setRuntime(next);
-          setExpired(false);
-          expiredRef.current = false;
+        if (!currentSessionId) {
+          void syncFromServer({ silent: true });
+          return;
         }
-      }
-      if (event.key === ACTIVITY_KEY) {
-        const now = Date.now();
-        if (now - lastCrossTabSyncRef.current >= TOUCH_THROTTLE_MS) {
-          lastCrossTabSyncRef.current = now;
-          void syncFromServer();
-        }
-      }
-    };
-    window.addEventListener('storage', onStorage);
-    return () => {
-      events.forEach((event) => window.removeEventListener(event, handler));
-      window.removeEventListener('storage', onStorage);
-    };
-  }, [syncFromServer, touch]);
 
-  useEffect(() => {
-    if (!runtime?.expiresAt) return undefined;
-    const tick = () => {
-      const left = runtime.expiresAt - Date.now();
-      if (left <= 0) {
-        setRemaining(0);
-        if (!expiredRef.current) {
-          expiredRef.current = true;
-          setExpired(true);
+        if (event.sessionId === currentSessionId) {
+          const nextRuntime =
+            writeSessionRuntime(
+              event.runtime
+            );
+
+          if (!nextRuntime) return;
+
+          runtimeRef.current = nextRuntime;
+          setRuntime(nextRuntime);
+          setPhase('active');
+          phaseRef.current = 'active';
+          setEndReason(null);
+          return;
+        }
+
+        void syncFromServer({ silent: false });
+        return;
+      }
+
+      if (event.type === 'SESSION_LOGOUT') {
+        if (!event.sessionId || !currentSessionId || event.sessionId === currentSessionId) {
+          clearSessionRuntime();
+          window.location.replace('https://buddyfleets.in/login');
         }
         return;
       }
-      setRemaining(left);
+
+      if (event.type === 'SESSION_INVALIDATED') {
+        if (!event.sessionId || !currentSessionId || event.sessionId === currentSessionId) {
+          markSessionEnded(event.reason || 'SESSION_INVALID', { broadcast: false });
+        }
+      }
+    });
+  }, [markSessionEnded, syncFromServer]);
+
+  useEffect(() => {
+    if (!runtime?.expiresAt || phase === 'ended') {
+      if (!runtime?.expiresAt) setRemaining(null);
+      return undefined;
+    }
+
+    const tick = () => {
+      const authoritativeNow = getAuthoritativeNow(runtime);
+      const left = runtime.expiresAt - authoritativeNow;
+
+      if (left > 0) {
+        setRemaining(left);
+        return;
+      }
+
+      setRemaining(0);
+
+      if (navigator.onLine === false) {
+        setPhase('offline');
+        phaseRef.current = 'offline';
+        return;
+      }
+
+      const now = Date.now();
+      if (now - expiryCheckRef.current >= EXPIRY_RECHECK_GRACE_MS) {
+        expiryCheckRef.current = now;
+        void syncFromServer({ silent: false });
+      }
     };
+
     tick();
     const timer = window.setInterval(tick, 1000);
     return () => window.clearInterval(timer);
-  }, [runtime?.expiresAt]);
+  }, [phase, runtime, syncFromServer]);
 
   const display = useMemo(() => {
+    if (phase === 'offline') return 'Offline';
+    if (phase === 'checking' || phase === 'revalidating') {
+      if (remaining === null) return 'Check…';
+    }
     if (remaining === null) return '--:--';
     return formatRemaining(remaining);
-  }, [remaining]);
+  }, [phase, remaining]);
+
+  const message = SESSION_MESSAGES[endReason] || SESSION_MESSAGES.SESSION_INVALID;
 
   const handleLoginAgain = async () => {
-    try {
-      window.localStorage.removeItem(RUNTIME_KEY);
-      window.localStorage.removeItem(ACTIVITY_KEY);
-    } catch {}
+    const sessionId = runtimeRef.current?.sessionId || null;
+
+    publishSessionLogout({
+      sessionId,
+      reason: endReason || 'SESSION_ENDED',
+    });
+
+    clearSessionRuntime();
+
     try {
       await fetch('/api/auth/logout', {
         method: 'POST',
@@ -211,35 +485,43 @@ export default function SessionControl() {
         cache: 'no-store',
         keepalive: true,
         headers: { Accept: 'application/json' },
+        referrerPolicy: 'no-referrer',
       });
-    } catch {}
+    } catch {
+      // Local cleanup + redirect remain authoritative for this browser tab.
+    }
+
     window.location.replace('https://buddyfleets.in/login');
   };
 
   return (
     <>
-      <div className="hidden xl:block">
-        <div
+      {showBadge ? (
+        <div className="hidden xl:block">
+          <div
           className="flex min-w-[112px] cursor-default flex-col items-center justify-center rounded-md border border-white/20 bg-white/[.08] px-3 py-1.5 text-center text-white shadow-[inset_0_1px_0_rgba(255,255,255,.12),0_1px_2px_rgba(0,0,0,.08)] backdrop-blur-sm"
           aria-label="Session time remaining"
-          title="Session time remaining"
+          title="Server-authoritative session time remaining"
         >
           <span className="flex items-center gap-1 text-[8px] font-bold uppercase tracking-[.12em] text-[var(--bf-header-muted)]">
-            <Clock3 size={9} /> Session
+            {phase === 'offline' ? <WifiOff size={9} /> : <Clock3 size={9} />} Session
           </span>
-          <span className="text-[11px] font-bold tabular-nums text-[var(--bf-header-text)]">{display}</span>
+          <span className="text-[11px] font-bold tabular-nums text-[var(--bf-header-text)]">
+            {display}
+          </span>
+          </div>
         </div>
-      </div>
+      ) : null}
 
-      {expired ? (
+      {phase === 'ended' ? (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/75 px-4 backdrop-blur-sm">
           <div className="w-full max-w-[440px] rounded-2xl border border-[var(--bf-border)] bg-[var(--bf-surface)] p-7 text-center shadow-2xl">
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-rose-500/10 text-rose-500">
               <ShieldAlert size={26} />
             </div>
-            <h2 className="mt-4 text-[20px] font-bold text-[var(--bf-text)]">Session expired</h2>
+            <h2 className="mt-4 text-[20px] font-bold text-[var(--bf-text)]">{message.title}</h2>
             <p className="mx-auto mt-2 max-w-[350px] text-[11px] leading-5 text-[var(--bf-text-2)]">
-              Your session has expired due to inactivity. For your security, please log in again to continue.
+              {message.body}
             </p>
             <button
               type="button"

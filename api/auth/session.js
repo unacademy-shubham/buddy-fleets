@@ -2623,8 +2623,7 @@ export default async function handler(
           SESSION_IDLE_TIMEOUT_SECONDS,
 
         timeoutMinutes:
-          PORTAL_SESSION_COOKIE,
-  SESSION_IDLE_TIMEOUT_MINUTES,
+          SESSION_IDLE_TIMEOUT_MINUTES,
 
         lastSeenAt:
           securitySession

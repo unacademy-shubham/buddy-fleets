@@ -18,6 +18,16 @@ import {
 import WebsiteLayout from './layouts/WebsiteLayout';
 import DeveloperLayout from './layouts/DeveloperLayout';
 import CompanyAnnouncementPopup from './components/CompanyAnnouncementPopup';
+import SessionControl from './components/SessionControl';
+import {
+  clearSessionRuntime,
+  publishSessionInvalidated,
+  publishSessionLogout,
+  publishSessionUpdated,
+  readSessionRuntime,
+  runtimeFromBootstrapSession,
+  writeSessionRuntime,
+} from './services/sessionRuntime';
 
 /* =========================================================
    ROUTE-LEVEL CODE SPLITTING
@@ -391,9 +401,6 @@ const LEGACY_SESSION_KEY =
 const ACTIVE_COMPANY_KEY =
   'buddy_fleets_active_company';
 
-const LAST_ACTIVITY_KEY =
-  'buddy_fleets_last_activity';
-
 const ACTIVE_TAB_KEY =
   'buddy_fleets_active_tab';
 
@@ -401,12 +408,6 @@ const PORTAL_BOOTSTRAP_KEY =
   'buddy_fleets_portal_bootstrap';
 
 const PORTAL_BOOTSTRAP_MAX_AGE_MS =
-  15 * 1000;
-
-const INACTIVITY_TIMEOUT_MS =
-  60 * 60 * 1000;
-
-const ACTIVITY_THROTTLE_MS =
   15 * 1000;
 
 const PORTAL_SESSION_RETRY_MS =
@@ -885,6 +886,28 @@ function consumePortalBootstrap({
       ) {
         return null;
       }
+    }
+
+    /*
+      A successful callback bootstrap is a hard session-generation boundary.
+      Clear any previous browser runtime before seeding the newly-created
+      server session so yesterday's/previous-login state can never win.
+    */
+    clearSessionRuntime();
+
+    const bootstrapRuntime =
+      runtimeFromBootstrapSession(
+        session
+      );
+
+    if (bootstrapRuntime) {
+      writeSessionRuntime(
+        bootstrapRuntime
+      );
+
+      publishSessionUpdated(
+        bootstrapRuntime
+      );
     }
 
     return {
@@ -2275,9 +2298,12 @@ function PortalRoutes({
         <Route
           path="website-preview/:pageId"
           element={
-            <LazyPage>
-              <DeveloperWebsitePreview />
-            </LazyPage>
+            <>
+              <SessionControl showBadge={false} />
+              <LazyPage>
+                <DeveloperWebsitePreview />
+              </LazyPage>
+            </>
           }
         />
 
@@ -2966,14 +2992,17 @@ function PortalRoutes({
         <Route
           path="/dashboard"
           element={
-            <TeamDashboardPending
-              currentUser={
-                currentUser
-              }
-              onLogout={
-                onLogout
-              }
-            />
+            <>
+              <SessionControl showBadge={false} />
+              <TeamDashboardPending
+                currentUser={
+                  currentUser
+                }
+                onLogout={
+                  onLogout
+                }
+              />
+            </>
           }
         />
 
@@ -3214,11 +3243,6 @@ function AppRouter() {
       sessionState
     );
 
-  const inactivityTimerRef =
-    useRef(
-      null
-    );
-
   const sessionRetryTimerRef =
     useRef(
       null
@@ -3227,11 +3251,6 @@ function AppRouter() {
   const sessionRequestRef =
     useRef(
       null
-    );
-
-  const lastActivityHandledRef =
-    useRef(
-      0
     );
 
   const mountedRef =
@@ -3308,10 +3327,6 @@ function AppRouter() {
           );
 
           localStorage.removeItem(
-            LAST_ACTIVITY_KEY
-          );
-
-          localStorage.removeItem(
             ACTIVE_TAB_KEY
           );
 
@@ -3322,6 +3337,7 @@ function AppRouter() {
           // Non-critical.
         }
 
+        clearSessionRuntime();
         clearPortalBootstrap();
       },
       []
@@ -3330,29 +3346,15 @@ function AppRouter() {
 
   /* =========================================================
      LOGOUT
+
+     Explicit logout is coordinated across tabs using the current
+     server session id. SessionControl owns inactivity/session-expiry
+     handling; App.jsx no longer runs a competing browser timer.
   ========================================================= */
 
   const handleLogout =
     useCallback(
-      (
-        isAutoTimeout = false
-      ) => {
-      if (isAutoTimeout) {
-        window.dispatchEvent(new CustomEvent('bf-session-legacy-timeout'));
-        return;
-      }
-
-        if (
-          inactivityTimerRef.current
-        ) {
-          window.clearTimeout(
-            inactivityTimerRef.current
-          );
-
-          inactivityTimerRef.current =
-            null;
-        }
-
+      () => {
         if (
           sessionRetryTimerRef.current
         ) {
@@ -3364,12 +3366,22 @@ function AppRouter() {
             null;
         }
 
-        /*
-          Start the authoritative server logout immediately, but do
-          not block the user's navigation on the network response.
+        const activeRuntime =
+          readSessionRuntime();
 
-          keepalive=true allows this same-origin POST to continue
-          during document unload in supporting browsers.
+        publishSessionLogout({
+          sessionId:
+            activeRuntime?.sessionId ||
+            null,
+
+          reason:
+            'USER_LOGOUT',
+        });
+
+        /*
+          Start authoritative server logout immediately, but do not
+          block navigation on the network response. keepalive allows
+          the same-origin POST to continue during unload where supported.
         */
         void requestPortalLogout();
 
@@ -3392,14 +3404,6 @@ function AppRouter() {
 
         sessionStateRef.current =
           'unauthenticated';
-
-        if (
-          isAutoTimeout
-        ) {
-          console.info(
-            'Buddy Fleets secure session ended due to inactivity.'
-          );
-        }
 
         window.location.replace(
           SECURE_LOGIN_URL
@@ -3496,6 +3500,24 @@ function AppRouter() {
                 result
               )
             ) {
+              const rejectedRuntime =
+                readSessionRuntime();
+
+              if (
+                rejectedRuntime?.sessionId
+              ) {
+                publishSessionInvalidated({
+                  sessionId:
+                    rejectedRuntime.sessionId,
+
+                  reason:
+                    result.code ||
+                    'SESSION_INVALID',
+                });
+              }
+
+              clearSessionRuntime();
+
               setCurrentUser(
                 null
               );
@@ -3724,227 +3746,12 @@ function AppRouter() {
 
 
   /* =========================================================
-     INACTIVITY LOGOUT
+     SESSION ACTIVITY OWNERSHIP
+
+     SessionControl is the single browser-side session controller.
+     AppRouter intentionally does not keep its own inactivity clock,
+     activity listeners, or optimistic logout timer.
   ========================================================= */
-
-  const scheduleInactivityLogout =
-    useCallback(
-      (
-        lastActivity
-      ) => {
-        if (
-          inactivityTimerRef.current
-        ) {
-          window.clearTimeout(
-            inactivityTimerRef.current
-          );
-        }
-
-        const elapsed =
-          Date.now() -
-          lastActivity;
-
-        const remaining =
-          INACTIVITY_TIMEOUT_MS -
-          elapsed;
-
-        if (
-          remaining <=
-          0
-        ) {
-          handleLogout(
-            true
-          );
-
-          return;
-        }
-
-        inactivityTimerRef.current =
-          window.setTimeout(
-            () => {
-              handleLogout(
-                true
-              );
-            },
-            remaining
-          );
-      },
-      [
-        handleLogout,
-      ]
-    );
-
-
-  const recordActivity =
-    useCallback(
-      () => {
-        if (
-          !currentUserRef.current ||
-          sessionStateRef.current !==
-            'authenticated'
-        ) {
-          return;
-        }
-
-        const now =
-          Date.now();
-
-        if (
-          now -
-            lastActivityHandledRef.current <
-          ACTIVITY_THROTTLE_MS
-        ) {
-          return;
-        }
-
-        lastActivityHandledRef.current =
-          now;
-
-        try {
-          localStorage.setItem(
-            LAST_ACTIVITY_KEY,
-            String(
-              now
-            )
-          );
-        } catch {
-          // Non-critical.
-        }
-
-        scheduleInactivityLogout(
-          now
-        );
-      },
-      [
-        scheduleInactivityLogout,
-      ]
-    );
-
-
-  /* =========================================================
-     ACTIVITY LISTENERS
-  ========================================================= */
-
-  useEffect(
-    () => {
-      if (
-        !portalType ||
-        !currentUser ||
-        sessionState !==
-          'authenticated'
-      ) {
-        return undefined;
-      }
-
-      const activityEvents = [
-        'mousemove',
-        'mousedown',
-        'keydown',
-        'touchstart',
-        'scroll',
-        'click',
-      ];
-
-      let initialActivity =
-        Date.now();
-
-      try {
-        const existing =
-          Number(
-            localStorage.getItem(
-              LAST_ACTIVITY_KEY
-            )
-          );
-
-        if (
-          existing &&
-          Number.isFinite(
-            existing
-          )
-        ) {
-          initialActivity =
-            existing;
-        } else {
-          localStorage.setItem(
-            LAST_ACTIVITY_KEY,
-            String(
-              initialActivity
-            )
-          );
-        }
-      } catch {
-        // Non-critical.
-      }
-
-      if (
-        Date.now() -
-          initialActivity >=
-        INACTIVITY_TIMEOUT_MS
-      ) {
-        handleLogout(
-          true
-        );
-
-        return undefined;
-      }
-
-      scheduleInactivityLogout(
-        initialActivity
-      );
-
-      const handleActivity =
-        () => {
-          recordActivity();
-        };
-
-      activityEvents.forEach(
-        (
-          eventName
-        ) => {
-          window.addEventListener(
-            eventName,
-            handleActivity,
-            {
-              passive:
-                true,
-            }
-          );
-        }
-      );
-
-      return () => {
-        activityEvents.forEach(
-          (
-            eventName
-          ) => {
-            window.removeEventListener(
-              eventName,
-              handleActivity
-            );
-          }
-        );
-
-        if (
-          inactivityTimerRef.current
-        ) {
-          window.clearTimeout(
-            inactivityTimerRef.current
-          );
-
-          inactivityTimerRef.current =
-            null;
-        }
-      };
-    },
-    [
-      currentUser,
-      handleLogout,
-      portalType,
-      recordActivity,
-      scheduleInactivityLogout,
-      sessionState,
-    ]
-  );
 
 
   /* =========================================================
@@ -3987,10 +3794,8 @@ function AppRouter() {
                 true,
             })
           }
-          onLogout={() =>
-            handleLogout(
-              false
-            )
+          onLogout={
+            handleLogout
           }
           onUserUpdate={
             handleUserUpdate

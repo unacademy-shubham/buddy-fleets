@@ -39,7 +39,6 @@ const BOOTSTRAP_LIFETIME_MS = 15 * 1000;
 
 const COOKIE_NAME = PORTAL_SESSION_COOKIE;
 const PORTAL_BOOTSTRAP_KEY = 'buddy_fleets_portal_bootstrap';
-const LAST_ACTIVITY_KEY = 'buddy_fleets_last_activity';
 
 const MAIN_HOST = 'buddyfleets.in';
 const WWW_HOST = 'www.buddyfleets.in';
@@ -1728,11 +1727,6 @@ function sendImmediateDashboardBootstrap({
       PORTAL_BOOTSTRAP_KEY
     );
 
-  const safeActivityKey =
-    serializeForInlineScript(
-      LAST_ACTIVITY_KEY
-    );
-
   setNoStoreHeaders(
     res
   );
@@ -1772,22 +1766,11 @@ html,body{
   const bootstrap = ${safeBootstrap};
   const destination = ${safeDestination};
   const bootstrapKey = ${safeBootstrapKey};
-  const activityKey = ${safeActivityKey};
-
   try {
     sessionStorage.setItem(
       bootstrapKey,
       JSON.stringify(
         bootstrap
-      )
-    );
-  } catch {}
-
-  try {
-    localStorage.setItem(
-      activityKey,
-      String(
-        Date.now()
       )
     );
   } catch {}
@@ -2487,8 +2470,18 @@ export default async function handler(
   }
 
   const session = {
+    id:
+      securitySession.id,
+
     expiresAt:
       httpSessionExpiresAt,
+
+    serverTime:
+      new Date()
+        .toISOString(),
+
+    idleTimeoutSeconds:
+      SESSION_IDLE_TIMEOUT_SECONDS,
 
     portalType:
       handoff.portal_type,

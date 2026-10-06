@@ -5,6 +5,7 @@ import './clientPortal.css';
 import './clientPortalTheme.css';
 import {ClientPortalProvider} from './ClientPortalContext';
 import ClientPortalShell from './components/ClientPortalShell';
+import SessionControl from '../components/SessionControl';
 import PortalFooter from './components/PortalFooter';
 import DashboardPage from './pages/DashboardPage';
 import SitesPage from './pages/SitesPage';
@@ -328,7 +329,7 @@ export default function DemoPortalApp({currentUser,onLogout}){
   const location=useLocation();
   const parts=location.pathname.split('/').filter(Boolean);
   const pack=getFleetPackBySlug(parts[1]);
-  if(!pack)return <DemoFleetPicker currentUser={currentUser} onLogout={onLogout}/>;
+  if(!pack)return <><SessionControl showBadge={false}/><DemoFleetPicker currentUser={currentUser} onLogout={onLogout}/></>;
   return <DemoFleetWorkspace key={pack.key} pack={pack} currentUser={currentUser} onLogout={onLogout}/>;
 }
 
