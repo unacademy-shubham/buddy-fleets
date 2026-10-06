@@ -94,7 +94,7 @@ function SelectMenu({ value, options, onChange, placeholder = 'All', className =
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => setOpen((current) => !current)}
-        className="flex h-9 w-full min-w-0 items-center justify-between gap-2 rounded-[5px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] px-3 text-left text-[10px] font-medium text-[var(--bf-dev-text-2)] outline-none transition hover:bg-[var(--bf-dev-surface-2)] focus-visible:ring-2 focus-visible:ring-[rgb(var(--bf-dev-primary-rgb)/.24)]"
+        className="flex h-10 w-full min-w-0 items-center justify-between gap-2 rounded-[5px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] px-3 text-left text-[13px] font-medium text-[var(--bf-dev-text)] outline-none transition hover:bg-[var(--bf-dev-surface-2)] focus-visible:ring-2 focus-visible:ring-[rgb(var(--bf-dev-primary-rgb)/.24)]"
       >
         <span className="truncate">{selected?.label || placeholder}</span>
         <ChevronDown size={13} className={cx('shrink-0 transition', open && 'rotate-180')} />
@@ -117,10 +117,10 @@ function SelectMenu({ value, options, onChange, placeholder = 'All', className =
                   setOpen(false);
                 }}
                 className={cx(
-                  'flex w-full items-center justify-between gap-3 rounded-[4px] px-3 py-2 text-left text-[10px] transition',
+                  'flex w-full items-center justify-between gap-3 rounded-[4px] px-3 py-2 text-left text-[13px] transition',
                   active
                     ? 'bg-[rgb(var(--bf-dev-primary-rgb)/.12)] font-bold text-[var(--bf-dev-primary)]'
-                    : 'text-[var(--bf-dev-text-2)] hover:bg-[var(--bf-dev-surface-2)] hover:text-[var(--bf-dev-text)]'
+                    : 'text-[var(--bf-dev-text)] hover:bg-[var(--bf-dev-surface-2)] hover:text-[var(--bf-dev-text)]'
                 )}
               >
                 <span>{option.label}</span>
@@ -140,7 +140,7 @@ function HeaderAction({ icon: Icon, children, onClick, disabled }) {
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className="inline-flex min-h-[32px] items-center justify-center gap-1.5 rounded-[4px] border border-white/30 bg-white/12 px-3 py-1.5 text-[10px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,.14),0_1px_2px_rgba(0,0,0,.08)] transition hover:border-white/45 hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-55"
+      className="inline-flex min-h-[32px] items-center justify-center gap-1.5 rounded-[4px] border border-white/30 bg-white/12 px-3 py-1.5 text-[12px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,.14),0_1px_2px_rgba(0,0,0,.08)] transition hover:border-white/45 hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-55"
     >
       {Icon && <Icon size={13} />}
       {children}
@@ -155,10 +155,10 @@ function SoftButton({ icon: Icon, children, onClick, disabled, danger = false, c
       disabled={disabled}
       onClick={onClick}
       className={cx(
-        'inline-flex h-8 items-center justify-center gap-1.5 rounded-[4px] border px-2.5 text-[9px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--bf-dev-primary-rgb)/.24)] disabled:cursor-not-allowed disabled:opacity-50',
+        'inline-flex h-8 items-center justify-center gap-1.5 rounded-[4px] border px-2.5 text-[12px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--bf-dev-primary-rgb)/.24)] disabled:cursor-not-allowed disabled:opacity-50',
         danger
           ? 'border-rose-500/25 bg-rose-500/10 text-rose-500 hover:bg-rose-500/15'
-          : 'border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] text-[var(--bf-dev-text-2)] hover:bg-[var(--bf-dev-surface-2)] hover:text-[var(--bf-dev-text)]',
+          : 'border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] text-[var(--bf-dev-text)] hover:bg-[var(--bf-dev-surface-2)] hover:text-[var(--bf-dev-text)]',
         className
       )}
     >
@@ -174,10 +174,10 @@ function ToneBadge({ tone = 'neutral', children, icon: Icon }) {
     info: 'border-[rgb(var(--bf-dev-primary-rgb)/.22)] bg-[rgb(var(--bf-dev-primary-rgb)/.10)] text-[var(--bf-dev-primary)]',
     warning: 'border-amber-500/25 bg-amber-500/10 text-amber-500',
     danger: 'border-rose-500/25 bg-rose-500/10 text-rose-500',
-    neutral: 'border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] text-[var(--bf-dev-text-2)]',
+    neutral: 'border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] text-[var(--bf-dev-text)]',
   };
   return (
-    <span className={cx('inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[8px] font-bold uppercase tracking-[.06em] whitespace-nowrap', styles[tone] || styles.neutral)}>
+    <span className={cx('inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-bold uppercase tracking-[.06em] whitespace-nowrap', styles[tone] || styles.neutral)}>
       {Icon && <Icon size={10} />}
       {children}
     </span>
@@ -190,7 +190,7 @@ function SummaryCard({ title, value, helper, icon: Icon, tone = 'primary', activ
     success: 'bg-emerald-500/10 text-emerald-500',
     warning: 'bg-amber-500/10 text-amber-500',
     danger: 'bg-rose-500/10 text-rose-500',
-    neutral: 'bg-[var(--bf-dev-surface-2)] text-[var(--bf-dev-text-2)]',
+    neutral: 'bg-[var(--bf-dev-surface-2)] text-[var(--bf-dev-text)]',
   }[tone];
 
   return (
@@ -198,9 +198,9 @@ function SummaryCard({ title, value, helper, icon: Icon, tone = 'primary', activ
       <Card className={cx('h-full p-4 transition', active ? 'border-[var(--bf-dev-primary)] shadow-[0_0_0_1px_rgb(var(--bf-dev-primary-rgb)/.18)]' : 'group-hover:border-[rgb(var(--bf-dev-primary-rgb)/.28)]')}>
         <div className="flex items-start justify-between gap-3">
           <div>
-            <div className="text-[9px] font-semibold uppercase tracking-[.07em] text-[var(--bf-dev-text-3)]">{title}</div>
-            <div className="mt-2 text-[22px] font-extrabold tracking-[-.02em] text-[var(--bf-dev-text)]">{value ?? 0}</div>
-            <div className="mt-1 text-[8px] text-[var(--bf-dev-text-3)]">{helper}</div>
+            <div className="text-[12px] font-semibold uppercase tracking-[.07em] text-[var(--bf-dev-text)]">{title}</div>
+            <div className="mt-2 text-[28px] font-extrabold tracking-[-.02em] text-[var(--bf-dev-text)]">{value ?? 0}</div>
+            <div className="mt-1 text-[12px] text-[var(--bf-dev-text)]">{helper}</div>
           </div>
           <div className={cx('flex h-9 w-9 shrink-0 items-center justify-center rounded-[5px]', iconClass)}>
             <Icon size={16} />
@@ -244,10 +244,10 @@ function SecurityCell({ security }) {
         <div className="absolute right-0 top-[calc(100%+7px)] z-[85] w-72 rounded-[5px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] p-3 shadow-[0_18px_48px_rgba(15,23,42,.20)]">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <div className="text-[10px] font-bold text-[var(--bf-dev-text)]">Security summary</div>
-              <div className="mt-0.5 text-[8px] text-[var(--bf-dev-text-3)]">Last event: {formatDate(security?.lastEventAt, true)}</div>
+              <div className="text-[13px] font-bold text-[var(--bf-dev-text)]">Security summary</div>
+              <div className="mt-0.5 text-[12px] text-[var(--bf-dev-text)]">Last event: {formatDate(security?.lastEventAt, true)}</div>
             </div>
-            <button type="button" onClick={() => setOpen(false)} className="text-[var(--bf-dev-text-3)] hover:text-[var(--bf-dev-text)]"><X size={13} /></button>
+            <button type="button" onClick={() => setOpen(false)} className="text-[var(--bf-dev-text)] hover:text-[var(--bf-dev-text)]"><X size={13} /></button>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2">
             {[
@@ -257,8 +257,8 @@ function SecurityCell({ security }) {
               ['MFA alerts', security?.mfaAlerts || 0],
             ].map(([name, count]) => (
               <div key={name} className="rounded-[4px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] p-2">
-                <div className="text-[8px] text-[var(--bf-dev-text-3)]">{name}</div>
-                <div className="mt-1 text-[11px] font-bold text-[var(--bf-dev-text)]">{count}</div>
+                <div className="text-[12px] text-[var(--bf-dev-text)]">{name}</div>
+                <div className="mt-1 text-[14px] font-bold text-[var(--bf-dev-text)]">{count}</div>
               </div>
             ))}
           </div>
@@ -267,16 +267,16 @@ function SecurityCell({ security }) {
               {(security.alerts || []).slice(0, 4).map((alert, index) => (
                 <div key={`${alert.userId || 'user'}-${alert.type}-${index}`} className="rounded-[4px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] px-2.5 py-2">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="truncate text-[9px] font-bold text-[var(--bf-dev-text)]">{alert.name}</span>
-                    <span className={cx('shrink-0 text-[8px] font-bold', alert.severity === 'critical' ? 'text-rose-500' : 'text-amber-500')}>{alert.type}</span>
+                    <span className="truncate text-[12px] font-bold text-[var(--bf-dev-text)]">{alert.name}</span>
+                    <span className={cx('shrink-0 text-[12px] font-bold', alert.severity === 'critical' ? 'text-rose-500' : 'text-amber-500')}>{alert.type}</span>
                   </div>
-                  <div className="mt-1 text-[8px] leading-4 text-[var(--bf-dev-text-3)]">{alert.reason}</div>
+                  <div className="mt-1 text-[12px] leading-4 text-[var(--bf-dev-text)]">{alert.reason}</div>
                 </div>
               ))}
             </div>
           )}
           {(security?.ownerLocked || security?.ownerRestricted) && (
-            <div className="mt-3 rounded-[4px] border border-rose-500/20 bg-rose-500/8 px-3 py-2 text-[9px] font-semibold text-rose-500">
+            <div className="mt-3 rounded-[4px] border border-rose-500/20 bg-rose-500/8 px-3 py-2 text-[12px] font-semibold text-rose-500">
               {security.ownerLocked ? 'Company Owner account is locked.' : 'Company Owner access is restricted.'}
             </div>
           )}
@@ -300,11 +300,11 @@ function ProvisioningCell({ provisioning }) {
       </button>
       {open && (
         <div className="absolute right-0 top-[calc(100%+7px)] z-[84] w-72 rounded-[5px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] p-3 shadow-[0_18px_48px_rgba(15,23,42,.20)]">
-          <div className="text-[10px] font-bold text-[var(--bf-dev-text)]">Provisioning checks</div>
+          <div className="text-[13px] font-bold text-[var(--bf-dev-text)]">Provisioning checks</div>
           <div className="mt-2 space-y-1.5">
             {Object.entries(provisioning?.checks || {}).map(([key, value]) => (
-              <div key={key} className="flex items-center justify-between gap-3 text-[9px]">
-                <span className="capitalize text-[var(--bf-dev-text-2)]">{key.replaceAll('_', ' ')}</span>
+              <div key={key} className="flex items-center justify-between gap-3 text-[12px]">
+                <span className="capitalize text-[var(--bf-dev-text)]">{key.replaceAll('_', ' ')}</span>
                 {value ? <CheckCircle2 size={12} className="text-emerald-500" /> : <AlertTriangle size={12} className="text-amber-500" />}
               </div>
             ))}
@@ -342,7 +342,7 @@ function RowActions({ row, onSuspend, onRestore }) {
         type="button"
         aria-label={`Actions for ${row.company_name}`}
         onClick={() => setOpen((current) => !current)}
-        className="flex h-8 w-8 items-center justify-center rounded-[4px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] text-[var(--bf-dev-text-2)] transition hover:bg-[var(--bf-dev-surface-2)] hover:text-[var(--bf-dev-text)]"
+        className="flex h-8 w-8 items-center justify-center rounded-[4px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] text-[var(--bf-dev-text)] transition hover:bg-[var(--bf-dev-surface-2)] hover:text-[var(--bf-dev-text)]"
       >
         <MoreHorizontal size={15} />
       </button>
@@ -357,8 +357,8 @@ function RowActions({ row, onSuspend, onRestore }) {
                 action();
               }}
               className={cx(
-                'flex w-full items-center gap-2 rounded-[4px] px-3 py-2 text-left text-[9px] font-semibold transition',
-                danger ? 'text-rose-500 hover:bg-rose-500/10' : 'text-[var(--bf-dev-text-2)] hover:bg-[var(--bf-dev-surface-2)] hover:text-[var(--bf-dev-text)]'
+                'flex w-full items-center gap-2 rounded-[4px] px-3 py-2 text-left text-[12px] font-semibold transition',
+                danger ? 'text-rose-500 hover:bg-rose-500/10' : 'text-[var(--bf-dev-text)] hover:bg-[var(--bf-dev-surface-2)] hover:text-[var(--bf-dev-text)]'
               )}
             >
               <Icon size={12} />
@@ -381,29 +381,29 @@ function LifecycleDialog({ company, mode, onClose, onSubmit, saving }) {
       <div className="w-full max-w-lg rounded-[6px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] shadow-[0_24px_80px_rgba(2,6,23,.35)]">
         <div className="flex items-start justify-between gap-4 border-b border-[var(--bf-dev-border)] p-5">
           <div>
-            <div className="text-[9px] font-bold uppercase tracking-[.08em] text-[var(--bf-dev-primary)]">Company lifecycle</div>
-            <div className="mt-1 text-[18px] font-extrabold text-[var(--bf-dev-text)]">{mode === 'suspend' ? 'Suspend' : 'Restore'} {company.company_name}?</div>
-            <div className="mt-1 text-[9px] leading-4 text-[var(--bf-dev-text-3)]">
+            <div className="text-[12px] font-bold uppercase tracking-[.08em] text-[var(--bf-dev-primary)]">Company lifecycle</div>
+            <div className="mt-1 text-[20px] font-extrabold text-[var(--bf-dev-text)]">{mode === 'suspend' ? 'Suspend' : 'Restore'} {company.company_name}?</div>
+            <div className="mt-1 text-[12px] leading-4 text-[var(--bf-dev-text)]">
               {mode === 'suspend'
                 ? 'Company portal access will be blocked. Trial/expiry state is not rewritten.'
                 : 'Company access will be restored to its prior valid lifecycle state.'}
             </div>
           </div>
-          <button type="button" onClick={onClose} className="text-[var(--bf-dev-text-3)] hover:text-[var(--bf-dev-text)]"><X size={16} /></button>
+          <button type="button" onClick={onClose} className="text-[var(--bf-dev-text)] hover:text-[var(--bf-dev-text)]"><X size={16} /></button>
         </div>
         <div className="space-y-4 p-5">
           <label className="block">
-            <span className="text-[9px] font-semibold text-[var(--bf-dev-text-2)]">Reason *</span>
+            <span className="text-[12px] font-semibold text-[var(--bf-dev-text)]">Reason *</span>
             <SelectMenu value={reasonCategory} options={options} onChange={setReasonCategory} className="mt-1.5" ariaLabel="Lifecycle reason" />
           </label>
           <label className="block">
-            <span className="text-[9px] font-semibold text-[var(--bf-dev-text-2)]">Internal note</span>
+            <span className="text-[12px] font-semibold text-[var(--bf-dev-text)]">Internal note</span>
             <textarea
               rows={4}
               value={note}
               onChange={(event) => setNote(event.target.value)}
               placeholder="Optional context for the audit trail"
-              className="mt-1.5 w-full rounded-[5px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] px-3 py-2.5 text-[10px] text-[var(--bf-dev-text)] outline-none placeholder:text-[var(--bf-dev-text-3)] focus:border-[var(--bf-dev-primary)]"
+              className="mt-1.5 w-full rounded-[5px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] px-3 py-2.5 text-[13px] text-[var(--bf-dev-text)] outline-none placeholder:text-[var(--bf-dev-text)] focus:border-[var(--bf-dev-primary)]"
             />
           </label>
         </div>
@@ -480,6 +480,7 @@ export default function AllCompaniesPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [lifecycleDialog, setLifecycleDialog] = useState(null);
+  const [expandedRows, setExpandedRows] = useState(() => new Set());
 
   const options = useMemo(() => filterOptions(data.filters), [data.filters]);
 
@@ -545,6 +546,15 @@ export default function AllCompaniesPage() {
     setPage(1);
   }
 
+  function toggleExpanded(companyId) {
+    setExpandedRows((current) => {
+      const next = new Set(current);
+      if (next.has(companyId)) next.delete(companyId);
+      else next.add(companyId);
+      return next;
+    });
+  }
+
   async function submitLifecycle(payload) {
     if (!lifecycleDialog?.company) return;
     setSaving(true);
@@ -605,12 +615,12 @@ export default function AllCompaniesPage() {
       <Card className="overflow-visible p-4">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
           <div className="relative w-full xl:max-w-md">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--bf-dev-text-3)]" />
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--bf-dev-text)]" />
             <input
               value={query}
               onChange={(event) => { setQuery(event.target.value); setPage(1); }}
               placeholder="Search name, code, owner email, portal slug…"
-              className="h-9 w-full rounded-[5px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] pl-9 pr-3 text-[10px] text-[var(--bf-dev-text)] outline-none placeholder:text-[var(--bf-dev-text-3)] focus:border-[var(--bf-dev-primary)]"
+              className="h-10 w-full rounded-[5px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] pl-9 pr-3 text-[13px] text-[var(--bf-dev-text)] outline-none placeholder:text-[var(--bf-dev-text)] focus:border-[var(--bf-dev-primary)]"
             />
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -626,10 +636,10 @@ export default function AllCompaniesPage() {
                   }
                 }}
                 className={cx(
-                  'inline-flex h-8 items-center gap-1.5 rounded-[4px] border px-2.5 text-[8px] font-semibold transition',
+                  'inline-flex h-8 items-center gap-1.5 rounded-[4px] border px-2.5 text-[12px] font-semibold transition',
                   filters.quick === value && (value || !filters.lifecycle)
                     ? 'border-[rgb(var(--bf-dev-primary-rgb)/.32)] bg-[rgb(var(--bf-dev-primary-rgb)/.10)] text-[var(--bf-dev-primary)]'
-                    : 'border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] text-[var(--bf-dev-text-2)] hover:bg-[var(--bf-dev-surface-2)]'
+                    : 'border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] text-[var(--bf-dev-text)] hover:bg-[var(--bf-dev-surface-2)]'
                 )}
               >
                 <Icon size={11} />
@@ -648,84 +658,157 @@ export default function AllCompaniesPage() {
           <SelectMenu value={filters.security} options={options.security} onChange={(value) => setFilter('security', value)} ariaLabel="Security filter" />
           <div className="flex gap-2">
             <SelectMenu value={filters.sort} options={options.sort} onChange={(value) => setFilter('sort', value)} className="min-w-0 flex-1" ariaLabel="Sort companies" />
-            <button type="button" title="Reset filters" onClick={resetFilters} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[5px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] text-[var(--bf-dev-text-2)] transition hover:bg-[var(--bf-dev-surface-2)] hover:text-[var(--bf-dev-text)]"><RotateCcw size={13} /></button>
+            <button type="button" title="Reset filters" onClick={resetFilters} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[5px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] text-[var(--bf-dev-text)] transition hover:bg-[var(--bf-dev-surface-2)] hover:text-[var(--bf-dev-text)]"><RotateCcw size={13} /></button>
           </div>
         </div>
       </Card>
 
-      {error && <div className="rounded-[5px] border border-rose-500/20 bg-rose-500/8 px-4 py-3 text-[10px] font-medium text-rose-500">{error}</div>}
-      {success && <div className="rounded-[5px] border border-emerald-500/20 bg-emerald-500/8 px-4 py-3 text-[10px] font-medium text-emerald-500">{success}</div>}
+      {error && <div className="rounded-[5px] border border-rose-500/20 bg-rose-500/8 px-4 py-3 text-[13px] font-medium text-rose-500">{error}</div>}
+      {success && <div className="rounded-[5px] border border-emerald-500/20 bg-emerald-500/8 px-4 py-3 text-[13px] font-medium text-emerald-500">{success}</div>}
 
       <Card className="overflow-visible">
         <div className="flex flex-col gap-3 border-b border-[var(--bf-dev-border)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <div className="text-[13px] font-semibold text-[var(--bf-dev-text)]">Company directory</div>
-            <div className="mt-0.5 text-[8px] text-[var(--bf-dev-text-3)]">Lifecycle, effective access, provisioning and security are deliberately shown as separate states.</div>
+            <div className="text-[17px] font-semibold text-[var(--bf-dev-text)]">Company directory</div>
+            <div className="mt-0.5 text-[12px] text-[var(--bf-dev-text)]">Lifecycle, effective access, provisioning and security are deliberately shown as separate states.</div>
           </div>
           <div className="flex items-center gap-2">
-            <div className="text-[8px] text-[var(--bf-dev-text-3)]">{loading ? 'Loading…' : `${pagination.total || 0} matching companies`}</div>
-            <SelectMenu value={String(filters.pageSize)} options={options.pageSize} onChange={(value) => setFilter('pageSize', value)} className="w-28" ariaLabel="Rows per page" />
+            <div className="text-[12px] text-[var(--bf-dev-text)]">{loading ? 'Loading…' : `${pagination.total || 0} matching companies`}</div>
+            <SelectMenu value={String(filters.pageSize)} options={options.pageSize} onChange={(value) => setFilter('pageSize', value)} className="w-32" ariaLabel="Rows per page" />
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="min-w-[1710px] w-full border-collapse text-left">
+        <div className="overflow-visible">
+          <table className="w-full table-fixed border-collapse text-left">
+            <colgroup>
+              <col className="w-[21%]" />
+              <col className="w-[11%]" />
+              <col className="w-[19%]" />
+              <col className="w-[18%]" />
+              <col className="w-[10%]" />
+              <col className="w-[9%]" />
+              <col className="w-[8%]" />
+              <col className="w-[4%]" />
+            </colgroup>
             <thead className="bg-[var(--bf-dev-surface-2)]">
               <tr>
-                {['Company', 'Company Code', 'Owner', 'Fleet Pack', 'Plan', 'Lifecycle', 'Access', 'Provisioning', 'Security', 'Sites', 'Expiry', 'Last Activity', 'Actions'].map((heading) => (
-                  <th key={heading} className="border-b border-[var(--bf-dev-border)] px-4 py-3 text-[8px] font-bold uppercase tracking-[.07em] text-[var(--bf-dev-text-3)]">{heading}</th>
+                {['Company', 'Company Code', 'Owner', 'Fleet Pack', 'Plan', 'Lifecycle', 'Access', 'Actions'].map((heading) => (
+                  <th key={heading} className="border-b border-[var(--bf-dev-border)] px-4 py-3.5 text-[12px] font-bold uppercase tracking-[.07em] text-[var(--bf-dev-text)]">{heading}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {!loading && !data.rows.length && (
                 <tr>
-                  <td colSpan={13} className="px-4 py-14 text-center text-[10px] text-[var(--bf-dev-text-3)]">No companies match the current filters.</td>
+                  <td colSpan={8} className="px-4 py-14 text-center text-[14px] font-medium text-[var(--bf-dev-text)]">No companies match the current filters.</td>
                 </tr>
               )}
-              {data.rows.map((row) => (
-                <tr key={row.id} className="group border-b border-[var(--bf-dev-border)] transition hover:bg-[var(--bf-dev-surface-2)]/70">
-                  <td className="px-4 py-3 align-top">
-                    <button type="button" onClick={() => navigate(`/saas-platform/companies/${row.id}`)} className="max-w-[220px] text-left">
-                      <div className="truncate text-[10px] font-bold text-[var(--bf-dev-text)] group-hover:text-[var(--bf-dev-primary)]">{row.company_name}</div>
-                      <div className="mt-1 truncate text-[8px] text-[var(--bf-dev-text-3)]">portal.buddyfleets.in/{row.subdomain_slug}</div>
-                    </button>
-                  </td>
-                  <td className="px-4 py-3 align-top text-[9px] font-semibold text-[var(--bf-dev-primary)]">{row.company_code || '—'}</td>
-                  <td className="px-4 py-3 align-top">
-                    <div className="max-w-[190px] truncate text-[9px] font-semibold text-[var(--bf-dev-text)]">{row.owner?.name || 'Owner not configured'}</div>
-                    <div className="mt-1 max-w-[190px] truncate text-[8px] text-[var(--bf-dev-text-3)]">{row.owner?.email || '—'}</div>
-                  </td>
-                  <td className="px-4 py-3 align-top">
-                    <div className="max-w-[180px] truncate text-[9px] font-semibold text-[var(--bf-dev-text)]">{row.fleet?.primary?.name || 'Not selected'}</div>
-                    {(row.fleet?.additionalCount || 0) > 0 && <div className="mt-1 text-[8px] text-[var(--bf-dev-primary)]">+{row.fleet.additionalCount} additional</div>}
-                  </td>
-                  <td className="px-4 py-3 align-top text-[9px] font-semibold text-[var(--bf-dev-text)]">{row.plan?.name || 'Not assigned'}</td>
-                  <td className="px-4 py-3 align-top"><ToneBadge tone={row.lifecycle?.tone}>{row.lifecycle?.label || 'Unknown'}</ToneBadge></td>
-                  <td className="px-4 py-3 align-top"><ToneBadge tone={row.access?.key === 'full' ? 'success' : row.access?.key === 'read_only' ? 'warning' : 'danger'}>{row.access?.label || 'Blocked'}</ToneBadge></td>
-                  <td className="px-4 py-3 align-top"><ProvisioningCell provisioning={row.provisioning} /></td>
-                  <td className="px-4 py-3 align-top"><SecurityCell security={row.security} /></td>
-                  <td className="px-4 py-3 align-top">
-                    <div className="text-[10px] font-bold text-[var(--bf-dev-text)]">{row.sites?.active || 0}</div>
-                    <div className="mt-1 text-[8px] text-[var(--bf-dev-text-3)]">{row.sites?.total || 0} total</div>
-                  </td>
-                  <td className="px-4 py-3 align-top">
-                    <div className={cx('text-[9px] font-semibold', Number.isFinite(row.daysRemaining) && row.daysRemaining <= 7 ? 'text-amber-500' : 'text-[var(--bf-dev-text)]')}>{expiryText(row)}</div>
-                    <div className="mt-1 text-[8px] text-[var(--bf-dev-text-3)]">{row.expiryAt ? formatDate(row.expiryAt) : '—'}</div>
-                  </td>
-                  <td className="px-4 py-3 align-top text-[8px] text-[var(--bf-dev-text-2)]">{formatDate(row.lastActivityAt, true)}</td>
-                  <td className="px-4 py-3 align-top"><RowActions row={row} onSuspend={(company) => setLifecycleDialog({ company, mode: 'suspend' })} onRestore={(company) => setLifecycleDialog({ company, mode: 'restore' })} /></td>
-                </tr>
-              ))}
+              {data.rows.map((row) => {
+                const expanded = expandedRows.has(row.id);
+                return (
+                  <React.Fragment key={row.id}>
+                    <tr className={cx('group border-b border-[var(--bf-dev-border)] transition hover:bg-[var(--bf-dev-surface-2)]/70', expanded && 'bg-[var(--bf-dev-surface-2)]/45')}>
+                      <td className="px-4 py-4 align-top">
+                        <div className="flex min-w-0 items-start gap-2.5">
+                          <button
+                            type="button"
+                            aria-label={expanded ? `Collapse details for ${row.company_name}` : `Expand details for ${row.company_name}`}
+                            aria-expanded={expanded}
+                            onClick={() => toggleExpanded(row.id)}
+                            className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-[4px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] text-[var(--bf-dev-text)] transition hover:border-[rgb(var(--bf-dev-primary-rgb)/.35)] hover:bg-[rgb(var(--bf-dev-primary-rgb)/.08)] hover:text-[var(--bf-dev-primary)]"
+                          >
+                            <ChevronDown size={15} className={cx('transition-transform', expanded ? 'rotate-180' : '-rotate-90')} />
+                          </button>
+                          <button type="button" onClick={() => navigate(`/saas-platform/companies/${row.id}`)} className="min-w-0 max-w-full text-left">
+                            <div className="truncate text-[14px] font-bold text-[var(--bf-dev-text)] group-hover:text-[var(--bf-dev-primary)]">{row.company_name}</div>
+                            <div className="mt-1 truncate text-[12px] font-medium text-[var(--bf-dev-text)]">portal.buddyfleets.in/{row.subdomain_slug}</div>
+                          </button>
+                        </div>
+                      </td>
+                      <td className="px-4 py-4 align-top text-[13px] font-bold text-[var(--bf-dev-primary)]">{row.company_code || '—'}</td>
+                      <td className="px-4 py-4 align-top">
+                        <div className="truncate text-[13px] font-semibold text-[var(--bf-dev-text)]">{row.owner?.name || 'Owner not configured'}</div>
+                        <div className="mt-1 truncate text-[12px] font-medium text-[var(--bf-dev-text)]">{row.owner?.email || '—'}</div>
+                      </td>
+                      <td className="px-4 py-4 align-top">
+                        <div className="truncate text-[13px] font-semibold text-[var(--bf-dev-text)]">{row.fleet?.primary?.name || 'Not selected'}</div>
+                        {(row.fleet?.additionalCount || 0) > 0 && <div className="mt-1 text-[12px] font-semibold text-[var(--bf-dev-primary)]">+{row.fleet.additionalCount} additional</div>}
+                      </td>
+                      <td className="px-4 py-4 align-top text-[13px] font-semibold text-[var(--bf-dev-text)]">{row.plan?.name || 'Not assigned'}</td>
+                      <td className="px-4 py-4 align-top"><ToneBadge tone={row.lifecycle?.tone}>{row.lifecycle?.label || 'Unknown'}</ToneBadge></td>
+                      <td className="px-4 py-4 align-top"><ToneBadge tone={row.access?.key === 'full' ? 'success' : row.access?.key === 'read_only' ? 'warning' : 'danger'}>{row.access?.label || 'Blocked'}</ToneBadge></td>
+                      <td className="px-4 py-4 align-top"><RowActions row={row} onSuspend={(company) => setLifecycleDialog({ company, mode: 'suspend' })} onRestore={(company) => setLifecycleDialog({ company, mode: 'restore' })} /></td>
+                    </tr>
+
+                    {expanded && (
+                      <tr className="border-b border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)]/35">
+                        <td colSpan={8} className="px-4 pb-5 pt-1">
+                          <div className="ml-9 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                            <div className="rounded-[6px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] p-4">
+                              <div className="mb-2 text-[12px] font-bold uppercase tracking-[.06em] text-[var(--bf-dev-text)]">Provisioning</div>
+                              <ProvisioningCell provisioning={row.provisioning} />
+                              <div className="mt-3 space-y-2">
+                                {Object.entries(row.provisioning?.checks || {}).slice(0, 6).map(([key, value]) => (
+                                  <div key={key} className="flex items-center justify-between gap-3 text-[12px] font-medium text-[var(--bf-dev-text)]">
+                                    <span className="capitalize">{key.replaceAll('_', ' ')}</span>
+                                    {value ? <CheckCircle2 size={14} className="text-emerald-500" /> : <AlertTriangle size={14} className="text-amber-500" />}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div className="rounded-[6px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] p-4">
+                              <div className="mb-2 text-[12px] font-bold uppercase tracking-[.06em] text-[var(--bf-dev-text)]">Security</div>
+                              <SecurityCell security={row.security} />
+                              <div className="mt-3 grid grid-cols-2 gap-2 text-[12px] font-medium text-[var(--bf-dev-text)]">
+                                <div>Locked users <b className="float-right">{row.security?.lockedCount || 0}</b></div>
+                                <div>Restricted <b className="float-right">{row.security?.restrictedCount || 0}</b></div>
+                                <div>Login alerts <b className="float-right">{row.security?.failedLoginAlerts || 0}</b></div>
+                                <div>MFA alerts <b className="float-right">{row.security?.mfaAlerts || 0}</b></div>
+                              </div>
+                            </div>
+
+                            <div className="rounded-[6px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] p-4">
+                              <div className="text-[12px] font-bold uppercase tracking-[.06em] text-[var(--bf-dev-text)]">Sites</div>
+                              <div className="mt-2 text-[22px] font-extrabold text-[var(--bf-dev-text)]">{row.sites?.active || 0}</div>
+                              <div className="mt-1 text-[12px] font-medium text-[var(--bf-dev-text)]">Active of {row.sites?.total || 0} total sites</div>
+                            </div>
+
+                            <div className="rounded-[6px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] p-4">
+                              <div className="text-[12px] font-bold uppercase tracking-[.06em] text-[var(--bf-dev-text)]">Expiry</div>
+                              <div className={cx('mt-2 text-[14px] font-bold', Number.isFinite(row.daysRemaining) && row.daysRemaining <= 7 ? 'text-amber-500' : 'text-[var(--bf-dev-text)]')}>{expiryText(row)}</div>
+                              <div className="mt-1 text-[12px] font-medium text-[var(--bf-dev-text)]">{row.expiryAt ? formatDate(row.expiryAt) : 'No expiry date'}</div>
+                            </div>
+
+                            <div className="rounded-[6px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] p-4">
+                              <div className="text-[12px] font-bold uppercase tracking-[.06em] text-[var(--bf-dev-text)]">Last Activity</div>
+                              <div className="mt-2 text-[13px] font-semibold text-[var(--bf-dev-text)]">{formatDate(row.lastActivityAt, true)}</div>
+                              <div className="mt-1 text-[12px] font-medium text-[var(--bf-dev-text)]">Latest known portal/session activity</div>
+                            </div>
+
+                            <div className="rounded-[6px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] p-4">
+                              <div className="text-[12px] font-bold uppercase tracking-[.06em] text-[var(--bf-dev-text)]">Portal</div>
+                              <div className="mt-2 truncate text-[13px] font-semibold text-[var(--bf-dev-text)]">{row.subdomain_slug || 'No portal slug'}</div>
+                              <button type="button" onClick={() => navigate(`/saas-platform/companies/${row.id}`)} className="mt-2 inline-flex items-center gap-1.5 text-[12px] font-bold text-[var(--bf-dev-primary)] hover:underline">
+                                <Eye size={14} /> Open Company 360
+                              </button>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>
 
         <div className="flex flex-col gap-3 border-t border-[var(--bf-dev-border)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="text-[8px] text-[var(--bf-dev-text-3)]">Showing {firstItem}–{lastItem} of {pagination.total || 0}</div>
+          <div className="text-[12px] text-[var(--bf-dev-text)]">Showing {firstItem}–{lastItem} of {pagination.total || 0}</div>
           <div className="flex items-center gap-2">
             <SoftButton icon={ChevronLeft} disabled={loading || (pagination.page || 1) <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>Previous</SoftButton>
-            <div className="min-w-[72px] text-center text-[9px] font-semibold text-[var(--bf-dev-text-2)]">Page {pagination.page || 1} / {pagination.totalPages || 1}</div>
+            <div className="min-w-[72px] text-center text-[12px] font-semibold text-[var(--bf-dev-text)]">Page {pagination.page || 1} / {pagination.totalPages || 1}</div>
             <SoftButton icon={ChevronRight} disabled={loading || (pagination.page || 1) >= (pagination.totalPages || 1)} onClick={() => setPage((current) => current + 1)}>Next</SoftButton>
           </div>
         </div>
