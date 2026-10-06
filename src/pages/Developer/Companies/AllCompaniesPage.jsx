@@ -649,7 +649,7 @@ export default function AllCompaniesPage() {
           </div>
         </div>
 
-        <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-7">
+        <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
           <SelectMenu value={filters.lifecycle} options={options.lifecycle} onChange={(value) => setFilter('lifecycle', value)} ariaLabel="Lifecycle filter" />
           <SelectMenu value={filters.plan} options={options.plan} onChange={(value) => setFilter('plan', value)} ariaLabel="Plan filter" />
           <SelectMenu value={filters.fleetPack} options={options.fleetPack} onChange={(value) => setFilter('fleetPack', value)} ariaLabel="Fleet Pack filter" />
@@ -681,19 +681,27 @@ export default function AllCompaniesPage() {
         <div className="overflow-visible">
           <table className="w-full table-fixed border-collapse text-left">
             <colgroup>
-              <col className="w-[21%]" />
-              <col className="w-[11%]" />
               <col className="w-[19%]" />
+              <col className="w-[12%]" />
               <col className="w-[18%]" />
+              <col className="w-[17%]" />
               <col className="w-[10%]" />
               <col className="w-[9%]" />
               <col className="w-[8%]" />
-              <col className="w-[4%]" />
+              <col className="w-[7%]" />
             </colgroup>
             <thead className="bg-[var(--bf-dev-surface-2)]">
               <tr>
                 {['Company', 'Company Code', 'Owner', 'Fleet Pack', 'Plan', 'Lifecycle', 'Access', 'Actions'].map((heading) => (
-                  <th key={heading} className="border-b border-[var(--bf-dev-border)] px-4 py-3.5 text-[12px] font-bold uppercase tracking-[.07em] text-[var(--bf-dev-text)]">{heading}</th>
+                  <th
+                    key={heading}
+                    className={cx(
+                      'whitespace-nowrap border-b border-[var(--bf-dev-border)] px-4 py-3.5 text-[12px] font-bold uppercase tracking-[.07em] text-[var(--bf-dev-text)]',
+                      heading === 'Actions' && 'pr-5 text-right'
+                    )}
+                  >
+                    {heading}
+                  </th>
                 ))}
               </tr>
             </thead>
@@ -725,7 +733,7 @@ export default function AllCompaniesPage() {
                           </button>
                         </div>
                       </td>
-                      <td className="px-4 py-4 align-top text-[13px] font-bold text-[var(--bf-dev-primary)]">{row.company_code || '—'}</td>
+                      <td className="whitespace-nowrap px-4 py-4 align-top text-[13px] font-bold text-[var(--bf-dev-primary)]">{row.company_code || '—'}</td>
                       <td className="px-4 py-4 align-top">
                         <div className="truncate text-[13px] font-semibold text-[var(--bf-dev-text)]">{row.owner?.name || 'Owner not configured'}</div>
                         <div className="mt-1 truncate text-[12px] font-medium text-[var(--bf-dev-text)]">{row.owner?.email || '—'}</div>
@@ -737,7 +745,7 @@ export default function AllCompaniesPage() {
                       <td className="px-4 py-4 align-top text-[13px] font-semibold text-[var(--bf-dev-text)]">{row.plan?.name || 'Not assigned'}</td>
                       <td className="px-4 py-4 align-top"><ToneBadge tone={row.lifecycle?.tone}>{row.lifecycle?.label || 'Unknown'}</ToneBadge></td>
                       <td className="px-4 py-4 align-top"><ToneBadge tone={row.access?.key === 'full' ? 'success' : row.access?.key === 'read_only' ? 'warning' : 'danger'}>{row.access?.label || 'Blocked'}</ToneBadge></td>
-                      <td className="px-4 py-4 align-top"><RowActions row={row} onSuspend={(company) => setLifecycleDialog({ company, mode: 'suspend' })} onRestore={(company) => setLifecycleDialog({ company, mode: 'restore' })} /></td>
+                      <td className="px-4 py-4 pr-5 align-top"><RowActions row={row} onSuspend={(company) => setLifecycleDialog({ company, mode: 'suspend' })} onRestore={(company) => setLifecycleDialog({ company, mode: 'restore' })} /></td>
                     </tr>
 
                     {expanded && (
