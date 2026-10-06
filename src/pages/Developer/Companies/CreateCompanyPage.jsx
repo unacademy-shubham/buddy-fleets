@@ -579,7 +579,7 @@ function Stepper({ current, maxReached, onStepClick }) {
 
 function SlugConflictDialog({ slugState, value, onChange, onCheck, onPick, onClose, checking }) {
   return (
-    <div className="fixed inset-0 z-[170] flex items-center justify-center bg-slate-950/45 p-4">
+    <div className="fixed inset-0 z-[170] flex items-center justify-center bg-transparent p-4">
       <div className="w-full max-w-lg rounded-[6px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] shadow-[0_28px_90px_rgba(2,6,23,.38)]">
         <div className="flex items-start justify-between gap-4 border-b border-[var(--bf-dev-border)] p-5">
           <div>
@@ -678,7 +678,7 @@ function ProvisionCompanyDialog({ onClose, payload, onOpenCompany, onAllCompanie
   };
 
   return (
-    <div className="fixed inset-0 z-[170] flex items-center justify-center bg-slate-950/45 p-4">
+    <div className="fixed inset-0 z-[170] flex items-center justify-center bg-transparent p-4">
       <div className="max-h-[92dvh] w-full max-w-2xl overflow-y-auto rounded-[6px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] shadow-[0_28px_90px_rgba(2,6,23,.38)]">
         <div className="flex items-start justify-between gap-4 border-b border-[var(--bf-dev-border)] p-5">
           <div>
