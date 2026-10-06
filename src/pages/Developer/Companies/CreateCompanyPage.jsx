@@ -13,9 +13,11 @@ import {
   Loader2,
   MapPin,
   PencilLine,
+  Plus,
   Search,
   ShieldCheck,
   Sparkles,
+  Trash2,
   Truck,
   UserRound,
   X,
@@ -26,9 +28,14 @@ import { COUNTRIES, COUNTRY_BY_CODE } from '../../../Data/countries';
 import {
   checkCompanyIdentityAvailability,
   createCompany,
+  createCompanyDraft,
+  deleteCompanyDraft,
   getCompanyCreateMetadata,
+  getCompanyDraft,
+  getCompanyDrafts,
   getCompanySlugPreview,
   lookupCompanyPostalCode,
+  saveCompanyDraft,
   verifyCompanyGstin,
 } from '../../../services/developerSaasApi';
 import { subscribeSessionEvents } from '../../../services/sessionRuntime';
@@ -230,13 +237,28 @@ function serializeCreateCompanyForm(form) {
   return serializable;
 }
 
-function loadCreateCompanyDraft() {
-  const draft = readWorkflowDraft(CREATE_COMPANY_DRAFT_WORKFLOW, { version: CREATE_COMPANY_DRAFT_VERSION });
-  const ownerPhotoAsset = readWorkflowAsset(CREATE_COMPANY_DRAFT_WORKFLOW, OWNER_PHOTO_ASSET, { version: CREATE_COMPANY_DRAFT_VERSION });
-  const ownerPhoto = dataUrlToFile(ownerPhotoAsset);
+function draftWorkflowKey(draftId) {
+  return `${CREATE_COMPANY_DRAFT_WORKFLOW}-${String(draftId || '').trim()}`;
+}
+
+function loadCreateCompanyDraft(draftId, serverDraft) {
+  const workflow = draftWorkflowKey(draftId);
+  const localDraft = readWorkflowDraft(workflow, { version: CREATE_COMPANY_DRAFT_VERSION });
+  const localOwnerPhoto = dataUrlToFile(readWorkflowAsset(workflow, OWNER_PHOTO_ASSET, { version: CREATE_COMPANY_DRAFT_VERSION }));
+  const serverData = {
+    step: Number.isInteger(serverDraft?.currentStep) ? serverDraft.currentStep : 0,
+    maxReached: Number.isInteger(serverDraft?.maxReached) ? serverDraft.maxReached : 0,
+    form: serverDraft?.formData || {},
+    gstResult: serverDraft?.workflowState?.gstResult || null,
+    gstWarningAccepted: Boolean(serverDraft?.workflowState?.gstWarningAccepted),
+    slugState: serverDraft?.workflowState?.slugState || { slug: '', available: null, suggestions: [], manualAvailable: null },
+    slugInput: serverDraft?.workflowState?.slugInput || '',
+  };
+  const serverUpdatedAt = Date.parse(serverDraft?.updatedAt || '') || 0;
+  const useLocal = Boolean(localDraft?.data && Number(localDraft.savedAt || 0) > serverUpdatedAt);
   return {
-    data: draft?.data || null,
-    ownerPhoto,
+    data: useLocal ? localDraft.data : serverData,
+    ownerPhoto: localOwnerPhoto,
   };
 }
 
@@ -776,10 +798,121 @@ function ProvisionCompanyDialog({ onClose, payload, onOpenCompany, onAllCompanie
   );
 }
 
-export default function CreateCompanyPage() {
+
+function ConfirmDraftDeleteDialog({ title, description, confirmLabel = 'Delete Draft', onCancel, onConfirm }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  async function confirm() {
+    setBusy(true);
+    setError('');
+    try {
+      await onConfirm?.();
+    } catch {
+      setError('Unable to delete this draft right now.');
+    }
+    setBusy(false);
+  }
+
+  return (
+    <div className="fixed inset-0 z-[190] flex items-center justify-center bg-transparent p-4">
+      <div className="w-full max-w-md rounded-[6px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] shadow-[0_28px_90px_rgba(2,6,23,.38)]">
+        <div className="border-b border-[var(--bf-dev-border)] p-5">
+          <div className="text-[13px] font-bold uppercase tracking-[.08em] text-rose-500">Draft confirmation</div>
+          <div className="mt-1 text-[20px] font-extrabold text-[var(--bf-dev-text)]">{title}</div>
+          <div className="mt-2 text-[13px] leading-5 text-[var(--bf-dev-text-2)]">{description}</div>
+          {error && <div className="mt-3 text-[12px] font-semibold text-rose-500">{error}</div>}
+        </div>
+        <div className="flex justify-end gap-2 p-4">
+          <SecondaryButton disabled={busy} onClick={onCancel}>Keep Draft</SecondaryButton>
+          <SecondaryButton danger disabled={busy} icon={busy ? Loader2 : Trash2} onClick={confirm}>{busy ? 'Deleting…' : confirmLabel}</SecondaryButton>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function formatDraftTime(value) {
+  const time = Date.parse(String(value || ''));
+  if (!Number.isFinite(time)) return 'Recently updated';
+  const diffMinutes = Math.max(0, Math.round((Date.now() - time) / 60000));
+  if (diffMinutes < 1) return 'Updated just now';
+  if (diffMinutes < 60) return `Updated ${diffMinutes} min ago`;
+  const diffHours = Math.round(diffMinutes / 60);
+  if (diffHours < 24) return `Updated ${diffHours} hr${diffHours === 1 ? '' : 's'} ago`;
+  return `Updated ${new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(time))}`;
+}
+
+function CreateCompanyEntryDialog({ drafts, limit, busy, error, onCreateNew, onContinue, onDelete, onClose }) {
+  const atLimit = drafts.length >= limit;
+  return (
+    <div className="fixed inset-0 z-[170] flex items-center justify-center bg-transparent p-4">
+      <div className="max-h-[92dvh] w-full max-w-3xl overflow-y-auto rounded-[6px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] shadow-[0_28px_90px_rgba(2,6,23,.38)]">
+        <div className="flex items-start justify-between gap-4 border-b border-[var(--bf-dev-border)] p-5">
+          <div>
+            <div className="text-[13px] font-bold uppercase tracking-[.08em] text-[var(--bf-dev-primary)]">Create Company</div>
+            <div className="mt-1 text-[22px] font-extrabold text-[var(--bf-dev-text)]">Start new or continue a draft</div>
+            <div className="mt-1 text-[13px] leading-5 text-[var(--bf-dev-text-2)]">Drafts are securely saved to Buddy Fleets and can be continued after refresh, browser close or a later login.</div>
+          </div>
+          <button type="button" onClick={onClose} className="text-[var(--bf-dev-text-2)] hover:text-[var(--bf-dev-text)]"><X size={18} /></button>
+        </div>
+
+        <div className="grid gap-4 p-5 md:grid-cols-[.9fr_1.4fr]">
+          <div className="rounded-[6px] border border-[rgb(var(--bf-dev-primary-rgb)/.22)] bg-[rgb(var(--bf-dev-primary-rgb)/.06)] p-5">
+            <div className="flex h-11 w-11 items-center justify-center rounded-[6px] bg-[var(--bf-dev-primary)] text-white"><Plus size={20} /></div>
+            <div className="mt-4 text-[17px] font-extrabold text-[var(--bf-dev-text)]">Create a New Company</div>
+            <div className="mt-2 text-[13px] leading-5 text-[var(--bf-dev-text-2)]">Start a clean 5-step onboarding wizard. Your progress will auto-save as a new draft.</div>
+            <PrimaryButton icon={busy === 'new' ? Loader2 : Plus} disabled={Boolean(busy) || atLimit} onClick={onCreateNew}>
+              {busy === 'new' ? 'Creating…' : 'Create New'}
+            </PrimaryButton>
+            {atLimit && <div className="mt-3 text-[12px] font-semibold text-amber-500">You already have {limit} drafts. Delete one draft to start another.</div>}
+          </div>
+
+          <div className="rounded-[6px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="text-[15px] font-extrabold text-[var(--bf-dev-text)]">Continue from Draft</div>
+                <div className="mt-0.5 text-[12px] text-[var(--bf-dev-text-2)]">Recent {limit} drafts · newest first</div>
+              </div>
+              <span className="rounded-full border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] px-2.5 py-1 text-[11px] font-bold text-[var(--bf-dev-text-2)]">{drafts.length}/{limit}</span>
+            </div>
+
+            <div className="mt-4 space-y-2">
+              {drafts.length === 0 && (
+                <div className="rounded-[5px] border border-dashed border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] p-5 text-center text-[13px] text-[var(--bf-dev-text-2)]">No saved drafts yet.</div>
+              )}
+              {drafts.map((draft) => (
+                <div key={draft.id} className="rounded-[5px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] p-3">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <div className="truncate text-[14px] font-bold text-[var(--bf-dev-text)]">{draft.name || 'Untitled company'}</div>
+                      <div className="mt-1 text-[12px] text-[var(--bf-dev-text-2)]">Step {Number(draft.currentStep || 0) + 1} of {STEPS.length} · {STEPS[Number(draft.currentStep || 0)]?.label || 'Company Details'} · {formatDraftTime(draft.updatedAt)}</div>
+                      {draft.ownerPhoto && <div className="mt-1 text-[11px] font-semibold text-emerald-500">Owner photo saved</div>}
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <SecondaryButton danger icon={Trash2} disabled={Boolean(busy)} onClick={() => onDelete(draft)}>Delete</SecondaryButton>
+                      <PrimaryButton icon={busy === draft.id ? Loader2 : ArrowRight} disabled={Boolean(busy)} onClick={() => onContinue(draft.id)}>{busy === draft.id ? 'Opening…' : 'Continue'}</PrimaryButton>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {error && <div className="mx-5 mb-4 rounded-[5px] border border-rose-500/20 bg-rose-500/8 px-4 py-3 text-[12px] font-semibold text-rose-500">{error}</div>}
+        <div className="flex justify-end border-t border-[var(--bf-dev-border)] p-4"><SecondaryButton onClick={onClose}>Back to All Companies</SecondaryButton></div>
+      </div>
+    </div>
+  );
+}
+
+function CreateCompanyWizard({ draft }) {
   const navigate = useNavigate();
+  const draftId = draft?.id || '';
+  const workflowKey = draftWorkflowKey(draftId);
   const draftDisabledRef = useRef(false);
-  const [restoredDraft] = useState(() => loadCreateCompanyDraft());
+  const [restoredDraft] = useState(() => loadCreateCompanyDraft(draftId, draft));
   const restored = restoredDraft?.data || {};
   const restoredStep = Number.isInteger(restored.step) ? Math.min(STEPS.length - 1, Math.max(0, restored.step)) : 0;
   const restoredMaxReached = Number.isInteger(restored.maxReached)
@@ -803,6 +936,9 @@ export default function CreateCompanyPage() {
   const [slugInput, setSlugInput] = useState(restored.slugInput || '');
   const [slugChecking, setSlugChecking] = useState(false);
   const [phaseFourOpen, setPhaseFourOpen] = useState(false);
+  const [discardDialogOpen, setDiscardDialogOpen] = useState(false);
+  const [draftSyncState, setDraftSyncState] = useState('saved');
+  const [draftPhotoMeta, setDraftPhotoMeta] = useState(draft?.ownerPhoto || null);
 
   const [form, setForm] = useState(() => ({
     ...createInitialForm(),
@@ -842,22 +978,35 @@ export default function CreateCompanyPage() {
   async function onOwnerPhotoChange(file) {
     if (!file) {
       patch('ownerPhoto', null);
-      removeWorkflowAsset(CREATE_COMPANY_DRAFT_WORKFLOW, OWNER_PHOTO_ASSET, { version: CREATE_COMPANY_DRAFT_VERSION });
+      setDraftPhotoMeta(null);
+      removeWorkflowAsset(workflowKey, OWNER_PHOTO_ASSET, { version: CREATE_COMPANY_DRAFT_VERSION });
+      const response = await saveCompanyDraft({ draftId, removeOwnerPhoto: true });
+      if (!response.ok) setFieldErrors((current) => ({ ...current, ownerPhoto: 'Unable to remove the saved draft photo right now.' }));
       return;
     }
 
     try {
       const dataUrl = await fileToDataUrl(file);
       patch('ownerPhoto', file);
-      const stored = writeWorkflowAsset(CREATE_COMPANY_DRAFT_WORKFLOW, OWNER_PHOTO_ASSET, {
+      writeWorkflowAsset(workflowKey, OWNER_PHOTO_ASSET, {
         name: file.name,
         type: file.type,
         size: file.size,
         lastModified: file.lastModified,
         dataUrl,
       }, { version: CREATE_COMPANY_DRAFT_VERSION });
-      if (!stored) {
-        setFieldErrors((current) => ({ ...current, ownerPhoto: 'Photo selected, but this browser could not preserve it across refresh.' }));
+      setDraftSyncState('saving');
+      const response = await saveCompanyDraft({
+        draftId,
+        ownerPhotoDataUrl: dataUrl,
+        ownerPhotoName: file.name,
+      });
+      if (!response.ok) {
+        setDraftSyncState('error');
+        setFieldErrors((current) => ({ ...current, ownerPhoto: 'Photo selected locally, but secure draft upload failed. Retry before leaving this page.' }));
+      } else {
+        setDraftPhotoMeta(response.draft?.ownerPhoto || { name: file.name, mime: file.type });
+        setDraftSyncState('saved');
       }
     } catch (photoError) {
       const messages = {
@@ -870,9 +1019,9 @@ export default function CreateCompanyPage() {
   }
 
   useEffect(() => {
-    const persistDraft = () => {
-      if (draftDisabledRef.current) return false;
-      return writeWorkflowDraft(CREATE_COMPANY_DRAFT_WORKFLOW, {
+    if (!draftId || draftDisabledRef.current) return undefined;
+
+    const snapshot = {
       step,
       maxReached,
       form: serializeCreateCompanyForm(form),
@@ -880,24 +1029,35 @@ export default function CreateCompanyPage() {
       gstWarningAccepted,
       slugState,
       slugInput,
-      }, { version: CREATE_COMPANY_DRAFT_VERSION });
     };
 
-    const timer = window.setTimeout(persistDraft, 250);
-    const flushDraft = () => persistDraft();
-    window.addEventListener('pagehide', flushDraft);
+    writeWorkflowDraft(workflowKey, snapshot, { version: CREATE_COMPANY_DRAFT_VERSION });
+    setDraftSyncState('saving');
+
+    let active = true;
+    const timer = window.setTimeout(async () => {
+      const response = await saveCompanyDraft({
+        draftId,
+        draftName: form.tradeName || form.legalName || 'Untitled company',
+        currentStep: step,
+        maxReached,
+        formData: serializeCreateCompanyForm(form),
+        workflowState: { gstResult, gstWarningAccepted, slugState, slugInput },
+      });
+      if (!active) return;
+      setDraftSyncState(response.ok ? 'saved' : 'error');
+    }, 700);
 
     return () => {
+      active = false;
       window.clearTimeout(timer);
-      window.removeEventListener('pagehide', flushDraft);
-      persistDraft();
     };
-  }, [step, maxReached, form, gstResult, gstWarningAccepted, slugState, slugInput]);
+  }, [draftId, workflowKey, step, maxReached, form, gstResult, gstWarningAccepted, slugState, slugInput]);
 
   useEffect(() => subscribeSessionEvents((event) => {
     if (event?.type === 'SESSION_LOGOUT' || event?.type === 'SESSION_INVALIDATED') {
       draftDisabledRef.current = true;
-      clearWorkflowDraftFamily(CREATE_COMPANY_DRAFT_WORKFLOW);
+      clearWorkflowDraftFamily(workflowKey);
     }
   }), []);
 
@@ -1159,7 +1319,11 @@ export default function CreateCompanyPage() {
         eyebrow="SaaS Platform / Companies / Create"
         title="Create Company"
         description="Guided tenant setup for company identity, owner access, Fleet Packs and commercial configuration with rollback-safe provisioning."
-        actions={<HeaderAction icon={ArrowLeft} onClick={() => navigate('/saas-platform/companies/all-companies')}>All Companies</HeaderAction>}
+        actions={<div className="flex flex-wrap items-center gap-2">
+          <span className={cx('text-[11px] font-semibold', draftSyncState === 'error' ? 'text-amber-200' : 'text-white/70')}>{draftSyncState === 'saving' ? 'Saving draft…' : draftSyncState === 'error' ? 'Draft sync needs retry' : 'Draft saved'}</span>
+          <HeaderAction icon={Trash2} onClick={() => setDiscardDialogOpen(true)}>Discard Draft</HeaderAction>
+          <HeaderAction icon={ArrowLeft} onClick={() => navigate('/saas-platform/companies/all-companies')}>All Companies</HeaderAction>
+        </div>}
       />
 
       <Stepper current={step} maxReached={maxReached} onStepClick={goToStep} />
@@ -1275,13 +1439,13 @@ export default function CreateCompanyPage() {
               error={fieldErrors.ownerMobile || (ownerMobileAvailability.status === 'unavailable' ? 'Owner Mobile is already in use. Enter a different owner contact number.' : '')}
             ><PhoneInput value={form.ownerMobile} onChange={(value) => patch('ownerMobile', value)} countryCode={form.countryCode} /></InputShell>
             <InputShell label="Alternate Mobile" helper="Optional" error={fieldErrors.ownerAlternateMobile}><PhoneInput value={form.ownerAlternateMobile} onChange={(value) => patch('ownerAlternateMobile', value)} countryCode={form.countryCode} /></InputShell>
-            <InputShell label="Profile Photo" helper="Optional · JPG, PNG or WebP · maximum 1 MB · preserved across refresh in this session." error={fieldErrors.ownerPhoto}>
+            <InputShell label="Profile Photo" helper="Optional · JPG, PNG or WebP · maximum 1 MB · securely preserved with this draft." error={fieldErrors.ownerPhoto}>
               <div className="flex h-10 items-center gap-2 rounded-[5px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] px-2">
                 <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-[4px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] px-3 py-1.5 text-[12px] font-semibold text-[var(--bf-dev-text-2)] hover:text-[var(--bf-dev-primary)]">
                   <FileImage size={12} /> Choose Photo
                   <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(event) => onOwnerPhotoChange(event.target.files?.[0] || null)} />
                 </label>
-                <span className="min-w-0 truncate text-[12px] text-[var(--bf-dev-text-2)]">{form.ownerPhoto?.name || 'No file selected'}</span>
+                <span className="min-w-0 truncate text-[12px] text-[var(--bf-dev-text-2)]">{form.ownerPhoto?.name || draftPhotoMeta?.name || 'No file selected'}</span>
               </div>
             </InputShell>
           </div>
@@ -1469,10 +1633,11 @@ export default function CreateCompanyPage() {
           onOpenCompany={(companyId) => companyId && navigate(`/saas-platform/companies/${companyId}`)}
           onProvisioned={() => {
             draftDisabledRef.current = true;
-            clearWorkflowDraftFamily(CREATE_COMPANY_DRAFT_WORKFLOW);
+            clearWorkflowDraftFamily(workflowKey);
           }}
           payload={{
             ...form,
+            draftId,
             gstStatus: gstResult?.gstStatus || '',
             gstWarningAccepted,
             countryName: selectedCountry?.name || 'India',
@@ -1482,6 +1647,148 @@ export default function CreateCompanyPage() {
           }}
         />
       )}
+
+      {discardDialogOpen && (
+        <ConfirmDraftDeleteDialog
+          title="Discard this company draft?"
+          description="All saved company details and the draft owner photo will be permanently deleted."
+          confirmLabel="Discard Draft"
+          onCancel={() => setDiscardDialogOpen(false)}
+          onConfirm={async () => {
+            const response = await deleteCompanyDraft(draftId);
+            if (!response.ok) {
+              setError(response.code || 'Unable to discard this draft.');
+              setDiscardDialogOpen(false);
+              return;
+            }
+            draftDisabledRef.current = true;
+            clearWorkflowDraftFamily(workflowKey);
+            navigate('/saas-platform/companies/all-companies');
+          }}
+        />
+      )}
     </Page>
   );
 }
+
+export default function CreateCompanyPage() {
+  const navigate = useNavigate();
+  const [drafts, setDrafts] = useState([]);
+  const [draftLimit, setDraftLimit] = useState(5);
+  const [activeDraft, setActiveDraft] = useState(null);
+  const [loadingDrafts, setLoadingDrafts] = useState(true);
+  const [busy, setBusy] = useState('');
+  const [error, setError] = useState('');
+  const [pendingDelete, setPendingDelete] = useState(null);
+
+  async function refreshDrafts() {
+    setLoadingDrafts(true);
+    const response = await getCompanyDrafts();
+    if (response.ok) {
+      setDrafts(response.drafts || []);
+      setDraftLimit(Number(response.limit || 5));
+      setError('');
+    } else {
+      setError(response.code || 'Unable to load saved company drafts.');
+    }
+    setLoadingDrafts(false);
+  }
+
+  useEffect(() => {
+    refreshDrafts();
+  }, []);
+
+  async function startNew() {
+    setBusy('new');
+    setError('');
+    const response = await createCompanyDraft({ draftName: 'Untitled company' });
+    if (response.ok && response.draft?.id) {
+      setActiveDraft({
+        ...response.draft,
+        formData: {},
+        workflowState: {},
+        ownerPhoto: null,
+      });
+    } else {
+      setError(response.code === 'DRAFT_LIMIT_REACHED' ? `Maximum ${draftLimit} drafts allowed. Delete one draft before creating another.` : (response.code || 'Unable to create a company draft.'));
+      await refreshDrafts();
+    }
+    setBusy('');
+  }
+
+  async function continueDraft(draftId) {
+    setBusy(draftId);
+    setError('');
+    const response = await getCompanyDraft(draftId);
+    if (response.ok && response.draft) {
+      setActiveDraft(response.draft);
+    } else {
+      setError(response.code || 'Unable to open this draft.');
+      await refreshDrafts();
+    }
+    setBusy('');
+  }
+
+  async function confirmDelete() {
+    if (!pendingDelete?.id) return;
+    const response = await deleteCompanyDraft(pendingDelete.id);
+    if (!response.ok) throw new Error(response.code || 'DRAFT_DELETE_FAILED');
+    clearWorkflowDraftFamily(draftWorkflowKey(pendingDelete.id));
+    setPendingDelete(null);
+    await refreshDrafts();
+  }
+
+  if (activeDraft) {
+    return <CreateCompanyWizard key={activeDraft.id} draft={activeDraft} />;
+  }
+
+  return (
+    <Page>
+      <PageHeader
+        eyebrow="SaaS Platform / Companies / Create"
+        title="Create Company"
+        description="Choose a clean onboarding flow or continue one of your recent secure drafts."
+        actions={<HeaderAction icon={ArrowLeft} onClick={() => navigate('/saas-platform/companies/all-companies')}>All Companies</HeaderAction>}
+      />
+      <Card className="min-h-[320px] p-5">
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="h-28 rounded-[6px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)]" />
+          <div className="h-28 rounded-[6px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)]" />
+        </div>
+      </Card>
+
+      {!loadingDrafts && (
+        <CreateCompanyEntryDialog
+          drafts={drafts}
+          limit={draftLimit}
+          busy={busy}
+          error={error}
+          onCreateNew={startNew}
+          onContinue={continueDraft}
+          onDelete={setPendingDelete}
+          onClose={() => navigate('/saas-platform/companies/all-companies')}
+        />
+      )}
+
+      {loadingDrafts && (
+        <div className="fixed inset-0 z-[170] flex items-center justify-center bg-transparent p-4">
+          <div className="flex items-center gap-3 rounded-[6px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] px-5 py-4 shadow-[0_28px_90px_rgba(2,6,23,.30)]">
+            <Loader2 size={18} className="animate-spin text-[var(--bf-dev-primary)]" />
+            <span className="text-[13px] font-semibold text-[var(--bf-dev-text)]">Loading company drafts…</span>
+          </div>
+        </div>
+      )}
+
+      {pendingDelete && (
+        <ConfirmDraftDeleteDialog
+          title={`Delete “${pendingDelete.name || 'Untitled company'}”?`}
+          description="This draft and its saved owner photo will be permanently removed. This action cannot be undone."
+          confirmLabel="Delete Draft"
+          onCancel={() => setPendingDelete(null)}
+          onConfirm={confirmDelete}
+        />
+      )}
+    </Page>
+  );
+}
+

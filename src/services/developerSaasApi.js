@@ -66,6 +66,38 @@ export function getCompanyCreateMetadata() {
   return request('GET', undefined, 'company-create-metadata');
 }
 
+export function getCompanyDrafts() {
+  return request('GET', undefined, 'company-drafts');
+}
+
+export async function getCompanyDraft(draftId) {
+  try {
+    const search = new URLSearchParams({ route: 'saas-management', resource: 'company-draft', draftId: String(draftId || '') });
+    const response = await fetch(`/api/developer?${search.toString()}`, {
+      method: 'GET',
+      credentials: 'include',
+      cache: 'no-store',
+      headers: { Accept: 'application/json' },
+    });
+    const data = await response.json().catch(() => ({}));
+    return { ...data, ok: Boolean(response.ok && data?.ok), status: response.status };
+  } catch {
+    return { ok: false, status: 0, code: 'NETWORK_ERROR' };
+  }
+}
+
+export function createCompanyDraft(payload = {}) {
+  return request('POST', payload, 'company-drafts');
+}
+
+export function saveCompanyDraft(payload = {}) {
+  return request('PATCH', payload, 'company-drafts');
+}
+
+export function deleteCompanyDraft(draftId) {
+  return request('DELETE', { draftId }, 'company-drafts');
+}
+
 export async function getCompanySlugPreview({ name = '', slug = '' } = {}) {
   try {
     const search = new URLSearchParams({ route: 'saas-management', resource: 'company-slug-preview' });

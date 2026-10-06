@@ -132,6 +132,19 @@ const CREATE_COMPANY_IDENTITY_FIELDS = new Set([
   'owner_mobile',
 ]);
 
+const CREATE_COMPANY_DRAFT_LIMIT = 5;
+const CREATE_COMPANY_DRAFT_BUCKET = 'company-profile-photos';
+
+function normalizeDraftStep(value) {
+  const number = Number(value);
+  return Number.isInteger(number) && number >= 0 && number <= 4 ? number : 0;
+}
+
+function draftDisplayName(value) {
+  const name = text(value, 180);
+  return name || 'Untitled company';
+}
+
 function normalizeGstin(value) {
   const gstin = text(value, 15).toUpperCase().replace(/\s+/g, '');
   if (!gstin) return '';
@@ -231,6 +244,172 @@ function addMonthsBillingEnd(value, months) {
 
 function money2(value) {
   return Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
+}
+
+async function listCompanyDrafts(supabaseAdmin, actorUserId) {
+  const { data, error } = await supabaseAdmin
+    .from('developer_company_drafts')
+    .select('id,draft_name,current_step,max_reached,owner_photo_path,owner_photo_name,owner_photo_mime,revision,created_at,updated_at')
+    .eq('created_by', actorUserId)
+    .order('updated_at', { ascending: false })
+    .limit(CREATE_COMPANY_DRAFT_LIMIT);
+  if (error) throw error;
+  return (data || []).map((row) => ({
+    id: row.id,
+    name: row.draft_name || 'Untitled company',
+    currentStep: Number(row.current_step || 0),
+    maxReached: Number(row.max_reached || 0),
+    ownerPhoto: row.owner_photo_path ? { name: row.owner_photo_name || 'Owner photo', mime: row.owner_photo_mime || '' } : null,
+    revision: Number(row.revision || 1),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }));
+}
+
+async function getCompanyDraft(supabaseAdmin, actorUserId, draftId) {
+  if (!validUuid(draftId)) return { status: 400, payload: { ok: false, code: 'INVALID_DRAFT_ID' } };
+  const { data, error } = await supabaseAdmin
+    .from('developer_company_drafts')
+    .select('id,draft_name,current_step,max_reached,form_data,workflow_state,owner_photo_path,owner_photo_name,owner_photo_mime,revision,created_at,updated_at')
+    .eq('id', draftId)
+    .eq('created_by', actorUserId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return { status: 404, payload: { ok: false, code: 'DRAFT_NOT_FOUND' } };
+  return {
+    status: 200,
+    payload: {
+      ok: true,
+      draft: {
+        id: data.id,
+        name: data.draft_name || 'Untitled company',
+        currentStep: Number(data.current_step || 0),
+        maxReached: Number(data.max_reached || 0),
+        formData: isObject(data.form_data) ? data.form_data : {},
+        workflowState: isObject(data.workflow_state) ? data.workflow_state : {},
+        ownerPhoto: data.owner_photo_path ? { name: data.owner_photo_name || 'Owner photo', mime: data.owner_photo_mime || '' } : null,
+        revision: Number(data.revision || 1),
+        createdAt: data.created_at,
+        updatedAt: data.updated_at,
+      },
+    },
+  };
+}
+
+async function createCompanyDraft(supabaseAdmin, actorUserId, body) {
+  const { count, error: countError } = await supabaseAdmin
+    .from('developer_company_drafts')
+    .select('id', { count: 'exact', head: true })
+    .eq('created_by', actorUserId);
+  if (countError) throw countError;
+  if (Number(count || 0) >= CREATE_COMPANY_DRAFT_LIMIT) {
+    return { status: 409, payload: { ok: false, code: 'DRAFT_LIMIT_REACHED', limit: CREATE_COMPANY_DRAFT_LIMIT } };
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('developer_company_drafts')
+    .insert({
+      created_by: actorUserId,
+      draft_name: draftDisplayName(body?.draftName),
+      current_step: 0,
+      max_reached: 0,
+      form_data: {},
+      workflow_state: {},
+      revision: 1,
+    })
+    .select('id,draft_name,current_step,max_reached,revision,created_at,updated_at')
+    .single();
+  if (error) throw error;
+  return { status: 201, payload: { ok: true, draft: {
+    id: data.id,
+    name: data.draft_name,
+    currentStep: data.current_step,
+    maxReached: data.max_reached,
+    revision: data.revision,
+    createdAt: data.created_at,
+    updatedAt: data.updated_at,
+  } } };
+}
+
+async function saveCompanyDraft(supabaseAdmin, actorUserId, body) {
+  const draftId = text(body?.draftId, 80);
+  if (!validUuid(draftId)) return { status: 400, payload: { ok: false, code: 'INVALID_DRAFT_ID' } };
+
+  const { data: existing, error: lookupError } = await supabaseAdmin
+    .from('developer_company_drafts')
+    .select('id,owner_photo_path,revision')
+    .eq('id', draftId)
+    .eq('created_by', actorUserId)
+    .maybeSingle();
+  if (lookupError) throw lookupError;
+  if (!existing) return { status: 404, payload: { ok: false, code: 'DRAFT_NOT_FOUND' } };
+
+  const update = { updated_at: new Date().toISOString(), revision: Number(existing.revision || 1) + 1 };
+  if (body?.draftName !== undefined) update.draft_name = draftDisplayName(body.draftName);
+  if (body?.currentStep !== undefined) update.current_step = normalizeDraftStep(body.currentStep);
+  if (body?.maxReached !== undefined) update.max_reached = Math.max(normalizeDraftStep(body.maxReached), update.current_step ?? 0);
+  if (isObject(body?.formData)) update.form_data = body.formData;
+  if (isObject(body?.workflowState)) update.workflow_state = body.workflowState;
+
+  if (body?.removeOwnerPhoto === true && existing.owner_photo_path) {
+    await supabaseAdmin.storage.from(CREATE_COMPANY_DRAFT_BUCKET).remove([existing.owner_photo_path]).catch(() => {});
+    update.owner_photo_path = null;
+    update.owner_photo_name = null;
+    update.owner_photo_mime = null;
+  }
+
+  if (body?.ownerPhotoDataUrl) {
+    const photo = parseOwnerPhotoDataUrl(body.ownerPhotoDataUrl);
+    if (photo?.error) return { status: 400, payload: { ok: false, code: photo.error } };
+    const path = `drafts/${actorUserId}/${draftId}/owner.${photo.extension}`;
+    const upload = await supabaseAdmin.storage.from(CREATE_COMPANY_DRAFT_BUCKET).upload(path, photo.bytes, {
+      contentType: `image/${photo.mime}`,
+      upsert: true,
+    });
+    if (upload.error) throw upload.error;
+    if (existing.owner_photo_path && existing.owner_photo_path !== path) {
+      await supabaseAdmin.storage.from(CREATE_COMPANY_DRAFT_BUCKET).remove([existing.owner_photo_path]).catch(() => {});
+    }
+    update.owner_photo_path = path;
+    update.owner_photo_name = text(body?.ownerPhotoName, 255) || 'owner-photo';
+    update.owner_photo_mime = `image/${photo.mime}`;
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('developer_company_drafts')
+    .update(update)
+    .eq('id', draftId)
+    .eq('created_by', actorUserId)
+    .select('id,draft_name,current_step,max_reached,owner_photo_path,owner_photo_name,owner_photo_mime,revision,updated_at')
+    .single();
+  if (error) throw error;
+  return { status: 200, payload: { ok: true, draft: {
+    id: data.id,
+    name: data.draft_name,
+    currentStep: data.current_step,
+    maxReached: data.max_reached,
+    ownerPhoto: data.owner_photo_path ? { name: data.owner_photo_name || 'Owner photo', mime: data.owner_photo_mime || '' } : null,
+    revision: data.revision,
+    updatedAt: data.updated_at,
+  } } };
+}
+
+async function deleteCompanyDraft(supabaseAdmin, actorUserId, draftId) {
+  if (!validUuid(draftId)) return { status: 400, payload: { ok: false, code: 'INVALID_DRAFT_ID' } };
+  const { data, error } = await supabaseAdmin
+    .from('developer_company_drafts')
+    .select('id,owner_photo_path')
+    .eq('id', draftId)
+    .eq('created_by', actorUserId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return { status: 404, payload: { ok: false, code: 'DRAFT_NOT_FOUND' } };
+  const deleted = await supabaseAdmin.from('developer_company_drafts').delete().eq('id', draftId).eq('created_by', actorUserId);
+  if (deleted.error) throw deleted.error;
+  if (data.owner_photo_path) {
+    await supabaseAdmin.storage.from(CREATE_COMPANY_DRAFT_BUCKET).remove([data.owner_photo_path]).catch(() => {});
+  }
+  return { status: 200, payload: { ok: true, draftId } };
 }
 
 async function getCompanyIdentityAvailability(supabaseAdmin, { field, value }) {
@@ -1380,6 +1559,24 @@ async function createCompany({ supabaseAdmin, actorUserId, body }) {
   const website = text(body?.website, 500);
   const gstStatus = text(body?.gstStatus, 80);
   const gstWarningAccepted = Boolean(body?.gstWarningAccepted);
+  const draftId = text(body?.draftId, 80);
+  let sourceDraft = null;
+  if (draftId) {
+    if (!validUuid(draftId)) {
+      return { status: 400, payload: { ok: false, code: 'INVALID_DRAFT_ID', stage: currentStage } };
+    }
+    const draftLookup = await supabaseAdmin
+      .from('developer_company_drafts')
+      .select('id,owner_photo_path,owner_photo_name,owner_photo_mime')
+      .eq('id', draftId)
+      .eq('created_by', actorUserId)
+      .maybeSingle();
+    if (draftLookup.error) throw draftLookup.error;
+    if (!draftLookup.data) {
+      return { status: 404, payload: { ok: false, code: 'DRAFT_NOT_FOUND', stage: currentStage } };
+    }
+    sourceDraft = draftLookup.data;
+  }
 
   if (
     !['trial', 'paid'].includes(accountType) ||
@@ -1768,19 +1965,36 @@ async function createCompany({ supabaseAdmin, actorUserId, body }) {
       mark('invoice');
     }
 
-    if (photo) {
+    if (photo || sourceDraft?.owner_photo_path) {
       currentStage = 'owner_photo';
-      const path = `company/${company.id}/users/${ownerUserId}.${photo.extension}`;
-      const upload = await supabaseAdmin.storage.from('company-profile-photos').upload(path, photo.bytes, {
-        contentType: `image/${photo.mime}`,
-        upsert: true,
-      });
-      if (upload.error) {
-        warnings.push('OWNER_PHOTO_UPLOAD_FAILED');
-      } else {
-        ownerPhotoPath = path;
-        const photoUpdate = await supabaseAdmin.from('company_portal_user_profiles').update({ photo_path: path, updated_at: new Date().toISOString() }).eq('company_id', company.id).eq('user_id', ownerUserId);
-        if (photoUpdate.error) warnings.push('OWNER_PHOTO_PROFILE_UPDATE_FAILED');
+      let photoBytes = photo?.bytes || null;
+      let photoMime = photo?.mime || null;
+      let photoExtension = photo?.extension || null;
+
+      if (!photoBytes && sourceDraft?.owner_photo_path) {
+        const downloaded = await supabaseAdmin.storage.from(CREATE_COMPANY_DRAFT_BUCKET).download(sourceDraft.owner_photo_path);
+        if (downloaded.error || !downloaded.data) {
+          warnings.push('OWNER_PHOTO_UPLOAD_FAILED');
+        } else {
+          photoBytes = Buffer.from(await downloaded.data.arrayBuffer());
+          photoMime = String(sourceDraft.owner_photo_mime || 'image/jpeg').replace(/^image\//, '') || 'jpeg';
+          photoExtension = photoMime === 'jpeg' ? 'jpg' : photoMime;
+        }
+      }
+
+      if (photoBytes && photoMime && photoExtension) {
+        const path = `company/${company.id}/users/${ownerUserId}.${photoExtension}`;
+        const upload = await supabaseAdmin.storage.from(CREATE_COMPANY_DRAFT_BUCKET).upload(path, photoBytes, {
+          contentType: `image/${photoMime}`,
+          upsert: true,
+        });
+        if (upload.error) {
+          warnings.push('OWNER_PHOTO_UPLOAD_FAILED');
+        } else {
+          ownerPhotoPath = path;
+          const photoUpdate = await supabaseAdmin.from('company_portal_user_profiles').update({ photo_path: path, updated_at: new Date().toISOString() }).eq('company_id', company.id).eq('user_id', ownerUserId);
+          if (photoUpdate.error) warnings.push('OWNER_PHOTO_PROFILE_UPDATE_FAILED');
+        }
       }
     }
     mark('owner_photo');
@@ -1815,6 +2029,19 @@ async function createCompany({ supabaseAdmin, actorUserId, body }) {
         warnings,
       },
     });
+
+
+    if (sourceDraft?.id) {
+      try {
+        const deletedDraft = await supabaseAdmin.from('developer_company_drafts').delete().eq('id', sourceDraft.id).eq('created_by', actorUserId);
+        if (deletedDraft.error) throw deletedDraft.error;
+        if (sourceDraft.owner_photo_path) {
+          await supabaseAdmin.storage.from(CREATE_COMPANY_DRAFT_BUCKET).remove([sourceDraft.owner_photo_path]).catch(() => {});
+        }
+      } catch {
+        warnings.push('DRAFT_CLEANUP_FAILED');
+      }
+    }
 
     return {
       status: 201,
@@ -2514,6 +2741,13 @@ export default async function handler(req, res) {
       if (resource === 'company-create-metadata') {
         return send(res, 200, { ok: true, ...(await getCompanyCreateMetadata(auth.supabaseAdmin)) });
       }
+      if (resource === 'company-drafts') {
+        return send(res, 200, { ok: true, drafts: await listCompanyDrafts(auth.supabaseAdmin, auth.user.id), limit: CREATE_COMPANY_DRAFT_LIMIT });
+      }
+      if (resource === 'company-draft') {
+        const result = await getCompanyDraft(auth.supabaseAdmin, auth.user.id, req.query?.draftId);
+        return send(res, result.status, result.payload);
+      }
       if (resource === 'company-slug-preview') {
         const result = await getCompanySlugPreview(auth.supabaseAdmin, req.query || {});
         return send(res, result.status, result.payload);
@@ -2553,7 +2787,13 @@ export default async function handler(req, res) {
     const bodyResource = String(body?.resource || '').trim().toLowerCase();
     let result;
 
-    if (bodyResource === 'company-identity-availability' && req.method === 'POST') {
+    if (bodyResource === 'company-drafts' && req.method === 'POST') {
+      result = await createCompanyDraft(auth.supabaseAdmin, auth.user.id, body);
+    } else if (bodyResource === 'company-drafts' && req.method === 'PATCH') {
+      result = await saveCompanyDraft(auth.supabaseAdmin, auth.user.id, body);
+    } else if (bodyResource === 'company-drafts' && req.method === 'DELETE') {
+      result = await deleteCompanyDraft(auth.supabaseAdmin, auth.user.id, body?.draftId);
+    } else if (bodyResource === 'company-identity-availability' && req.method === 'POST') {
       result = await getCompanyIdentityAvailability(auth.supabaseAdmin, body);
     } else if (bodyResource === 'gst-verify' && req.method === 'POST') {
       result = await verifyGstin(body);
