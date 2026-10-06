@@ -84,6 +84,10 @@ export async function getCompanySlugPreview({ name = '', slug = '' } = {}) {
   }
 }
 
+export function checkCompanyIdentityAvailability({ field = '', value = '' } = {}) {
+  return request('POST', { field, value }, 'company-identity-availability');
+}
+
 export async function lookupCompanyPostalCode({ country = 'IN', postalCode = '' } = {}) {
   try {
     const search = new URLSearchParams({ route: 'saas-management', resource: 'postal-lookup', country, postalCode });

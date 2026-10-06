@@ -24,12 +24,22 @@ import { useNavigate } from 'react-router-dom';
 import { Card, Page, PageHeader } from '../shared/DeveloperPageUI';
 import { COUNTRIES, COUNTRY_BY_CODE } from '../../../Data/countries';
 import {
+  checkCompanyIdentityAvailability,
   createCompany,
   getCompanyCreateMetadata,
   getCompanySlugPreview,
   lookupCompanyPostalCode,
   verifyCompanyGstin,
 } from '../../../services/developerSaasApi';
+import { subscribeSessionEvents } from '../../../services/sessionRuntime';
+import {
+  clearWorkflowDraftFamily,
+  readWorkflowAsset,
+  readWorkflowDraft,
+  removeWorkflowAsset,
+  writeWorkflowAsset,
+  writeWorkflowDraft,
+} from '../../../services/workflowDraftStorage';
 
 const COMPANY_TYPES = [
   'Proprietorship',
@@ -57,6 +67,48 @@ const STEPS = [
   { key: 'commercial', label: 'Commercial', icon: CircleDollarSign },
   { key: 'review', label: 'Review', icon: ShieldCheck },
 ];
+
+const CREATE_COMPANY_DRAFT_WORKFLOW = 'create-company';
+const CREATE_COMPANY_DRAFT_VERSION = 1;
+const OWNER_PHOTO_ASSET = 'owner-photo';
+
+function createInitialForm() {
+  return {
+    legalName: '',
+    tradeName: '',
+    sameTradeName: false,
+    companyType: '',
+    gstin: '',
+    pan: '',
+    cin: '',
+    companyEmail: '',
+    companyPhone: '',
+    website: '',
+    addressLine1: '',
+    addressLine2: '',
+    countryCode: 'IN',
+    postalCode: '',
+    state: '',
+    city: '',
+    locality: '',
+    portalSlug: '',
+    ownerName: '',
+    ownerEmail: '',
+    ownerMobile: '',
+    ownerDesignation: '',
+    ownerAlternateMobile: '',
+    ownerPhoto: null,
+    primaryFleet: '',
+    additionalFleets: [],
+    accountType: 'trial',
+    trialWeeks: 1,
+    planKey: '',
+    billingCycle: 1,
+    subscriptionStart: todayIso(),
+    discountPercent: 0,
+    discountReason: '',
+  };
+}
 
 function cx(...classes) {
   return classes.filter(Boolean).join(' ');
@@ -157,6 +209,89 @@ function fileToDataUrl(file) {
     reader.onerror = () => reject(Object.assign(new Error('OWNER_PHOTO_READ_FAILED'), { code: 'OWNER_PHOTO_READ_FAILED' }));
     reader.readAsDataURL(file);
   });
+}
+
+function dataUrlToFile(asset) {
+  if (!asset?.dataUrl || typeof window === 'undefined' || typeof File !== 'function') return null;
+  try {
+    const [header, payload] = String(asset.dataUrl).split(',', 2);
+    const type = asset.type || header.match(/^data:([^;]+);base64$/)?.[1] || 'application/octet-stream';
+    const binary = window.atob(payload || '');
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+    return new File([bytes], asset.name || 'owner-photo', { type, lastModified: Number(asset.lastModified || Date.now()) });
+  } catch {
+    return null;
+  }
+}
+
+function serializeCreateCompanyForm(form) {
+  const { ownerPhoto, ...serializable } = form || {};
+  return serializable;
+}
+
+function loadCreateCompanyDraft() {
+  const draft = readWorkflowDraft(CREATE_COMPANY_DRAFT_WORKFLOW, { version: CREATE_COMPANY_DRAFT_VERSION });
+  const ownerPhotoAsset = readWorkflowAsset(CREATE_COMPANY_DRAFT_WORKFLOW, OWNER_PHOTO_ASSET, { version: CREATE_COMPANY_DRAFT_VERSION });
+  const ownerPhoto = dataUrlToFile(ownerPhotoAsset);
+  return {
+    data: draft?.data || null,
+    ownerPhoto,
+  };
+}
+
+function useIdentityAvailability(field, value, enabled) {
+  const [state, setState] = useState({ status: 'idle', available: null, code: '' });
+
+  useEffect(() => {
+    if (!enabled || !String(value || '').trim()) {
+      setState({ status: 'idle', available: null, code: '' });
+      return undefined;
+    }
+
+    let active = true;
+    setState({ status: 'checking', available: null, code: '' });
+    const timer = window.setTimeout(async () => {
+      const result = await checkCompanyIdentityAvailability({ field, value });
+      if (!active) return;
+      if (result.ok) {
+        setState({
+          status: result.available ? 'available' : 'unavailable',
+          available: Boolean(result.available),
+          code: '',
+        });
+      } else {
+        setState({ status: 'error', available: null, code: result.code || 'IDENTITY_CHECK_FAILED' });
+      }
+    }, 500);
+
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [field, value, enabled]);
+
+  return state;
+}
+
+function AvailabilityHint({ state, idleText = '' }) {
+  if (state?.status === 'checking') {
+    return <span className="inline-flex items-center gap-1 text-[var(--bf-dev-text-2)]"><Loader2 size={11} className="animate-spin" /> Checking live database…</span>;
+  }
+  if (state?.status === 'available') {
+    return <span className="inline-flex items-center gap-1 font-semibold text-emerald-500"><CheckCircle2 size={11} /> Available</span>;
+  }
+  if (state?.status === 'error') {
+    return <span className="inline-flex items-center gap-1 text-amber-500"><AlertTriangle size={11} /> Availability check unavailable. Retry before continuing.</span>;
+  }
+  return idleText;
+}
+
+function identityAvailabilityError(state, label) {
+  if (state?.status === 'unavailable') return `${label} is already in use. Enter a different value.`;
+  if (state?.status === 'checking') return `Wait for ${label.toLowerCase()} availability check to finish.`;
+  if (state?.status === 'error') return `Unable to verify ${label.toLowerCase()} availability. Retry the check before continuing.`;
+  return '';
 }
 
 function validEmail(value) {
@@ -444,7 +579,7 @@ function Stepper({ current, maxReached, onStepClick }) {
 
 function SlugConflictDialog({ slugState, value, onChange, onCheck, onPick, onClose, checking }) {
   return (
-    <div className="fixed inset-0 z-[170] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[170] flex items-center justify-center bg-slate-950/45 p-4">
       <div className="w-full max-w-lg rounded-[6px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] shadow-[0_28px_90px_rgba(2,6,23,.38)]">
         <div className="flex items-start justify-between gap-4 border-b border-[var(--bf-dev-border)] p-5">
           <div>
@@ -475,7 +610,7 @@ function SlugConflictDialog({ slugState, value, onChange, onCheck, onPick, onClo
   );
 }
 
-function ProvisionCompanyDialog({ onClose, payload, onOpenCompany, onAllCompanies }) {
+function ProvisionCompanyDialog({ onClose, payload, onOpenCompany, onAllCompanies, onProvisioned }) {
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
   const [submitError, setSubmitError] = useState(null);
@@ -483,6 +618,10 @@ function ProvisionCompanyDialog({ onClose, payload, onOpenCompany, onAllCompanie
   const errorMessage = (response) => {
     const messages = {
       COMPANY_SLUG_EXISTS: 'This portal slug was taken before provisioning completed. Go back and choose another slug.',
+      COMPANY_EMAIL_EXISTS: 'This Company Email is already in use. Enter a different email.',
+      COMPANY_PHONE_EXISTS: 'This Company Phone is already in use. Enter a different contact number.',
+      OWNER_EMAIL_EXISTS: 'This Owner Email is already in use. Enter a different owner email.',
+      OWNER_MOBILE_EXISTS: 'This Owner Mobile is already in use. Enter a different owner contact number.',
       INVALID_COMPANY_PAYLOAD: 'Some company details are no longer valid. Review the wizard and retry.',
       INVALID_COMPANY_PROFILE: 'Company profile validation failed. Review contact/address details.',
       GST_STATUS_CONFIRMATION_REQUIRED: 'Confirm the GST status warning before provisioning.',
@@ -521,6 +660,7 @@ function ProvisionCompanyDialog({ onClose, payload, onOpenCompany, onAllCompanie
           message: errorMessage(response),
         });
       } else {
+        onProvisioned?.(response);
         setResult(response);
       }
     } catch (error) {
@@ -533,13 +673,12 @@ function ProvisionCompanyDialog({ onClose, payload, onOpenCompany, onAllCompanie
   const steps = result?.provisioning?.steps || [];
   const warningLabels = {
     OWNER_PASSWORD_LINK_SEND_FAILED: 'Company was created, but the owner set-password email could not be sent. The owner can use Forgot Password with the new Company Code.',
-    OWNER_ACCOUNT_REUSED_EXISTING_PASSWORD: 'Existing Buddy Fleets owner account reused; its current password remains unchanged.',
     OWNER_PHOTO_UPLOAD_FAILED: 'Company was created, but the owner photo could not be uploaded.',
     OWNER_PHOTO_PROFILE_UPDATE_FAILED: 'Photo uploaded, but profile linking needs a retry later.',
   };
 
   return (
-    <div className="fixed inset-0 z-[170] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[170] flex items-center justify-center bg-slate-950/45 p-4">
       <div className="max-h-[92dvh] w-full max-w-2xl overflow-y-auto rounded-[6px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] shadow-[0_28px_90px_rgba(2,6,23,.38)]">
         <div className="flex items-start justify-between gap-4 border-b border-[var(--bf-dev-border)] p-5">
           <div>
@@ -639,59 +778,38 @@ function ProvisionCompanyDialog({ onClose, payload, onOpenCompany, onAllCompanie
 
 export default function CreateCompanyPage() {
   const navigate = useNavigate();
-  const [step, setStep] = useState(0);
-  const [maxReached, setMaxReached] = useState(0);
+  const draftDisabledRef = useRef(false);
+  const [restoredDraft] = useState(() => loadCreateCompanyDraft());
+  const restored = restoredDraft?.data || {};
+  const restoredStep = Number.isInteger(restored.step) ? Math.min(STEPS.length - 1, Math.max(0, restored.step)) : 0;
+  const restoredMaxReached = Number.isInteger(restored.maxReached)
+    ? Math.min(STEPS.length - 1, Math.max(restoredStep, restored.maxReached))
+    : restoredStep;
+
+  const [step, setStep] = useState(restoredStep);
+  const [maxReached, setMaxReached] = useState(restoredMaxReached);
   const [metadata, setMetadata] = useState({ plans: [], fleetPacks: [], billingCycles: [1, 6, 12], trialDurations: [], trialPolicy: {}, accessSummary: {}, gstProviderConfigured: false });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState({});
   const [gstLoading, setGstLoading] = useState(false);
   const [gstError, setGstError] = useState('');
-  const [gstResult, setGstResult] = useState(null);
-  const [gstWarningAccepted, setGstWarningAccepted] = useState(false);
+  const [gstResult, setGstResult] = useState(restored.gstResult || null);
+  const [gstWarningAccepted, setGstWarningAccepted] = useState(Boolean(restored.gstWarningAccepted));
   const [pinLoading, setPinLoading] = useState(false);
   const [pinMessage, setPinMessage] = useState('');
-  const [slugState, setSlugState] = useState({ slug: '', available: null, suggestions: [], manualAvailable: null });
+  const [slugState, setSlugState] = useState(restored.slugState || { slug: '', available: null, suggestions: [], manualAvailable: null });
   const [slugDialog, setSlugDialog] = useState(false);
-  const [slugInput, setSlugInput] = useState('');
+  const [slugInput, setSlugInput] = useState(restored.slugInput || '');
   const [slugChecking, setSlugChecking] = useState(false);
   const [phaseFourOpen, setPhaseFourOpen] = useState(false);
 
-  const [form, setForm] = useState({
-    legalName: '',
-    tradeName: '',
-    sameTradeName: false,
-    companyType: '',
-    gstin: '',
-    pan: '',
-    cin: '',
-    companyEmail: '',
-    companyPhone: '',
-    website: '',
-    addressLine1: '',
-    addressLine2: '',
-    countryCode: 'IN',
-    postalCode: '',
-    state: '',
-    city: '',
-    locality: '',
-    portalSlug: '',
-    ownerName: '',
-    ownerEmail: '',
-    ownerMobile: '',
-    ownerDesignation: '',
-    ownerAlternateMobile: '',
-    ownerPhoto: null,
-    primaryFleet: '',
-    additionalFleets: [],
-    accountType: 'trial',
-    trialWeeks: 1,
-    planKey: '',
-    billingCycle: 1,
-    subscriptionStart: todayIso(),
-    discountPercent: 0,
-    discountReason: '',
-  });
+  const [form, setForm] = useState(() => ({
+    ...createInitialForm(),
+    ...(restored.form || {}),
+    ownerPhoto: restoredDraft?.ownerPhoto || null,
+    additionalFleets: Array.isArray(restored.form?.additionalFleets) ? restored.form.additionalFleets : [],
+  }));
 
   const selectedCountry = COUNTRY_BY_CODE[form.countryCode] || COUNTRY_BY_CODE.IN;
   const selectedPlan = metadata.plans.find((plan) => plan.plan_key === form.planKey) || null;
@@ -702,11 +820,86 @@ export default function CreateCompanyPage() {
   const basePrice = form.accountType === 'paid' ? Number(selectedPlan?.prices?.[String(form.billingCycle)] || 0) : 0;
   const discountAmount = basePrice * Math.min(100, Math.max(0, Number(form.discountPercent || 0))) / 100;
   const netPrice = Math.max(0, basePrice - discountAmount);
+  const companyEmailCheckValue = validEmail(form.companyEmail) ? form.companyEmail.trim().toLowerCase() : '';
+  const ownerEmailCheckValue = validEmail(form.ownerEmail) ? form.ownerEmail.trim().toLowerCase() : '';
+  const companyPhoneCheckValue = validNationalPhone(form.companyPhone, form.countryCode)
+    ? toE164(selectedCountry?.dialCode || '+91', form.companyPhone)
+    : '';
+  const ownerMobileCheckValue = validNationalPhone(form.ownerMobile, form.countryCode)
+    ? toE164(selectedCountry?.dialCode || '+91', form.ownerMobile)
+    : '';
+
+  const companyEmailAvailability = useIdentityAvailability('company_email', companyEmailCheckValue, Boolean(companyEmailCheckValue));
+  const companyPhoneAvailability = useIdentityAvailability('company_phone', companyPhoneCheckValue, Boolean(companyPhoneCheckValue));
+  const ownerEmailAvailability = useIdentityAvailability('owner_email', ownerEmailCheckValue, Boolean(ownerEmailCheckValue));
+  const ownerMobileAvailability = useIdentityAvailability('owner_mobile', ownerMobileCheckValue, Boolean(ownerMobileCheckValue));
 
   function patch(key, value) {
     setForm((current) => ({ ...current, [key]: value }));
     setFieldErrors((current) => ({ ...current, [key]: '' }));
   }
+
+  async function onOwnerPhotoChange(file) {
+    if (!file) {
+      patch('ownerPhoto', null);
+      removeWorkflowAsset(CREATE_COMPANY_DRAFT_WORKFLOW, OWNER_PHOTO_ASSET, { version: CREATE_COMPANY_DRAFT_VERSION });
+      return;
+    }
+
+    try {
+      const dataUrl = await fileToDataUrl(file);
+      patch('ownerPhoto', file);
+      const stored = writeWorkflowAsset(CREATE_COMPANY_DRAFT_WORKFLOW, OWNER_PHOTO_ASSET, {
+        name: file.name,
+        type: file.type,
+        size: file.size,
+        lastModified: file.lastModified,
+        dataUrl,
+      }, { version: CREATE_COMPANY_DRAFT_VERSION });
+      if (!stored) {
+        setFieldErrors((current) => ({ ...current, ownerPhoto: 'Photo selected, but this browser could not preserve it across refresh.' }));
+      }
+    } catch (photoError) {
+      const messages = {
+        INVALID_OWNER_PHOTO: 'Owner photo must be JPG, PNG or WebP.',
+        OWNER_PHOTO_TOO_LARGE: 'Owner photo must be 1 MB or smaller.',
+        OWNER_PHOTO_READ_FAILED: 'Unable to read the selected owner photo.',
+      };
+      setFieldErrors((current) => ({ ...current, ownerPhoto: messages[photoError?.code] || 'Unable to use the selected owner photo.' }));
+    }
+  }
+
+  useEffect(() => {
+    const persistDraft = () => {
+      if (draftDisabledRef.current) return false;
+      return writeWorkflowDraft(CREATE_COMPANY_DRAFT_WORKFLOW, {
+      step,
+      maxReached,
+      form: serializeCreateCompanyForm(form),
+      gstResult,
+      gstWarningAccepted,
+      slugState,
+      slugInput,
+      }, { version: CREATE_COMPANY_DRAFT_VERSION });
+    };
+
+    const timer = window.setTimeout(persistDraft, 250);
+    const flushDraft = () => persistDraft();
+    window.addEventListener('pagehide', flushDraft);
+
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener('pagehide', flushDraft);
+      persistDraft();
+    };
+  }, [step, maxReached, form, gstResult, gstWarningAccepted, slugState, slugInput]);
+
+  useEffect(() => subscribeSessionEvents((event) => {
+    if (event?.type === 'SESSION_LOGOUT' || event?.type === 'SESSION_INVALIDATED') {
+      draftDisabledRef.current = true;
+      clearWorkflowDraftFamily(CREATE_COMPANY_DRAFT_WORKFLOW);
+    }
+  }), []);
 
   useEffect(() => {
     let active = true;
@@ -846,8 +1039,16 @@ export default function CreateCompanyPage() {
     if (form.pan && !validPan(form.pan)) next.pan = 'Enter a valid PAN.';
     if (form.cin && !validCin(form.cin)) next.cin = 'Enter a valid 21-character CIN.';
     if (!validEmail(form.companyEmail)) next.companyEmail = 'Valid company email is required.';
+    else {
+      const availabilityError = identityAvailabilityError(companyEmailAvailability, 'Company Email');
+      if (availabilityError) next.companyEmail = availabilityError;
+    }
     if (!validWebsite(form.website)) next.website = 'Enter a valid website address.';
     if (!validNationalPhone(form.companyPhone, form.countryCode)) next.companyPhone = 'Enter a valid company phone number for the selected country.';
+    else {
+      const availabilityError = identityAvailabilityError(companyPhoneAvailability, 'Company Phone');
+      if (availabilityError) next.companyPhone = availabilityError;
+    }
     if (!form.addressLine1.trim()) next.addressLine1 = 'Registered address is required.';
     if (!form.countryCode) next.countryCode = 'Country is required.';
     if (!form.postalCode.trim()) next.postalCode = 'PIN / Postal Code is required.';
@@ -864,7 +1065,15 @@ export default function CreateCompanyPage() {
     const next = {};
     if (!form.ownerName.trim()) next.ownerName = 'Owner Full Name is required.';
     if (!validEmail(form.ownerEmail)) next.ownerEmail = 'Valid Owner Email is required.';
+    else {
+      const availabilityError = identityAvailabilityError(ownerEmailAvailability, 'Owner Email');
+      if (availabilityError) next.ownerEmail = availabilityError;
+    }
     if (!validNationalPhone(form.ownerMobile, form.countryCode)) next.ownerMobile = 'Enter a valid owner mobile number.';
+    else {
+      const availabilityError = identityAvailabilityError(ownerMobileAvailability, 'Owner Mobile');
+      if (availabilityError) next.ownerMobile = availabilityError;
+    }
     if (form.ownerAlternateMobile && !validNationalPhone(form.ownerAlternateMobile, form.countryCode)) next.ownerAlternateMobile = 'Enter a valid alternate mobile number.';
     if (!form.ownerDesignation) next.ownerDesignation = 'Owner Designation is required.';
     setFieldErrors(next);
@@ -1019,8 +1228,18 @@ export default function CreateCompanyPage() {
 
           <FieldCard title="Company contact" subtitle="Primary business contact details for the tenant." icon={Globe2}>
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              <InputShell label="Company Email" required error={fieldErrors.companyEmail}><TextInput type="email" value={form.companyEmail} onChange={(value) => patch('companyEmail', value)} placeholder="office@company.com" autoComplete="email" /></InputShell>
-              <InputShell label="Company Phone" required helper={`Dial code follows Registered Country: ${selectedCountry?.name || 'India'} ${selectedCountry?.dialCode || '+91'}`} error={fieldErrors.companyPhone}><PhoneInput value={form.companyPhone} onChange={(value) => patch('companyPhone', value)} countryCode={form.countryCode} /></InputShell>
+              <InputShell
+                label="Company Email"
+                required
+                helper={<AvailabilityHint state={companyEmailAvailability} idleText="Checked against the live company database." />}
+                error={fieldErrors.companyEmail || (companyEmailAvailability.status === 'unavailable' ? 'Company Email is already in use. Enter a different email.' : '')}
+              ><TextInput type="email" value={form.companyEmail} onChange={(value) => patch('companyEmail', value)} placeholder="office@company.com" autoComplete="email" /></InputShell>
+              <InputShell
+                label="Company Phone"
+                required
+                helper={<AvailabilityHint state={companyPhoneAvailability} idleText={`Dial code follows Registered Country: ${selectedCountry?.name || 'India'} ${selectedCountry?.dialCode || '+91'} · checked live.`} />}
+                error={fieldErrors.companyPhone || (companyPhoneAvailability.status === 'unavailable' ? 'Company Phone is already in use. Enter a different contact number.' : '')}
+              ><PhoneInput value={form.companyPhone} onChange={(value) => patch('companyPhone', value)} countryCode={form.countryCode} /></InputShell>
               <InputShell label="Website" helper="Optional" error={fieldErrors.website}><TextInput value={form.website} onChange={(value) => patch('website', value)} placeholder="https://company.com" /></InputShell>
             </div>
           </FieldCard>
@@ -1042,15 +1261,25 @@ export default function CreateCompanyPage() {
         <FieldCard title="Company Owner" subtitle="Primary account owner and Company Admin. The dial code follows the Registered Address country automatically." icon={UserRound}>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             <InputShell label="Owner Full Name" required error={fieldErrors.ownerName}><TextInput value={form.ownerName} onChange={(value) => patch('ownerName', value)} placeholder="Full name" autoComplete="name" /></InputShell>
-            <InputShell label="Owner Email" required helper="This is the primary login email. Existing Buddy Fleets users will be reused in Phase 4 rather than duplicated." error={fieldErrors.ownerEmail}><TextInput type="email" value={form.ownerEmail} onChange={(value) => patch('ownerEmail', value)} placeholder="owner@company.com" autoComplete="email" /></InputShell>
+            <InputShell
+              label="Owner Email"
+              required
+              helper={<AvailabilityHint state={ownerEmailAvailability} idleText="Primary login email · must be unused in the live Buddy Fleets database." />}
+              error={fieldErrors.ownerEmail || (ownerEmailAvailability.status === 'unavailable' ? 'Owner Email is already in use. Enter a different owner email.' : '')}
+            ><TextInput type="email" value={form.ownerEmail} onChange={(value) => patch('ownerEmail', value)} placeholder="owner@company.com" autoComplete="email" /></InputShell>
             <InputShell label="Designation" required error={fieldErrors.ownerDesignation}><SelectMenu value={form.ownerDesignation} options={designationOptions} onChange={(value) => patch('ownerDesignation', value)} placeholder="Select designation" /></InputShell>
-            <InputShell label="Owner Mobile" required helper={`${selectedCountry?.name || 'India'} ${selectedCountry?.dialCode || '+91'} is applied automatically.`} error={fieldErrors.ownerMobile}><PhoneInput value={form.ownerMobile} onChange={(value) => patch('ownerMobile', value)} countryCode={form.countryCode} /></InputShell>
+            <InputShell
+              label="Owner Mobile"
+              required
+              helper={<AvailabilityHint state={ownerMobileAvailability} idleText={`${selectedCountry?.name || 'India'} ${selectedCountry?.dialCode || '+91'} is applied automatically · checked live.`} />}
+              error={fieldErrors.ownerMobile || (ownerMobileAvailability.status === 'unavailable' ? 'Owner Mobile is already in use. Enter a different owner contact number.' : '')}
+            ><PhoneInput value={form.ownerMobile} onChange={(value) => patch('ownerMobile', value)} countryCode={form.countryCode} /></InputShell>
             <InputShell label="Alternate Mobile" helper="Optional" error={fieldErrors.ownerAlternateMobile}><PhoneInput value={form.ownerAlternateMobile} onChange={(value) => patch('ownerAlternateMobile', value)} countryCode={form.countryCode} /></InputShell>
-            <InputShell label="Profile Photo" helper="Optional · JPG, PNG or WebP · maximum 1 MB.">
+            <InputShell label="Profile Photo" helper="Optional · JPG, PNG or WebP · maximum 1 MB · preserved across refresh in this session." error={fieldErrors.ownerPhoto}>
               <div className="flex h-10 items-center gap-2 rounded-[5px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] px-2">
                 <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-[4px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] px-3 py-1.5 text-[12px] font-semibold text-[var(--bf-dev-text-2)] hover:text-[var(--bf-dev-primary)]">
                   <FileImage size={12} /> Choose Photo
-                  <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(event) => patch('ownerPhoto', event.target.files?.[0] || null)} />
+                  <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(event) => onOwnerPhotoChange(event.target.files?.[0] || null)} />
                 </label>
                 <span className="min-w-0 truncate text-[12px] text-[var(--bf-dev-text-2)]">{form.ownerPhoto?.name || 'No file selected'}</span>
               </div>
@@ -1238,6 +1467,10 @@ export default function CreateCompanyPage() {
           onClose={() => setPhaseFourOpen(false)}
           onAllCompanies={() => navigate('/saas-platform/companies/all-companies')}
           onOpenCompany={(companyId) => companyId && navigate(`/saas-platform/companies/${companyId}`)}
+          onProvisioned={() => {
+            draftDisabledRef.current = true;
+            clearWorkflowDraftFamily(CREATE_COMPANY_DRAFT_WORKFLOW);
+          }}
           payload={{
             ...form,
             gstStatus: gstResult?.gstStatus || '',

@@ -116,6 +116,22 @@ function normalizeMobile(value) {
   return /^\d{6,15}$/.test(digits) ? digits : null;
 }
 
+function phoneVariants(value) {
+  const normalized = normalizeMobile(value);
+  if (!normalized) return [];
+  const digits = normalized.replace(/\D/g, '');
+  const values = new Set([normalized, digits, `+${digits}`]);
+  if (digits.startsWith('91') && digits.length === 12) values.add(digits.slice(2));
+  return [...values].filter(Boolean);
+}
+
+const CREATE_COMPANY_IDENTITY_FIELDS = new Set([
+  'company_email',
+  'company_phone',
+  'owner_email',
+  'owner_mobile',
+]);
+
 function normalizeGstin(value) {
   const gstin = text(value, 15).toUpperCase().replace(/\s+/g, '');
   if (!gstin) return '';
@@ -217,32 +233,161 @@ function money2(value) {
   return Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
 }
 
-async function findAuthUserByEmail(supabaseAdmin, email) {
-  const normalized = normalizeEmail(email);
-  if (!normalized) return null;
-
-  const { data: profileRows, error: profileError } = await supabaseAdmin
-    .from('profiles')
-    .select('id,email')
-    .ilike('email', normalized)
-    .limit(2);
-  if (profileError) throw profileError;
-
-  const candidateId = profileRows?.[0]?.id || null;
-  if (candidateId) {
-    const { data, error } = await supabaseAdmin.auth.admin.getUserById(candidateId);
-    if (!error && data?.user?.email?.toLowerCase() === normalized) return data.user;
+async function getCompanyIdentityAvailability(supabaseAdmin, { field, value }) {
+  const identityField = text(field, 40).toLowerCase();
+  if (!CREATE_COMPANY_IDENTITY_FIELDS.has(identityField)) {
+    return { status: 400, payload: { ok: false, code: 'INVALID_IDENTITY_FIELD' } };
   }
 
-  for (let page = 1; page <= 20; page += 1) {
-    const { data, error } = await supabaseAdmin.auth.admin.listUsers({ page, perPage: 200 });
-    if (error) throw error;
-    const users = data?.users || [];
-    const match = users.find((user) => String(user?.email || '').toLowerCase() === normalized);
-    if (match) return match;
-    if (users.length < 200) break;
+  const isEmail = identityField.endsWith('_email');
+  const normalized = isEmail ? normalizeEmail(value) : normalizeMobile(value);
+  if (!normalized) {
+    return { status: 400, payload: { ok: false, code: 'INVALID_IDENTITY_VALUE', field: identityField } };
   }
-  return null;
+
+  let conflict = false;
+
+  if (identityField === 'company_email') {
+    const [contactRows, billingRows] = await Promise.all([
+      supabaseAdmin
+        .from('developer_company_profiles')
+        .select('company_id')
+        .eq('contact_email', normalized)
+        .limit(1),
+      supabaseAdmin
+        .from('developer_company_profiles')
+        .select('company_id')
+        .eq('billing_email', normalized)
+        .limit(1),
+    ]);
+    if (contactRows.error) throw contactRows.error;
+    if (billingRows.error) throw billingRows.error;
+    conflict = Boolean(contactRows.data?.length || billingRows.data?.length);
+  } else if (identityField === 'company_phone') {
+    const variants = phoneVariants(normalized);
+    const [contactRows, alternateRows] = await Promise.all([
+      supabaseAdmin
+        .from('developer_company_profiles')
+        .select('company_id')
+        .in('contact_mobile', variants)
+        .limit(1),
+      supabaseAdmin
+        .from('developer_company_profiles')
+        .select('company_id')
+        .in('alternate_mobile', variants)
+        .limit(1),
+    ]);
+    if (contactRows.error) throw contactRows.error;
+    if (alternateRows.error) throw alternateRows.error;
+    conflict = Boolean(contactRows.data?.length || alternateRows.data?.length);
+  } else if (identityField === 'owner_email') {
+    const [authLookup, ownerRows, profileRows, employeeRows, portalRows] = await Promise.all([
+      supabaseAdmin.rpc('bf_resolve_auth_user_id_by_email', { p_email: normalized }),
+      supabaseAdmin
+        .from('developer_company_profiles')
+        .select('company_id')
+        .eq('owner_email', normalized)
+        .limit(1),
+      supabaseAdmin
+        .from('profiles')
+        .select('id')
+        .eq('email', normalized)
+        .limit(1),
+      supabaseAdmin
+        .from('developer_company_employees')
+        .select('id')
+        .eq('email', normalized)
+        .limit(1),
+      supabaseAdmin
+        .from('company_portal_user_profiles')
+        .select('user_id')
+        .eq('email', normalized)
+        .limit(1),
+    ]);
+    for (const result of [authLookup, ownerRows, profileRows, employeeRows, portalRows]) {
+      if (result.error) throw result.error;
+    }
+    conflict = Boolean(
+      authLookup.data ||
+      ownerRows.data?.length ||
+      profileRows.data?.length ||
+      employeeRows.data?.length ||
+      portalRows.data?.length
+    );
+  } else if (identityField === 'owner_mobile') {
+    const variants = phoneVariants(normalized);
+    const [profileRows, ownerRows, employeeRows, portalMobileRows, portalAlternateRows] = await Promise.all([
+      supabaseAdmin
+        .from('profiles')
+        .select('id')
+        .in('mobile', variants)
+        .limit(1),
+      supabaseAdmin
+        .from('developer_company_profiles')
+        .select('company_id')
+        .in('owner_mobile', variants)
+        .limit(1),
+      supabaseAdmin
+        .from('developer_company_employees')
+        .select('id')
+        .in('mobile', variants)
+        .limit(1),
+      supabaseAdmin
+        .from('company_portal_user_profiles')
+        .select('user_id')
+        .in('mobile', variants)
+        .limit(1),
+      supabaseAdmin
+        .from('company_portal_user_profiles')
+        .select('user_id')
+        .in('alternate_mobile', variants)
+        .limit(1),
+    ]);
+    for (const result of [profileRows, ownerRows, employeeRows, portalMobileRows, portalAlternateRows]) {
+      if (result.error) throw result.error;
+    }
+    conflict = Boolean(
+      profileRows.data?.length ||
+      ownerRows.data?.length ||
+      employeeRows.data?.length ||
+      portalMobileRows.data?.length ||
+      portalAlternateRows.data?.length
+    );
+  }
+
+  return {
+    status: 200,
+    payload: {
+      ok: true,
+      field: identityField,
+      available: !conflict,
+    },
+  };
+}
+
+async function validateCreateCompanyIdentities(supabaseAdmin, identities) {
+  const checks = await Promise.all([
+    getCompanyIdentityAvailability(supabaseAdmin, { field: 'company_email', value: identities.companyEmail }),
+    getCompanyIdentityAvailability(supabaseAdmin, { field: 'company_phone', value: identities.companyPhone }),
+    getCompanyIdentityAvailability(supabaseAdmin, { field: 'owner_email', value: identities.ownerEmail }),
+    getCompanyIdentityAvailability(supabaseAdmin, { field: 'owner_mobile', value: identities.ownerMobile }),
+  ]);
+
+  const conflictCodes = [
+    'COMPANY_EMAIL_EXISTS',
+    'COMPANY_PHONE_EXISTS',
+    'OWNER_EMAIL_EXISTS',
+    'OWNER_MOBILE_EXISTS',
+  ];
+
+  const conflictIndex = checks.findIndex((result) => result.payload?.ok && result.payload.available === false);
+  if (conflictIndex >= 0) {
+    return { ok: false, code: conflictCodes[conflictIndex] };
+  }
+
+  const invalid = checks.find((result) => !result.payload?.ok);
+  if (invalid) return { ok: false, code: invalid.payload?.code || 'IDENTITY_CHECK_FAILED' };
+  return { ok: true };
 }
 
 function parseOwnerPhotoDataUrl(value) {
@@ -1252,6 +1397,19 @@ async function createCompany({ supabaseAdmin, actorUserId, body }) {
     return { status: 400, payload: { ok: false, code: 'GST_STATUS_CONFIRMATION_REQUIRED', stage: currentStage } };
   }
 
+  const identityAvailability = await validateCreateCompanyIdentities(supabaseAdmin, {
+    companyEmail,
+    companyPhone,
+    ownerEmail,
+    ownerMobile,
+  });
+  if (!identityAvailability.ok) {
+    return {
+      status: identityAvailability.code?.endsWith('_EXISTS') ? 409 : 400,
+      payload: { ok: false, code: identityAvailability.code || 'IDENTITY_CHECK_FAILED', stage: currentStage },
+    };
+  }
+
   const { data: duplicateSlug, error: duplicateSlugError } = await supabaseAdmin
     .from('companies')
     .select('id')
@@ -1376,27 +1534,27 @@ async function createCompany({ supabaseAdmin, actorUserId, body }) {
     company = createdCompany;
     mark('company');
 
-    ownerUser = await findAuthUserByEmail(supabaseAdmin, ownerEmail);
-    if (!ownerUser) {
-      const temporaryPassword = `${randomBytes(24).toString('base64url')}Aa1!`;
-      const { data: createdOwner, error: ownerError } = await supabaseAdmin.auth.admin.createUser({
-        email: ownerEmail,
-        password: temporaryPassword,
-        email_confirm: true,
-        user_metadata: {
-          full_name: ownerName,
-          mobile: ownerMobile,
-          created_via: 'developer_cpanel_company_owner',
-        },
-      });
-      if (ownerError || !createdOwner?.user?.id) {
-        const error = new Error(ownerError?.message || 'OWNER_AUTH_CREATE_FAILED');
-        error.code = 'OWNER_AUTH_CREATE_FAILED';
-        throw error;
-      }
-      ownerUser = createdOwner.user;
-      ownerWasCreated = true;
+    const temporaryPassword = `${randomBytes(24).toString('base64url')}Aa1!`;
+    const { data: createdOwner, error: ownerError } = await supabaseAdmin.auth.admin.createUser({
+      email: ownerEmail,
+      password: temporaryPassword,
+      email_confirm: true,
+      user_metadata: {
+        full_name: ownerName,
+        mobile: ownerMobile,
+        created_via: 'developer_cpanel_company_owner',
+      },
+    });
+    if (ownerError || !createdOwner?.user?.id) {
+      const normalizedMessage = String(ownerError?.message || '').toLowerCase();
+      const error = new Error(ownerError?.message || 'OWNER_AUTH_CREATE_FAILED');
+      error.code = normalizedMessage.includes('already') || ownerError?.code === 'email_exists'
+        ? 'OWNER_EMAIL_EXISTS'
+        : 'OWNER_AUTH_CREATE_FAILED';
+      throw error;
     }
+    ownerUser = createdOwner.user;
+    ownerWasCreated = true;
     mark('owner_auth');
 
     const ownerUserId = ownerUser.id;
@@ -1627,14 +1785,10 @@ async function createCompany({ supabaseAdmin, actorUserId, body }) {
     }
     mark('owner_photo');
 
-    if (ownerWasCreated) {
-      currentStage = 'password_link';
-      const passwordLink = await sendOwnerSetPasswordLink(supabaseAdmin, company.company_code, ownerEmail);
-      passwordLinkSent = passwordLink.ok;
-      if (!passwordLink.ok) warnings.push(passwordLink.code || 'OWNER_PASSWORD_LINK_SEND_FAILED');
-    } else {
-      warnings.push('OWNER_ACCOUNT_REUSED_EXISTING_PASSWORD');
-    }
+    currentStage = 'password_link';
+    const passwordLink = await sendOwnerSetPasswordLink(supabaseAdmin, company.company_code, ownerEmail);
+    passwordLinkSent = passwordLink.ok;
+    if (!passwordLink.ok) warnings.push(passwordLink.code || 'OWNER_PASSWORD_LINK_SEND_FAILED');
     mark('password_link');
 
     const refreshed = (await getCompanies(supabaseAdmin)).find((item) => item.id === company.id) || {
@@ -1656,7 +1810,7 @@ async function createCompany({ supabaseAdmin, actorUserId, body }) {
         discount_reason: discountReason || null,
         invoice_id: invoice?.id || null,
         owner_user_id: ownerUserId,
-        owner_account_reused: !ownerWasCreated,
+        owner_account_reused: false,
         password_link_sent: passwordLinkSent,
         warnings,
       },
@@ -1669,7 +1823,7 @@ async function createCompany({ supabaseAdmin, actorUserId, body }) {
         company: refreshed,
         owner: {
           userId: ownerUserId,
-          reused: !ownerWasCreated,
+          reused: false,
           passwordLinkSent,
           photoPath: ownerPhotoPath,
         },
@@ -1711,11 +1865,12 @@ async function createCompany({ supabaseAdmin, actorUserId, body }) {
       } catch (cleanupError) { rollbackError.push(`owner_auth:${cleanupError?.message || cleanupError}`); }
     }
     console.error('Create Company provisioning failed:', currentStage, error?.message || error, rollbackError);
+    const errorCode = error?.code || 'COMPANY_PROVISIONING_FAILED';
     return {
-      status: 500,
+      status: String(errorCode).endsWith('_EXISTS') ? 409 : 500,
       payload: {
         ok: false,
-        code: error?.code || 'COMPANY_PROVISIONING_FAILED',
+        code: errorCode,
         stage: currentStage,
         rollback: {
           complete: rollbackError.length === 0,
@@ -2398,7 +2553,9 @@ export default async function handler(req, res) {
     const bodyResource = String(body?.resource || '').trim().toLowerCase();
     let result;
 
-    if (bodyResource === 'gst-verify' && req.method === 'POST') {
+    if (bodyResource === 'company-identity-availability' && req.method === 'POST') {
+      result = await getCompanyIdentityAvailability(auth.supabaseAdmin, body);
+    } else if (bodyResource === 'gst-verify' && req.method === 'POST') {
       result = await verifyGstin(body);
     } else if (bodyResource === 'companies' && req.method === 'POST') {
       result = await createCompany({ supabaseAdmin: auth.supabaseAdmin, actorUserId: auth.user.id, body });
