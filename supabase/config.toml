@@ -413,3 +413,15 @@ enabled = true
 # formatted with uppercase keywords, indent 2, max width 180, trailing commas,
 # and column/key alignment. Set to "null" to emit raw, unformatted SQL.
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":180,\"commaStyle\":\"trailing\"}"
+
+# Buddy Fleets auth gateway functions perform their own request validation.
+# Keep gateway JWT verification disabled so public login/MFA/handoff flows
+# are not accidentally broken by a future CLI deployment.
+[functions.secure-login]
+verify_jwt = false
+
+[functions.secure-mfa]
+verify_jwt = false
+
+[functions.consume-handoff]
+verify_jwt = false

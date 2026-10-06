@@ -27,6 +27,9 @@ const callback = read('api/auth/callback.js');
 const app = read('src/App.jsx');
 const control = read('src/components/SessionControl.jsx');
 const runtime = read('src/services/sessionRuntime.js');
+const secureLogin = read('supabase/functions/secure-login/index.ts');
+const secureMfa = read('supabase/functions/secure-mfa/index.ts');
+const supabaseConfig = read('supabase/config.toml');
 
 expect(
   /SESSION_IDLE_TIMEOUT_MINUTES\s*=\s*30/.test(policy),
@@ -84,7 +87,43 @@ expect(
   'IP/browser changes are not hard session kill-switches in shared session core.'
 );
 
-console.log('\nBuddy Fleets Phase 5 session regression check');
+
+expect(
+  core.includes('revokeSupabaseAuthSessionBestEffort') &&
+    core.includes('/auth/v1/logout?scope=local') &&
+    core.includes('loadSessionForInvalidation'),
+  'Buddy session invalidation also performs best-effort exact Supabase Auth session revocation.'
+);
+
+expect(
+  sessionApi.includes('invalidatePortalSecuritySession') &&
+    read('server/auth/requireDeveloperSession.js').includes('invalidatePortalSecuritySession') &&
+    read('server/auth/requireCompanyPortalSession.js').includes('invalidatePortalSecuritySession'),
+  'Developer, company, and central session invalidation converge on the shared server session core.'
+);
+
+expect(
+  !/revoke_reason:\s*['"]IP_CHANGED['"]/.test(core) &&
+    !/revoke_reason:\s*['"]BROWSER_CHANGED['"]/.test(core),
+  'Network/browser changes remain audit signals, not session kill-switches.'
+);
+expect(
+  secureLogin.includes('revokeReplacedAuthSessions') &&
+    secureMfa.includes('revokeReplacedAuthSessions') &&
+    secureLogin.includes('/auth/v1/logout?scope=local') &&
+    secureMfa.includes('/auth/v1/logout?scope=local'),
+  'Password and MFA login replace same-device Buddy sessions without leaving the prior Supabase Auth session intentionally alive.'
+);
+
+expect(
+  supabaseConfig.includes('[functions.secure-login]') &&
+    supabaseConfig.includes('[functions.secure-mfa]') &&
+    supabaseConfig.includes('[functions.consume-handoff]') &&
+    (supabaseConfig.match(/verify_jwt\s*=\s*false/g) || []).length >= 3,
+  'Supabase auth gateway function JWT settings are pinned in config.toml for safe repeat deployments.'
+);
+
+console.log('\nBuddy Fleets Phase 6 final session acceptance check');
 console.log('============================================');
 for (const message of passes) console.log(`PASS  ${message}`);
 for (const message of failures) console.log(`FAIL  ${message}`);

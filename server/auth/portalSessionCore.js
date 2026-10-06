@@ -757,6 +757,134 @@ export function isApplicationSessionExpired(
   );
 }
 
+
+async function requestSupabaseLocalLogout(accessToken) {
+  if (!accessToken) {
+    return false;
+  }
+
+  try {
+    const response = await fetch(
+      `${SUPABASE_URL}/auth/v1/logout?scope=local`,
+      {
+        method: 'POST',
+        headers: {
+          apikey: SUPABASE_CLIENT_KEY,
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function revokeSupabaseAuthSessionBestEffort(
+  securitySession
+) {
+  if (
+    !securitySession?.user_id ||
+    !securitySession?.auth_session_id ||
+    !securitySession?.encrypted_access_token ||
+    !securitySession?.access_token_iv
+  ) {
+    return false;
+  }
+
+  try {
+    const encryptionKey = await getEncryptionKey();
+    const accessToken = await decryptSecret({
+      encrypted: securitySession.encrypted_access_token,
+      iv: securitySession.access_token_iv,
+      encryptionKey,
+    });
+
+    assertAuthContext({
+      securitySession,
+      accessToken,
+      mfaEnabled: false,
+    });
+
+    if (await requestSupabaseLocalLogout(accessToken)) {
+      return true;
+    }
+
+    if (
+      !securitySession.encrypted_refresh_token ||
+      !securitySession.refresh_token_iv
+    ) {
+      return false;
+    }
+
+    const refreshToken = await decryptSecret({
+      encrypted: securitySession.encrypted_refresh_token,
+      iv: securitySession.refresh_token_iv,
+      encryptionKey,
+    });
+
+    const userClient = createUserAuthClient();
+    const { data, error } = await userClient.auth.refreshSession({
+      refresh_token: refreshToken,
+    });
+
+    if (
+      error ||
+      !data?.session?.access_token ||
+      !data?.user ||
+      data.user.id !== securitySession.user_id
+    ) {
+      return false;
+    }
+
+    assertAuthContext({
+      securitySession,
+      accessToken: data.session.access_token,
+      mfaEnabled: false,
+    });
+
+    return await requestSupabaseLocalLogout(
+      data.session.access_token
+    );
+  } catch (error) {
+    console.error(
+      'Best-effort upstream Supabase session revocation failed:',
+      error?.message
+    );
+    return false;
+  }
+}
+
+async function loadSessionForInvalidation(sessionId) {
+  if (!sessionId) {
+    return null;
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('security_sessions')
+    .select(`
+      id,
+      user_id,
+      auth_session_id,
+      status,
+      encrypted_access_token,
+      access_token_iv,
+      encrypted_refresh_token,
+      refresh_token_iv
+    `)
+    .eq('id', sessionId)
+    .eq('status', 'active')
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+}
+
 export async function invalidatePortalSecuritySession({
   sessionId,
   reason,
@@ -767,7 +895,27 @@ export async function invalidatePortalSecuritySession({
   }
 
   const now = new Date().toISOString();
+  let sessionSnapshot = null;
 
+  try {
+    sessionSnapshot = await loadSessionForInvalidation(
+      sessionId
+    );
+  } catch (error) {
+    console.error(
+      'Session invalidation credential snapshot failed:',
+      error?.message
+    );
+  }
+
+  /*
+    Buddy Fleets is the primary session authority. Mark the application
+    session inactive first so no concurrent protected request can continue
+    while upstream Auth cleanup is attempted.
+
+    Credentials are scrubbed in the same authoritative update. The in-memory
+    snapshot above is used only for best-effort exact-session Supabase logout.
+  */
   const {
     error,
   } = await supabaseAdmin
@@ -788,6 +936,12 @@ export async function invalidatePortalSecuritySession({
 
   if (error) {
     throw error;
+  }
+
+  if (sessionSnapshot) {
+    await revokeSupabaseAuthSessionBestEffort(
+      sessionSnapshot
+    );
   }
 }
 

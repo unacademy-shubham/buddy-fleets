@@ -300,6 +300,9 @@ function accountLockedFailure(
 const encoder =
   new TextEncoder();
 
+const decoder =
+  new TextDecoder();
+
 
 function bytesToBase64(
   bytes: Uint8Array
@@ -484,6 +487,7 @@ function getEncryptionKey() {
       false,
       [
         'encrypt',
+        'decrypt',
       ]
     );
 
@@ -528,6 +532,268 @@ async function encryptSecret(
         iv
       ),
   };
+}
+
+
+async function decryptSecret(
+  encryptedValue: string,
+  ivValue: string,
+  key: CryptoKey
+) {
+  const decrypted =
+    await crypto.subtle.decrypt(
+      {
+        name:
+          'AES-GCM',
+
+        iv:
+          base64ToBytes(
+            ivValue
+          ),
+      },
+      key,
+      base64ToBytes(
+        encryptedValue
+      )
+    );
+
+  return decoder.decode(
+    decrypted
+  );
+}
+
+
+async function requestLocalAuthLogout(
+  accessToken: string
+) {
+  try {
+    const response =
+      await fetch(
+        `${SUPABASE_URL}/auth/v1/logout?scope=local`,
+        {
+          method:
+            'POST',
+
+          headers: {
+            apikey:
+              SUPABASE_ANON_KEY!,
+
+            Authorization:
+              `Bearer ${accessToken}`,
+
+            'Content-Type':
+              'application/json',
+          },
+        }
+      );
+
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+
+async function revokeReplacedAuthSessions({
+  userId,
+  portalType,
+  deviceIdHash,
+  encryptionKey,
+}: {
+  userId: string;
+  portalType: string;
+  deviceIdHash: string | null;
+  encryptionKey: CryptoKey;
+}) {
+  try {
+    let query =
+      adminClient
+        .from(
+          'security_sessions'
+        )
+        .select(`
+          id,
+          user_id,
+          auth_session_id,
+          encrypted_access_token,
+          access_token_iv,
+          encrypted_refresh_token,
+          refresh_token_iv,
+          device_id_hash
+        `)
+        .eq(
+          'user_id',
+          userId
+        )
+        .eq(
+          'portal_type',
+          portalType
+        )
+        .eq(
+          'status',
+          'active'
+        );
+
+    if (deviceIdHash) {
+      query =
+        query.eq(
+          'device_id_hash',
+          deviceIdHash
+        );
+    }
+
+    const {
+      data:
+        sessions,
+      error,
+    } =
+      await query;
+
+    if (error) {
+      throw error;
+    }
+
+    for (
+      const session of
+        sessions || []
+    ) {
+      try {
+        if (
+          !session
+            .encrypted_access_token ||
+          !session
+            .access_token_iv
+        ) {
+          continue;
+        }
+
+        const accessToken =
+          await decryptSecret(
+            session
+              .encrypted_access_token,
+            session
+              .access_token_iv,
+            encryptionKey
+          );
+
+        const accessPayload =
+          decodeJwtPayload(
+            accessToken
+          );
+
+        if (
+          accessPayload.sub !==
+            userId ||
+          accessPayload.session_id !==
+            session.auth_session_id
+        ) {
+          continue;
+        }
+
+        if (
+          await requestLocalAuthLogout(
+            accessToken
+          )
+        ) {
+          continue;
+        }
+
+        if (
+          !session
+            .encrypted_refresh_token ||
+          !session
+            .refresh_token_iv
+        ) {
+          continue;
+        }
+
+        const refreshToken =
+          await decryptSecret(
+            session
+              .encrypted_refresh_token,
+            session
+              .refresh_token_iv,
+            encryptionKey
+          );
+
+        const cleanupClient =
+          createClient(
+            SUPABASE_URL!,
+            SUPABASE_ANON_KEY!,
+            {
+              auth: {
+                persistSession:
+                  false,
+
+                autoRefreshToken:
+                  false,
+
+                detectSessionInUrl:
+                  false,
+              },
+            }
+          );
+
+        const {
+          data:
+            refreshed,
+          error:
+            refreshError,
+        } =
+          await cleanupClient
+            .auth
+            .refreshSession({
+              refresh_token:
+                refreshToken,
+            });
+
+        if (
+          refreshError ||
+          !refreshed
+            ?.session
+            ?.access_token
+        ) {
+          continue;
+        }
+
+        const refreshedPayload =
+          decodeJwtPayload(
+            refreshed
+              .session
+              .access_token
+          );
+
+        if (
+          refreshedPayload.sub !==
+            userId ||
+          refreshedPayload.session_id !==
+            session.auth_session_id
+        ) {
+          continue;
+        }
+
+        await requestLocalAuthLogout(
+          refreshed
+            .session
+            .access_token
+        );
+      } catch (
+        sessionError
+      ) {
+        console.error(
+          'Previous Supabase session cleanup failed:',
+          sessionError
+        );
+      }
+    }
+  } catch (
+    error
+  ) {
+    console.error(
+      'Previous Buddy Fleets session cleanup failed:',
+      error
+    );
+  }
 }
 
 
@@ -3184,42 +3450,52 @@ Deno.serve(
           Run them together to avoid an unnecessary sequential DB hop.
         */
 
-        const [
-          ,
-          securitySessionResult,
-        ] =
-          await Promise.all([
-            expirePreviousFlows(
-              authUser.id
-            ),
+        await Promise.all([
+          expirePreviousFlows(
+            authUser.id
+          ),
 
-            adminClient
-              .rpc(
-                'bf_start_security_session',
-                {
-                  p_user_id:
-                    authUser.id,
+          revokeReplacedAuthSessions({
+            userId:
+              authUser.id,
 
-                  p_auth_session_id:
-                    authSessionId,
+            portalType:
+              portal.portalType,
 
-                  p_portal_type:
-                    portal.portalType,
+            deviceIdHash,
 
-                  p_company_id:
-                    portal.companyId,
+            encryptionKey,
+          }),
+        ]);
 
-                  p_device_id_hash:
-                    deviceIdHash,
 
-                  p_ip_address:
-                    ipAddress,
+        const securitySessionResult =
+          await adminClient
+            .rpc(
+              'bf_start_security_session',
+              {
+                p_user_id:
+                  authUser.id,
 
-                  p_user_agent:
-                    userAgent,
-                }
-              ),
-          ]);
+                p_auth_session_id:
+                  authSessionId,
+
+                p_portal_type:
+                  portal.portalType,
+
+                p_company_id:
+                  portal.companyId,
+
+                p_device_id_hash:
+                  deviceIdHash,
+
+                p_ip_address:
+                  ipAddress,
+
+                p_user_agent:
+                  userAgent,
+              }
+            );
 
 
         const {

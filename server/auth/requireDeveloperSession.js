@@ -7,6 +7,7 @@ import {
 } from '@supabase/supabase-js';
 
 import {
+  invalidatePortalSecuritySession,
   verifyAndRefreshSupabaseSession,
 } from './portalSessionCore.js';
 
@@ -262,53 +263,11 @@ async function invalidateSecuritySession({
   reason,
   expired = false,
 }) {
-  if (!sessionId) {
-    return;
-  }
-
-  await supabaseAdmin
-    .from(
-      'security_sessions'
-    )
-    .update({
-      status:
-        expired
-          ? 'expired'
-          : 'revoked',
-
-      revoked_at:
-        new Date()
-          .toISOString(),
-
-      revoke_reason:
-        reason,
-
-      portal_session_token_hash:
-        null,
-
-      encrypted_access_token:
-        null,
-
-      access_token_iv:
-        null,
-
-      encrypted_refresh_token:
-        null,
-
-      refresh_token_iv:
-        null,
-
-      http_session_expires_at:
-        null,
-    })
-    .eq(
-      'id',
-      sessionId
-    )
-    .eq(
-      'status',
-      'active'
-    );
+  return invalidatePortalSecuritySession({
+    sessionId,
+    reason,
+    expired,
+  });
 }
 
 
