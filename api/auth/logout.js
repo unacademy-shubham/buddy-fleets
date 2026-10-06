@@ -1030,6 +1030,59 @@ export default async function handler(
 
 
   /* ========================================================
+     SESSION GENERATION BINDING
+
+     Browser tabs share the same host-only cookie. A stale tab must never
+     be able to revoke a newer session simply because the browser started
+     sending the newer cookie to that old tab. Current clients therefore
+     bind logout to the session id they believe they are ending.
+  ======================================================== */
+
+  const expectedSessionId =
+    String(
+      req.headers[
+        'x-bf-session-id'
+      ] ||
+      ''
+    ).trim();
+
+
+  if (
+    !expectedSessionId
+  ) {
+    return sendJson(
+      res,
+      409,
+      {
+        ok:
+          false,
+
+        code:
+          'SESSION_ID_REQUIRED',
+      }
+    );
+  }
+
+
+  if (
+    expectedSessionId !==
+      securitySession.id
+  ) {
+    return sendJson(
+      res,
+      409,
+      {
+        ok:
+          false,
+
+        code:
+          'SESSION_GENERATION_MISMATCH',
+      }
+    );
+  }
+
+
+  /* ========================================================
      SESSION MUST BELONG TO CURRENT PORTAL
   ======================================================== */
 

@@ -658,7 +658,7 @@ function isDefinitiveSessionRejection(
 }
 
 
-async function requestPortalLogout() {
+async function requestPortalLogout(expectedSessionId) {
   try {
     const response =
       await fetch(
@@ -679,6 +679,9 @@ async function requestPortalLogout() {
           headers: {
             Accept:
               'application/json',
+
+            'X-BF-Session-ID':
+              String(expectedSessionId || ''),
           },
 
           referrerPolicy:
@@ -3383,7 +3386,10 @@ function AppRouter() {
           block navigation on the network response. keepalive allows
           the same-origin POST to continue during unload where supported.
         */
-        void requestPortalLogout();
+        void requestPortalLogout(
+          activeRuntime?.sessionId ||
+          null
+        );
 
         clearLocalAppContext();
 

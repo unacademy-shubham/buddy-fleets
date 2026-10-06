@@ -14,6 +14,7 @@ import {
 } from '../services/sessionRuntime';
 
 const TOUCH_THROTTLE_MS = 60 * 1000;
+const TOUCH_RETRY_AFTER_FAILURE_MS = 10 * 1000;
 const SERVER_POLL_MS = 60 * 1000;
 const EXPIRY_RECHECK_GRACE_MS = 5000;
 
@@ -131,7 +132,7 @@ export default function SessionControl({ showBadge = true }) {
   const phaseRef = useRef(phase);
   const syncRequestRef = useRef(null);
   const touchRequestRef = useRef(null);
-  const lastTouchRef = useRef(0);
+  const nextTouchAllowedRef = useRef(0);
   const expiryCheckRef = useRef(0);
 
   const applyRuntime = useCallback((nextRuntime, { broadcast = false } = {}) => {
@@ -238,15 +239,15 @@ export default function SessionControl({ showBadge = true }) {
     }
 
     const now = Date.now();
-    if (now - lastTouchRef.current < TOUCH_THROTTLE_MS) {
-      return null;
-    }
-
     if (touchRequestRef.current) {
       return await touchRequestRef.current;
     }
 
-    lastTouchRef.current = now;
+    if (now < nextTouchAllowedRef.current) {
+      return null;
+    }
+
+    nextTouchAllowedRef.current = now + TOUCH_THROTTLE_MS;
 
     const request = (async () => {
       const result = await touchSession();
@@ -267,6 +268,14 @@ export default function SessionControl({ showBadge = true }) {
       if (result.status === 0) {
         setPhase(navigator.onLine === false ? 'offline' : 'revalidating');
         phaseRef.current = navigator.onLine === false ? 'offline' : 'revalidating';
+      }
+
+      if (
+        result.status === 0 ||
+        result.status >= 500
+      ) {
+        nextTouchAllowedRef.current =
+          Date.now() + TOUCH_RETRY_AFTER_FAILURE_MS;
       }
 
       return result;
@@ -407,17 +416,35 @@ export default function SessionControl({ showBadge = true }) {
       }
 
       if (event.type === 'SESSION_LOGOUT') {
-        if (!event.sessionId || !currentSessionId || event.sessionId === currentSessionId) {
+        if (
+          currentSessionId &&
+          event.sessionId &&
+          event.sessionId === currentSessionId
+        ) {
           clearSessionRuntime();
           window.location.replace('https://buddyfleets.in/login');
+          return;
         }
+
+        /*
+          Never let a stale/unknown tab event terminate a newer session.
+          Revalidate the shared HttpOnly cookie with the server instead.
+        */
+        void syncFromServer({ silent: false });
         return;
       }
 
       if (event.type === 'SESSION_INVALIDATED') {
-        if (!event.sessionId || !currentSessionId || event.sessionId === currentSessionId) {
+        if (
+          currentSessionId &&
+          event.sessionId &&
+          event.sessionId === currentSessionId
+        ) {
           markSessionEnded(event.reason || 'SESSION_INVALID', { broadcast: false });
+          return;
         }
+
+        void syncFromServer({ silent: false });
       }
     });
   }, [markSessionEnded, syncFromServer]);
@@ -484,7 +511,10 @@ export default function SessionControl({ showBadge = true }) {
         credentials: 'include',
         cache: 'no-store',
         keepalive: true,
-        headers: { Accept: 'application/json' },
+        headers: {
+          Accept: 'application/json',
+          'X-BF-Session-ID': String(sessionId || ''),
+        },
         referrerPolicy: 'no-referrer',
       });
     } catch {

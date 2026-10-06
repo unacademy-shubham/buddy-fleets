@@ -333,9 +333,147 @@ function assertAuthContext({
   };
 }
 
+async function loadLatestSessionCredentials(securitySession) {
+  const {
+    data,
+    error,
+  } = await supabaseAdmin
+    .from('security_sessions')
+    .select(`
+      id,
+      user_id,
+      auth_session_id,
+      status,
+      encrypted_access_token,
+      access_token_iv,
+      encrypted_refresh_token,
+      refresh_token_iv
+    `)
+    .eq('id', securitySession.id)
+    .eq('status', 'active')
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  if (
+    !data ||
+    data.user_id !== securitySession.user_id ||
+    data.auth_session_id !== securitySession.auth_session_id
+  ) {
+    return null;
+  }
+
+  return data;
+}
+
+function applyLatestCredentialsToSnapshot(
+  securitySession,
+  latest
+) {
+  securitySession.encrypted_access_token = latest.encrypted_access_token;
+  securitySession.access_token_iv = latest.access_token_iv;
+  securitySession.encrypted_refresh_token = latest.encrypted_refresh_token;
+  securitySession.refresh_token_iv = latest.refresh_token_iv;
+}
+
+async function recoverFromConcurrentRefresh({
+  securitySession,
+  expectedEncryptedRefreshToken,
+  expectedRefreshTokenIv,
+  mfaEnabled,
+}) {
+  /*
+    Vercel can execute multiple protected requests for the same browser at
+    the same time. Around JWT expiry, two requests can therefore attempt to
+    rotate the same Supabase refresh token concurrently.
+
+    One request wins the DB compare-and-swap below. A loser must reload the
+    winner's freshly encrypted credentials instead of falsely expiring the
+    Buddy Fleets session.
+  */
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const latest = await loadLatestSessionCredentials(
+      securitySession
+    );
+
+    if (!latest) {
+      return null;
+    }
+
+    const rotatedByAnotherRequest =
+      latest.encrypted_refresh_token !== expectedEncryptedRefreshToken ||
+      latest.refresh_token_iv !== expectedRefreshTokenIv;
+
+    if (!rotatedByAnotherRequest) {
+      if (attempt === 0) {
+        await new Promise((resolve) => setTimeout(resolve, 40));
+        continue;
+      }
+
+      return null;
+    }
+
+    if (
+      !latest.encrypted_access_token ||
+      !latest.access_token_iv
+    ) {
+      return null;
+    }
+
+    const encryptionKey = await getEncryptionKey();
+    const latestAccessToken = await decryptSecret({
+      encrypted: latest.encrypted_access_token,
+      iv: latest.access_token_iv,
+      encryptionKey,
+    });
+
+    const authContext = assertAuthContext({
+      securitySession,
+      accessToken: latestAccessToken,
+      mfaEnabled,
+    });
+
+    const {
+      data: userResult,
+      error: userError,
+    } = await supabaseAdmin.auth.getUser(
+      latestAccessToken
+    );
+
+    if (
+      !userError &&
+      userResult?.user?.id === securitySession.user_id
+    ) {
+      applyLatestCredentialsToSnapshot(
+        securitySession,
+        latest
+      );
+
+      return {
+        authUser: userResult.user,
+        authSession: null,
+        jwt: authContext.jwt,
+        aal: authContext.aal,
+        refreshed: true,
+        concurrentRefreshRecovered: true,
+      };
+    }
+
+    if (attempt === 0) {
+      await new Promise((resolve) => setTimeout(resolve, 40));
+    }
+  }
+
+  return null;
+}
+
 async function persistRotatedSupabaseTokens({
   securitySession,
   authSession,
+  expectedEncryptedRefreshToken,
+  expectedRefreshTokenIv,
 }) {
   if (
     !authSession?.access_token ||
@@ -370,6 +508,8 @@ async function persistRotatedSupabaseTokens({
     .eq('id', securitySession.id)
     .eq('status', 'active')
     .eq('auth_session_id', securitySession.auth_session_id)
+    .eq('encrypted_refresh_token', expectedEncryptedRefreshToken)
+    .eq('refresh_token_iv', expectedRefreshTokenIv)
     .select('id')
     .maybeSingle();
 
@@ -377,11 +517,8 @@ async function persistRotatedSupabaseTokens({
     throw error;
   }
 
-  if (!data?.id) {
-    throw new Error('APPLICATION_SESSION_REVOKED_DURING_REFRESH');
-  }
-
   return {
+    persisted: Boolean(data?.id),
     access,
     refresh,
   };
@@ -392,6 +529,11 @@ async function refreshSupabaseSession({
   refreshToken,
   mfaEnabled,
 }) {
+  const expectedEncryptedRefreshToken =
+    securitySession.encrypted_refresh_token;
+  const expectedRefreshTokenIv =
+    securitySession.refresh_token_iv;
+
   const userClient = createUserAuthClient();
 
   const {
@@ -407,6 +549,18 @@ async function refreshSupabaseSession({
     !data?.user ||
     data.user.id !== securitySession.user_id
   ) {
+    const concurrentRecovery =
+      await recoverFromConcurrentRefresh({
+        securitySession,
+        expectedEncryptedRefreshToken,
+        expectedRefreshTokenIv,
+        mfaEnabled,
+      });
+
+    if (concurrentRecovery) {
+      return concurrentRecovery;
+    }
+
     const refreshError = new Error(
       'AUTH_SESSION_REFRESH_FAILED'
     );
@@ -424,7 +578,27 @@ async function refreshSupabaseSession({
     await persistRotatedSupabaseTokens({
       securitySession,
       authSession: data.session,
+      expectedEncryptedRefreshToken,
+      expectedRefreshTokenIv,
     });
+
+  if (!persistedTokens.persisted) {
+    const concurrentRecovery =
+      await recoverFromConcurrentRefresh({
+        securitySession,
+        expectedEncryptedRefreshToken,
+        expectedRefreshTokenIv,
+        mfaEnabled,
+      });
+
+    if (concurrentRecovery) {
+      return concurrentRecovery;
+    }
+
+    throw new Error(
+      'APPLICATION_SESSION_REVOKED_DURING_REFRESH'
+    );
+  }
 
   /* Keep the caller's in-memory session snapshot current so later work in
      the same request cannot accidentally reuse stale encrypted credentials. */
@@ -439,6 +613,7 @@ async function refreshSupabaseSession({
     jwt: authContext.jwt,
     aal: authContext.aal,
     refreshed: true,
+    concurrentRefreshRecovered: false,
   };
 }
 

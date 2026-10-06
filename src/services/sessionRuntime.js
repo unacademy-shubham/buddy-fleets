@@ -3,6 +3,7 @@ const LEGACY_RUNTIME_KEY = 'bf_session_runtime_v2';
 const LEGACY_ACTIVITY_KEY = 'buddy_fleets_last_activity';
 const SESSION_EVENT_KEY = 'bf_session_event_v3';
 const SESSION_CHANNEL_NAME = 'bf_session_v3';
+const SESSION_EVENT_TTL_MS = 2 * 60 * 1000;
 
 const MAX_CLOCK_SKEW_MS = 24 * 60 * 60 * 1000;
 
@@ -229,6 +230,18 @@ export function subscribeSessionEvents(handler) {
 
   const deliver = (parsed) => {
     if (!parsed) return;
+
+    const emittedAt = Number(parsed.emittedAt || 0);
+    if (
+      Number.isFinite(emittedAt) &&
+      emittedAt > 0 &&
+      (
+        Date.now() - emittedAt > SESSION_EVENT_TTL_MS ||
+        emittedAt - Date.now() > 30 * 1000
+      )
+    ) {
+      return;
+    }
 
     const eventId = String(parsed.eventId || '');
     if (eventId && seenEventIds.has(eventId)) return;

@@ -1767,6 +1767,39 @@ html,body{
   const destination = ${safeDestination};
   const bootstrapKey = ${safeBootstrapKey};
   try {
+    const staleLocalKeys = [
+      'bf_session_runtime_v3',
+      'bf_session_runtime_v2',
+      'bf_session_event_v3',
+      'buddy_fleets_last_activity',
+      'buddy_fleets_session',
+      'buddy_fleets_active_company',
+      'buddy_fleets_active_tab'
+    ];
+
+    staleLocalKeys.forEach((key) => {
+      try { localStorage.removeItem(key); } catch {}
+    });
+
+    const staleSessionKeys = [];
+    for (let index = 0; index < sessionStorage.length; index += 1) {
+      const key = sessionStorage.key(index);
+      if (
+        key &&
+        (
+          key === bootstrapKey ||
+          key.startsWith('bf_workflow_draft:') ||
+          key.startsWith('bf_workflow_asset:')
+        )
+      ) {
+        staleSessionKeys.push(key);
+      }
+    }
+
+    staleSessionKeys.forEach((key) => {
+      try { sessionStorage.removeItem(key); } catch {}
+    });
+
     sessionStorage.setItem(
       bootstrapKey,
       JSON.stringify(
