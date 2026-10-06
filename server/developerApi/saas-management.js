@@ -487,11 +487,14 @@ async function verifyGstin(body = {}) {
   }
 
   const baseUrl = String(process.env.GSTIN_API_BASE_URL || 'https://www.gstinapi.in/v1/gstin').replace(/\/+$/, '');
+  const lookupUrl = new URL(`${baseUrl}/${encodeURIComponent(gstin)}`);
+  lookupUrl.searchParams.set('include', 'profile');
+
   let response;
   let payload;
   try {
     ({ response, payload } = await fetchJsonWithTimeout(
-      `${baseUrl}/${encodeURIComponent(gstin)}`,
+      lookupUrl.toString(),
       { headers: { Accept: 'application/json', 'x-api-key': apiKey } },
       9000
     ));
