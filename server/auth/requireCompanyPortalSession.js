@@ -1,116 +1,171 @@
-import { createHash } from 'node:crypto';
-import { createClient } from '@supabase/supabase-js';
+import {
+  PORTAL_SESSION_COOKIE,
+  buildClearedPortalSessionCookie,
+  SESSION_IDLE_TIMEOUT_SECONDS,
+  getPortalRequestHost,
+  invalidatePortalSecuritySession,
+  isApplicationSessionExpired,
+  loadPortalSecuritySession,
+  normalizePortalHost,
+  parsePortalCookies,
+  supabaseAdmin,
+  verifyAndRefreshSupabaseSession,
+} from './portalSessionCore.js';
 
-const COOKIE_NAME = '__Host-bf_session';
 const COMPANY_HOST = 'portal.buddyfleets.in';
-const SESSION_LIFETIME_MS = 60 * 60 * 1000;
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-if (!SUPABASE_URL || !SERVICE_KEY) {
-  throw new Error('Company portal auth environment variables missing.');
+function originMatchesCompanyHost(req) {
+  const origin = req.headers.origin;
+
+  if (!origin) {
+    return true;
+  }
+
+  try {
+    const url = new URL(origin);
+
+    return (
+      url.protocol === 'https:' &&
+      normalizePortalHost(url.hostname) === COMPANY_HOST
+    );
+  } catch {
+    return false;
+  }
 }
 
-const db = createClient(SUPABASE_URL, SERVICE_KEY, {
-  auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
-});
-
-const hash = (value) => createHash('sha256').update(value).digest('hex');
-const host = (req) =>
-  String(req.headers['x-forwarded-host'] || req.headers.host || '')
-    .split(',')[0]
-    .trim()
-    .toLowerCase()
-    .replace(/:\d+$/, '');
-const ip = (req) =>
-  String(req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || '')
-    .split(',')[0]
-    .trim() || null;
-const ua = (req) => String(req.headers['user-agent'] || '').slice(0, 1000);
-
-function cookies(header) {
-  const out = {};
-  String(header || '')
-    .split(';')
-    .forEach((part) => {
-      const index = part.indexOf('=');
-      if (index > 0) out[part.slice(0, index).trim()] = decodeURIComponent(part.slice(index + 1).trim());
-    });
-  return out;
-}
-
-function hasUserActivitySignal(req) {
-  return String(req.headers['x-bf-user-activity'] || '').trim() === '1';
+export function clearCompanySessionCookie(res) {
+  res.setHeader(
+    'Set-Cookie',
+    buildClearedPortalSessionCookie()
+  );
 }
 
 export function setCompanyApiHeaders(res) {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
-}
-
-async function touchSession(sessionId) {
-  const now = new Date();
-  const nextExpiry = new Date(now.getTime() + SESSION_LIFETIME_MS).toISOString();
-  const { error } = await db
-    .from('security_sessions')
-    .update({ last_seen_at: now.toISOString(), http_session_expires_at: nextExpiry })
-    .eq('id', sessionId)
-    .eq('status', 'active');
-  if (error) throw error;
-  return nextExpiry;
+  res.setHeader('Referrer-Policy', 'no-referrer');
 }
 
 export async function requireCompanyPortalSession(req) {
-  if (host(req) !== COMPANY_HOST) return { ok: false, status: 403, code: 'COMPANY_HOST_REQUIRED' };
+  const requestHost = getPortalRequestHost(req);
 
-  const origin = req.headers.origin;
-  if (origin) {
-    try {
-      const url = new URL(origin);
-      if (url.protocol !== 'https:' || url.hostname !== COMPANY_HOST) {
-        return { ok: false, status: 403, code: 'ORIGIN_NOT_ALLOWED' };
-      }
-    } catch {
-      return { ok: false, status: 403, code: 'ORIGIN_NOT_ALLOWED' };
-    }
+  if (requestHost !== COMPANY_HOST) {
+    return {
+      ok: false,
+      status: 403,
+      code: 'COMPANY_HOST_REQUIRED',
+      clearCookie: true,
+    };
   }
 
-  const token = cookies(req.headers.cookie)[COOKIE_NAME];
-  if (!token || token.length < 20) return { ok: false, status: 401, code: 'SESSION_REQUIRED' };
-
-  const { data: session, error: sessionError } = await db
-    .from('security_sessions')
-    .select('id,user_id,portal_type,company_id,ip_address,user_agent,status,http_session_expires_at,last_seen_at')
-    .eq('portal_session_token_hash', hash(token))
-    .eq('status', 'active')
-    .maybeSingle();
-
-  if (sessionError) throw sessionError;
-  if (!session || session.portal_type !== 'company' || !session.company_id) {
-    return { ok: false, status: 401, code: 'SESSION_INVALID' };
+  if (!originMatchesCompanyHost(req)) {
+    return {
+      ok: false,
+      status: 403,
+      code: 'ORIGIN_NOT_ALLOWED',
+    };
   }
 
-  const expiry = Date.parse(session.http_session_expires_at);
-  if (!Number.isFinite(expiry) || expiry <= Date.now()) {
-    return { ok: false, status: 401, code: 'SESSION_EXPIRED' };
+  const secFetchSite = String(
+    req.headers['sec-fetch-site'] || ''
+  )
+    .trim()
+    .toLowerCase();
+
+  if (
+    secFetchSite &&
+    !['same-origin', 'none'].includes(secFetchSite)
+  ) {
+    return {
+      ok: false,
+      status: 403,
+      code: 'CROSS_SITE_REQUEST_BLOCKED',
+    };
   }
 
-  if (session.ip_address && ip(req) && String(session.ip_address) !== String(ip(req))) {
-    return { ok: false, status: 401, code: 'SECURITY_CONTEXT_CHANGED' };
-  }
-  if (session.user_agent && session.user_agent !== ua(req)) {
-    return { ok: false, status: 401, code: 'SECURITY_CONTEXT_CHANGED' };
+  const token = parsePortalCookies(
+    req.headers.cookie
+  )[PORTAL_SESSION_COOKIE];
+
+  if (
+    !token ||
+    token.length < 20 ||
+    token.length > 200
+  ) {
+    return {
+      ok: false,
+      status: 401,
+      code: 'SESSION_REQUIRED',
+      clearCookie: true,
+    };
   }
 
-  const [{ data: membership, error: membershipError }, { data: employee, error: employeeError }] = await Promise.all([
-    db
+  let session;
+
+  try {
+    session = await loadPortalSecuritySession(
+      token,
+      { portalType: 'company' }
+    );
+  } catch (error) {
+    console.error(
+      'Company session lookup failed:',
+      error?.message
+    );
+
+    return {
+      ok: false,
+      status: 503,
+      code: 'SECURITY_SERVICE_UNAVAILABLE',
+    };
+  }
+
+  if (!session || !session.company_id) {
+    return {
+      ok: false,
+      status: 401,
+      code: 'SESSION_INVALID',
+      clearCookie: true,
+    };
+  }
+
+  if (isApplicationSessionExpired(session)) {
+    await invalidatePortalSecuritySession({
+      sessionId: session.id,
+      reason: 'HTTP_SESSION_EXPIRED',
+      expired: true,
+    }).catch(() => {});
+
+    return {
+      ok: false,
+      status: 401,
+      code: 'SESSION_EXPIRED',
+      clearCookie: true,
+    };
+  }
+
+  const [
+    securityResult,
+    membershipResult,
+    employeeResult,
+  ] = await Promise.all([
+    supabaseAdmin
+      .from('user_security')
+      .select('user_id,is_locked,mfa_enabled')
+      .eq('user_id', session.user_id)
+      .maybeSingle(),
+
+    supabaseAdmin
       .from('company_memberships')
       .select('status')
       .eq('company_id', session.company_id)
       .eq('user_id', session.user_id)
       .maybeSingle(),
-    db
+
+    supabaseAdmin
       .from('developer_company_employees')
       .select('status')
       .eq('company_id', session.company_id)
@@ -118,39 +173,173 @@ export async function requireCompanyPortalSession(req) {
       .maybeSingle(),
   ]);
 
-  if (membershipError || (employeeError && employeeError.code !== '42P01')) {
-    throw membershipError || employeeError;
-  }
-  if (!membership || membership.status !== 'active') {
-    return { ok: false, status: 403, code: 'COMPANY_ACCESS_DENIED' };
-  }
-  if (employee && !['active', 'invited'].includes(employee.status)) {
-    return { ok: false, status: 403, code: 'EMPLOYEE_ACCESS_BLOCKED' };
+  if (
+    securityResult.error ||
+    membershipResult.error ||
+    (
+      employeeResult.error &&
+      employeeResult.error.code !== '42P01'
+    )
+  ) {
+    console.error(
+      'Company access preflight failed:',
+      securityResult.error?.message ||
+        membershipResult.error?.message ||
+        employeeResult.error?.message
+    );
+
+    return {
+      ok: false,
+      status: 503,
+      code: 'SECURITY_SERVICE_UNAVAILABLE',
+    };
   }
 
-  const { data: bootstrap, error: bootstrapError } = await db.rpc('bf_resolve_company_portal_bootstrap', {
-    p_company_id: session.company_id,
-    p_user_id: session.user_id,
-  });
+  const accountSecurity = securityResult.data;
+  const membership = membershipResult.data;
+  const employee = employeeResult.data;
 
-  if (bootstrapError) throw bootstrapError;
-  if (!bootstrap?.ok || bootstrap?.access_granted !== true) {
-    return { ok: false, status: 403, code: bootstrap?.reason || 'COMPANY_ACCESS_DENIED' };
+  if (
+    !accountSecurity ||
+    accountSecurity.is_locked
+  ) {
+    await invalidatePortalSecuritySession({
+      sessionId: session.id,
+      reason: 'ACCOUNT_SECURITY_LOCK',
+    }).catch(() => {});
+
+    return {
+      ok: false,
+      status: 423,
+      code: 'ACCOUNT_LOCKED',
+      clearCookie: true,
+    };
   }
 
-  let httpSessionExpiresAt = session.http_session_expires_at;
-  if (hasUserActivitySignal(req)) {
-    httpSessionExpiresAt = await touchSession(session.id);
+  if (
+    !membership ||
+    membership.status !== 'active'
+  ) {
+    await invalidatePortalSecuritySession({
+      sessionId: session.id,
+      reason: 'COMPANY_ACCESS_REVOKED',
+    }).catch(() => {});
+
+    return {
+      ok: false,
+      status: 403,
+      code: 'COMPANY_ACCESS_DENIED',
+      clearCookie: true,
+    };
+  }
+
+  if (
+    employee &&
+    !['active', 'invited'].includes(employee.status)
+  ) {
+    await invalidatePortalSecuritySession({
+      sessionId: session.id,
+      reason: 'EMPLOYEE_ACCESS_BLOCKED',
+    }).catch(() => {});
+
+    return {
+      ok: false,
+      status: 403,
+      code: 'EMPLOYEE_ACCESS_BLOCKED',
+      clearCookie: true,
+    };
+  }
+
+  const {
+    data: bootstrap,
+    error: bootstrapError,
+  } = await supabaseAdmin.rpc(
+    'bf_resolve_company_portal_bootstrap',
+    {
+      p_company_id: session.company_id,
+      p_user_id: session.user_id,
+    }
+  );
+
+  if (bootstrapError) {
+    console.error(
+      'Company bootstrap validation failed:',
+      bootstrapError.message
+    );
+
+    return {
+      ok: false,
+      status: 503,
+      code: 'SECURITY_SERVICE_UNAVAILABLE',
+    };
+  }
+
+  if (
+    !bootstrap?.ok ||
+    bootstrap?.access_granted !== true
+  ) {
+    await invalidatePortalSecuritySession({
+      sessionId: session.id,
+      reason: bootstrap?.reason || 'COMPANY_ACCESS_REVOKED',
+    }).catch(() => {});
+
+    return {
+      ok: false,
+      status: 403,
+      code:
+        bootstrap?.reason ||
+        'COMPANY_ACCESS_DENIED',
+      clearCookie: true,
+    };
+  }
+
+  let verifiedAuth;
+
+  try {
+    verifiedAuth = await verifyAndRefreshSupabaseSession({
+      securitySession: session,
+      mfaEnabled: accountSecurity.mfa_enabled === true,
+    });
+  } catch (error) {
+    const errorCode =
+      error?.code ||
+      error?.message ||
+      'SESSION_INVALID';
+
+    console.error(
+      'Company Supabase session verification failed:',
+      errorCode
+    );
+
+    await invalidatePortalSecuritySession({
+      sessionId: session.id,
+      reason:
+        errorCode === 'MFA_AAL2_REQUIRED'
+          ? 'MFA_AAL2_REQUIRED'
+          : 'SUPABASE_SESSION_INVALID',
+    }).catch(() => {});
+
+    return {
+      ok: false,
+      status: 401,
+      code:
+        errorCode === 'MFA_AAL2_REQUIRED'
+          ? 'MFA_AAL2_REQUIRED'
+          : 'SESSION_INVALID',
+      clearCookie: true,
+    };
   }
 
   return {
     ok: true,
-    db,
+    db: supabaseAdmin,
     userId: session.user_id,
     companyId: session.company_id,
     sessionId: session.id,
     bootstrap,
-    httpSessionExpiresAt,
-    sessionLifetimeSeconds: SESSION_LIFETIME_MS / 1000,
+    httpSessionExpiresAt: session.http_session_expires_at,
+    sessionLifetimeSeconds: SESSION_IDLE_TIMEOUT_SECONDS,
+    authRefreshed: verifiedAuth.refreshed === true,
+    aal: verifiedAuth.aal,
   };
 }

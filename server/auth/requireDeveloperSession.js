@@ -1,11 +1,16 @@
 import {
   createHash,
-  webcrypto,
 } from 'node:crypto';
 
 import {
   createClient,
 } from '@supabase/supabase-js';
+
+import {
+  verifyAndRefreshSupabaseSession,
+} from './portalSessionCore.js';
+
+import { PORTAL_SESSION_COOKIE } from './sessionPolicy.js';
 
 
 /* ============================================================
@@ -23,7 +28,7 @@ import {
 
 
 const COOKIE_NAME =
-  '__Host-bf_session';
+  PORTAL_SESSION_COOKIE;
 
 const DEVELOPER_HOST =
   'developer.buddyfleets.in';
@@ -39,14 +44,10 @@ const SUPABASE_URL =
 const SUPABASE_SERVICE_ROLE_KEY =
   process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-const AUTH_FLOW_ENCRYPTION_KEY =
-  process.env.AUTH_FLOW_ENCRYPTION_KEY;
-
 
 if (
   !SUPABASE_URL ||
-  !SUPABASE_SERVICE_ROLE_KEY ||
-  !AUTH_FLOW_ENCRYPTION_KEY
+  !SUPABASE_SERVICE_ROLE_KEY
 ) {
   throw new Error(
     'Required Developer API environment variables are missing.'
@@ -124,42 +125,6 @@ function originMatchesHost(
   } catch {
     return false;
   }
-}
-
-
-/* ============================================================
-   REQUEST METADATA
-============================================================ */
-
-function getClientIp(req) {
-  const forwarded =
-    req.headers['x-forwarded-for'];
-
-  if (forwarded) {
-    return String(forwarded)
-      .split(',')[0]
-      .trim();
-  }
-
-  const realIp =
-    req.headers['x-real-ip'];
-
-  if (realIp) {
-    return String(realIp).trim();
-  }
-
-  return null;
-}
-
-
-function getUserAgent(req) {
-  return String(
-    req.headers['user-agent'] ||
-    ''
-  ).slice(
-    0,
-    1000
-  );
 }
 
 
@@ -289,129 +254,6 @@ function sha256Hex(
 
 
 /* ============================================================
-   AES-GCM
-============================================================ */
-
-function base64ToBytes(
-  value
-) {
-  return new Uint8Array(
-    Buffer.from(
-      value,
-      'base64'
-    )
-  );
-}
-
-
-async function getEncryptionKey() {
-  const rawKey =
-    base64ToBytes(
-      AUTH_FLOW_ENCRYPTION_KEY
-    );
-
-  if (
-    rawKey.length !==
-    32
-  ) {
-    throw new Error(
-      'AUTH_FLOW_ENCRYPTION_KEY must decode to exactly 32 bytes.'
-    );
-  }
-
-  return await webcrypto
-    .subtle
-    .importKey(
-      'raw',
-      rawKey,
-      {
-        name: 'AES-GCM',
-      },
-      false,
-      [
-        'decrypt',
-      ]
-    );
-}
-
-
-async function decryptSecret({
-  encrypted,
-  iv,
-  encryptionKey,
-}) {
-  const result =
-    await webcrypto
-      .subtle
-      .decrypt(
-        {
-          name: 'AES-GCM',
-
-          iv:
-            base64ToBytes(
-              iv
-            ),
-        },
-
-        encryptionKey,
-
-        base64ToBytes(
-          encrypted
-        )
-      );
-
-  return new TextDecoder()
-    .decode(result);
-}
-
-
-/* ============================================================
-   JWT
-============================================================ */
-
-function decodeJwtPayload(
-  token
-) {
-  const parts =
-    String(token || '')
-      .split('.');
-
-  if (
-    parts.length !==
-    3
-  ) {
-    throw new Error(
-      'INVALID_JWT'
-    );
-  }
-
-  const normalized =
-    parts[1]
-      .replace(/-/g, '+')
-      .replace(/_/g, '/');
-
-  const padded =
-    normalized.padEnd(
-      Math.ceil(
-        normalized.length / 4
-      ) * 4,
-      '='
-    );
-
-  return JSON.parse(
-    Buffer
-      .from(
-        padded,
-        'base64'
-      )
-      .toString(
-        'utf8'
-      )
-  );
-}
-
-
-/* ============================================================
    SESSION INVALIDATION
 ============================================================ */
 
@@ -454,6 +296,9 @@ async function invalidateSecuritySession({
         null,
 
       refresh_token_iv:
+        null,
+
+      http_session_expires_at:
         null,
     })
     .eq(
@@ -499,7 +344,9 @@ async function loadSecuritySession(
         last_seen_at,
         http_session_expires_at,
         encrypted_access_token,
-        access_token_iv
+        access_token_iv,
+        encrypted_refresh_token,
+        refresh_token_iv
       `)
       .eq(
         'portal_session_token_hash',
@@ -682,67 +529,12 @@ export async function requireDeveloperSession(
 
 
   /* ==========================================================
-     IP / USER AGENT BINDING
+     REQUEST CONTEXT
+
+     IP / User-Agent are intentionally NOT hard authorization gates.
+     The HttpOnly session token + server-side session registry remain
+     authoritative; context changes are audited by /api/auth/session.
   ========================================================== */
-
-  const currentIp =
-    getClientIp(req);
-
-  const currentUserAgent =
-    getUserAgent(req);
-
-
-  if (
-    securitySession.ip_address &&
-    (
-      !currentIp ||
-      String(currentIp) !==
-        String(
-          securitySession
-            .ip_address
-        )
-    )
-  ) {
-    await invalidateSecuritySession({
-      sessionId:
-        securitySession.id,
-
-      reason:
-        'IP_CHANGED',
-    }).catch(() => {});
-
-    return {
-      ok: false,
-      status: 401,
-      code:
-        'SECURITY_CONTEXT_CHANGED',
-      clearCookie: true,
-    };
-  }
-
-
-  if (
-    securitySession.user_agent &&
-    currentUserAgent !==
-      securitySession.user_agent
-  ) {
-    await invalidateSecuritySession({
-      sessionId:
-        securitySession.id,
-
-      reason:
-        'BROWSER_CHANGED',
-    }).catch(() => {});
-
-    return {
-      ok: false,
-      status: 401,
-      code:
-        'SECURITY_CONTEXT_CHANGED',
-      clearCookie: true,
-    };
-  }
-
 
   /* ==========================================================
      ACCOUNT SECURITY
@@ -875,142 +667,18 @@ export async function requireDeveloperSession(
 
   /* ==========================================================
      STORED SUPABASE AUTH SESSION
+
+     Transparent refresh prevents the one-hour Supabase access-token
+     boundary from terminating an otherwise-active Buddy Fleets session.
   ========================================================== */
 
-  if (
-    !securitySession
-      .encrypted_access_token ||
-    !securitySession
-      .access_token_iv
-  ) {
-    await invalidateSecuritySession({
-      sessionId:
-        securitySession.id,
-
-      reason:
-        'SERVER_AUTH_TOKEN_MISSING',
-    }).catch(() => {});
-
-    return {
-      ok: false,
-      status: 401,
-      code: 'SESSION_INVALID',
-      clearCookie: true,
-    };
-  }
-
-
   try {
-    const encryptionKey =
-      await getEncryptionKey();
-
-
-    const accessToken =
-      await decryptSecret({
-        encrypted:
-          securitySession
-            .encrypted_access_token,
-
-        iv:
-          securitySession
-            .access_token_iv,
-
-        encryptionKey,
+    const verifiedAuth =
+      await verifyAndRefreshSupabaseSession({
+        securitySession,
+        mfaEnabled:
+          accountSecurity.mfa_enabled === true,
       });
-
-
-    const jwt =
-      decodeJwtPayload(
-        accessToken
-      );
-
-
-    const jwtAal =
-      String(
-        jwt.aal || ''
-      )
-        .trim()
-        .toLowerCase();
-
-
-    if (
-      jwt.sub !==
-        securitySession.user_id ||
-      jwt.session_id !==
-        securitySession
-          .auth_session_id ||
-      ![
-        'aal1',
-        'aal2',
-      ].includes(
-        jwtAal
-      )
-    ) {
-      throw new Error(
-        'SERVER_AUTH_CONTEXT_INVALID'
-      );
-    }
-
-
-    if (
-      accountSecurity
-        .mfa_enabled === true &&
-      jwtAal !==
-        'aal2'
-    ) {
-      throw new Error(
-        'MFA_AAL2_REQUIRED'
-      );
-    }
-
-
-    const {
-      data:
-        authResult,
-
-      error:
-        authError,
-    } =
-      await supabaseAdmin
-        .auth
-        .getUser(
-          accessToken
-        );
-
-
-    if (
-      authError ||
-      !authResult?.user ||
-      authResult.user.id !==
-        securitySession.user_id
-    ) {
-      throw new Error(
-        'SERVER_AUTH_USER_INVALID'
-      );
-    }
-
-
-    /*
-      Touch session activity.
-    */
-
-    await supabaseAdmin
-      .from(
-        'security_sessions'
-      )
-      .update({
-        last_seen_at:
-          new Date()
-            .toISOString(),
-      })
-      .eq(
-        'id',
-        securitySession.id
-      )
-      .eq(
-        'status',
-        'active'
-      );
 
 
     return {
@@ -1020,10 +688,10 @@ export async function requireDeveloperSession(
 
       user: {
         id:
-          authResult.user.id,
+          verifiedAuth.authUser.id,
 
         email:
-          authResult.user.email ||
+          verifiedAuth.authUser.email ||
           null,
 
         role:
@@ -1041,7 +709,7 @@ export async function requireDeveloperSession(
           true,
 
         aal:
-          jwtAal,
+          verifiedAuth.aal,
       },
 
       securitySession: {
@@ -1057,12 +725,21 @@ export async function requireDeveloperSession(
         expiresAt:
           securitySession
             .http_session_expires_at,
+
+        authRefreshed:
+          verifiedAuth.refreshed === true,
       },
     };
   } catch (error) {
+    const errorCode =
+      error?.code ||
+      error?.message ||
+      'SESSION_INVALID';
+
+
     console.error(
       'Developer API Supabase session verification failed:',
-      error?.message
+      errorCode
     );
 
 
@@ -1071,7 +748,7 @@ export async function requireDeveloperSession(
         securitySession.id,
 
       reason:
-        error?.message ===
+        errorCode ===
           'MFA_AAL2_REQUIRED'
           ? 'MFA_AAL2_REQUIRED'
           : 'SUPABASE_SESSION_INVALID',
@@ -1082,7 +759,7 @@ export async function requireDeveloperSession(
       ok: false,
       status: 401,
       code:
-        error?.message ===
+        errorCode ===
           'MFA_AAL2_REQUIRED'
           ? 'MFA_AAL2_REQUIRED'
           : 'SESSION_INVALID',

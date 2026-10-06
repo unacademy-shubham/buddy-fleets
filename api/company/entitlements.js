@@ -1,4 +1,4 @@
-import { requireCompanyPortalSession, setCompanyApiHeaders } from '../../server/auth/requireCompanyPortalSession.js';
+import { clearCompanySessionCookie, requireCompanyPortalSession, setCompanyApiHeaders } from '../../server/auth/requireCompanyPortalSession.js';
 import { resolveCompanyAccess } from '../../server/company/resolveCompanyAccess.js';
 import {
   getClientPortalBootstrap,
@@ -33,7 +33,7 @@ async function getSafeCurrentUser(db,userId,companyId){
 export default async function handler(req,res){
   try{
     const auth=await requireCompanyPortalSession(req);
-    if(!auth.ok)return send(res,auth.status,{ok:false,code:auth.code});
+    if(!auth.ok){if(auth.clearCookie)clearCompanySessionCookie(res);return send(res,auth.status,{ok:false,code:auth.code});}
     const currentUser=await getSafeCurrentUser(auth.db,auth.userId,auth.companyId);
 
     if(req.method==='GET'){

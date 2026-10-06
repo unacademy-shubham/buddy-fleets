@@ -5,6 +5,8 @@ import {
 
 import { createClient } from '@supabase/supabase-js';
 
+import { PORTAL_SESSION_COOKIE } from '../../server/auth/sessionPolicy.js';
+
 
 /* ============================================================
    BUDDY FLEETS
@@ -33,7 +35,7 @@ import { createClient } from '@supabase/supabase-js';
 ============================================================ */
 
 const COOKIE_NAME =
-  '__Host-bf_session';
+  PORTAL_SESSION_COOKIE;
 
 
 const DEVELOPER_HOST =
@@ -763,7 +765,7 @@ async function revokeSupabaseAuthSession(
     */
 
     await fetch(
-      `${SUPABASE_URL}/auth/v1/logout?scope=global`,
+      `${SUPABASE_URL}/auth/v1/logout?scope=local`,
       {
         method:
           'POST',

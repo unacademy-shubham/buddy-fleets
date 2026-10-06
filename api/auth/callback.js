@@ -6,6 +6,10 @@ import {
 
 import { createClient } from '@supabase/supabase-js';
 import { waitUntil } from '@vercel/functions';
+import {
+  PORTAL_SESSION_COOKIE,
+  SESSION_IDLE_TIMEOUT_SECONDS,
+} from '../../server/auth/sessionPolicy.js';
 
 /* ============================================================
    BUDDY FLEETS
@@ -30,10 +34,10 @@ import { waitUntil } from '@vercel/functions';
 
 const MAX_HANDOFF_LENGTH = 200;
 const MIN_HANDOFF_LENGTH = 20;
-const HTTP_SESSION_LIFETIME_SECONDS = 30 * 60;
+const HTTP_SESSION_LIFETIME_SECONDS = SESSION_IDLE_TIMEOUT_SECONDS;
 const BOOTSTRAP_LIFETIME_MS = 15 * 1000;
 
-const COOKIE_NAME = '__Host-bf_session';
+const COOKIE_NAME = PORTAL_SESSION_COOKIE;
 const PORTAL_BOOTSTRAP_KEY = 'buddy_fleets_portal_bootstrap';
 const LAST_ACTIVITY_KEY = 'buddy_fleets_last_activity';
 

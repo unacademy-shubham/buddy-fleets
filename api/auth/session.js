@@ -1,11 +1,19 @@
 import {
   createHash,
-  webcrypto,
 } from 'node:crypto';
 
 import {
   createClient,
 } from '@supabase/supabase-js';
+
+import {
+  PORTAL_SESSION_COOKIE,
+  SESSION_IDLE_TIMEOUT_MINUTES,
+  SESSION_IDLE_TIMEOUT_SECONDS,
+  getSessionContextChanges,
+  renewPortalIdleWindow,
+  verifyAndRefreshSupabaseSession,
+} from '../../server/auth/portalSessionCore.js';
 
 
 /* ============================================================
@@ -25,9 +33,8 @@ import {
    - Host-only HttpOnly cookie
    - Account lock check
    - Session expiry check
-   - Single-session registry check
-   - IP binding
-   - Browser/User-Agent binding
+   - Server-side application-session registry check
+   - IP / Browser context risk signals (not brittle kill-switches)
    - Fixed portal hostname verification
    - Tenant / role authorization re-check
    - Supabase user verification
@@ -62,13 +69,7 @@ import {
 ============================================================ */
 
 const COOKIE_NAME =
-  '__Host-bf_session';
-
-const SESSION_IDLE_TIMEOUT_MINUTES =
-  30;
-
-const SESSION_IDLE_TIMEOUT_SECONDS =
-  SESSION_IDLE_TIMEOUT_MINUTES * 60;
+  PORTAL_SESSION_COOKIE;
 
 
 const DEVELOPER_HOST =
@@ -97,15 +98,10 @@ const SUPABASE_SERVICE_ROLE_KEY =
     .SUPABASE_SERVICE_ROLE_KEY;
 
 
-const AUTH_FLOW_ENCRYPTION_KEY =
-  process.env
-    .AUTH_FLOW_ENCRYPTION_KEY;
-
 
 if (
   !SUPABASE_URL ||
-  !SUPABASE_SERVICE_ROLE_KEY ||
-  !AUTH_FLOW_ENCRYPTION_KEY
+  !SUPABASE_SERVICE_ROLE_KEY
 ) {
   throw new Error(
     'Required server authentication environment variables are missing.'
@@ -485,153 +481,6 @@ function getUserAgent(
 
 
 /* ============================================================
-   AES-GCM
-============================================================ */
-
-function base64ToBytes(
-  value
-) {
-  return new Uint8Array(
-    Buffer.from(
-      value,
-      'base64'
-    )
-  );
-}
-
-
-async function getEncryptionKey() {
-  const rawKey =
-    base64ToBytes(
-      AUTH_FLOW_ENCRYPTION_KEY
-    );
-
-
-  if (
-    rawKey.length !==
-    32
-  ) {
-    throw new Error(
-      'AUTH_FLOW_ENCRYPTION_KEY must decode to exactly 32 bytes.'
-    );
-  }
-
-
-  return await webcrypto
-    .subtle
-    .importKey(
-      'raw',
-
-      rawKey,
-
-      {
-        name:
-          'AES-GCM',
-      },
-
-      false,
-
-      [
-        'decrypt',
-      ]
-    );
-}
-
-
-async function decryptSecret({
-  encrypted,
-  iv,
-  encryptionKey,
-}) {
-  const result =
-    await webcrypto
-      .subtle
-      .decrypt(
-        {
-          name:
-            'AES-GCM',
-
-          iv:
-            base64ToBytes(
-              iv
-            ),
-        },
-
-        encryptionKey,
-
-        base64ToBytes(
-          encrypted
-        )
-      );
-
-
-  return new TextDecoder()
-    .decode(
-      result
-    );
-}
-
-
-/* ============================================================
-   JWT
-============================================================ */
-
-function decodeJwtPayload(
-  token
-) {
-  const parts =
-    String(
-      token ||
-      ''
-    ).split('.');
-
-
-  if (
-    parts.length !==
-    3
-  ) {
-    throw new Error(
-      'Invalid JWT.'
-    );
-  }
-
-
-  const normalized =
-    parts[1]
-      .replace(
-        /-/g,
-        '+'
-      )
-      .replace(
-        /_/g,
-        '/'
-      );
-
-
-  const padded =
-    normalized.padEnd(
-      Math.ceil(
-        normalized.length /
-        4
-      ) * 4,
-      '='
-    );
-
-
-  return JSON.parse(
-    Buffer
-      .from(
-        padded,
-        'base64'
-      )
-      .toString(
-        'utf8'
-      )
-  );
-}
-
-
-/* ============================================================
    SECURITY EVENT
 ============================================================ */
 
@@ -734,6 +583,9 @@ async function invalidateSession({
           null,
 
         refresh_token_iv:
+          null,
+
+        http_session_expires_at:
           null,
       })
       .eq(
@@ -1361,178 +1213,10 @@ async function verifySupabaseSession({
   securitySession,
   mfaEnabled,
 }) {
-  if (
-    !securitySession
-      .encrypted_access_token ||
-    !securitySession
-      .access_token_iv
-  ) {
-    throw new Error(
-      'SERVER_AUTH_TOKEN_MISSING'
-    );
-  }
-
-
-  const encryptionKey =
-    await getEncryptionKey();
-
-
-  const accessToken =
-    await decryptSecret({
-      encrypted:
-        securitySession
-          .encrypted_access_token,
-
-      iv:
-        securitySession
-          .access_token_iv,
-
-      encryptionKey,
-    });
-
-
-  const jwt =
-    decodeJwtPayload(
-      accessToken
-    );
-
-
-  const jwtAal =
-    String(
-      jwt.aal ||
-      ''
-    )
-      .trim()
-      .toLowerCase();
-
-
-  /* ==========================================================
-     CORE SESSION IDENTITY
-  ========================================================== */
-
-  if (
-    jwt.sub !==
-      securitySession
-        .user_id ||
-    jwt.session_id !==
-      securitySession
-        .auth_session_id ||
-    ![
-      'aal1',
-      'aal2',
-    ].includes(
-      jwtAal
-    )
-  ) {
-    throw new Error(
-      'SERVER_AUTH_CONTEXT_INVALID'
-    );
-  }
-
-
-  /* ==========================================================
-     OPTIONAL MFA POLICY
-  ========================================================== */
-
-  if (
-    mfaEnabled &&
-    jwtAal !==
-      'aal2'
-  ) {
-    const error =
-      new Error(
-        'MFA_AAL2_REQUIRED'
-      );
-
-    error.code =
-      'MFA_AAL2_REQUIRED';
-
-    throw error;
-  }
-
-
-  /*
-    Authoritative verification against Supabase Auth.
-  */
-
-  const {
-    data:
-      userResult,
-    error:
-      userError,
-  } =
-    await supabaseAdmin
-      .auth
-      .getUser(
-        accessToken
-      );
-
-
-  if (
-    userError ||
-    !userResult
-      ?.user ||
-    userResult
-      .user
-      .id !==
-      securitySession
-        .user_id
-  ) {
-    throw new Error(
-      'SERVER_AUTH_USER_INVALID'
-    );
-  }
-
-
-  return {
-    authUser:
-      userResult.user,
-
-    jwt,
-
-    aal:
-      jwtAal,
-  };
-}
-
-
-/* ============================================================
-   TOUCH LAST-SEEN
-============================================================ */
-
-async function touchSession(
-  sessionId
-) {
-  const {
-    error,
-  } =
-    await supabaseAdmin
-      .from(
-        'security_sessions'
-      )
-      .update({
-        last_seen_at:
-          new Date()
-            .toISOString(),
-      })
-      .eq(
-        'id',
-        sessionId
-      )
-      .eq(
-        'status',
-        'active'
-      );
-
-
-  if (
-    error
-  ) {
-    console.error(
-      'Session last-seen update failed:',
-      error.message
-    );
-  }
+  return verifyAndRefreshSupabaseSession({
+    securitySession,
+    mfaEnabled,
+  });
 }
 
 
@@ -1987,6 +1671,19 @@ async function handleSessionActivityMutation(req, res) {
     return sendJson(res, 403, { ok: false, code: 'CROSS_SITE_REQUEST_BLOCKED' });
   }
 
+  const requestedAction = String(
+    req.body?.action || 'TOUCH'
+  )
+    .trim()
+    .toUpperCase();
+
+  if (requestedAction !== 'TOUCH') {
+    return sendJson(res, 400, {
+      ok: false,
+      code: 'INVALID_SESSION_ACTION',
+    });
+  }
+
   const cookies = parseCookies(req.headers.cookie);
   const sessionToken = cookies[COOKIE_NAME];
 
@@ -1996,6 +1693,7 @@ async function handleSessionActivityMutation(req, res) {
   }
 
   let securitySession;
+
   try {
     securitySession = await getSecuritySession(sessionToken);
   } catch (error) {
@@ -2008,111 +1706,170 @@ async function handleSessionActivityMutation(req, res) {
     return sendJson(res, 401, { ok: false, code: 'SESSION_INVALID' });
   }
 
-  const now = Date.now();
-  const currentExpiry = new Date(securitySession.http_session_expires_at).getTime();
+  const currentExpiry = Date.parse(
+    securitySession.http_session_expires_at || ''
+  );
 
-  if (!Number.isFinite(currentExpiry) || currentExpiry <= now) {
+  if (!Number.isFinite(currentExpiry) || currentExpiry <= Date.now()) {
     await invalidateSession({
       sessionId: securitySession.id,
       reason: 'HTTP_SESSION_EXPIRED',
       expired: true,
-    });
+    }).catch(() => {});
+
     clearSessionCookie(res);
     return sendJson(res, 401, { ok: false, code: 'SESSION_EXPIRED' });
   }
 
-  const accountSecurity = await getAccountSecurity(securitySession.user_id);
+  let accountSecurity;
+
+  try {
+    accountSecurity = await getAccountSecurity(
+      securitySession.user_id
+    );
+  } catch (error) {
+    console.error('Session activity security lookup failed:', error?.message);
+    return sendJson(res, 503, { ok: false, code: 'SECURITY_SERVICE_UNAVAILABLE' });
+  }
+
   if (!accountSecurity || accountSecurity.is_locked) {
     await invalidateSession({
       sessionId: securitySession.id,
       reason: 'ACCOUNT_SECURITY_LOCK',
-    });
+    }).catch(() => {});
+
     clearSessionCookie(res);
     return sendJson(res, 423, { ok: false, code: 'ACCOUNT_LOCKED' });
   }
 
-  const currentIp = getClientIp(req);
-  if (securitySession.ip_address && (!currentIp || String(currentIp) !== String(securitySession.ip_address))) {
-    await invalidateSession({
-      sessionId: securitySession.id,
-      reason: 'IP_CHANGED',
-    });
-    clearSessionCookie(res);
-    return sendJson(res, 401, { ok: false, code: 'SECURITY_CONTEXT_CHANGED' });
-  }
+  let portalContext;
 
-  const currentUserAgent = getUserAgent(req);
-  if (securitySession.user_agent && currentUserAgent !== securitySession.user_agent) {
-    await invalidateSession({
-      sessionId: securitySession.id,
-      reason: 'BROWSER_CHANGED',
-    });
-    clearSessionCookie(res);
-    return sendJson(res, 401, { ok: false, code: 'SECURITY_CONTEXT_CHANGED' });
-  }
-
-  const requestedAction = String(
-    req.body?.action || 'TOUCH'
-  )
-    .trim()
-    .toUpperCase();
-
-  if (requestedAction !== 'TOUCH') {
-    return sendJson(
-      res,
-      400,
-      {
-        ok: false,
-        code: 'INVALID_SESSION_ACTION',
-      }
+  try {
+    portalContext = await getExpectedPortalContext(
+      securitySession
     );
-  }
-
-  const timeoutMinutes =
-    SESSION_IDLE_TIMEOUT_MINUTES;
-
-  const nextExpiry = new Date(
-    now +
-      SESSION_IDLE_TIMEOUT_SECONDS *
-        1000
-  ).toISOString();
-
-  const { error: updateError } = await supabaseAdmin
-    .from('security_sessions')
-    .update({
-      last_seen_at: new Date(now).toISOString(),
-      http_session_expires_at: nextExpiry,
-    })
-    .eq('id', securitySession.id)
-    .eq('status', 'active');
-
-  if (updateError) {
-    console.error('Session activity update failed:', updateError.message);
+  } catch (error) {
+    console.error('Session activity portal lookup failed:', error?.message);
     return sendJson(res, 503, { ok: false, code: 'SECURITY_SERVICE_UNAVAILABLE' });
   }
 
-  /*
-    Keep the browser's host-only HttpOnly cookie on the same
-    sliding 30-minute inactivity window as the database row.
+  if (
+    !portalContext ||
+    normalizeHost(portalContext.expectedHost) !== requestHost
+  ) {
+    await invalidateSession({
+      sessionId: securitySession.id,
+      reason: 'PORTAL_ACCESS_REVOKED',
+    }).catch(() => {});
 
-    Without refreshing Max-Age here, the DB expiry moves forward
-    while the browser cookie still dies 30 minutes after login.
-  */
-  refreshSessionCookie(
-    res,
-    sessionToken
-  );
+    clearSessionCookie(res);
+    return sendJson(res, 403, { ok: false, code: 'ACCESS_REVOKED' });
+  }
+
+  const currentIp = getClientIp(req);
+  const currentUserAgent = getUserAgent(req);
+  const contextChanges = getSessionContextChanges({
+    securitySession,
+    currentIp,
+    currentUserAgent,
+  });
+
+  let verifiedAuth;
+
+  try {
+    verifiedAuth = await verifySupabaseSession({
+      securitySession,
+      mfaEnabled: accountSecurity.mfa_enabled === true,
+    });
+  } catch (error) {
+    const errorCode = error?.code || error?.message || 'SESSION_INVALID';
+
+    console.error(
+      'Session activity auth verification failed:',
+      errorCode
+    );
+
+    await writeSecurityEvent({
+      userId: securitySession.user_id,
+      companyId: securitySession.company_id,
+      eventType:
+        errorCode === 'MFA_AAL2_REQUIRED'
+          ? 'PORTAL_SESSION_MFA_REQUIRED'
+          : 'PORTAL_SESSION_AUTH_INVALID',
+      portalType: securitySession.portal_type,
+      ipAddress: currentIp,
+      userAgent: currentUserAgent,
+      metadata: {
+        reason: String(errorCode),
+        during: 'SESSION_TOUCH',
+      },
+    });
+
+    await invalidateSession({
+      sessionId: securitySession.id,
+      reason:
+        errorCode === 'MFA_AAL2_REQUIRED'
+          ? 'MFA_AAL2_REQUIRED'
+          : 'SUPABASE_SESSION_INVALID',
+    }).catch(() => {});
+
+    clearSessionCookie(res);
+
+    return sendJson(res, 401, {
+      ok: false,
+      code:
+        errorCode === 'MFA_AAL2_REQUIRED'
+          ? 'MFA_AAL2_REQUIRED'
+          : 'SESSION_INVALID',
+    });
+  }
+
+  let renewal;
+
+  try {
+    renewal = await renewPortalIdleWindow({
+      sessionId: securitySession.id,
+      ipAddress: currentIp,
+      userAgent: currentUserAgent,
+    });
+  } catch (error) {
+    console.error('Session activity renewal failed:', error?.message);
+    return sendJson(res, 503, { ok: false, code: 'SECURITY_SERVICE_UNAVAILABLE' });
+  }
+
+  if (contextChanges.ipChanged || contextChanges.browserChanged) {
+    await writeSecurityEvent({
+      userId: securitySession.user_id,
+      companyId: securitySession.company_id,
+      eventType: 'PORTAL_SESSION_CONTEXT_CHANGED',
+      portalType: securitySession.portal_type,
+      ipAddress: currentIp,
+      userAgent: currentUserAgent,
+      metadata: {
+        ip_changed: contextChanges.ipChanged,
+        browser_changed: contextChanges.browserChanged,
+        action: requestedAction,
+      },
+    });
+  }
+
+  refreshSessionCookie(res, sessionToken);
 
   return sendJson(res, 200, {
     ok: true,
     action: requestedAction,
+    serverTime: renewal.serverTime,
     session: {
-      expiresAt: nextExpiry,
-      timeoutMinutes,
-      lastSeenAt: new Date(now).toISOString(),
+      id: securitySession.id,
+      expiresAt: renewal.expiresAt,
+      timeoutMinutes: renewal.timeoutMinutes,
+      idleTimeoutSeconds: renewal.idleTimeoutSeconds,
+      lastSeenAt: renewal.lastSeenAt,
+      authRefreshed: verifiedAuth.refreshed === true,
     },
-    expiresAt: nextExpiry,
-    timeoutMinutes,
+    expiresAt: renewal.expiresAt,
+    timeoutMinutes: renewal.timeoutMinutes,
+    idleTimeoutSeconds: renewal.idleTimeoutSeconds,
   });
 }
 
@@ -2481,7 +2238,11 @@ export default async function handler(
 
 
   /* ========================================================
-     IP BINDING
+     REQUEST CONTEXT SIGNALS
+
+     IP and User-Agent changes are risk/audit signals only.
+     They are intentionally NOT hard session kill-switches because
+     legitimate network/browser changes are common in real SaaS use.
   ======================================================== */
 
   const currentIp =
@@ -2490,142 +2251,18 @@ export default async function handler(
     );
 
 
-  if (
-    securitySession
-      .ip_address
-  ) {
-    if (
-      !currentIp ||
-      String(
-        currentIp
-      ) !==
-        String(
-          securitySession
-            .ip_address
-        )
-    ) {
-      await writeSecurityEvent({
-        userId:
-          securitySession
-            .user_id,
-
-        companyId:
-          securitySession
-            .company_id,
-
-        eventType:
-          'PORTAL_SESSION_IP_CHANGED',
-
-        portalType:
-          securitySession
-            .portal_type,
-
-        ipAddress:
-          currentIp,
-
-        userAgent:
-          getUserAgent(
-            req
-          ),
-      });
-
-
-      await invalidateSession({
-        sessionId:
-          securitySession.id,
-
-        reason:
-          'IP_CHANGED',
-      });
-
-
-      clearSessionCookie(
-        res
-      );
-
-
-      return sendJson(
-        res,
-        401,
-        {
-          ok:
-            false,
-
-          code:
-            'SECURITY_CONTEXT_CHANGED',
-        }
-      );
-    }
-  }
-
-
-  /* ========================================================
-     USER AGENT BINDING
-  ======================================================== */
-
   const currentUserAgent =
     getUserAgent(
       req
     );
 
 
-  if (
-    securitySession
-      .user_agent &&
-    currentUserAgent !==
-      securitySession
-        .user_agent
-  ) {
-    await writeSecurityEvent({
-      userId:
-        securitySession
-          .user_id,
-
-      companyId:
-        securitySession
-          .company_id,
-
-      eventType:
-        'PORTAL_SESSION_BROWSER_CHANGED',
-
-      portalType:
-        securitySession
-          .portal_type,
-
-      ipAddress:
-        currentIp,
-
-      userAgent:
-        currentUserAgent,
+  const contextChanges =
+    getSessionContextChanges({
+      securitySession,
+      currentIp,
+      currentUserAgent,
     });
-
-
-    await invalidateSession({
-      sessionId:
-        securitySession.id,
-
-      reason:
-        'BROWSER_CHANGED',
-    });
-
-
-    clearSessionCookie(
-      res
-    );
-
-
-    return sendJson(
-      res,
-      401,
-      {
-        ok:
-          false,
-
-        code:
-          'SECURITY_CONTEXT_CHANGED',
-      }
-    );
-  }
 
 
   /* ========================================================
@@ -2858,17 +2495,14 @@ export default async function handler(
 
 
   /* ========================================================
-     LAST-SEEN + SUCCESS AUDIT
+     SUCCESS / CONTEXT AUDIT
 
-     Both writes are independent after verification succeeds.
-     Running them together removes one serial database wait.
+     GET validation does not extend the idle window. Only an explicit
+     user-activity TOUCH may renew the 30-minute session. This prevents
+     background polling from keeping an abandoned dashboard alive.
   ======================================================== */
 
-  await Promise.all([
-    touchSession(
-      securitySession.id
-    ),
-
+  const auditWrites = [
     writeSecurityEvent({
       userId:
         securitySession
@@ -2905,9 +2539,59 @@ export default async function handler(
 
         session_aal:
           verifiedAuth.aal,
+
+        auth_refreshed:
+          verifiedAuth.refreshed === true,
       },
     }),
-  ]);
+  ];
+
+
+  if (
+    contextChanges.ipChanged ||
+    contextChanges.browserChanged
+  ) {
+    auditWrites.push(
+      writeSecurityEvent({
+        userId:
+          securitySession
+            .user_id,
+
+        companyId:
+          securitySession
+            .company_id,
+
+        eventType:
+          'PORTAL_SESSION_CONTEXT_CHANGED',
+
+        portalType:
+          securitySession
+            .portal_type,
+
+        ipAddress:
+          currentIp,
+
+        userAgent:
+          currentUserAgent,
+
+        metadata: {
+          ip_changed:
+            contextChanges.ipChanged,
+
+          browser_changed:
+            contextChanges.browserChanged,
+
+          during:
+            'SESSION_VALIDATION',
+        },
+      })
+    );
+  }
+
+
+  await Promise.all(
+    auditWrites
+  );
 
 
   /* ========================================================
@@ -2923,10 +2607,31 @@ export default async function handler(
 
       currentUser,
 
+      serverTime:
+        new Date()
+          .toISOString(),
+
       session: {
+        id:
+          securitySession.id,
+
         expiresAt:
           securitySession
             .http_session_expires_at,
+
+        idleTimeoutSeconds:
+          SESSION_IDLE_TIMEOUT_SECONDS,
+
+        timeoutMinutes:
+          PORTAL_SESSION_COOKIE,
+  SESSION_IDLE_TIMEOUT_MINUTES,
+
+        lastSeenAt:
+          securitySession
+            .last_seen_at,
+
+        authRefreshed:
+          verifiedAuth.refreshed === true,
 
         portalType:
           securitySession

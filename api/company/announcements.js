@@ -1,8 +1,8 @@
-import { requireCompanyPortalSession, setCompanyApiHeaders } from '../../server/auth/requireCompanyPortalSession.js';
+import { clearCompanySessionCookie, requireCompanyPortalSession, setCompanyApiHeaders } from '../../server/auth/requireCompanyPortalSession.js';
 function send(res,status,payload){setCompanyApiHeaders(res);return res.status(status).json(payload)}
 export default async function handler(req,res){
   try{
-    const auth=await requireCompanyPortalSession(req); if(!auth.ok)return send(res,auth.status,{ok:false,code:auth.code});
+    const auth=await requireCompanyPortalSession(req); if(!auth.ok){if(auth.clearCookie)clearCompanySessionCookie(res);return send(res,auth.status,{ok:false,code:auth.code});}
     const {db,userId,companyId}=auth;
     if(req.method==='GET'){
       const now=new Date().toISOString();

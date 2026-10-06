@@ -1,7 +1,8 @@
 import { createHash, webcrypto } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
+import { PORTAL_SESSION_COOKIE } from '../../server/auth/sessionPolicy.js';
 
-const COOKIE_NAME = '__Host-bf_session';
+const COOKIE_NAME = PORTAL_SESSION_COOKIE;
 const ALLOWED_HOSTS = new Set([
   'developer.buddyfleets.in',
   'team.buddyfleets.in',
@@ -108,9 +109,6 @@ async function persistCurrentAuthSession(applicationSession, userClient) {
     encryptSecret(data.session.refresh_token, encryptionKey),
   ]);
 
-  const now = new Date();
-  const nextExpiry = new Date(now.getTime() + 30 * 60 * 1000).toISOString();
-
   const { error: updateError } = await admin
     .from('security_sessions')
     .update({
@@ -118,8 +116,6 @@ async function persistCurrentAuthSession(applicationSession, userClient) {
       access_token_iv: access.iv,
       encrypted_refresh_token: refresh.encrypted,
       refresh_token_iv: refresh.iv,
-      last_seen_at: now.toISOString(),
-      http_session_expires_at: nextExpiry,
     })
     .eq('id', applicationSession.id)
     .eq('status', 'active');
@@ -127,7 +123,6 @@ async function persistCurrentAuthSession(applicationSession, userClient) {
   if (updateError) throw updateError;
 
   return {
-    expiresAt: nextExpiry,
     session: data.session,
   };
 }
@@ -189,6 +184,11 @@ async function createUserAuthClient(session) {
     throw new Error('AUTH_SESSION_INVALID');
   }
 
+  /* setSession() may transparently rotate an expired access/refresh token
+     pair. Persist that rotation immediately; do not extend the Buddy Fleets
+     idle window here. Only /api/auth/session TOUCH owns idle renewal. */
+  await persistCurrentAuthSession(session, client);
+
   return client;
 }
 
@@ -205,6 +205,7 @@ async function revokeBuddySessions(userId, reason, exceptSessionId = null) {
       access_token_iv: null,
       encrypted_refresh_token: null,
       refresh_token_iv: null,
+      http_session_expires_at: null,
     })
     .eq('user_id', userId)
     .eq('status', 'active');
