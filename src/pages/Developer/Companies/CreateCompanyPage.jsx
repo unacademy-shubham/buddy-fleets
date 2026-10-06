@@ -174,11 +174,11 @@ function validNationalPhone(value, countryCode) {
 function InputShell({ label, required, helper, error, children }) {
   return (
     <label className="block min-w-0">
-      <span className="flex items-center gap-1 text-[9px] font-semibold text-[var(--bf-dev-text-2)]">
+      <span className="flex items-center gap-1 text-[13px] font-semibold text-[var(--bf-dev-text-2)]">
         {label}{required && <span className="text-rose-500">*</span>}
       </span>
       <div className="mt-1.5">{children}</div>
-      {error ? <div className="mt-1 text-[8px] font-medium text-rose-500">{error}</div> : helper ? <div className="mt-1 text-[8px] leading-4 text-[var(--bf-dev-text-3)]">{helper}</div> : null}
+      {error ? <div className="mt-1 text-[12px] font-medium text-rose-500">{error}</div> : helper ? <div className="mt-1 text-[12px] leading-4 text-[var(--bf-dev-text-2)]">{helper}</div> : null}
     </label>
   );
 }
@@ -194,7 +194,7 @@ function TextInput({ value, onChange, placeholder, type = 'text', readOnly = fal
       autoComplete={autoComplete}
       maxLength={maxLength}
       className={cx(
-        'h-10 w-full rounded-[5px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] px-3 text-[10px] text-[var(--bf-dev-text)] outline-none transition placeholder:text-[var(--bf-dev-text-3)] focus:border-[var(--bf-dev-primary)] focus:ring-2 focus:ring-[rgb(var(--bf-dev-primary-rgb)/.10)]',
+        'h-10 w-full rounded-[5px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] px-3 text-[14px] text-[var(--bf-dev-text)] outline-none transition placeholder:text-[var(--bf-dev-text-3)] focus:border-[var(--bf-dev-primary)] focus:ring-2 focus:ring-[rgb(var(--bf-dev-primary-rgb)/.10)]',
         readOnly && 'cursor-default bg-[var(--bf-dev-surface-2)] text-[var(--bf-dev-text-2)]',
         className
       )}
@@ -220,22 +220,22 @@ function SelectMenu({ value, options, onChange, placeholder = 'Select', searchab
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => setOpen((current) => !current)}
-        className="flex h-10 w-full items-center justify-between gap-3 rounded-[5px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] px-3 text-left text-[10px] font-medium text-[var(--bf-dev-text)] outline-none transition hover:bg-[var(--bf-dev-surface-2)] focus-visible:ring-2 focus-visible:ring-[rgb(var(--bf-dev-primary-rgb)/.20)] disabled:cursor-not-allowed disabled:opacity-55"
+        className="flex h-10 w-full items-center justify-between gap-3 rounded-[5px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] px-3 text-left text-[14px] font-medium text-[var(--bf-dev-text)] outline-none transition hover:bg-[var(--bf-dev-surface-2)] focus-visible:ring-2 focus-visible:ring-[rgb(var(--bf-dev-primary-rgb)/.20)] disabled:cursor-not-allowed disabled:opacity-55"
       >
-        <span className={cx('truncate', !selected && 'text-[var(--bf-dev-text-3)]')}>{selected?.label || placeholder}</span>
-        <ChevronDown size={14} className={cx('shrink-0 text-[var(--bf-dev-text-3)] transition', open && 'rotate-180')} />
+        <span className={cx('truncate', !selected && 'text-[var(--bf-dev-text-2)]')}>{selected?.label || placeholder}</span>
+        <ChevronDown size={14} className={cx('shrink-0 text-[var(--bf-dev-text-2)] transition', open && 'rotate-180')} />
       </button>
       {open && (
         <div className="absolute left-0 top-[calc(100%+6px)] z-[120] w-full min-w-[240px] rounded-[5px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] p-1.5 shadow-[0_20px_60px_rgba(2,6,23,.24)]">
           {searchable && (
             <div className="relative mb-1.5">
-              <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--bf-dev-text-3)]" />
+              <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--bf-dev-text-2)]" />
               <input
                 autoFocus
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Search…"
-                className="h-9 w-full rounded-[4px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] pl-8 pr-3 text-[9px] text-[var(--bf-dev-text)] outline-none focus:border-[var(--bf-dev-primary)]"
+                className="h-9 w-full rounded-[4px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] pl-8 pr-3 text-[13px] text-[var(--bf-dev-text)] outline-none focus:border-[var(--bf-dev-primary)]"
               />
             </div>
           )}
@@ -250,18 +250,18 @@ function SelectMenu({ value, options, onChange, placeholder = 'Select', searchab
                   aria-selected={active}
                   onClick={() => { onChange(option.value); close(); }}
                   className={cx(
-                    'flex w-full items-center justify-between gap-3 rounded-[4px] px-3 py-2 text-left text-[9px] transition',
+                    'flex w-full items-center justify-between gap-3 rounded-[4px] px-3 py-2 text-left text-[13px] transition',
                     active
                       ? 'bg-[rgb(var(--bf-dev-primary-rgb)/.12)] font-bold text-[var(--bf-dev-primary)]'
                       : 'text-[var(--bf-dev-text-2)] hover:bg-[var(--bf-dev-surface-2)] hover:text-[var(--bf-dev-text)]'
                   )}
                 >
                   <span className="truncate">{option.label}</span>
-                  {option.meta && <span className="shrink-0 text-[8px] text-[var(--bf-dev-text-3)]">{option.meta}</span>}
+                  {option.meta && <span className="shrink-0 text-[12px] text-[var(--bf-dev-text-2)]">{option.meta}</span>}
                 </button>
               );
             })}
-            {!filtered.length && <div className="px-3 py-4 text-center text-[9px] text-[var(--bf-dev-text-3)]">No matching options</div>}
+            {!filtered.length && <div className="px-3 py-4 text-center text-[13px] text-[var(--bf-dev-text-2)]">No matching options</div>}
           </div>
         </div>
       )}
@@ -284,8 +284,8 @@ function MultiSelectMenu({ values, options, onChange, placeholder = 'Add Fleet P
 
   return (
     <div ref={ref} className="relative">
-      <button type="button" onClick={() => setOpen((current) => !current)} className="flex min-h-10 w-full items-center justify-between gap-3 rounded-[5px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] px-3 py-2 text-left text-[10px] text-[var(--bf-dev-text)] transition hover:bg-[var(--bf-dev-surface-2)]">
-        <span className={cx('truncate', !values?.length && 'text-[var(--bf-dev-text-3)]')}>{values?.length ? `${values.length} additional Fleet Pack${values.length === 1 ? '' : 's'} selected` : placeholder}</span>
+      <button type="button" onClick={() => setOpen((current) => !current)} className="flex min-h-10 w-full items-center justify-between gap-3 rounded-[5px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] px-3 py-2 text-left text-[14px] text-[var(--bf-dev-text)] transition hover:bg-[var(--bf-dev-surface-2)]">
+        <span className={cx('truncate', !values?.length && 'text-[var(--bf-dev-text-2)]')}>{values?.length ? `${values.length} additional Fleet Pack${values.length === 1 ? '' : 's'} selected` : placeholder}</span>
         <ChevronDown size={14} className={cx('shrink-0 transition', open && 'rotate-180')} />
       </button>
       {open && (
@@ -293,7 +293,7 @@ function MultiSelectMenu({ values, options, onChange, placeholder = 'Add Fleet P
           {options.map((option) => {
             const active = selected.has(option.value);
             return (
-              <button key={option.value} type="button" onClick={() => toggle(option.value)} className="flex w-full items-center gap-2 rounded-[4px] px-3 py-2 text-left text-[9px] text-[var(--bf-dev-text-2)] transition hover:bg-[var(--bf-dev-surface-2)]">
+              <button key={option.value} type="button" onClick={() => toggle(option.value)} className="flex w-full items-center gap-2 rounded-[4px] px-3 py-2 text-left text-[13px] text-[var(--bf-dev-text-2)] transition hover:bg-[var(--bf-dev-surface-2)]">
                 <span className={cx('flex h-4 w-4 shrink-0 items-center justify-center rounded-[3px] border', active ? 'border-[var(--bf-dev-primary)] bg-[var(--bf-dev-primary)] text-white' : 'border-[var(--bf-dev-border)]')}>
                   {active && <Check size={10} />}
                 </span>
@@ -318,7 +318,7 @@ function Segmented({ value, options, onChange }) {
             type="button"
             onClick={() => onChange(option.value)}
             className={cx(
-              'min-h-10 rounded-[5px] border px-3 py-2 text-[9px] font-bold transition',
+              'min-h-10 rounded-[5px] border px-3 py-2 text-[13px] font-bold transition',
               active
                 ? 'border-[var(--bf-dev-primary)] bg-[rgb(var(--bf-dev-primary-rgb)/.12)] text-[var(--bf-dev-primary)] shadow-[0_0_0_1px_rgb(var(--bf-dev-primary-rgb)/.08)]'
                 : 'border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] text-[var(--bf-dev-text-2)] hover:bg-[var(--bf-dev-surface-2)] hover:text-[var(--bf-dev-text)]'
@@ -336,8 +336,8 @@ function PhoneInput({ value, onChange, countryCode, placeholder = '98765 43210' 
   const country = COUNTRY_BY_CODE[countryCode] || COUNTRY_BY_CODE.IN;
   return (
     <div className="flex h-10 overflow-hidden rounded-[5px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] focus-within:border-[var(--bf-dev-primary)] focus-within:ring-2 focus-within:ring-[rgb(var(--bf-dev-primary-rgb)/.10)]">
-      <div className="flex min-w-[76px] items-center justify-center border-r border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] px-2 text-[9px] font-bold text-[var(--bf-dev-text-2)]">{country?.dialCode || '+91'}</div>
-      <input value={value} onChange={(event) => onChange(digitsOnly(event.target.value, 15))} placeholder={placeholder} inputMode="numeric" className="min-w-0 flex-1 bg-transparent px-3 text-[10px] text-[var(--bf-dev-text)] outline-none placeholder:text-[var(--bf-dev-text-3)]" />
+      <div className="flex min-w-[76px] items-center justify-center border-r border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] px-2 text-[13px] font-bold text-[var(--bf-dev-text-2)]">{country?.dialCode || '+91'}</div>
+      <input value={value} onChange={(event) => onChange(digitsOnly(event.target.value, 15))} placeholder={placeholder} inputMode="numeric" className="min-w-0 flex-1 bg-transparent px-3 text-[14px] text-[var(--bf-dev-text)] outline-none placeholder:text-[var(--bf-dev-text-3)]" />
     </div>
   );
 }
@@ -348,8 +348,8 @@ function FieldCard({ title, subtitle, children, icon: Icon }) {
       <div className="flex items-center gap-3 border-b border-[var(--bf-dev-border)] px-5 py-4">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[5px] bg-[rgb(var(--bf-dev-primary-rgb)/.10)] text-[var(--bf-dev-primary)]"><Icon size={16} /></div>
         <div>
-          <div className="text-[13px] font-semibold text-[var(--bf-dev-text)]">{title}</div>
-          {subtitle && <div className="mt-0.5 text-[8px] text-[var(--bf-dev-text-3)]">{subtitle}</div>}
+          <div className="text-[16px] font-semibold text-[var(--bf-dev-text)]">{title}</div>
+          {subtitle && <div className="mt-0.5 text-[12px] text-[var(--bf-dev-text-2)]">{subtitle}</div>}
         </div>
       </div>
       <div className="p-5">{children}</div>
@@ -359,7 +359,7 @@ function FieldCard({ title, subtitle, children, icon: Icon }) {
 
 function HeaderAction({ icon: Icon, children, onClick, disabled }) {
   return (
-    <button type="button" disabled={disabled} onClick={onClick} className="inline-flex min-h-[32px] items-center justify-center gap-1.5 rounded-[4px] border border-white/30 bg-white/12 px-3 py-1.5 text-[10px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,.14),0_1px_2px_rgba(0,0,0,.08)] transition hover:border-white/45 hover:bg-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-55">
+    <button type="button" disabled={disabled} onClick={onClick} className="inline-flex min-h-[32px] items-center justify-center gap-1.5 rounded-[4px] border border-white/30 bg-white/12 px-3 py-1.5 text-[14px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,.14),0_1px_2px_rgba(0,0,0,.08)] transition hover:border-white/45 hover:bg-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-55">
       {Icon && <Icon size={13} />}{children}
     </button>
   );
@@ -367,7 +367,7 @@ function HeaderAction({ icon: Icon, children, onClick, disabled }) {
 
 function PrimaryButton({ children, icon: Icon, onClick, disabled }) {
   return (
-    <button type="button" disabled={disabled} onClick={onClick} className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-[5px] border border-[var(--bf-dev-primary)] bg-[var(--bf-dev-primary)] px-4 py-2 text-[9px] font-bold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50">
+    <button type="button" disabled={disabled} onClick={onClick} className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-[5px] border border-[var(--bf-dev-primary)] bg-[var(--bf-dev-primary)] px-4 py-2 text-[13px] font-bold !text-white transition hover:brightness-110 hover:!text-white disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:!text-white">
       {Icon && <Icon size={13} />}{children}
     </button>
   );
@@ -375,31 +375,42 @@ function PrimaryButton({ children, icon: Icon, onClick, disabled }) {
 
 function SecondaryButton({ children, icon: Icon, onClick, disabled, danger = false }) {
   return (
-    <button type="button" disabled={disabled} onClick={onClick} className={cx('inline-flex min-h-9 items-center justify-center gap-1.5 rounded-[5px] border px-4 py-2 text-[9px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-50', danger ? 'border-rose-500/25 bg-rose-500/10 text-rose-500 hover:bg-rose-500/15' : 'border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] text-[var(--bf-dev-text-2)] hover:bg-[var(--bf-dev-surface-2)] hover:text-[var(--bf-dev-text)]')}>
+    <button type="button" disabled={disabled} onClick={onClick} className={cx('inline-flex min-h-9 items-center justify-center gap-1.5 rounded-[5px] border px-4 py-2 text-[13px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-50', danger ? 'border-rose-500/25 bg-rose-500/10 text-rose-500 hover:bg-rose-500/15' : 'border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] text-[var(--bf-dev-text-2)] hover:bg-[var(--bf-dev-surface-2)] hover:text-[var(--bf-dev-text)]')}>
       {Icon && <Icon size={13} />}{children}
     </button>
   );
 }
 
-function Stepper({ current }) {
+function Stepper({ current, maxReached, onStepClick }) {
   return (
     <Card className="overflow-hidden">
       <div className="grid grid-cols-2 border-b border-[var(--bf-dev-border)] sm:grid-cols-5 sm:border-b-0">
         {STEPS.map((step, index) => {
           const Icon = step.icon;
           const active = current === index;
-          const complete = current > index;
+          const unlocked = index <= maxReached;
+          const complete = unlocked && !active && index < maxReached;
           return (
-            <div key={step.key} className={cx('relative flex min-h-[62px] items-center gap-2 border-r border-[var(--bf-dev-border)] px-3 last:border-r-0', active && 'bg-[rgb(var(--bf-dev-primary-rgb)/.07)]')}>
-              <div className={cx('flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-[8px] font-bold', complete ? 'border-emerald-500 bg-emerald-500 text-white' : active ? 'border-[var(--bf-dev-primary)] bg-[var(--bf-dev-primary)] text-white' : 'border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] text-[var(--bf-dev-text-3)]')}>
-                {complete ? <Check size={12} /> : <Icon size={12} />}
+            <button
+              key={step.key}
+              type="button"
+              disabled={!unlocked}
+              onClick={() => unlocked && onStepClick?.(index)}
+              className={cx(
+                'relative flex min-h-[70px] items-center gap-2 border-r border-[var(--bf-dev-border)] px-3 text-left transition last:border-r-0',
+                active && 'bg-[rgb(var(--bf-dev-primary-rgb)/.07)]',
+                unlocked ? 'cursor-pointer hover:bg-[var(--bf-dev-surface-2)]' : 'cursor-not-allowed opacity-60'
+              )}
+            >
+              <div className={cx('flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-[12px] font-bold', complete ? 'border-emerald-500 bg-emerald-500 text-white' : active ? 'border-[var(--bf-dev-primary)] bg-[var(--bf-dev-primary)] text-white' : 'border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] text-[var(--bf-dev-text-2)]')}>
+                {complete ? <Check size={13} /> : <Icon size={13} />}
               </div>
               <div className="min-w-0">
-                <div className="text-[7px] font-bold uppercase tracking-[.08em] text-[var(--bf-dev-text-3)]">Step {index + 1}</div>
-                <div className={cx('mt-0.5 truncate text-[9px] font-semibold', active ? 'text-[var(--bf-dev-primary)]' : 'text-[var(--bf-dev-text-2)]')}>{step.label}</div>
+                <div className="text-[11px] font-bold uppercase tracking-[.08em] text-[var(--bf-dev-text-2)]">Step {index + 1}</div>
+                <div className={cx('mt-0.5 truncate text-[13px] font-semibold', active ? 'text-[var(--bf-dev-primary)]' : 'text-[var(--bf-dev-text)]')}>{step.label}</div>
               </div>
               {active && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--bf-dev-primary)]" />}
-            </div>
+            </button>
           );
         })}
       </div>
@@ -413,11 +424,11 @@ function SlugConflictDialog({ slugState, value, onChange, onCheck, onPick, onClo
       <div className="w-full max-w-lg rounded-[6px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] shadow-[0_28px_90px_rgba(2,6,23,.38)]">
         <div className="flex items-start justify-between gap-4 border-b border-[var(--bf-dev-border)] p-5">
           <div>
-            <div className="text-[9px] font-bold uppercase tracking-[.08em] text-amber-500">Portal slug conflict</div>
-            <div className="mt-1 text-[17px] font-extrabold text-[var(--bf-dev-text)]">Choose a unique portal slug</div>
-            <div className="mt-1 text-[9px] leading-4 text-[var(--bf-dev-text-3)]">The name-matched slug is already in use. Company Code remains fully system-generated.</div>
+            <div className="text-[13px] font-bold uppercase tracking-[.08em] text-amber-500">Portal slug conflict</div>
+            <div className="mt-1 text-[20px] font-extrabold text-[var(--bf-dev-text)]">Choose a unique portal slug</div>
+            <div className="mt-1 text-[13px] leading-4 text-[var(--bf-dev-text-2)]">The name-matched slug is already in use. Company Code remains fully system-generated.</div>
           </div>
-          <button type="button" onClick={onClose} className="text-[var(--bf-dev-text-3)] hover:text-[var(--bf-dev-text)]"><X size={16} /></button>
+          <button type="button" onClick={onClose} className="text-[var(--bf-dev-text-2)] hover:text-[var(--bf-dev-text)]"><X size={16} /></button>
         </div>
         <div className="space-y-4 p-5">
           <InputShell label="Portal Slug" required helper="Lowercase letters, numbers and hyphens only.">
@@ -425,11 +436,11 @@ function SlugConflictDialog({ slugState, value, onChange, onCheck, onPick, onClo
           </InputShell>
           <div className="flex flex-wrap gap-2">
             {(slugState?.suggestions || []).map((suggestion) => (
-              <button key={suggestion} type="button" onClick={() => onPick(suggestion)} className="rounded-[4px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] px-3 py-2 text-[8px] font-semibold text-[var(--bf-dev-text-2)] hover:border-[var(--bf-dev-primary)] hover:text-[var(--bf-dev-primary)]">{suggestion}</button>
+              <button key={suggestion} type="button" onClick={() => onPick(suggestion)} className="rounded-[4px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] px-3 py-2 text-[12px] font-semibold text-[var(--bf-dev-text-2)] hover:border-[var(--bf-dev-primary)] hover:text-[var(--bf-dev-primary)]">{suggestion}</button>
             ))}
           </div>
-          {slugState?.manualAvailable === true && <div className="rounded-[4px] border border-emerald-500/20 bg-emerald-500/8 px-3 py-2 text-[9px] font-semibold text-emerald-500">This slug is available.</div>}
-          {slugState?.manualAvailable === false && <div className="rounded-[4px] border border-rose-500/20 bg-rose-500/8 px-3 py-2 text-[9px] font-semibold text-rose-500">This slug is already in use.</div>}
+          {slugState?.manualAvailable === true && <div className="rounded-[4px] border border-emerald-500/20 bg-emerald-500/8 px-3 py-2 text-[13px] font-semibold text-emerald-500">This slug is available.</div>}
+          {slugState?.manualAvailable === false && <div className="rounded-[4px] border border-rose-500/20 bg-rose-500/8 px-3 py-2 text-[13px] font-semibold text-rose-500">This slug is already in use.</div>}
         </div>
         <div className="flex justify-end gap-2 border-t border-[var(--bf-dev-border)] p-4">
           <SecondaryButton onClick={onClose}>Cancel</SecondaryButton>
@@ -446,11 +457,11 @@ function PhaseFourDialog({ onClose, payload }) {
       <div className="w-full max-w-xl rounded-[6px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] shadow-[0_28px_90px_rgba(2,6,23,.38)]">
         <div className="flex items-start justify-between gap-4 border-b border-[var(--bf-dev-border)] p-5">
           <div>
-            <div className="text-[9px] font-bold uppercase tracking-[.08em] text-[var(--bf-dev-primary)]">Phase 2 + 3 validation</div>
-            <div className="mt-1 text-[17px] font-extrabold text-[var(--bf-dev-text)]">Wizard is ready for provisioning integration.</div>
-            <div className="mt-1 text-[9px] leading-4 text-[var(--bf-dev-text-3)]">No company has been created yet. Phase 4 will connect this validated payload to the atomic provisioning backend.</div>
+            <div className="text-[13px] font-bold uppercase tracking-[.08em] text-[var(--bf-dev-primary)]">Phase 2 + 3 validation</div>
+            <div className="mt-1 text-[20px] font-extrabold text-[var(--bf-dev-text)]">Wizard is ready for provisioning integration.</div>
+            <div className="mt-1 text-[13px] leading-4 text-[var(--bf-dev-text-2)]">No company has been created yet. Phase 4 will connect this validated payload to the atomic provisioning backend.</div>
           </div>
-          <button type="button" onClick={onClose} className="text-[var(--bf-dev-text-3)] hover:text-[var(--bf-dev-text)]"><X size={16} /></button>
+          <button type="button" onClick={onClose} className="text-[var(--bf-dev-text-2)] hover:text-[var(--bf-dev-text)]"><X size={16} /></button>
         </div>
         <div className="grid gap-2 p-5 sm:grid-cols-2">
           {[
@@ -462,8 +473,8 @@ function PhaseFourDialog({ onClose, payload }) {
             ['Plan / Duration', payload.accountType === 'trial' ? `${payload.trialWeeks} Week${payload.trialWeeks === 1 ? '' : 's'}` : payload.planName],
           ].map(([label, value]) => (
             <div key={label} className="rounded-[4px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] p-3">
-              <div className="text-[8px] text-[var(--bf-dev-text-3)]">{label}</div>
-              <div className="mt-1 text-[10px] font-bold text-[var(--bf-dev-text)]">{value || '—'}</div>
+              <div className="text-[12px] text-[var(--bf-dev-text-2)]">{label}</div>
+              <div className="mt-1 text-[14px] font-bold text-[var(--bf-dev-text)]">{value || '—'}</div>
             </div>
           ))}
         </div>
@@ -476,11 +487,13 @@ function PhaseFourDialog({ onClose, payload }) {
 export default function CreateCompanyPage() {
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
+  const [maxReached, setMaxReached] = useState(0);
   const [metadata, setMetadata] = useState({ plans: [], fleetPacks: [], billingCycles: [1, 6, 12], trialDurations: [], trialPolicy: {}, accessSummary: {}, gstProviderConfigured: false });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState({});
   const [gstLoading, setGstLoading] = useState(false);
+  const [gstError, setGstError] = useState('');
   const [gstResult, setGstResult] = useState(null);
   const [gstWarningAccepted, setGstWarningAccepted] = useState(false);
   const [pinLoading, setPinLoading] = useState(false);
@@ -621,7 +634,7 @@ export default function CreateCompanyPage() {
 
   async function verifyGst() {
     setGstLoading(true);
-    setError('');
+    setGstError('');
     setGstWarningAccepted(false);
     const result = await verifyCompanyGstin(form.gstin.toUpperCase());
     if (result.ok) {
@@ -644,7 +657,7 @@ export default function CreateCompanyPage() {
         GST_PROVIDER_AUTH_FAILED: 'GST provider API key is invalid.',
         INVALID_GSTIN: 'Enter a valid 15-character GSTIN.',
       };
-      setError(messages[result.code] || 'GST verification is temporarily unavailable.');
+      setGstError(messages[result.code] || 'GST verification is temporarily unavailable.');
     }
     setGstLoading(false);
   }
@@ -652,6 +665,7 @@ export default function CreateCompanyPage() {
   function onGstinChange(value) {
     patch('gstin', value.toUpperCase().replace(/\s+/g, '').slice(0, 15));
     setGstResult(null);
+    setGstError('');
     setGstWarningAccepted(false);
   }
 
@@ -735,9 +749,19 @@ export default function CreateCompanyPage() {
     return validateCompany() && validateOwner() && validateFleet() && validateCommercial();
   }
 
+  function goToStep(target) {
+    if (target < 0 || target >= STEPS.length || target > maxReached || target === step) return;
+    if (target > step && !validateCurrent()) return;
+    if (target < step) setFieldErrors({});
+    setStep(target);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
   function nextStep() {
     if (!validateCurrent()) return;
-    setStep((current) => Math.min(STEPS.length - 1, current + 1));
+    const target = Math.min(STEPS.length - 1, step + 1);
+    setMaxReached((current) => Math.max(current, target));
+    setStep(target);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -776,16 +800,21 @@ export default function CreateCompanyPage() {
         actions={<HeaderAction icon={ArrowLeft} onClick={() => navigate('/saas-platform/companies/all-companies')}>All Companies</HeaderAction>}
       />
 
-      <Stepper current={step} />
+      <Stepper current={step} maxReached={maxReached} onStepClick={goToStep} />
 
-      {error && <div className="rounded-[5px] border border-rose-500/20 bg-rose-500/8 px-4 py-3 text-[9px] font-medium text-rose-500">{error}</div>}
+      {error && <div className="rounded-[5px] border border-rose-500/20 bg-rose-500/8 px-4 py-3 text-[13px] font-medium text-rose-500">{error}</div>}
 
       {step === 0 && (
         <div className="space-y-4">
           <FieldCard title="Company identity" subtitle="Legal, trade and registration identity. Company Code is generated only by the backend." icon={Building2}>
             {!metadata.gstProviderConfigured && (
-              <div className="mb-4 rounded-[5px] border border-amber-500/20 bg-amber-500/8 px-4 py-3 text-[9px] leading-4 text-amber-600 dark:text-amber-400">
+              <div className="mb-4 rounded-[5px] border border-amber-500/20 bg-amber-500/8 px-4 py-3 text-[13px] leading-4 text-amber-600 dark:text-amber-400">
                 Live GST verification is ready in code but the server key is not configured. Add <b>GSTIN_API_KEY</b> in Vercel when you want Verify GST to go live.
+              </div>
+            )}
+            {gstError && (
+              <div className="mb-4 rounded-[5px] border border-rose-500/20 bg-rose-500/8 px-4 py-3 text-[13px] font-medium leading-5 text-rose-500">
+                {gstError}
               </div>
             )}
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -804,10 +833,10 @@ export default function CreateCompanyPage() {
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
                     {String(gstResult.gstStatus || '').toLowerCase() === 'active' ? <CheckCircle2 size={15} className="text-emerald-500" /> : <AlertTriangle size={15} className="text-amber-500" />}
-                    <div className="text-[9px] font-bold text-[var(--bf-dev-text)]">GST Status: {gstResult.gstStatus}</div>
+                    <div className="text-[13px] font-bold text-[var(--bf-dev-text)]">GST Status: {gstResult.gstStatus}</div>
                   </div>
                   {String(gstResult.gstStatus || '').toLowerCase() !== 'active' && (
-                    <button type="button" onClick={() => setGstWarningAccepted((current) => !current)} className={cx('rounded-[4px] border px-3 py-2 text-[8px] font-bold transition', gstWarningAccepted ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-500' : 'border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400')}>
+                    <button type="button" onClick={() => setGstWarningAccepted((current) => !current)} className={cx('rounded-[4px] border px-3 py-2 text-[12px] font-bold transition', gstWarningAccepted ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-500' : 'border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400')}>
                       {gstWarningAccepted ? 'Risk acknowledged' : 'Confirm and continue'}
                     </button>
                   )}
@@ -819,7 +848,7 @@ export default function CreateCompanyPage() {
               <InputShell label="Legal Name" required error={fieldErrors.legalName}><TextInput value={form.legalName} onChange={(value) => patch('legalName', value)} placeholder="Registered legal name" /></InputShell>
               <InputShell label="Trade Name" required error={fieldErrors.tradeName}>
                 <TextInput value={form.tradeName} onChange={(value) => { patch('tradeName', value); patch('sameTradeName', false); }} placeholder="Company display / trade name" />
-                <button type="button" onClick={() => patch('sameTradeName', !form.sameTradeName)} className="mt-2 inline-flex items-center gap-1.5 text-[8px] font-semibold text-[var(--bf-dev-primary)]">
+                <button type="button" onClick={() => patch('sameTradeName', !form.sameTradeName)} className="mt-2 inline-flex items-center gap-1.5 text-[12px] font-semibold text-[var(--bf-dev-primary)]">
                   <span className={cx('flex h-3.5 w-3.5 items-center justify-center rounded-[3px] border', form.sameTradeName ? 'border-[var(--bf-dev-primary)] bg-[var(--bf-dev-primary)] text-white' : 'border-[var(--bf-dev-border)]')}>{form.sameTradeName && <Check size={9} />}</span>
                   Same as Legal Name
                 </button>
@@ -866,15 +895,15 @@ export default function CreateCompanyPage() {
             <InputShell label="Alternate Mobile" helper="Optional" error={fieldErrors.ownerAlternateMobile}><PhoneInput value={form.ownerAlternateMobile} onChange={(value) => patch('ownerAlternateMobile', value)} countryCode={form.countryCode} /></InputShell>
             <InputShell label="Profile Photo" helper="Optional. Upload is staged in the browser; storage upload will be connected with provisioning.">
               <div className="flex h-10 items-center gap-2 rounded-[5px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] px-2">
-                <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-[4px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] px-3 py-1.5 text-[8px] font-semibold text-[var(--bf-dev-text-2)] hover:text-[var(--bf-dev-primary)]">
+                <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-[4px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] px-3 py-1.5 text-[12px] font-semibold text-[var(--bf-dev-text-2)] hover:text-[var(--bf-dev-primary)]">
                   <FileImage size={12} /> Choose Photo
                   <input type="file" accept="image/*" className="hidden" onChange={(event) => patch('ownerPhoto', event.target.files?.[0] || null)} />
                 </label>
-                <span className="min-w-0 truncate text-[8px] text-[var(--bf-dev-text-3)]">{form.ownerPhoto?.name || 'No file selected'}</span>
+                <span className="min-w-0 truncate text-[12px] text-[var(--bf-dev-text-2)]">{form.ownerPhoto?.name || 'No file selected'}</span>
               </div>
             </InputShell>
           </div>
-          <div className="mt-5 rounded-[5px] border border-[rgb(var(--bf-dev-primary-rgb)/.18)] bg-[rgb(var(--bf-dev-primary-rgb)/.07)] px-4 py-3 text-[9px] leading-4 text-[var(--bf-dev-text-2)]">
+          <div className="mt-5 rounded-[5px] border border-[rgb(var(--bf-dev-primary-rgb)/.18)] bg-[rgb(var(--bf-dev-primary-rgb)/.07)] px-4 py-3 text-[13px] leading-4 text-[var(--bf-dev-text-2)]">
             Account setup: <b>Send Set Password Link</b>. No permanent password is collected in this wizard.
           </div>
         </FieldCard>
@@ -891,15 +920,15 @@ export default function CreateCompanyPage() {
               {enabledFleetKeys.map((key, index) => {
                 const pack = metadata.fleetPacks.find((item) => item.pack_key === key);
                 if (!pack) return null;
-                return <span key={key} className={cx('rounded-full border px-3 py-1.5 text-[8px] font-bold', index === 0 ? 'border-[rgb(var(--bf-dev-primary-rgb)/.25)] bg-[rgb(var(--bf-dev-primary-rgb)/.10)] text-[var(--bf-dev-primary)]' : 'border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] text-[var(--bf-dev-text-2)]')}>{index === 0 ? 'Primary · ' : ''}{pack.name}</span>;
+                return <span key={key} className={cx('rounded-full border px-3 py-1.5 text-[12px] font-bold', index === 0 ? 'border-[rgb(var(--bf-dev-primary-rgb)/.25)] bg-[rgb(var(--bf-dev-primary-rgb)/.10)] text-[var(--bf-dev-primary)]' : 'border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] text-[var(--bf-dev-text-2)]')}>{index === 0 ? 'Primary · ' : ''}{pack.name}</span>;
               })}
             </div>
           </FieldCard>
           <FieldCard title="Primary Site" subtitle="Create Company will provision exactly one primary site initially." icon={MapPin}>
             <div className="grid gap-3 sm:grid-cols-3">
-              <div className="rounded-[5px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] p-4"><div className="text-[8px] text-[var(--bf-dev-text-3)]">Site Name</div><div className="mt-1 text-[11px] font-bold text-[var(--bf-dev-text)]">Head Office</div></div>
-              <div className="rounded-[5px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] p-4"><div className="text-[8px] text-[var(--bf-dev-text-3)]">Address Source</div><div className="mt-1 text-[11px] font-bold text-[var(--bf-dev-text)]">Registered Address</div></div>
-              <div className="rounded-[5px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] p-4"><div className="text-[8px] text-[var(--bf-dev-text-3)]">Status</div><div className="mt-1 text-[11px] font-bold text-emerald-500">Primary · Active</div></div>
+              <div className="rounded-[5px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] p-4"><div className="text-[12px] text-[var(--bf-dev-text-2)]">Site Name</div><div className="mt-1 text-[14px] font-bold text-[var(--bf-dev-text)]">Head Office</div></div>
+              <div className="rounded-[5px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] p-4"><div className="text-[12px] text-[var(--bf-dev-text-2)]">Address Source</div><div className="mt-1 text-[14px] font-bold text-[var(--bf-dev-text)]">Registered Address</div></div>
+              <div className="rounded-[5px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] p-4"><div className="text-[12px] text-[var(--bf-dev-text-2)]">Status</div><div className="mt-1 text-[14px] font-bold text-emerald-500">Primary · Active</div></div>
             </div>
           </FieldCard>
         </div>
@@ -924,7 +953,7 @@ export default function CreateCompanyPage() {
                   ['Vehicles', metadata.trialPolicy?.vehicleLimit ? `Up to ${metadata.trialPolicy.vehicleLimit}` : 'Policy controlled'],
                   ['Users', metadata.trialPolicy?.userLimit ? `Up to ${metadata.trialPolicy.userLimit}` : 'Policy controlled'],
                   ['Sites', metadata.trialPolicy?.siteLimit ? `${metadata.trialPolicy.siteLimit}` : 'Policy controlled'],
-                ].map(([label, value]) => <div key={label} className="rounded-[5px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] p-4"><div className="text-[8px] text-[var(--bf-dev-text-3)]">{label}</div><div className="mt-1 text-[12px] font-extrabold text-[var(--bf-dev-text)]">{value}</div></div>)}
+                ].map(([label, value]) => <div key={label} className="rounded-[5px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] p-4"><div className="text-[12px] text-[var(--bf-dev-text-2)]">{label}</div><div className="mt-1 text-[15px] font-extrabold text-[var(--bf-dev-text)]">{value}</div></div>)}
               </div>
             </FieldCard>
           ) : (
@@ -935,10 +964,10 @@ export default function CreateCompanyPage() {
                     const active = plan.plan_key === form.planKey;
                     return (
                       <button key={plan.plan_key} type="button" onClick={() => patch('planKey', plan.plan_key)} className={cx('rounded-[6px] border p-4 text-left transition', active ? 'border-[var(--bf-dev-primary)] bg-[rgb(var(--bf-dev-primary-rgb)/.08)] shadow-[0_0_0_1px_rgb(var(--bf-dev-primary-rgb)/.10)]' : 'border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] hover:border-[rgb(var(--bf-dev-primary-rgb)/.30)]')}>
-                        <div className="flex items-start justify-between gap-2"><div className="text-[13px] font-extrabold text-[var(--bf-dev-text)]">{plan.name}</div>{active && <CheckCircle2 size={15} className="text-[var(--bf-dev-primary)]" />}</div>
-                        <div className="mt-1 min-h-8 text-[8px] leading-4 text-[var(--bf-dev-text-3)]">{plan.tagline || 'Buddy Fleets subscription plan'}</div>
-                        <div className="mt-3 text-[12px] font-extrabold text-[var(--bf-dev-primary)]">{formatMoney(plan.prices?.[String(form.billingCycle)] || 0, plan.currency || 'INR')}</div>
-                        <div className="mt-2 grid grid-cols-3 gap-1 text-[7px] text-[var(--bf-dev-text-3)]">
+                        <div className="flex items-start justify-between gap-2"><div className="text-[16px] font-extrabold text-[var(--bf-dev-text)]">{plan.name}</div>{active && <CheckCircle2 size={15} className="text-[var(--bf-dev-primary)]" />}</div>
+                        <div className="mt-1 min-h-8 text-[12px] leading-4 text-[var(--bf-dev-text-2)]">{plan.tagline || 'Buddy Fleets subscription plan'}</div>
+                        <div className="mt-3 text-[15px] font-extrabold text-[var(--bf-dev-primary)]">{formatMoney(plan.prices?.[String(form.billingCycle)] || 0, plan.currency || 'INR')}</div>
+                        <div className="mt-2 grid grid-cols-3 gap-1 text-[11px] text-[var(--bf-dev-text-2)]">
                           <span>Vehicles<br/><b className="text-[var(--bf-dev-text-2)]">{plan.limits?.vehicles_max ?? '∞'}</b></span>
                           <span>Users<br/><b className="text-[var(--bf-dev-text-2)]">{plan.limits?.users ?? '—'}</b></span>
                           <span>Sites<br/><b className="text-[var(--bf-dev-text-2)]">{plan.limits?.sites ?? '—'}</b></span>
@@ -947,7 +976,7 @@ export default function CreateCompanyPage() {
                     );
                   })}
                 </div>
-                {fieldErrors.planKey && <div className="mt-2 text-[8px] font-medium text-rose-500">{fieldErrors.planKey}</div>}
+                {fieldErrors.planKey && <div className="mt-2 text-[12px] font-medium text-rose-500">{fieldErrors.planKey}</div>}
               </FieldCard>
 
               <FieldCard title="Billing & commercial terms" subtitle="Offline payment workflow: paid companies receive direct active access during provisioning." icon={CircleDollarSign}>
@@ -965,10 +994,10 @@ export default function CreateCompanyPage() {
               <FieldCard title="Price & entitlement preview" subtitle="3-month billing is intentionally excluded. Initial invoice will be generated automatically in Phase 4/5." icon={ShieldCheck}>
                 <div className="grid gap-3 lg:grid-cols-[1fr_1.4fr]">
                   <div className="rounded-[5px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] p-4">
-                    <div className="space-y-2 text-[9px]">
-                      <div className="flex justify-between gap-3"><span className="text-[var(--bf-dev-text-3)]">Base Plan Price</span><b className="text-[var(--bf-dev-text)]">{formatMoney(basePrice, selectedPlan?.currency || 'INR')}</b></div>
-                      <div className="flex justify-between gap-3"><span className="text-[var(--bf-dev-text-3)]">Discount ({Number(form.discountPercent || 0)}%)</span><b className="text-emerald-500">− {formatMoney(discountAmount, selectedPlan?.currency || 'INR')}</b></div>
-                      <div className="border-t border-[var(--bf-dev-border)] pt-2 flex justify-between gap-3"><span className="font-bold text-[var(--bf-dev-text-2)]">Net Subscription Amount</span><b className="text-[13px] text-[var(--bf-dev-primary)]">{formatMoney(netPrice, selectedPlan?.currency || 'INR')}</b></div>
+                    <div className="space-y-2 text-[13px]">
+                      <div className="flex justify-between gap-3"><span className="text-[var(--bf-dev-text-2)]">Base Plan Price</span><b className="text-[var(--bf-dev-text)]">{formatMoney(basePrice, selectedPlan?.currency || 'INR')}</b></div>
+                      <div className="flex justify-between gap-3"><span className="text-[var(--bf-dev-text-2)]">Discount ({Number(form.discountPercent || 0)}%)</span><b className="text-emerald-500">− {formatMoney(discountAmount, selectedPlan?.currency || 'INR')}</b></div>
+                      <div className="border-t border-[var(--bf-dev-border)] pt-2 flex justify-between gap-3"><span className="font-bold text-[var(--bf-dev-text-2)]">Net Subscription Amount</span><b className="text-[16px] text-[var(--bf-dev-primary)]">{formatMoney(netPrice, selectedPlan?.currency || 'INR')}</b></div>
                     </div>
                   </div>
                   <div className="space-y-2">
@@ -976,7 +1005,7 @@ export default function CreateCompanyPage() {
                       const pack = metadata.fleetPacks.find((item) => item.pack_key === packKey);
                       const summary = metadata.accessSummary?.[`${form.planKey}:${packKey}`] || { full: 0, read_only: 0, blocked: 0, total: 0 };
                       return (
-                        <div key={packKey} className="grid grid-cols-[1.4fr_repeat(3,.55fr)] gap-2 rounded-[5px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] px-3 py-2.5 text-[8px]">
+                        <div key={packKey} className="grid grid-cols-[1.4fr_repeat(3,.55fr)] gap-2 rounded-[5px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] px-3 py-2.5 text-[12px]">
                           <div className="truncate font-bold text-[var(--bf-dev-text)]">{pack?.name || packKey}</div>
                           <div className="text-center text-emerald-500">Full <b>{summary.full}</b></div>
                           <div className="text-center text-amber-500">Read <b>{summary.read_only}</b></div>
@@ -1019,21 +1048,21 @@ export default function CreateCompanyPage() {
                 ['Commercial', form.accountType === 'trial' ? `${form.trialWeeks} Week${form.trialWeeks === 1 ? '' : 's'} · ${formatDate(form.subscriptionStart)} – ${formatDate(trialEnd)}` : `${selectedPlan?.name || '—'} · ${form.billingCycle} Month${form.billingCycle === 1 ? '' : 's'} · ${formatMoney(netPrice, selectedPlan?.currency || 'INR')}`],
               ].map(([label, value]) => (
                 <div key={label} className="rounded-[5px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] p-3">
-                  <div className="text-[8px] text-[var(--bf-dev-text-3)]">{label}</div>
-                  <div className="mt-1 text-[9px] font-semibold leading-4 text-[var(--bf-dev-text)]">{value || '—'}</div>
+                  <div className="text-[12px] text-[var(--bf-dev-text-2)]">{label}</div>
+                  <div className="mt-1 text-[13px] font-semibold leading-4 text-[var(--bf-dev-text)]">{value || '—'}</div>
                 </div>
               ))}
             </div>
           </FieldCard>
 
-          <div className="rounded-[5px] border border-[rgb(var(--bf-dev-primary-rgb)/.18)] bg-[rgb(var(--bf-dev-primary-rgb)/.07)] px-4 py-3 text-[9px] leading-4 text-[var(--bf-dev-text-2)]">
+          <div className="rounded-[5px] border border-[rgb(var(--bf-dev-primary-rgb)/.18)] bg-[rgb(var(--bf-dev-primary-rgb)/.07)] px-4 py-3 text-[13px] leading-4 text-[var(--bf-dev-text-2)]">
             <b>Phase boundary:</b> this patch deliberately does not create tenant/auth/subscription/invoice records. The next provisioning phase will use this exact validated payload and add rollback-safe backend orchestration.
           </div>
         </div>
       )}
 
       <Card className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="text-[8px] text-[var(--bf-dev-text-3)]">Step {step + 1} of {STEPS.length} · {STEPS[step].label}</div>
+        <div className="text-[12px] text-[var(--bf-dev-text-2)]">Step {step + 1} of {STEPS.length} · {STEPS[step].label}</div>
         <div className="flex items-center justify-end gap-2">
           {step > 0 && <SecondaryButton icon={ArrowLeft} onClick={previousStep}>Back</SecondaryButton>}
           {step < STEPS.length - 1 ? <PrimaryButton icon={ArrowRight} onClick={nextStep}>Continue</PrimaryButton> : <PrimaryButton icon={CheckCircle2} onClick={jumpToReviewProvisioning}>Validate for Provisioning</PrimaryButton>}
@@ -1064,5 +1093,3 @@ export default function CreateCompanyPage() {
     </Page>
   );
 }
-
-
