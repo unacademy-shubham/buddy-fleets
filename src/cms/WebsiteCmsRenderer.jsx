@@ -401,7 +401,6 @@ function PricingSection({ section, baseUrl }) {
       users: limits.users != null ? `${limits.users} User${Number(limits.users) === 1 ? '' : 's'}` : entry.users,
       sites: limits.sites != null ? `${limits.sites} Site${Number(limits.sites) === 1 ? '' : 's'}` : entry.sites,
       price1: live.prices?.['1'] ?? entry.price1,
-      price3: live.prices?.['3'] ?? entry.price3,
       price6: live.prices?.['6'] ?? entry.price6,
       price12: live.prices?.['12'] ?? entry.price12,
       features: Array.isArray(live.entitlements) && live.entitlements.length ? live.entitlements : entry.features,
@@ -413,7 +412,7 @@ function PricingSection({ section, baseUrl }) {
       <div className="mx-auto max-w-[1500px]">
         <Heading eyebrow={data.eyebrow} heading={data.heading} description={data.description} center />
         <div className="mx-auto mt-5 flex w-fit max-w-full flex-wrap justify-center gap-2 rounded-xl border border-[color:var(--bf-border)] bg-[var(--bf-surface)] p-1.5">
-          {[1, 3, 6, 12].map((months) => (
+          {[1, 6, 12].map((months) => (
             <button
               key={months}
               type="button"

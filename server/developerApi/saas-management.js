@@ -88,7 +88,7 @@ function normalizeLimits(value) {
 function normalizePrices(value) {
   const source = isObject(value) ? value : {};
   const result = {};
-  for (const duration of ['1', '3', '6', '12']) {
+  for (const duration of ['1', '6', '12']) {
     const price = numberOrNull(source[duration], 0, 1000000000);
     if (price === undefined) return null;
     if (price !== null) result[duration] = price;
@@ -104,10 +104,16 @@ function normalizeEmail(value) {
 }
 
 function normalizeMobile(value) {
-  const digits = String(value || '').replace(/\D/g, '');
-  if (!digits) return '';
-  const normalized = digits.length > 10 ? digits.slice(-10) : digits;
-  return /^[6-9]\d{9}$/.test(normalized) ? normalized : null;
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  const digits = raw.replace(/\D/g, '');
+  if (!digits) return null;
+  if (raw.startsWith('+')) {
+    const e164 = `+${digits}`;
+    return /^\+[1-9]\d{5,14}$/.test(e164) ? e164 : null;
+  }
+  if (/^[6-9]\d{9}$/.test(digits)) return digits;
+  return /^\d{6,15}$/.test(digits) ? digits : null;
 }
 
 function normalizeGstin(value) {
@@ -129,10 +135,15 @@ function normalizeAadhaarLast4(value) {
   return /^\d{4}$/.test(last4) ? last4 : null;
 }
 
-function normalizePostalCode(value) {
-  const pin = String(value || '').replace(/\D/g, '').slice(0, 6);
-  if (!pin) return '';
-  return /^[1-9]\d{5}$/.test(pin) ? pin : null;
+function normalizePostalCode(value, countryCode = 'IN') {
+  const raw = text(value, 20);
+  if (!raw) return '';
+  if (String(countryCode || 'IN').toUpperCase() === 'IN') {
+    const pin = raw.replace(/\D/g, '').slice(0, 6);
+    return /^[1-9]\d{5}$/.test(pin) ? pin : null;
+  }
+  const normalized = raw.toUpperCase().replace(/\s+/g, ' ').trim();
+  return /^[A-Z0-9][A-Z0-9 -]{1,19}$/.test(normalized) ? normalized : null;
 }
 
 function normalizeSlug(value) {
@@ -148,6 +159,115 @@ function normalizeCin(value) {
   const cin = text(value, 21).toUpperCase().replace(/\s+/g, '');
   if (!cin) return '';
   return /^[LU]\d{5}[A-Z]{2}\d{4}[A-Z]{3}\d{6}$/.test(cin) ? cin : null;
+}
+
+
+function normalizeDateOnly(value) {
+  const candidate = text(value, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(candidate)) return null;
+  const [year, month, day] = candidate.split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  ) return null;
+  return candidate;
+}
+
+function startOfUtcDate(value) {
+  const dateOnly = normalizeDateOnly(value);
+  return dateOnly ? `${dateOnly}T00:00:00.000Z` : null;
+}
+
+function endOfUtcDate(value) {
+  const dateOnly = normalizeDateOnly(value);
+  return dateOnly ? `${dateOnly}T23:59:59.999Z` : null;
+}
+
+function addDaysDateOnly(value, days) {
+  const dateOnly = normalizeDateOnly(value);
+  if (!dateOnly) return null;
+  const [year, month, day] = dateOnly.split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  date.setUTCDate(date.getUTCDate() + Number(days || 0));
+  return date.toISOString().slice(0, 10);
+}
+
+function addMonthsBillingEnd(value, months) {
+  const dateOnly = normalizeDateOnly(value);
+  if (!dateOnly) return null;
+  const [year, month, day] = dateOnly.split('-').map(Number);
+  const zeroMonth = month - 1;
+  const targetIndex = zeroMonth + Number(months || 0);
+  const targetYear = year + Math.floor(targetIndex / 12);
+  const targetMonth = ((targetIndex % 12) + 12) % 12;
+  const lastTargetDay = new Date(Date.UTC(targetYear, targetMonth + 1, 0)).getUTCDate();
+  let end;
+  if (day <= lastTargetDay) {
+    end = new Date(Date.UTC(targetYear, targetMonth, day));
+    end.setUTCDate(end.getUTCDate() - 1);
+  } else {
+    end = new Date(Date.UTC(targetYear, targetMonth, lastTargetDay));
+  }
+  return end.toISOString().slice(0, 10);
+}
+
+function money2(value) {
+  return Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
+}
+
+async function findAuthUserByEmail(supabaseAdmin, email) {
+  const normalized = normalizeEmail(email);
+  if (!normalized) return null;
+
+  const { data: profileRows, error: profileError } = await supabaseAdmin
+    .from('profiles')
+    .select('id,email')
+    .ilike('email', normalized)
+    .limit(2);
+  if (profileError) throw profileError;
+
+  const candidateId = profileRows?.[0]?.id || null;
+  if (candidateId) {
+    const { data, error } = await supabaseAdmin.auth.admin.getUserById(candidateId);
+    if (!error && data?.user?.email?.toLowerCase() === normalized) return data.user;
+  }
+
+  for (let page = 1; page <= 20; page += 1) {
+    const { data, error } = await supabaseAdmin.auth.admin.listUsers({ page, perPage: 200 });
+    if (error) throw error;
+    const users = data?.users || [];
+    const match = users.find((user) => String(user?.email || '').toLowerCase() === normalized);
+    if (match) return match;
+    if (users.length < 200) break;
+  }
+  return null;
+}
+
+function parseOwnerPhotoDataUrl(value) {
+  const source = String(value || '');
+  if (!source) return null;
+  const match = source.match(/^data:image\/(jpeg|jpg|png|webp);base64,([A-Za-z0-9+/=]+)$/);
+  if (!match) return { error: 'INVALID_OWNER_PHOTO' };
+  const bytes = Buffer.from(match[2], 'base64');
+  if (bytes.length > 1048576) return { error: 'OWNER_PHOTO_TOO_LARGE' };
+  const mime = match[1] === 'jpg' ? 'jpeg' : match[1];
+  const extension = mime === 'jpeg' ? 'jpg' : mime;
+  return { bytes, mime, extension };
+}
+
+async function sendOwnerSetPasswordLink(supabaseAdmin, companyCode, email) {
+  try {
+    const { data, error } = await supabaseAdmin.functions.invoke('request-password-reset', {
+      body: { companyCode, email },
+    });
+    if (error) return { ok: false, code: 'OWNER_PASSWORD_LINK_SEND_FAILED' };
+    if (data?.ok === false) return { ok: false, code: data?.code || 'OWNER_PASSWORD_LINK_SEND_FAILED' };
+    return { ok: true };
+  } catch {
+    return { ok: false, code: 'OWNER_PASSWORD_LINK_SEND_FAILED' };
+  }
 }
 
 function mapFleetCompanyType(value) {
@@ -441,30 +561,33 @@ async function uniqueCompanyIdentity(supabaseAdmin, companyName, _requestedCode,
 }
 
 function normalizeCompanyProfile(body) {
+  const countryCode = text(body?.countryCode || 'IN', 3).toUpperCase() || 'IN';
   const gstin = normalizeGstin(body?.gstin);
   const pan = normalizePan(body?.pan);
   const aadhaarLast4 = normalizeAadhaarLast4(body?.aadhaarLast4 ?? body?.aadhaar);
-  const contactEmail = normalizeEmail(body?.contactEmail);
-  const billingEmail = normalizeEmail(body?.billingEmail);
+  const contactEmail = normalizeEmail(body?.contactEmail ?? body?.companyEmail);
+  const billingEmail = normalizeEmail(body?.billingEmail ?? body?.companyEmail);
   const ownerEmail = normalizeEmail(body?.ownerEmail);
-  const contactMobile = normalizeMobile(body?.contactMobile);
+  const contactMobile = normalizeMobile(body?.contactMobile ?? body?.companyPhone);
   const alternateMobile = normalizeMobile(body?.alternateMobile);
   const ownerMobile = normalizeMobile(body?.ownerMobile);
-  const postalCode = normalizePostalCode(body?.postalCode);
+  const postalCode = normalizePostalCode(body?.postalCode, countryCode);
+  const cin = normalizeCin(body?.cin);
 
-  if ([gstin, pan, aadhaarLast4, contactEmail, billingEmail, ownerEmail, contactMobile, alternateMobile, ownerMobile, postalCode].includes(null)) {
+  if ([gstin, pan, aadhaarLast4, contactEmail, billingEmail, ownerEmail, contactMobile, alternateMobile, ownerMobile, postalCode, cin].includes(null)) {
     return null;
   }
 
+  const companyType = text(body?.companyType ?? body?.registrationType ?? body?.businessType, 120);
   return {
     legal_name: text(body?.legalName, 180),
     trade_name: text(body?.tradeName, 180),
-    registration_type: text(body?.registrationType, 80),
-    business_type: text(body?.businessType, 120),
+    registration_type: text(body?.registrationType || companyType, 80),
+    business_type: text(body?.businessType || companyType, 120),
     gstin,
     pan,
     aadhaar_last4: aadhaarLast4,
-    cin: text(body?.cin, 30).toUpperCase(),
+    cin,
     contact_email: contactEmail,
     contact_mobile: contactMobile,
     alternate_mobile: alternateMobile,
@@ -1060,204 +1183,545 @@ async function getCompanyDirectory(supabaseAdmin, requestQuery = {}) {
 }
 
 async function createCompany({ supabaseAdmin, actorUserId, body }) {
-  const companyName = text(body?.companyName, 180);
-  const status = String(body?.status || 'trial_active').trim();
-  const planKey = text(body?.planKey, 80).toLowerCase();
-  const fleetPack = text(body?.fleetPack, 120).toLowerCase();
-  const enabledPacks = normalizeStringArray(body?.enabledPacks, 20);
-  const profile = normalizeCompanyProfile(body);
-  const ownerPassword = String(body?.ownerPassword || '');
-  const ownerEmail = profile?.owner_email || '';
+  const stageSteps = [
+    'validate',
+    'identity',
+    'company',
+    'owner_auth',
+    'owner_membership',
+    'company_profile',
+    'subscription',
+    'fleet_portal',
+    'head_office',
+    'owner_profile',
+    'invoice',
+    'owner_photo',
+    'password_link',
+    'complete',
+  ];
+  let currentStage = 'validate';
+  const completed = [];
+  const warnings = [];
+  const mark = (stage) => {
+    currentStage = stage;
+    if (!completed.includes(stage)) completed.push(stage);
+  };
 
-  if (!companyName || !COMPANY_STATUSES.has(status) || !profile || !ownerEmail || ownerPassword.length < 8) {
-    return { status: 400, payload: { ok: false, code: 'INVALID_COMPANY_PAYLOAD' } };
+  const accountType = text(body?.accountType, 20).toLowerCase();
+  const legalName = text(body?.legalName, 180);
+  const tradeName = text(body?.tradeName, 180);
+  const companyType = text(body?.companyType, 120);
+  const companyEmail = normalizeEmail(body?.companyEmail);
+  const companyPhone = normalizeMobile(body?.companyPhone);
+  const ownerName = text(body?.ownerName, 150);
+  const ownerEmail = normalizeEmail(body?.ownerEmail);
+  const ownerMobile = normalizeMobile(body?.ownerMobile);
+  const ownerAlternateMobile = normalizeMobile(body?.ownerAlternateMobile);
+  const ownerDesignation = text(body?.ownerDesignation, 120);
+  const countryCode = text(body?.countryCode || 'IN', 3).toUpperCase() || 'IN';
+  const country = text(body?.country || 'India', 100) || 'India';
+  const postalCode = normalizePostalCode(body?.postalCode, countryCode);
+  const portalSlug = normalizeSlug(body?.portalSlug || tradeName || legalName);
+  const primaryFleet = text(body?.primaryFleet, 120).toLowerCase();
+  const additionalFleets = normalizeStringArray(body?.additionalFleets, 10).map((value) => value.toLowerCase());
+  const enabledPacks = [...new Set([primaryFleet, ...additionalFleets].filter(Boolean))];
+  const subscriptionStart = normalizeDateOnly(body?.subscriptionStart);
+  const gstin = normalizeGstin(body?.gstin);
+  const pan = normalizePan(body?.pan);
+  const cin = normalizeCin(body?.cin);
+  const website = text(body?.website, 500);
+  const gstStatus = text(body?.gstStatus, 80);
+  const gstWarningAccepted = Boolean(body?.gstWarningAccepted);
+
+  if (
+    !['trial', 'paid'].includes(accountType) ||
+    !legalName || !tradeName || !companyType ||
+    !companyEmail || !companyPhone ||
+    !ownerName || !ownerEmail || !ownerMobile || !ownerDesignation ||
+    ownerAlternateMobile === null ||
+    !text(body?.addressLine1, 250) || !text(body?.state, 100) || !text(body?.city, 100) ||
+    !postalCode || !portalSlug || !primaryFleet || !subscriptionStart ||
+    [gstin, pan, cin].includes(null)
+  ) {
+    return { status: 400, payload: { ok: false, code: 'INVALID_COMPANY_PAYLOAD', stage: currentStage } };
+  }
+  if (gstin && gstStatus && gstStatus.toLowerCase() !== 'active' && !gstWarningAccepted) {
+    return { status: 400, payload: { ok: false, code: 'GST_STATUS_CONFIRMATION_REQUIRED', stage: currentStage } };
   }
 
-  if (planKey) {
-    const { data: plan, error: planError } = await supabaseAdmin
+  const { data: duplicateSlug, error: duplicateSlugError } = await supabaseAdmin
+    .from('companies')
+    .select('id')
+    .eq('subdomain_slug', portalSlug)
+    .limit(1);
+  if (duplicateSlugError) throw duplicateSlugError;
+  if ((duplicateSlug || []).length) {
+    return { status: 409, payload: { ok: false, code: 'COMPANY_SLUG_EXISTS', stage: currentStage } };
+  }
+
+  const { data: fleetRows, error: fleetError } = await supabaseAdmin
+    .from('developer_fleet_packs')
+    .select('pack_key,status')
+    .in('pack_key', enabledPacks);
+  if (fleetError) throw fleetError;
+  const activePacks = new Set((fleetRows || []).filter((row) => row.status === 'active').map((row) => row.pack_key));
+  if (!enabledPacks.length || enabledPacks.some((key) => !activePacks.has(key))) {
+    return { status: 400, payload: { ok: false, code: 'FLEET_PACK_NOT_AVAILABLE', stage: currentStage } };
+  }
+
+  let plan = null;
+  let planKey = '';
+  let billingCycle = null;
+  let discountPercent = 0;
+  let discountReason = '';
+  let basePrice = 0;
+  let discountAmount = 0;
+  let netPrice = 0;
+  let trialWeeks = null;
+  let trialEndDate = null;
+  let subscriptionEndDate = null;
+
+  if (accountType === 'trial') {
+    trialWeeks = integer(body?.trialWeeks, 0, 1, 4);
+    if (![1, 2, 3, 4].includes(trialWeeks)) {
+      return { status: 400, payload: { ok: false, code: 'INVALID_TRIAL_DURATION', stage: currentStage } };
+    }
+    trialEndDate = addDaysDateOnly(subscriptionStart, (trialWeeks * 7) - 1);
+  } else {
+    planKey = text(body?.planKey, 80).toLowerCase();
+    billingCycle = integer(body?.billingCycle, 0, 1, 12);
+    discountPercent = Number(body?.discountPercent || 0);
+    discountReason = text(body?.discountReason, 1000);
+    if (!PLAN_KEY_PATTERN.test(planKey) || ![1, 6, 12].includes(billingCycle)) {
+      return { status: 400, payload: { ok: false, code: 'INVALID_COMMERCIAL_SETUP', stage: currentStage } };
+    }
+    if (!Number.isFinite(discountPercent) || discountPercent < 0 || discountPercent > 100 || (discountPercent > 0 && !discountReason)) {
+      return { status: 400, payload: { ok: false, code: 'INVALID_DISCOUNT', stage: currentStage } };
+    }
+    const { data: planRow, error: planError } = await supabaseAdmin
       .from('developer_plans')
-      .select('plan_key,status')
+      .select('id,plan_key,name,status,currency,prices,limits,revision')
       .eq('plan_key', planKey)
       .maybeSingle();
     if (planError) throw planError;
-    if (!plan || plan.status === 'archived') {
-      return { status: 400, payload: { ok: false, code: 'PLAN_NOT_AVAILABLE' } };
+    if (!planRow || planRow.status !== 'active') {
+      return { status: 400, payload: { ok: false, code: 'PLAN_NOT_AVAILABLE', stage: currentStage } };
+    }
+    plan = planRow;
+    basePrice = Number(plan.prices?.[String(billingCycle)]);
+    if (!Number.isFinite(basePrice) || basePrice < 0) {
+      return { status: 400, payload: { ok: false, code: 'PLAN_PRICE_NOT_CONFIGURED', stage: currentStage } };
+    }
+    discountAmount = money2(basePrice * discountPercent / 100);
+    netPrice = money2(Math.max(0, basePrice - discountAmount));
+    subscriptionEndDate = addMonthsBillingEnd(subscriptionStart, billingCycle);
+    if (!subscriptionEndDate) {
+      return { status: 400, payload: { ok: false, code: 'INVALID_SUBSCRIPTION_RANGE', stage: currentStage } };
     }
   }
 
-  if (fleetPack) {
-    const { data: pack, error: packError } = await supabaseAdmin
-      .from('developer_fleet_packs')
-      .select('pack_key,status')
-      .eq('pack_key', fleetPack)
-      .maybeSingle();
-    if (packError) throw packError;
-    if (!pack || pack.status !== 'active') {
-      return { status: 400, payload: { ok: false, code: 'FLEET_PACK_NOT_AVAILABLE' } };
-    }
-  }
+  const photo = parseOwnerPhotoDataUrl(body?.ownerPhotoDataUrl);
+  if (photo?.error) return { status: 400, payload: { ok: false, code: photo.error, stage: currentStage } };
 
-  const trialStartAt = validDateOrNull(body?.trialStartAt);
-  const trialEndAt = validDateOrNull(body?.trialEndAt);
-  if (trialStartAt === undefined || trialEndAt === undefined) {
-    return { status: 400, payload: { ok: false, code: 'INVALID_TRIAL_PAYLOAD' } };
-  }
-  if (status === 'trial_active' && (!trialEndAt || (trialStartAt && Date.parse(trialEndAt) <= Date.parse(trialStartAt)))) {
-    return { status: 400, payload: { ok: false, code: 'INVALID_TRIAL_RANGE' } };
-  }
+  const profile = normalizeCompanyProfile({
+    ...body,
+    contactEmail: companyEmail,
+    billingEmail: companyEmail,
+    contactMobile: companyPhone,
+    ownerEmail,
+    ownerMobile,
+    countryCode,
+    country,
+    companyType,
+    registrationType: companyType,
+    businessType: companyType,
+    postalCode,
+    notes: gstStatus ? `GST status at onboarding: ${gstStatus}` : '',
+  });
+  if (!profile) return { status: 400, payload: { ok: false, code: 'INVALID_COMPANY_PROFILE', stage: currentStage } };
+  mark('validate');
 
-  const identity = await uniqueCompanyIdentity(
-    supabaseAdmin,
-    companyName,
-    body?.companyCode,
-    body?.subdomainSlug
-  );
+  let company = null;
+  let ownerUser = null;
+  let ownerWasCreated = false;
+  let invoice = null;
+  let primarySiteId = null;
+  let ownerPhotoPath = null;
+  let passwordLinkSent = false;
 
-  const confirmedAt = status === 'pending_confirmation' ? null : new Date().toISOString();
-
-  const { data: company, error: companyError } = await supabaseAdmin
-    .from('companies')
-    .insert({
-      company_code: identity.code,
-      company_name: companyName,
-      status,
-      confirmed_at: confirmedAt,
-      subdomain_slug: identity.slug,
-      account_owner_user_id: null,
-    })
-    .select('id,company_code,company_name,status,confirmed_at,account_owner_user_id,subdomain_slug')
-    .single();
-
-  if (companyError) {
-    if (companyError.code === '23505') {
-      return { status: 409, payload: { ok: false, code: 'COMPANY_IDENTITY_EXISTS' } };
-    }
-    throw companyError;
-  }
-
-  let ownerUserId = null;
   try {
-    const { data: ownerAuth, error: ownerAuthError } = await supabaseAdmin.auth.admin.createUser({
-      email: ownerEmail,
-      password: ownerPassword,
-      email_confirm: true,
-      user_metadata: {
-        full_name: profile.owner_name || companyName,
-        mobile: profile.owner_mobile || null,
-        created_via: 'developer_cpanel_company_owner',
-      },
-    });
-    if (ownerAuthError || !ownerAuth?.user?.id) {
-      const err = new Error(ownerAuthError?.message || 'OWNER_AUTH_CREATE_FAILED');
-      err.code = 'OWNER_AUTH_CREATE_FAILED';
-      throw err;
+    const identity = await uniqueCompanyIdentity(supabaseAdmin, tradeName, null, portalSlug);
+    if (identity.slug !== portalSlug) {
+      return { status: 409, payload: { ok: false, code: 'COMPANY_SLUG_EXISTS', stage: currentStage } };
     }
-    ownerUserId = ownerAuth.user.id;
+    mark('identity');
 
-    const membershipResult = await supabaseAdmin.from('company_memberships').insert({
+    const companyStatus = accountType === 'trial' ? 'trial_active' : 'active';
+    const { data: createdCompany, error: companyError } = await supabaseAdmin
+      .from('companies')
+      .insert({
+        company_code: identity.code,
+        company_name: tradeName,
+        status: companyStatus,
+        confirmed_at: new Date().toISOString(),
+        subdomain_slug: identity.slug,
+        account_owner_user_id: null,
+      })
+      .select('id,company_code,company_name,status,confirmed_at,account_owner_user_id,subdomain_slug')
+      .single();
+    if (companyError) throw companyError;
+    company = createdCompany;
+    mark('company');
+
+    ownerUser = await findAuthUserByEmail(supabaseAdmin, ownerEmail);
+    if (!ownerUser) {
+      const temporaryPassword = `${randomBytes(24).toString('base64url')}Aa1!`;
+      const { data: createdOwner, error: ownerError } = await supabaseAdmin.auth.admin.createUser({
+        email: ownerEmail,
+        password: temporaryPassword,
+        email_confirm: true,
+        user_metadata: {
+          full_name: ownerName,
+          mobile: ownerMobile,
+          created_via: 'developer_cpanel_company_owner',
+        },
+      });
+      if (ownerError || !createdOwner?.user?.id) {
+        const error = new Error(ownerError?.message || 'OWNER_AUTH_CREATE_FAILED');
+        error.code = 'OWNER_AUTH_CREATE_FAILED';
+        throw error;
+      }
+      ownerUser = createdOwner.user;
+      ownerWasCreated = true;
+    }
+    mark('owner_auth');
+
+    const ownerUserId = ownerUser.id;
+    const profileLookup = await supabaseAdmin.from('profiles').select('id,full_name,email,mobile').eq('id', ownerUserId).maybeSingle();
+    if (profileLookup.error) throw profileLookup.error;
+    if (!profileLookup.data) {
+      const profileInsert = await supabaseAdmin.from('profiles').insert({ id: ownerUserId, full_name: ownerName, email: ownerEmail, mobile: ownerMobile });
+      if (profileInsert.error) throw profileInsert.error;
+    } else if (ownerWasCreated) {
+      const profileUpdate = await supabaseAdmin.from('profiles').update({ full_name: ownerName, email: ownerEmail, mobile: ownerMobile, updated_at: new Date().toISOString() }).eq('id', ownerUserId);
+      if (profileUpdate.error) throw profileUpdate.error;
+    }
+
+    const ownerLink = await supabaseAdmin.from('companies').update({ account_owner_user_id: ownerUserId }).eq('id', company.id);
+    if (ownerLink.error) throw ownerLink.error;
+
+    const membership = await supabaseAdmin.from('company_memberships').upsert({
       company_id: company.id,
       user_id: ownerUserId,
       status: 'active',
-      access_scope: 'company',
+      access_scope: 'company_wide',
       joined_at: new Date().toISOString(),
-    });
-    if (membershipResult.error) throw membershipResult.error;
-
-    const employeeResult = await supabaseAdmin.from('developer_company_employees').insert({
-      company_id: company.id,
-      user_id: ownerUserId,
-      full_name: profile.owner_name || companyName,
-      email: ownerEmail,
-      mobile: profile.owner_mobile || '',
-      designation: 'Company Owner',
-      role_key: 'owner',
-      status: 'active',
-      created_by: actorUserId,
-      updated_by: actorUserId,
-    });
-    if (employeeResult.error) throw employeeResult.error;
-
-    const ownerCompanyResult = await supabaseAdmin.from('companies').update({ account_owner_user_id: ownerUserId }).eq('id', company.id);
-    if (ownerCompanyResult.error) throw ownerCompanyResult.error;
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'company_id,user_id' });
+    if (membership.error) throw membership.error;
+    mark('owner_membership');
 
     const profilePayload = {
       company_id: company.id,
       ...profile,
+      gst_status: gstin ? (gstStatus || 'Not verified') : '',
       created_via: 'developer_cpanel',
       created_by: actorUserId,
       updated_by: actorUserId,
       revision: 1,
     };
-    const { error: profileError } = await supabaseAdmin
-      .from('developer_company_profiles')
-      .insert(profilePayload);
-    if (profileError) throw profileError;
+    const profileResult = await supabaseAdmin.from('developer_company_profiles').insert(profilePayload);
+    if (profileResult.error) throw profileResult.error;
+    mark('company_profile');
 
-    if (status !== 'pending_confirmation') {
-      const subscriptionStatus =
-        status === 'trial_active' || status === 'trial_expired'
-          ? status
-          : 'active';
-
-      const { error: subscriptionError } = await supabaseAdmin
-        .from('subscriptions')
-        .insert({
+    const subscriptionPayload = accountType === 'trial'
+      ? {
           company_id: company.id,
-          status: subscriptionStatus,
-          plan_key: planKey || null,
-          trial_start_at: trialStartAt,
-          trial_end_at: trialEndAt,
-          subscription_start_at: status === 'active' ? new Date().toISOString() : null,
+          status: 'trial_active',
+          plan_key: null,
+          trial_start_at: startOfUtcDate(subscriptionStart),
+          trial_end_at: endOfUtcDate(trialEndDate),
+          subscription_start_at: null,
           subscription_end_at: null,
-        });
-
-      if (subscriptionError) throw subscriptionError;
-    }
-
-    if (planKey) {
-      const { error: overrideError } = await supabaseAdmin
-        .from('developer_company_overrides')
-        .insert({
+        }
+      : {
           company_id: company.id,
-          enabled: true,
+          status: 'active',
           plan_key: planKey,
-          limits_override: {},
-          entitlements_override: [],
-          notes: 'Initial plan assigned from Developer CPanel company creation.',
-          revision: 1,
-          created_by: actorUserId,
-          updated_by: actorUserId,
-        });
-      if (overrideError) throw overrideError;
-    }
+          trial_start_at: null,
+          trial_end_at: null,
+          subscription_start_at: startOfUtcDate(subscriptionStart),
+          subscription_end_at: endOfUtcDate(subscriptionEndDate),
+        };
+    const subscriptionResult = await supabaseAdmin.from('subscriptions').insert(subscriptionPayload);
+    if (subscriptionResult.error) throw subscriptionResult.error;
+    mark('subscription');
 
-    if (fleetPack) {
-      const normalizedEnabledPacks = [...new Set([fleetPack, ...enabledPacks])];
-      const { error: fleetPackError } = await supabaseAdmin.rpc('bf_set_company_fleet_packs', {
-        p_company_id: company.id,
-        p_primary_pack: fleetPack,
-        p_enabled_packs: normalizedEnabledPacks,
+    const { data: portalResult, error: portalError } = await supabaseAdmin.rpc('bf_set_company_fleet_packs', {
+      p_company_id: company.id,
+      p_primary_pack: primaryFleet,
+      p_enabled_packs: enabledPacks,
+    });
+    if (portalError) throw portalError;
+    primarySiteId = portalResult?.primary_site_id || null;
+    mark('fleet_portal');
+
+    if (!primarySiteId) {
+      const siteLookup = await supabaseAdmin.from('company_portal_sites').select('id').eq('company_id', company.id).eq('is_primary', true).limit(1).maybeSingle();
+      if (siteLookup.error) throw siteLookup.error;
+      primarySiteId = siteLookup.data?.id || null;
+    }
+    if (!primarySiteId) throw new Error('PRIMARY_SITE_PROVISION_FAILED');
+
+    const addressLine1 = text(body?.addressLine1, 250);
+    const addressLine2 = text(body?.addressLine2, 250);
+    const locality = text(body?.locality, 120);
+    const siteAddress = [addressLine1, addressLine2, locality].filter(Boolean).join(', ');
+    const siteUpdate = await supabaseAdmin.from('company_portal_sites').update({
+      name: 'Head Office',
+      site_type: 'Head Office',
+      address: siteAddress,
+      city: text(body?.city, 100),
+      state: text(body?.state, 100),
+      pincode: postalCode,
+      manager_user_id: ownerUserId,
+      is_primary: true,
+      status: 'active',
+      metadata: {
+        provisioned_by: 'create_company_wizard',
+        country,
+        country_code: countryCode,
+        address_line1: addressLine1,
+        address_line2: addressLine2,
+        locality,
+      },
+      updated_at: new Date().toISOString(),
+    }).eq('id', primarySiteId).eq('company_id', company.id);
+    if (siteUpdate.error) throw siteUpdate.error;
+    mark('head_office');
+
+    const employeeUpdate = await supabaseAdmin.from('developer_company_employees').update({
+      full_name: ownerName,
+      email: ownerEmail,
+      mobile: ownerMobile,
+      designation: ownerDesignation,
+      branch: 'Head Office',
+      role_key: 'owner',
+      status: 'active',
+      updated_by: actorUserId,
+      updated_at: new Date().toISOString(),
+    }).eq('company_id', company.id).eq('user_id', ownerUserId);
+    if (employeeUpdate.error) throw employeeUpdate.error;
+
+    const portalProfileUpdate = await supabaseAdmin.from('company_portal_user_profiles').upsert({
+      company_id: company.id,
+      user_id: ownerUserId,
+      full_name: ownerName,
+      designation: ownerDesignation,
+      department: 'Management',
+      mobile: ownerMobile,
+      alternate_mobile: ownerAlternateMobile || null,
+      email: ownerEmail,
+      address: [addressLine1, addressLine2, text(body?.city, 100), text(body?.state, 100), postalCode, country].filter(Boolean).join(', '),
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'company_id,user_id' });
+    if (portalProfileUpdate.error) throw portalProfileUpdate.error;
+    mark('owner_profile');
+
+    if (accountType === 'paid') {
+      currentStage = 'invoice';
+      const { data: invoiceNumber, error: invoiceNoError } = await supabaseAdmin.rpc('developer_next_invoice_number');
+      if (invoiceNoError) throw invoiceNoError;
+      const today = new Date().toISOString().slice(0, 10);
+      const dueDate = subscriptionStart > today ? subscriptionStart : today;
+      const invoiceNotes = [
+        'Initial subscription invoice generated automatically during company provisioning.',
+        discountPercent > 0 ? `Commercial discount: ${discountPercent}% — ${discountReason}` : '',
+      ].filter(Boolean).join('\n');
+      const invoiceResult = await supabaseAdmin.from('developer_company_invoices').insert({
+        company_id: company.id,
+        invoice_number: invoiceNumber,
+        invoice_type: 'subscription',
+        invoice_date: today,
+        due_date: dueDate,
+        currency: plan.currency || 'INR',
+        subtotal: money2(basePrice),
+        discount: discountAmount,
+        taxable_amount: netPrice,
+        cgst: 0,
+        sgst: 0,
+        igst: 0,
+        round_off: 0,
+        grand_total: netPrice,
+        paid_amount: 0,
+        status: 'issued',
+        billing_period_start: subscriptionStart,
+        billing_period_end: subscriptionEndDate,
+        place_of_supply: text(body?.state, 100),
+        notes: invoiceNotes,
+        terms: 'Offline payment workflow. Company access is activated independently of payment verification.',
+        company_snapshot: {
+          company_name: tradeName,
+          legal_name: legalName,
+          company_code: company.company_code,
+          gstin: gstin || '',
+          pan: pan || '',
+          cin: cin || '',
+          email: companyEmail,
+          phone: companyPhone,
+          address: [addressLine1, addressLine2, text(body?.city, 100), text(body?.state, 100), postalCode, country].filter(Boolean).join(', '),
+        },
+        plan_snapshot: {
+          plan_key: plan.plan_key,
+          plan_name: plan.name,
+          billing_cycle_months: billingCycle,
+          base_price: money2(basePrice),
+          discount_percent: discountPercent,
+          discount_amount: discountAmount,
+          discount_reason: discountReason || '',
+          net_price: netPrice,
+          limits: plan.limits || {},
+          primary_fleet: primaryFleet,
+          enabled_fleets: enabledPacks,
+          plan_revision: plan.revision || null,
+        },
+        created_by: actorUserId,
+        updated_by: actorUserId,
+      }).select('*').single();
+      if (invoiceResult.error) throw invoiceResult.error;
+      invoice = invoiceResult.data;
+      const itemResult = await supabaseAdmin.from('developer_company_invoice_items').insert({
+        invoice_id: invoice.id,
+        description: `${plan.name} subscription — ${billingCycle} month${billingCycle === 1 ? '' : 's'}`,
+        quantity: 1,
+        rate: money2(basePrice),
+        discount: discountAmount,
+        tax_rate: 0,
+        hsn_sac: '',
+        amount: netPrice,
+        sort_order: 0,
       });
-      if (fleetPackError) throw fleetPackError;
+      if (itemResult.error) throw itemResult.error;
+      mark('invoice');
+    } else {
+      mark('invoice');
     }
+
+    if (photo) {
+      currentStage = 'owner_photo';
+      const path = `company/${company.id}/users/${ownerUserId}.${photo.extension}`;
+      const upload = await supabaseAdmin.storage.from('company-profile-photos').upload(path, photo.bytes, {
+        contentType: `image/${photo.mime}`,
+        upsert: true,
+      });
+      if (upload.error) {
+        warnings.push('OWNER_PHOTO_UPLOAD_FAILED');
+      } else {
+        ownerPhotoPath = path;
+        const photoUpdate = await supabaseAdmin.from('company_portal_user_profiles').update({ photo_path: path, updated_at: new Date().toISOString() }).eq('company_id', company.id).eq('user_id', ownerUserId);
+        if (photoUpdate.error) warnings.push('OWNER_PHOTO_PROFILE_UPDATE_FAILED');
+      }
+    }
+    mark('owner_photo');
+
+    if (ownerWasCreated) {
+      currentStage = 'password_link';
+      const passwordLink = await sendOwnerSetPasswordLink(supabaseAdmin, company.company_code, ownerEmail);
+      passwordLinkSent = passwordLink.ok;
+      if (!passwordLink.ok) warnings.push(passwordLink.code || 'OWNER_PASSWORD_LINK_SEND_FAILED');
+    } else {
+      warnings.push('OWNER_ACCOUNT_REUSED_EXISTING_PASSWORD');
+    }
+    mark('password_link');
+
+    const refreshed = (await getCompanies(supabaseAdmin)).find((item) => item.id === company.id) || {
+      ...company,
+      profile,
+    };
+    mark('complete');
+
+    await writeHistory(supabaseAdmin, actorUserId, 'company', company.id, 'create', null, {
+      company: refreshed,
+      onboarding: {
+        account_type: accountType,
+        primary_fleet: primaryFleet,
+        enabled_fleets: enabledPacks,
+        plan_key: planKey || null,
+        billing_cycle_months: billingCycle,
+        trial_weeks: trialWeeks,
+        discount_percent: discountPercent,
+        discount_reason: discountReason || null,
+        invoice_id: invoice?.id || null,
+        owner_user_id: ownerUserId,
+        owner_account_reused: !ownerWasCreated,
+        password_link_sent: passwordLinkSent,
+        warnings,
+      },
+    });
+
+    return {
+      status: 201,
+      payload: {
+        ok: true,
+        company: refreshed,
+        owner: {
+          userId: ownerUserId,
+          reused: !ownerWasCreated,
+          passwordLinkSent,
+          photoPath: ownerPhotoPath,
+        },
+        invoice: invoice ? {
+          id: invoice.id,
+          invoiceNumber: invoice.invoice_number,
+          total: Number(invoice.grand_total || 0),
+          status: invoice.status,
+        } : null,
+        commercial: accountType === 'trial'
+          ? { accountType, trialWeeks, startDate: subscriptionStart, endDate: trialEndDate }
+          : { accountType, planKey, billingCycle, startDate: subscriptionStart, endDate: subscriptionEndDate, basePrice, discountPercent, discountAmount, netPrice },
+        provisioning: {
+          steps: stageSteps.map((key) => ({ key, complete: completed.includes(key) })),
+          warnings,
+        },
+      },
+    };
   } catch (error) {
-    await supabaseAdmin.from('developer_company_employees').delete().eq('company_id', company.id);
-    await supabaseAdmin.from('company_memberships').delete().eq('company_id', company.id);
-    if (ownerUserId) await supabaseAdmin.auth.admin.deleteUser(ownerUserId).catch(() => {});
-    await supabaseAdmin.from('developer_company_overrides').delete().eq('company_id', company.id);
-    await supabaseAdmin.from('developer_company_profiles').delete().eq('company_id', company.id);
-    await supabaseAdmin.from('subscriptions').delete().eq('company_id', company.id);
-    await supabaseAdmin.from('companies').delete().eq('id', company.id);
-    throw error;
+    const rollback = [];
+    const rollbackError = [];
+    if (company?.id) {
+      try {
+        const inv = await supabaseAdmin.from('developer_company_invoices').delete().eq('company_id', company.id);
+        if (inv.error) throw inv.error;
+        rollback.push('invoices');
+      } catch (cleanupError) { rollbackError.push(`invoices:${cleanupError?.message || cleanupError}`); }
+      try {
+        const deleted = await supabaseAdmin.from('companies').delete().eq('id', company.id);
+        if (deleted.error) throw deleted.error;
+        rollback.push('company_cascade');
+      } catch (cleanupError) { rollbackError.push(`company:${cleanupError?.message || cleanupError}`); }
+    }
+    if (ownerWasCreated && ownerUser?.id) {
+      try {
+        const deletedUser = await supabaseAdmin.auth.admin.deleteUser(ownerUser.id);
+        if (deletedUser.error) throw deletedUser.error;
+        rollback.push('owner_auth');
+      } catch (cleanupError) { rollbackError.push(`owner_auth:${cleanupError?.message || cleanupError}`); }
+    }
+    console.error('Create Company provisioning failed:', currentStage, error?.message || error, rollbackError);
+    return {
+      status: 500,
+      payload: {
+        ok: false,
+        code: error?.code || 'COMPANY_PROVISIONING_FAILED',
+        stage: currentStage,
+        rollback: {
+          complete: rollbackError.length === 0,
+          cleaned: rollback,
+          errors: rollbackError,
+        },
+      },
+    };
   }
-
-  const refreshed = (await getCompanies(supabaseAdmin)).find((item) => item.id === company.id) || {
-    ...company,
-    profile,
-  };
-
-  await writeHistory(supabaseAdmin, actorUserId, 'company', company.id, 'create', null, refreshed);
-  return { status: 201, payload: { ok: true, company: refreshed } };
 }
 
 async function updateCompanyProfile({ supabaseAdmin, actorUserId, body, currentCompany }) {

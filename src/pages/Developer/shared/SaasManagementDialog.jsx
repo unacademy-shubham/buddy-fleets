@@ -173,7 +173,7 @@ function companyToForm(company) {
   };
 }
 
-function CompaniesPanel({ trialOnly = false }) {
+function CompaniesPanel({ trialOnly = false, onClose }) {
   const navigate = useNavigate();
   const [companies, setCompanies] = useState([]);
   const [plans, setPlans] = useState([]);
@@ -342,8 +342,8 @@ function CompaniesPanel({ trialOnly = false }) {
               icon={Plus}
               variant="primary"
               onClick={() => {
-                setError('');
-                setEditor({ companyId: '', form: blankCompanyForm() });
+                onClose?.();
+                navigate('/saas-platform/companies/create');
               }}
             >
               Create company
@@ -575,7 +575,7 @@ const blankPlan = () => ({
   status: 'active',
   currency: 'INR',
   display_order: 50,
-  prices: { 1: '', 3: '', 6: '', 12: '' },
+  prices: { 1: '', 6: '', 12: '' },
   limits: { vehicles_min: '', vehicles_max: '', users: '', sites: '' },
   entitlements: [],
   revision: 0,
@@ -681,7 +681,7 @@ function PlansPanel({ limitsOnly = false }) {
                 <div>
                   <div className="text-[10px] font-bold text-[var(--bf-dev-text)]">Duration pricing</div>
                   <div className="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                    {['1', '3', '6', '12'].map((month) => <label key={month} className={labelClass}>{month} month{month !== '1' ? 's' : ''}<input type="number" min="0" value={selected.prices?.[month] ?? ''} onChange={(event) => editNested('prices', month, event.target.value)} className={inputClass} /></label>)}
+                    {['1', '6', '12'].map((month) => <label key={month} className={labelClass}>{month} month{month !== '1' ? 's' : ''}<input type="number" min="0" value={selected.prices?.[month] ?? ''} onChange={(event) => editNested('prices', month, event.target.value)} className={inputClass} /></label>)}
                   </div>
                 </div>
               </>
@@ -904,8 +904,8 @@ export default function SaasManagementDialog({ mode, onClose }) {
       </div>
 
       <div className="p-5">
-        {mode === 'companies' && <CompaniesPanel />}
-        {mode === 'trials' && <CompaniesPanel trialOnly />}
+        {mode === 'companies' && <CompaniesPanel onClose={onClose} />}
+        {mode === 'trials' && <CompaniesPanel trialOnly onClose={onClose} />}
         {mode === 'overrides' && <OverridesPanel />}
         {mode === 'plans' && <PlansPanel />}
         {mode === 'limits' && <PlansPanel limitsOnly />}

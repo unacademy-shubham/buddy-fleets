@@ -24,6 +24,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, Page, PageHeader } from '../shared/DeveloperPageUI';
 import { COUNTRIES, COUNTRY_BY_CODE } from '../../../Data/countries';
 import {
+  createCompany,
   getCompanyCreateMetadata,
   getCompanySlugPreview,
   lookupCompanyPostalCode,
@@ -133,6 +134,29 @@ function slugify(value) {
 
 function digitsOnly(value, max = 20) {
   return String(value || '').replace(/\D/g, '').slice(0, max);
+}
+
+
+function toE164(dialCode, value) {
+  const country = String(dialCode || '+91').replace(/\D/g, '');
+  const local = digitsOnly(value, 15);
+  return country && local ? `+${country}${local}` : '';
+}
+
+function fileToDataUrl(file) {
+  if (!file) return Promise.resolve('');
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+    return Promise.reject(Object.assign(new Error('INVALID_OWNER_PHOTO'), { code: 'INVALID_OWNER_PHOTO' }));
+  }
+  if (file.size > 1048576) {
+    return Promise.reject(Object.assign(new Error('OWNER_PHOTO_TOO_LARGE'), { code: 'OWNER_PHOTO_TOO_LARGE' }));
+  }
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(Object.assign(new Error('OWNER_PHOTO_READ_FAILED'), { code: 'OWNER_PHOTO_READ_FAILED' }));
+    reader.readAsDataURL(file);
+  });
 }
 
 function validEmail(value) {
@@ -451,34 +475,163 @@ function SlugConflictDialog({ slugState, value, onChange, onCheck, onPick, onClo
   );
 }
 
-function PhaseFourDialog({ onClose, payload }) {
+function ProvisionCompanyDialog({ onClose, payload, onOpenCompany, onAllCompanies }) {
+  const [submitting, setSubmitting] = useState(false);
+  const [result, setResult] = useState(null);
+  const [submitError, setSubmitError] = useState(null);
+
+  const errorMessage = (response) => {
+    const messages = {
+      COMPANY_SLUG_EXISTS: 'This portal slug was taken before provisioning completed. Go back and choose another slug.',
+      INVALID_COMPANY_PAYLOAD: 'Some company details are no longer valid. Review the wizard and retry.',
+      INVALID_COMPANY_PROFILE: 'Company profile validation failed. Review contact/address details.',
+      GST_STATUS_CONFIRMATION_REQUIRED: 'Confirm the GST status warning before provisioning.',
+      FLEET_PACK_NOT_AVAILABLE: 'One of the selected Fleet Packs is no longer available.',
+      PLAN_NOT_AVAILABLE: 'The selected plan is no longer active.',
+      PLAN_PRICE_NOT_CONFIGURED: 'The selected billing cycle does not have a live plan price.',
+      OWNER_AUTH_CREATE_FAILED: 'Owner account could not be created.',
+      INVALID_OWNER_PHOTO: 'Owner photo must be JPG, PNG or WebP.',
+      OWNER_PHOTO_TOO_LARGE: 'Owner photo must be 1 MB or smaller.',
+      COMPANY_PROVISIONING_FAILED: 'Provisioning failed. The backend attempted a safe rollback.',
+      NETWORK_ERROR: 'Network error while provisioning. Check connectivity and retry.',
+    };
+    return messages[response?.code] || response?.code || 'Unable to provision the company.';
+  };
+
+  async function provision() {
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      const ownerPhotoDataUrl = await fileToDataUrl(payload.ownerPhoto);
+      const requestPayload = {
+        ...payload,
+        country: payload.countryName,
+        companyPhone: toE164(payload.countryDialCode, payload.companyPhone),
+        ownerMobile: toE164(payload.countryDialCode, payload.ownerMobile),
+        ownerAlternateMobile: payload.ownerAlternateMobile ? toE164(payload.countryDialCode, payload.ownerAlternateMobile) : '',
+        ownerPhotoDataUrl,
+        ownerPhoto: undefined,
+        countryDialCode: undefined,
+        countryName: undefined,
+      };
+      const response = await createCompany(requestPayload);
+      if (!response.ok) {
+        setSubmitError({
+          ...response,
+          message: errorMessage(response),
+        });
+      } else {
+        setResult(response);
+      }
+    } catch (error) {
+      const code = error?.code || 'COMPANY_PROVISIONING_FAILED';
+      setSubmitError({ code, message: errorMessage({ code }) });
+    }
+    setSubmitting(false);
+  }
+
+  const steps = result?.provisioning?.steps || [];
+  const warningLabels = {
+    OWNER_PASSWORD_LINK_SEND_FAILED: 'Company was created, but the owner set-password email could not be sent. The owner can use Forgot Password with the new Company Code.',
+    OWNER_ACCOUNT_REUSED_EXISTING_PASSWORD: 'Existing Buddy Fleets owner account reused; its current password remains unchanged.',
+    OWNER_PHOTO_UPLOAD_FAILED: 'Company was created, but the owner photo could not be uploaded.',
+    OWNER_PHOTO_PROFILE_UPDATE_FAILED: 'Photo uploaded, but profile linking needs a retry later.',
+  };
+
   return (
     <div className="fixed inset-0 z-[170] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-xl rounded-[6px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] shadow-[0_28px_90px_rgba(2,6,23,.38)]">
+      <div className="max-h-[92dvh] w-full max-w-2xl overflow-y-auto rounded-[6px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] shadow-[0_28px_90px_rgba(2,6,23,.38)]">
         <div className="flex items-start justify-between gap-4 border-b border-[var(--bf-dev-border)] p-5">
           <div>
-            <div className="text-[13px] font-bold uppercase tracking-[.08em] text-[var(--bf-dev-primary)]">Phase 2 + 3 validation</div>
-            <div className="mt-1 text-[20px] font-extrabold text-[var(--bf-dev-text)]">Wizard is ready for provisioning integration.</div>
-            <div className="mt-1 text-[13px] leading-4 text-[var(--bf-dev-text-2)]">No company has been created yet. Phase 4 will connect this validated payload to the atomic provisioning backend.</div>
-          </div>
-          <button type="button" onClick={onClose} className="text-[var(--bf-dev-text-2)] hover:text-[var(--bf-dev-text)]"><X size={16} /></button>
-        </div>
-        <div className="grid gap-2 p-5 sm:grid-cols-2">
-          {[
-            ['Trade Name', payload.tradeName],
-            ['Portal Slug', payload.portalSlug],
-            ['Owner', payload.ownerName],
-            ['Primary Fleet', payload.primaryFleetLabel],
-            ['Account Type', payload.accountType === 'trial' ? 'Developer Trial' : 'Paid Subscription'],
-            ['Plan / Duration', payload.accountType === 'trial' ? `${payload.trialWeeks} Week${payload.trialWeeks === 1 ? '' : 's'}` : payload.planName],
-          ].map(([label, value]) => (
-            <div key={label} className="rounded-[4px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] p-3">
-              <div className="text-[12px] text-[var(--bf-dev-text-2)]">{label}</div>
-              <div className="mt-1 text-[14px] font-bold text-[var(--bf-dev-text)]">{value || '—'}</div>
+            <div className="text-[13px] font-bold uppercase tracking-[.08em] text-[var(--bf-dev-primary)]">Create Company</div>
+            <div className="mt-1 text-[20px] font-extrabold text-[var(--bf-dev-text)]">{result ? 'Provisioning completed' : 'Create & provision this company?'}</div>
+            <div className="mt-1 text-[13px] leading-5 text-[var(--bf-dev-text-2)]">
+              {result
+                ? 'Tenant identity, owner access, Fleet Packs and commercial setup are now live.'
+                : 'This will create the real tenant, owner access, Head Office, subscription and initial paid invoice where applicable.'}
             </div>
-          ))}
+          </div>
+          <button type="button" disabled={submitting} onClick={onClose} className="text-[var(--bf-dev-text-2)] hover:text-[var(--bf-dev-text)] disabled:opacity-40"><X size={18} /></button>
         </div>
-        <div className="flex justify-end border-t border-[var(--bf-dev-border)] p-4"><PrimaryButton icon={CheckCircle2} onClick={onClose}>Validation Complete</PrimaryButton></div>
+
+        {!result && (
+          <div className="space-y-4 p-5">
+            <div className="grid gap-2 sm:grid-cols-2">
+              {[
+                ['Trade Name', payload.tradeName],
+                ['Portal Slug', payload.portalSlug],
+                ['Owner', payload.ownerName],
+                ['Primary Fleet', payload.primaryFleetLabel],
+                ['Account Type', payload.accountType === 'trial' ? 'Developer Trial' : 'Paid Subscription'],
+                ['Plan / Duration', payload.accountType === 'trial' ? `${payload.trialWeeks} Week${payload.trialWeeks === 1 ? '' : 's'}` : `${payload.planName} · ${payload.billingCycle} Month${payload.billingCycle === 1 ? '' : 's'}`],
+              ].map(([label, value]) => (
+                <div key={label} className="rounded-[4px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] p-3">
+                  <div className="text-[12px] text-[var(--bf-dev-text-2)]">{label}</div>
+                  <div className="mt-1 text-[14px] font-bold text-[var(--bf-dev-text)]">{value || '—'}</div>
+                </div>
+              ))}
+            </div>
+
+            {submitError && (
+              <div className="rounded-[5px] border border-rose-500/25 bg-rose-500/10 p-4 text-[13px] text-rose-500">
+                <div className="font-bold">{submitError.message}</div>
+                {submitError.stage && <div className="mt-1">Failed stage: <b>{String(submitError.stage).replaceAll('_', ' ')}</b></div>}
+                {submitError.rollback && (
+                  <div className="mt-1">Rollback: <b>{submitError.rollback.complete ? 'Completed' : 'Needs attention'}</b></div>
+                )}
+              </div>
+            )}
+
+            {submitting && (
+              <div className="flex items-center gap-3 rounded-[5px] border border-[rgb(var(--bf-dev-primary-rgb)/.20)] bg-[rgb(var(--bf-dev-primary-rgb)/.08)] p-4 text-[13px] text-[var(--bf-dev-text)]">
+                <Loader2 size={18} className="animate-spin text-[var(--bf-dev-primary)]" />
+                Provisioning tenant, owner access, Fleet Packs and commercial records…
+              </div>
+            )}
+          </div>
+        )}
+
+        {result && (
+          <div className="space-y-4 p-5">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="rounded-[5px] border border-emerald-500/20 bg-emerald-500/8 p-4"><div className="text-[12px] text-[var(--bf-dev-text-2)]">Company Code</div><div className="mt-1 text-[17px] font-extrabold text-emerald-500">{result.company?.company_code || '—'}</div></div>
+              <div className="rounded-[5px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] p-4"><div className="text-[12px] text-[var(--bf-dev-text-2)]">Portal Slug</div><div className="mt-1 truncate text-[14px] font-bold text-[var(--bf-dev-text)]">{result.company?.subdomain_slug || '—'}</div></div>
+              <div className="rounded-[5px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] p-4"><div className="text-[12px] text-[var(--bf-dev-text-2)]">Invoice</div><div className="mt-1 text-[14px] font-bold text-[var(--bf-dev-text)]">{result.invoice?.invoiceNumber || 'Trial · Not applicable'}</div></div>
+            </div>
+
+            <div className="rounded-[5px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] p-4">
+              <div className="text-[14px] font-bold text-[var(--bf-dev-text)]">Provisioning checklist</div>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                {steps.filter((item) => item.key !== 'validate' && item.key !== 'complete').map((item) => (
+                  <div key={item.key} className="flex items-center gap-2 text-[13px] text-[var(--bf-dev-text-2)]">
+                    {item.complete ? <CheckCircle2 size={15} className="text-emerald-500" /> : <AlertTriangle size={15} className="text-amber-500" />}
+                    <span className="capitalize">{item.key.replaceAll('_', ' ')}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {(result.provisioning?.warnings || []).length > 0 && (
+              <div className="space-y-2 rounded-[5px] border border-amber-500/25 bg-amber-500/10 p-4 text-[13px] text-amber-600 dark:text-amber-400">
+                {(result.provisioning.warnings || []).map((warning) => <div key={warning}>• {warningLabels[warning] || warning}</div>)}
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="flex flex-wrap justify-end gap-2 border-t border-[var(--bf-dev-border)] p-4">
+          {!result ? (
+            <>
+              <SecondaryButton disabled={submitting} onClick={onClose}>Cancel</SecondaryButton>
+              <PrimaryButton icon={submitting ? Loader2 : CheckCircle2} disabled={submitting} onClick={provision}>{submitting ? 'Provisioning…' : 'Provision Company'}</PrimaryButton>
+            </>
+          ) : (
+            <>
+              <SecondaryButton onClick={onAllCompanies}>All Companies</SecondaryButton>
+              <PrimaryButton icon={CheckCircle2} onClick={() => onOpenCompany(result.company?.id)}>Open Company 360</PrimaryButton>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -796,7 +949,7 @@ export default function CreateCompanyPage() {
       <PageHeader
         eyebrow="SaaS Platform / Companies / Create"
         title="Create Company"
-        description="Guided tenant setup for company identity, owner access, Fleet Packs and commercial configuration. Provisioning itself stays disabled until Phase 4 is connected."
+        description="Guided tenant setup for company identity, owner access, Fleet Packs and commercial configuration with rollback-safe provisioning."
         actions={<HeaderAction icon={ArrowLeft} onClick={() => navigate('/saas-platform/companies/all-companies')}>All Companies</HeaderAction>}
       />
 
@@ -893,11 +1046,11 @@ export default function CreateCompanyPage() {
             <InputShell label="Designation" required error={fieldErrors.ownerDesignation}><SelectMenu value={form.ownerDesignation} options={designationOptions} onChange={(value) => patch('ownerDesignation', value)} placeholder="Select designation" /></InputShell>
             <InputShell label="Owner Mobile" required helper={`${selectedCountry?.name || 'India'} ${selectedCountry?.dialCode || '+91'} is applied automatically.`} error={fieldErrors.ownerMobile}><PhoneInput value={form.ownerMobile} onChange={(value) => patch('ownerMobile', value)} countryCode={form.countryCode} /></InputShell>
             <InputShell label="Alternate Mobile" helper="Optional" error={fieldErrors.ownerAlternateMobile}><PhoneInput value={form.ownerAlternateMobile} onChange={(value) => patch('ownerAlternateMobile', value)} countryCode={form.countryCode} /></InputShell>
-            <InputShell label="Profile Photo" helper="Optional. Upload is staged in the browser; storage upload will be connected with provisioning.">
+            <InputShell label="Profile Photo" helper="Optional · JPG, PNG or WebP · maximum 1 MB.">
               <div className="flex h-10 items-center gap-2 rounded-[5px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] px-2">
                 <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-[4px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] px-3 py-1.5 text-[12px] font-semibold text-[var(--bf-dev-text-2)] hover:text-[var(--bf-dev-primary)]">
                   <FileImage size={12} /> Choose Photo
-                  <input type="file" accept="image/*" className="hidden" onChange={(event) => patch('ownerPhoto', event.target.files?.[0] || null)} />
+                  <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(event) => patch('ownerPhoto', event.target.files?.[0] || null)} />
                 </label>
                 <span className="min-w-0 truncate text-[12px] text-[var(--bf-dev-text-2)]">{form.ownerPhoto?.name || 'No file selected'}</span>
               </div>
@@ -991,7 +1144,7 @@ export default function CreateCompanyPage() {
                 </div>
               </FieldCard>
 
-              <FieldCard title="Price & entitlement preview" subtitle="3-month billing is intentionally excluded. Initial invoice will be generated automatically in Phase 4/5." icon={ShieldCheck}>
+              <FieldCard title="Price & entitlement preview" subtitle="Billing supports 1, 6 and 12 months only. Paid provisioning generates the initial invoice automatically." icon={ShieldCheck}>
                 <div className="grid gap-3 lg:grid-cols-[1fr_1.4fr]">
                   <div className="rounded-[5px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] p-4">
                     <div className="space-y-2 text-[13px]">
@@ -1023,7 +1176,7 @@ export default function CreateCompanyPage() {
 
       {step === 4 && (
         <div className="space-y-4">
-          <FieldCard title="Final Review" subtitle="Review the locked onboarding contract before the atomic provisioning backend is connected." icon={ShieldCheck}>
+          <FieldCard title="Final Review" subtitle="Review the company, owner, Fleet Pack and commercial setup before creating the live tenant." icon={ShieldCheck}>
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               {[
                 ['Legal Name', form.legalName],
@@ -1055,8 +1208,8 @@ export default function CreateCompanyPage() {
             </div>
           </FieldCard>
 
-          <div className="rounded-[5px] border border-[rgb(var(--bf-dev-primary-rgb)/.18)] bg-[rgb(var(--bf-dev-primary-rgb)/.07)] px-4 py-3 text-[13px] leading-4 text-[var(--bf-dev-text-2)]">
-            <b>Phase boundary:</b> this patch deliberately does not create tenant/auth/subscription/invoice records. The next provisioning phase will use this exact validated payload and add rollback-safe backend orchestration.
+          <div className="rounded-[5px] border border-[rgb(var(--bf-dev-primary-rgb)/.18)] bg-[rgb(var(--bf-dev-primary-rgb)/.07)] px-4 py-3 text-[13px] leading-5 text-[var(--bf-dev-text-2)]">
+            <b>Ready to provision:</b> Company Code is generated by the backend. Paid companies receive direct active access and an initial invoice; Developer trials use the selected 1–4 week duration.
           </div>
         </div>
       )}
@@ -1065,7 +1218,7 @@ export default function CreateCompanyPage() {
         <div className="text-[12px] text-[var(--bf-dev-text-2)]">Step {step + 1} of {STEPS.length} · {STEPS[step].label}</div>
         <div className="flex items-center justify-end gap-2">
           {step > 0 && <SecondaryButton icon={ArrowLeft} onClick={previousStep}>Back</SecondaryButton>}
-          {step < STEPS.length - 1 ? <PrimaryButton icon={ArrowRight} onClick={nextStep}>Continue</PrimaryButton> : <PrimaryButton icon={CheckCircle2} onClick={jumpToReviewProvisioning}>Validate for Provisioning</PrimaryButton>}
+          {step < STEPS.length - 1 ? <PrimaryButton icon={ArrowRight} onClick={nextStep}>Continue</PrimaryButton> : <PrimaryButton icon={CheckCircle2} onClick={jumpToReviewProvisioning}>Create & Provision Company</PrimaryButton>}
         </div>
       </Card>
 
@@ -1081,10 +1234,16 @@ export default function CreateCompanyPage() {
         />
       )}
       {phaseFourOpen && (
-        <PhaseFourDialog
+        <ProvisionCompanyDialog
           onClose={() => setPhaseFourOpen(false)}
+          onAllCompanies={() => navigate('/saas-platform/companies/all-companies')}
+          onOpenCompany={(companyId) => companyId && navigate(`/saas-platform/companies/${companyId}`)}
           payload={{
             ...form,
+            gstStatus: gstResult?.gstStatus || '',
+            gstWarningAccepted,
+            countryName: selectedCountry?.name || 'India',
+            countryDialCode: selectedCountry?.dialCode || '+91',
             primaryFleetLabel: primaryFleet?.name || form.primaryFleet,
             planName: selectedPlan?.name || form.planKey,
           }}

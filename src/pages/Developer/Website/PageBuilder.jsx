@@ -106,7 +106,7 @@ const ITEM_FIELDS = {
   stats: ['value', 'label'],
   workflow: ['step', 'title', 'description', 'icon'],
   benefits: ['number', 'title', 'description', 'icon'],
-  pricing: ['name', 'tagline', 'fleet', 'users', 'sites', 'badge', 'price1', 'price3', 'price6', 'price12', 'features'],
+  pricing: ['name', 'tagline', 'fleet', 'users', 'sites', 'badge', 'price1', 'price6', 'price12', 'features'],
   faq: ['question', 'answer'],
 };
 
@@ -124,7 +124,6 @@ const LABELS = {
   formTitle: 'Form title',
   formDescription: 'Form description',
   price1: '1 month price',
-  price3: '3 months price',
   price6: '6 months price',
   price12: '12 months price',
   category: 'Category',

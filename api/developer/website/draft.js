@@ -32,7 +32,7 @@ const itemFields = {
   stats: ['id', 'value', 'label'],
   workflow: ['id', 'step', 'title', 'description', 'icon'],
   benefits: ['id', 'number', 'title', 'description', 'icon'],
-  pricing: ['id', 'name', 'tagline', 'fleet', 'users', 'sites', 'badge', 'price1', 'price3', 'price6', 'price12', 'features'],
+  pricing: ['id', 'name', 'tagline', 'fleet', 'users', 'sites', 'badge', 'price1', 'price6', 'price12', 'features'],
   faq: ['id', 'question', 'answer'],
 };
 
