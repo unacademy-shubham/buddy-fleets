@@ -1,5 +1,5 @@
 import React,{useCallback,useEffect,useMemo,useState} from 'react';
-import {useLocation,useParams} from 'react-router-dom';
+import {useLocation,useNavigate,useParams} from 'react-router-dom';
 import './clientPortal.css';
 import './clientPortalTheme.css';
 import {ClientPortalProvider} from './ClientPortalContext';
@@ -56,6 +56,7 @@ function PageForRoute({route,allowedKeys=[],setupRequired=false}){
 export default function ClientPortalApp({currentUser,onLogout}){
   const {companySlug}=useParams();
   const location=useLocation();
+  const navigate=useNavigate();
   const basePath=`/${companySlug}`;
   const [state,setState]=useState({loading:true,error:'',company:null,settings:null,sites:[],userAccess:null,runtime:null,data:{}});
 
@@ -77,6 +78,19 @@ export default function ClientPortalApp({currentUser,onLogout}){
   },[]);
 
   useEffect(()=>{load();},[load]);
+  useEffect(()=>{
+    if(state.loading||state.error)return;
+    const current=location.pathname.replace(/\/+$/,'')||'/';
+    const base=basePath.replace(/\/+$/,'')||'/';
+    if(current!==base)return;
+    const configured=state.runtime?.fleetPackSetupRequired===true ? '/dashboard' : (state.runtime?.portalConfig?.landing_path||'/dashboard');
+    const requested=String(configured||'/dashboard').replace(/^\/+|\/+$/g,'')||'dashboard';
+    const availableRoutes=[];
+    const collect=(nodes)=>{for(const node of Array.isArray(nodes)?nodes:[]){if(node?.route)availableRoutes.push(String(node.route).replace(/^\/+|\/+$/g,''));collect(node?.children);}};
+    collect(state.runtime?.navigation||[]);
+    const target=requested==='dashboard'||availableRoutes.includes(requested)?requested:'dashboard';
+    navigate(`${basePath}/${target}`.replace(/\/+/g,'/'),{replace:true});
+  },[state.loading,state.error,state.runtime?.fleetPackSetupRequired,state.runtime?.portalConfig?.landing_path,location.pathname,basePath,navigate]);
   const route=routeAfterBase(location.pathname,basePath);
   const self=state.data?.selfProfile||{};
   const value=useMemo(()=>({

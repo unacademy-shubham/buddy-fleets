@@ -721,7 +721,7 @@ async function loadCompany(db, companyId) {
   const [
     profileR, subscriptionR, overrideR, plansR, employeesR, invoicesR, paymentsR, receiptsR,
     documentsR, announcementsR, notesR, modulesR, portalR, policiesR, settingsR,
-    fleetPacksR, companyModuleOverridesR, sitesR, rolesR, portalAccessR, portalProfilesR, internalProfileR,
+    fleetPacksR, fleetPackModulesR, navigationNodesR, companyModuleOverridesR, sitesR, rolesR, membershipsR, portalAccessR, portalProfilesR, internalProfileR,
     teamMembersR, platformAdminsR, subscriptionContextR, vehiclesR, securitySessionsR, securityEventsR, historyR, portalAuditR,
   ] = await Promise.all([
     db.from('developer_company_profiles').select('*').eq('company_id', companyId).maybeSingle(),
@@ -739,12 +739,15 @@ async function loadCompany(db, companyId) {
     db.from('developer_company_portal_config').select('*').eq('company_id', companyId).maybeSingle(),
     db.from('developer_lifecycle_access_policy').select('*'),
     db.from('company_portal_settings').select('company_id,fleet_pack,enabled_packs,fleet_pack_selection_status,fleet_pack_selected_at,enabled_modules,company_display_name,default_scope,date_format,time_format,terminology,config').eq('company_id', companyId).maybeSingle(),
-    db.from('developer_fleet_packs').select('pack_key,slug,name,short_name,status,display_order').order('display_order', { ascending: true }),
-    db.from('developer_company_module_overrides').select('company_id,module_key,enabled,access_level,action_overrides,reason,created_at,updated_at').eq('company_id', companyId).order('updated_at', { ascending: false }),
+    db.from('developer_fleet_packs').select('pack_key,slug,name,short_name,description,status,display_order').order('display_order', { ascending: true }),
+    db.from('developer_fleet_pack_modules').select('pack_key,module_key,default_enabled,is_core,sort_order,config').order('pack_key', { ascending: true }).order('sort_order', { ascending: true }),
+    db.from('developer_navigation_nodes').select('node_key,parent_node_key,node_type,label,module_key,route,icon_key,fleet_packs,placement,sort_order,status,show_in_sidebar,show_on_dashboard,metadata').eq('status','active').eq('placement','sidebar').order('sort_order', { ascending: true }),
+    db.from('developer_company_module_overrides').select('company_id,module_key,enabled,access_level,action_overrides,reason,revision,created_at,updated_at').eq('company_id', companyId).order('updated_at', { ascending: false }),
     db.from('company_portal_sites').select('id,code,name,site_type,address,city,state,pincode,is_primary,status,manager_user_id,created_at,updated_at').eq('company_id', companyId).order('is_primary', { ascending: false }),
-    db.from('company_portal_roles').select('id,role_key,name,is_system').eq('company_id', companyId).order('role_key', { ascending: true }),
-    db.from('company_portal_user_access').select('company_id,user_id,role_id,role_name,primary_site_id,site_ids,all_sites,force_password_change').eq('company_id', companyId),
-    db.from('company_portal_user_profiles').select('company_id,user_id,employee_code,full_name,designation,department,email,mobile').eq('company_id', companyId),
+    db.from('company_portal_roles').select('id,role_key,name,description,is_system,module_permissions').eq('company_id', companyId).order('role_key', { ascending: true }),
+    db.from('company_memberships').select('id,company_id,user_id,status,access_scope,joined_at,created_at,updated_at').eq('company_id', companyId),
+    db.from('company_portal_user_access').select('company_id,user_id,role_id,role_name,primary_site_id,site_ids,all_sites,module_overrides,permission_overrides,preferences,force_password_change,created_at,updated_at').eq('company_id', companyId),
+    db.from('company_portal_user_profiles').select('company_id,user_id,employee_code,full_name,designation,department,email,mobile,updated_at').eq('company_id', companyId),
     db.from('developer_company_internal_profiles').select('*').eq('company_id', companyId).maybeSingle(),
     db.from('platform_team_members').select('user_id,status').eq('status','active'),
     db.from('platform_admins').select('user_id,is_active').eq('is_active',true),
@@ -755,7 +758,7 @@ async function loadCompany(db, companyId) {
     db.from('developer_saas_history').select('id,domain,entity_id,action,before_payload,after_payload,actor_user_id,created_at').eq('entity_id', companyId).order('created_at', { ascending: false }).limit(80),
     db.from('company_portal_audit').select('id,user_id,module_key,action_type,entity_type,entity_id,description,before_data,after_data,created_at').eq('company_id', companyId).order('created_at', { ascending: false }).limit(80),
   ]);
-  for (const r of [profileR,subscriptionR,overrideR,plansR,employeesR,invoicesR,paymentsR,receiptsR,documentsR,announcementsR,notesR,modulesR,portalR,policiesR,settingsR,fleetPacksR,companyModuleOverridesR,sitesR,rolesR,portalAccessR,portalProfilesR,internalProfileR,teamMembersR,platformAdminsR,vehiclesR,securitySessionsR,securityEventsR,historyR,portalAuditR]) {
+  for (const r of [profileR,subscriptionR,overrideR,plansR,employeesR,invoicesR,paymentsR,receiptsR,documentsR,announcementsR,notesR,modulesR,portalR,policiesR,settingsR,fleetPacksR,fleetPackModulesR,navigationNodesR,companyModuleOverridesR,sitesR,rolesR,membershipsR,portalAccessR,portalProfilesR,internalProfileR,teamMembersR,platformAdminsR,vehiclesR,securitySessionsR,securityEventsR,historyR,portalAuditR]) {
     if (r.error) throw r.error;
   }
   if (subscriptionContextR.error) console.warn('Subscription context resolver unavailable in Company 360:', subscriptionContextR.error.message);
@@ -909,6 +912,51 @@ async function loadCompany(db, companyId) {
     developerAssignees = assigneeProfiles || [];
   }
 
+  const membershipMap = new Map((membershipsR.data || []).map((row) => [row.user_id, row]));
+  const portalAccessMap = new Map((portalAccessR.data || []).map((row) => [row.user_id, row]));
+  const portalProfileMap = new Map((portalProfilesR.data || []).map((row) => [row.user_id, row]));
+  const employees = (employeesR.data || []).map((employee) => {
+    const membership = membershipMap.get(employee.user_id) || null;
+    const runtimeAccess = portalAccessMap.get(employee.user_id) || null;
+    const runtimeProfile = portalProfileMap.get(employee.user_id) || null;
+    const roleMatches = runtimeAccess
+      ? (runtimeAccess.role_id && (rolesR.data || []).some((role) => role.id === runtimeAccess.role_id && role.role_key === employee.role_key))
+        || (!runtimeAccess.role_id && String(runtimeAccess.role_name || '').toLowerCase() === String(employee.role_key || '').toLowerCase())
+      : false;
+    const profileMatches = runtimeProfile
+      ? String(runtimeProfile.full_name || '') === String(employee.full_name || '')
+        && String(runtimeProfile.email || '').toLowerCase() === String(employee.email || '').toLowerCase()
+      : false;
+    const membershipActive = membership?.status === (employee.status === 'active' ? 'active' : 'disabled');
+    const forcePasswordMatches = runtimeAccess
+      ? Boolean(runtimeAccess.force_password_change) === Boolean(employee.force_password_change)
+      : false;
+    const synced = Boolean(membership && runtimeAccess && runtimeProfile && roleMatches && profileMatches && membershipActive && forcePasswordMatches);
+    return {
+      ...employee,
+      is_account_owner: employee.user_id === company.account_owner_user_id,
+      runtime_access: runtimeAccess,
+      runtime_profile: runtimeProfile,
+      membership,
+      runtime_sync: {
+        synced,
+        membership: Boolean(membership),
+        access: Boolean(runtimeAccess),
+        profile: Boolean(runtimeProfile),
+        role_matches: roleMatches,
+        profile_matches: profileMatches,
+        membership_matches: membershipActive,
+        force_password_matches: forcePasswordMatches,
+      },
+    };
+  });
+
+  const accessIntegrity = {
+    total: employees.length,
+    synced: employees.filter((employee) => employee.runtime_sync?.synced).length,
+    needs_attention: employees.filter((employee) => !employee.runtime_sync?.synced).length,
+  };
+
   const overview = buildOverviewIntelligence({
     company,
     profile: profileR.data || null,
@@ -918,7 +966,7 @@ async function loadCompany(db, companyId) {
     subscriptionContext,
     effectiveLimits,
     provisioningHealth,
-    employees: employeesR.data || [],
+    employees,
     invoices: commercial.invoices,
     payments: commercial.payments,
     documents: documentsR.data || [],
@@ -943,16 +991,20 @@ async function loadCompany(db, companyId) {
     ownerBootstrap,
     portalSettings,
     fleetPacks: fleetPacksR.data || [],
+    fleetPackModules: fleetPackModulesR.data || [],
+    navigationNodes: navigationNodesR.data || [],
     companyModuleOverrides: companyModuleOverridesR.data || [],
     sites: sitesR.data || [],
     roles: rolesR.data || [],
+    memberships: membershipsR.data || [],
     portalUserAccess: portalAccessR.data || [],
     portalUserProfiles: portalProfilesR.data || [],
+    accessIntegrity,
     provisioningHealth,
     overview,
     override,
     plans,
-    employees: employeesR.data || [],
+    employees,
     invoices: commercial.invoices,
     invoiceItems,
     payments: commercial.payments,
@@ -971,33 +1023,60 @@ async function loadCompany(db, companyId) {
 
 async function employeeAction(db, actor, companyId, body) {
   const action = clean(body.action, 50);
+  const roleKey = clean(body.roleKey, 80).toLowerCase() || 'viewer';
+  const siteIds = Array.isArray(body.siteIds)
+    ? [...new Set(body.siteIds.map((value) => clean(value, 80)).filter((value) => UUID.test(value)))]
+    : [];
+  const primarySiteId = UUID.test(clean(body.primarySiteId, 80)) ? clean(body.primarySiteId, 80) : null;
+  const allSites = Boolean(body.allSites);
+
   if (action === 'create_employee') {
     const fullName = clean(body.fullName, 150);
     const email = clean(body.email, 254).toLowerCase();
     const password = String(body.password || '');
-    if (!fullName || !EMAIL.test(email) || password.length < 8) return { status:400, payload:{ok:false,code:'INVALID_EMPLOYEE'} };
+    if (!fullName || !EMAIL.test(email) || password.length < 8) {
+      return { status:400, payload:{ok:false,code:'INVALID_EMPLOYEE',message:'Name, valid email and an 8+ character temporary password are required.'} };
+    }
+    if (roleKey === 'owner') return { status:409, payload:{ok:false,code:'OWNER_ROLE_PROTECTED',message:'The Company Owner role is reserved for the account owner.'} };
+
     const { data: created, error: authError } = await db.auth.admin.createUser({
-      email, password, email_confirm: true,
+      email,
+      password,
+      email_confirm: true,
       user_metadata: { full_name: fullName, mobile: clean(body.mobile, 30), created_via: 'developer_company_360' },
     });
     if (authError) return { status:409, payload:{ok:false,code:'AUTH_USER_CREATE_FAILED',message:authError.message} };
+
     const userId = created.user.id;
     try {
-      const membership = await db.from('company_memberships').insert({
-        company_id: companyId, user_id: userId, status: 'active', access_scope: 'company', joined_at: new Date().toISOString(),
+      const { data: synced, error: syncError } = await db.rpc('developer_company360_sync_employee_runtime', {
+        p_company_id: companyId,
+        p_user_id: userId,
+        p_actor: actor,
+        p_full_name: fullName,
+        p_email: email,
+        p_mobile: clean(body.mobile,30),
+        p_employee_code: clean(body.employeeCode,50),
+        p_designation: clean(body.designation,120),
+        p_department: clean(body.department,120),
+        p_branch: clean(body.branch,120),
+        p_role_key: roleKey,
+        p_primary_site_id: primarySiteId,
+        p_site_ids: siteIds,
+        p_all_sites: allSites,
+        p_force_password_change: Boolean(body.forcePasswordChange),
+        p_notes: clean(body.notes,2000),
       });
-      if (membership.error) throw membership.error;
-      const emp = await db.from('developer_company_employees').insert({
-        company_id: companyId, user_id: userId, full_name: fullName, email,
-        mobile: clean(body.mobile,30), employee_code: clean(body.employeeCode,50), designation: clean(body.designation,120),
-        branch: clean(body.branch,120), role_key: clean(body.roleKey,80) || 'viewer', status: 'active',
-        force_password_change: Boolean(body.forcePasswordChange), notes: clean(body.notes,2000), created_by: actor, updated_by: actor,
-      }).select('*').single();
-      if (emp.error) throw emp.error;
-      await history(db, actor, companyId, 'employee_create', { user_id:userId, email, role_key:emp.data.role_key });
-      return { status:201, payload:{ok:true,employee:emp.data} };
+      if (syncError) throw syncError;
+      if (!synced?.ok) {
+        const e = new Error(synced?.code || 'EMPLOYEE_RUNTIME_SYNC_FAILED');
+        e.code = synced?.code || 'EMPLOYEE_RUNTIME_SYNC_FAILED';
+        throw e;
+      }
+      return { status:201, payload:{ok:true,employee:synced.employee,access:synced.access,profile:synced.profile,membership:synced.membership} };
     } catch (error) {
       await db.auth.admin.deleteUser(userId).catch(()=>{});
+      if (error?.code === 'OWNER_ROLE_PROTECTED') return {status:409,payload:{ok:false,code:error.code}};
       throw error;
     }
   }
@@ -1012,31 +1091,64 @@ async function employeeAction(db, actor, companyId, body) {
     if (password.length < 8) return { status:400, payload:{ok:false,code:'INVALID_PASSWORD'} };
     const { error: authError } = await db.auth.admin.updateUserById(emp.user_id, { password });
     if (authError) throw authError;
-    await db.from('developer_company_employees').update({ force_password_change:Boolean(body.forcePasswordChange), updated_by:actor, updated_at:new Date().toISOString() }).eq('id', emp.id);
-    await history(db, actor, companyId, 'employee_password_reset', { employee_id: emp.id });
+    const { data: synced, error: syncError } = await db.rpc('developer_company360_sync_force_password', {
+      p_company_id: companyId,
+      p_user_id: emp.user_id,
+      p_actor: actor,
+      p_force_password_change: Boolean(body.forcePasswordChange),
+    });
+    if (syncError) throw syncError;
+    if (!synced?.ok) return {status:409,payload:{ok:false,...synced}};
     return { status:200, payload:{ok:true} };
   }
+
   if (['block_employee','unblock_employee','disable_employee'].includes(action)) {
     const next = action === 'block_employee' ? 'blocked' : action === 'disable_employee' ? 'disabled' : 'active';
-    await db.from('developer_company_employees').update({ status:next, updated_by:actor, updated_at:new Date().toISOString() }).eq('id', emp.id);
-    if (next !== 'active') {
-      await db.from('security_sessions').update({ status:'revoked', revoked_at:new Date().toISOString(), revoke_reason:'COMPANY_EMPLOYEE_BLOCKED' }).eq('company_id', companyId).eq('user_id', emp.user_id).eq('status','active');
+    const { data: statusResult, error: statusError } = await db.rpc('developer_company360_set_employee_status', {
+      p_company_id: companyId,
+      p_user_id: emp.user_id,
+      p_actor: actor,
+      p_status: next,
+    });
+    if (statusError) throw statusError;
+    if (!statusResult?.ok) {
+      return {status:statusResult?.code === 'OWNER_PROTECTED' ? 409 : 400,payload:{ok:false,...statusResult}};
     }
-    await history(db, actor, companyId, action, { employee_id:emp.id, status:next });
-    return { status:200, payload:{ok:true,status:next} };
+    return { status:200, payload:{ok:true,status:statusResult.status} };
   }
+
   if (action === 'update_employee') {
-    const patch = {
-      full_name: clean(body.fullName ?? emp.full_name,150), mobile: clean(body.mobile ?? emp.mobile,30),
-      employee_code: clean(body.employeeCode ?? emp.employee_code,50), designation: clean(body.designation ?? emp.designation,120),
-      branch: clean(body.branch ?? emp.branch,120), role_key: clean(body.roleKey ?? emp.role_key,80) || 'viewer',
-      notes: clean(body.notes ?? emp.notes,2000), updated_by:actor, updated_at:new Date().toISOString(),
-    };
-    const { data, error: uErr } = await db.from('developer_company_employees').update(patch).eq('id',emp.id).select('*').single();
-    if (uErr) throw uErr;
-    await history(db, actor, companyId, 'employee_update', { employee_id:emp.id, role_key:data.role_key });
-    return { status:200, payload:{ok:true,employee:data} };
+    const fullName = clean(body.fullName ?? emp.full_name,150);
+    const email = clean(body.email ?? emp.email,254).toLowerCase();
+    if (!fullName || !EMAIL.test(email)) return {status:400,payload:{ok:false,code:'INVALID_EMPLOYEE'}};
+    if (email !== String(emp.email || '').toLowerCase()) {
+      return {status:409,payload:{ok:false,code:'EMPLOYEE_EMAIL_IMMUTABLE',message:'Login email cannot be changed from Company 360. Create a new user identity instead.'}};
+    }
+    const { data: synced, error: syncError } = await db.rpc('developer_company360_sync_employee_runtime', {
+      p_company_id: companyId,
+      p_user_id: emp.user_id,
+      p_actor: actor,
+      p_full_name: fullName,
+      p_email: email,
+      p_mobile: clean(body.mobile ?? emp.mobile,30),
+      p_employee_code: clean(body.employeeCode ?? emp.employee_code,50),
+      p_designation: clean(body.designation ?? emp.designation,120),
+      p_department: clean(body.department ?? '',120),
+      p_branch: clean(body.branch ?? emp.branch,120),
+      p_role_key: roleKey || emp.role_key || 'viewer',
+      p_primary_site_id: primarySiteId,
+      p_site_ids: siteIds,
+      p_all_sites: allSites,
+      p_force_password_change: body.forcePasswordChange === undefined ? Boolean(emp.force_password_change) : Boolean(body.forcePasswordChange),
+      p_notes: clean(body.notes ?? emp.notes,2000),
+    });
+    if (syncError) throw syncError;
+    if (!synced?.ok) {
+      return {status:['OWNER_ROLE_PROTECTED','ROLE_NOT_FOUND'].includes(synced?.code) ? 409 : 400,payload:{ok:false,...synced}};
+    }
+    return { status:200, payload:{ok:true,employee:synced.employee,access:synced.access,profile:synced.profile,membership:synced.membership} };
   }
+
   return { status:400, payload:{ok:false,code:'INVALID_EMPLOYEE_ACTION'} };
 }
 
@@ -1336,6 +1448,170 @@ async function rejectPayment(db, actor, companyId, body) {
   return {status:200,payload:{ok:true,payment:data.payment,idempotent:!data.changed}};
 }
 
+
+function accessRank(value) {
+  if (value === 'full') return 2;
+  if (value === 'read_only') return 1;
+  return 0;
+}
+
+async function inspectEffectiveAccess(db, companyId, body, companyData) {
+  const moduleKey = clean(body.moduleKey, 160);
+  const requestedUserId = clean(body.userId, 80);
+  const userId = UUID.test(requestedUserId) ? requestedUserId : companyData.company?.account_owner_user_id;
+  if (!moduleKey) return {status:400,payload:{ok:false,code:'MODULE_KEY_REQUIRED'}};
+  if (!UUID.test(userId || '')) return {status:400,payload:{ok:false,code:'USER_ID_REQUIRED'}};
+
+  const knownUser = userId === companyData.company?.account_owner_user_id
+    || (companyData.employees || []).some((employee) => employee.user_id === userId);
+  if (!knownUser) return {status:404,payload:{ok:false,code:'COMPANY_USER_NOT_FOUND'}};
+
+  const module = (companyData.modules || []).find((row) => row.module_key === moduleKey);
+  if (!module) return {status:404,payload:{ok:false,code:'MODULE_NOT_FOUND'}};
+
+  const { data: resolved, error: resolveError } = await db.rpc('bf_resolve_user_access', {
+    p_company_id: companyId,
+    p_user_id: userId,
+  });
+  if (resolveError) throw resolveError;
+
+  const finalModule = Array.isArray(resolved?.modules)
+    ? resolved.modules.find((row) => row.module_key === moduleKey)
+    : null;
+  const context = resolved?.context || companyData.subscriptionContext || {};
+  const effectivePlanKey = context?.effective_plan_key || null;
+  const fleetPackSetupRequired = companyData.portalSettings?.fleet_pack_selection_status !== 'selected';
+  const enabledPacks = Array.isArray(context?.enabled_packs) ? context.enabled_packs : [];
+  let planEntitlements = [];
+  if (effectivePlanKey && enabledPacks.length) {
+    const entitlementR = await db.from('developer_plan_fleet_entitlements')
+      .select('plan_key,pack_key,module_key,access_level,limits')
+      .eq('plan_key', effectivePlanKey)
+      .eq('module_key', moduleKey)
+      .in('pack_key', enabledPacks);
+    if (entitlementR.error) throw entitlementR.error;
+    planEntitlements = entitlementR.data || [];
+  }
+  const strongestPlan = planEntitlements
+    .slice()
+    .sort((a,b) => accessRank(b.access_level) - accessRank(a.access_level))[0] || null;
+
+  const companyOverride = (companyData.companyModuleOverrides || []).find((row) => row.module_key === moduleKey) || null;
+  const runtimeAccess = (companyData.portalUserAccess || []).find((row) => row.user_id === userId) || null;
+  const role = (companyData.roles || []).find((row) => row.id === runtimeAccess?.role_id)
+    || (companyData.roles || []).find((row) => row.role_key === runtimeAccess?.role_name)
+    || null;
+  const userOverride = runtimeAccess?.module_overrides?.[moduleKey] ?? null;
+  const permissionOverride = runtimeAccess?.permission_overrides?.[moduleKey] ?? null;
+
+  let finalSource = 'Not entitled';
+  if (fleetPackSetupRequired) finalSource = 'Fleet Pack setup required';
+  else if (context?.lifecycle_access === 'blocked') finalSource = 'Lifecycle block';
+  else if (companyOverride) finalSource = 'Company override';
+  else if (userOverride) finalSource = 'User restriction';
+  else if (strongestPlan) finalSource = 'Plan × Fleet Pack';
+  if (context?.lifecycle_access === 'read_only' && finalModule?.access_level === 'read_only') finalSource = `${finalSource} + lifecycle clamp`;
+
+  const packMatches = enabledPacks.filter((packKey) => Array.isArray(module.fleet_packs) && module.fleet_packs.includes(packKey));
+  const chain = [
+    {
+      key:'company',
+      label:'Company state',
+      value:humanAction(context?.company_status || companyData.company?.status || 'unknown'),
+      status:['suspended','cancelled','blocked','disabled'].includes(String(context?.company_status || '').toLowerCase()) ? 'blocked' : 'pass',
+      detail:`Company ${companyData.company?.company_code || ''}`,
+    },
+    {
+      key:'subscription',
+      label:'Lifecycle',
+      value:humanAction(context?.lifecycle_access || 'blocked'),
+      status:context?.lifecycle_access === 'blocked' ? 'blocked' : context?.lifecycle_access === 'read_only' ? 'warning' : 'pass',
+      detail:[context?.lifecycle_state, context?.reason].filter(Boolean).map(humanAction).join(' · '),
+    },
+    {
+      key:'plan',
+      label:'Effective plan',
+      value:effectivePlanKey ? humanAction(effectivePlanKey) : 'No effective plan',
+      status:effectivePlanKey ? 'pass' : 'blocked',
+      detail:strongestPlan ? `${humanAction(strongestPlan.access_level)} via ${humanAction(strongestPlan.pack_key)}` : 'No Plan × Fleet entitlement for this module',
+    },
+    {
+      key:'fleet_setup',
+      label:'Fleet Pack setup',
+      value:fleetPackSetupRequired ? 'Setup required' : 'Selected',
+      status:fleetPackSetupRequired ? 'blocked' : 'pass',
+      detail:fleetPackSetupRequired ? 'Company Portal bootstrap hides operational navigation until a Fleet Pack is explicitly selected.' : `Primary pack: ${humanAction(companyData.portalSettings?.fleet_pack || 'selected')}`,
+    },
+    {
+      key:'fleet',
+      label:'Fleet Pack eligibility',
+      value:packMatches.length ? packMatches.map(humanAction).join(', ') : 'No enabled pack match',
+      status:packMatches.length ? 'pass' : 'blocked',
+      detail:`Enabled packs: ${enabledPacks.length ? enabledPacks.map(humanAction).join(', ') : 'None'}`,
+    },
+    {
+      key:'company_override',
+      label:'Company module override',
+      value:companyOverride ? humanAction(companyOverride.access_level) : 'Plan default',
+      status:companyOverride?.access_level === 'blocked' || companyOverride?.enabled === false ? 'blocked' : companyOverride ? 'warning' : 'neutral',
+      detail:companyOverride?.reason || 'No company-specific module exception',
+    },
+    {
+      key:'role',
+      label:'Role',
+      value:role?.name || resolved?.role?.name || runtimeAccess?.role_name || 'Not resolved',
+      status:role || resolved?.role ? 'pass' : 'blocked',
+      detail:role?.role_key ? `Role key: ${role.role_key}` : 'Runtime role could not be resolved',
+    },
+    {
+      key:'user_override',
+      label:'User-specific override',
+      value:userOverride ? (typeof userOverride === 'string' ? humanAction(userOverride) : humanAction(userOverride.access_level || (userOverride.enabled === false ? 'blocked' : 'custom'))) : 'None',
+      status:userOverride ? 'warning' : 'neutral',
+      detail:permissionOverride ? 'User action permissions also customize this module.' : 'No user-specific module restriction',
+    },
+    {
+      key:'dependencies',
+      label:'Dependencies',
+      value:Array.isArray(module.dependencies) && module.dependencies.length ? module.dependencies.join(', ') : 'None',
+      status:finalModule?.access_level === 'blocked' && Array.isArray(module.dependencies) && module.dependencies.length ? 'warning' : 'neutral',
+      detail:'Dependencies are evaluated by the runtime resolver before final access is returned.',
+    },
+    {
+      key:'final',
+      label:'Final effective access',
+      value:humanAction(fleetPackSetupRequired ? 'blocked' : (finalModule?.access_level || 'blocked')),
+      status:fleetPackSetupRequired ? 'blocked' : finalModule?.access_level === 'full' ? 'pass' : finalModule?.access_level === 'read_only' ? 'warning' : 'blocked',
+      detail:`Source: ${finalSource}`,
+    },
+  ];
+
+  return {
+    status:200,
+    payload:{
+      ok:true,
+      inspector:{
+        userId,
+        moduleKey,
+        moduleName:module.module_name,
+        route:module.route || null,
+        finalAccess:fleetPackSetupRequired ? 'blocked' : (finalModule?.access_level || 'blocked'),
+        visible:!fleetPackSetupRequired && finalModule?.visible === true,
+        actions:finalModule?.actions || {},
+        source:finalSource,
+        role:resolved?.role || role || null,
+        siteScope:resolved?.site_scope || null,
+        lifecycle:context,
+        planEntitlements,
+        companyOverride,
+        userOverride,
+        permissionOverride,
+        chain,
+      },
+    },
+  };
+}
+
 async function handlePost(db, actor, companyId, body) {
   const action=clean(body.action,80);
   if (action.includes('employee')) return employeeAction(db,actor,companyId,body);
@@ -1376,6 +1652,8 @@ async function handlePost(db, actor, companyId, body) {
     return {status:201,payload:{ok:true,valid:true,importType,imported,summary:{total:imported,valid:imported,invalid:0}}};
   }
 
+  if(action==='inspect_effective_access') return inspectEffectiveAccess(db,companyId,body,companyData);
+
   if(action==='set_fleet_packs'){
     const primaryPack=clean(body.primaryPack,120);
     const enabledPacks=Array.isArray(body.enabledPacks)?[...new Set(body.enabledPacks.map((value)=>clean(value,120)).filter(Boolean))]:[];
@@ -1388,18 +1666,35 @@ async function handlePost(db, actor, companyId, body) {
   }
   if(action==='save_module_override'){
     const moduleKey=clean(body.moduleKey,160), accessLevel=clean(body.accessLevel,30)||'full';
+    const reason=clean(body.reason,1000);
     if(!moduleKey||!['full','read_only','blocked'].includes(accessLevel)) return {status:400,payload:{ok:false,code:'INVALID_MODULE_OVERRIDE'}};
-    const row={company_id:companyId,module_key:moduleKey,enabled:body.enabled!==false&&accessLevel!=='blocked',access_level:accessLevel,action_overrides:body.actionOverrides&&typeof body.actionOverrides==='object'?body.actionOverrides:{},reason:clean(body.reason,1000),updated_by:actor,updated_at:new Date().toISOString()};
-    const {data,error}=await db.from('developer_company_module_overrides').upsert(row,{onConflict:'company_id,module_key'}).select('*').single();
+    if(reason.length<3) return {status:400,payload:{ok:false,code:'OVERRIDE_REASON_REQUIRED',message:'Add a reason for this company-level module override.'}};
+    const {data,error}=await db.rpc('developer_company360_save_module_override',{
+      p_company_id:companyId,
+      p_module_key:moduleKey,
+      p_access_level:accessLevel,
+      p_action_overrides:body.actionOverrides&&typeof body.actionOverrides==='object'?body.actionOverrides:{},
+      p_reason:reason,
+      p_expected_revision:Number(body.expectedRevision||0),
+      p_actor:actor,
+    });
     if(error) throw error;
-    await history(db,actor,companyId,'module_override_save',{module_key:moduleKey,access_level:accessLevel});
-    return {status:200,payload:{ok:true,override:data}};
+    if(!data?.ok) return {status:data?.code==='REVISION_CONFLICT'?409:data?.code==='MODULE_NOT_FOUND'?404:400,payload:{ok:false,...data,message:data?.code==='REVISION_CONFLICT'?'This module override changed in another session. Refresh and try again.':undefined}};
+    return {status:200,payload:{ok:true,override:data.override}};
   }
   if(action==='clear_module_override'){
     const moduleKey=clean(body.moduleKey,160); if(!moduleKey)return {status:400,payload:{ok:false,code:'MODULE_KEY_REQUIRED'}};
-    const {error}=await db.from('developer_company_module_overrides').delete().eq('company_id',companyId).eq('module_key',moduleKey); if(error)throw error;
-    await history(db,actor,companyId,'module_override_clear',{module_key:moduleKey});
-    return {status:200,payload:{ok:true}};
+    const reason=clean(body.reason,1000); if(reason.length<3)return {status:400,payload:{ok:false,code:'OVERRIDE_REASON_REQUIRED',message:'Add a reason before resetting this company override.'}};
+    const {data,error}=await db.rpc('developer_company360_clear_module_override',{
+      p_company_id:companyId,
+      p_module_key:moduleKey,
+      p_expected_revision:Number(body.expectedRevision||0),
+      p_reason:reason,
+      p_actor:actor,
+    });
+    if(error) throw error;
+    if(!data?.ok) return {status:data?.code==='REVISION_CONFLICT'?409:400,payload:{ok:false,...data,message:data?.code==='REVISION_CONFLICT'?'This module override changed in another session. Refresh and try again.':undefined}};
+    return {status:200,payload:{ok:true,cleared:data.cleared,idempotent:data.idempotent===true}};
   }
   if(action==='update_subscription') return updateCommercialSubscription(db,actor,companyId,body,companyData);
   if(action==='create_invoice') return createInvoice(db,actor,companyId,body,companyData);
@@ -1416,7 +1711,31 @@ async function handlePost(db, actor, companyId, body) {
     const bodyText=clean(body.body,10000); if(!bodyText)return {status:400,payload:{ok:false,code:'NOTE_REQUIRED'}}; const {data,error}=await db.from('developer_company_notes').insert({company_id:companyId,note_type:clean(body.noteType,50)||'internal',title:clean(body.title,200),body:bodyText,follow_up_at:body.followUpAt||null,created_by:actor}).select('*').single(); if(error) throw error; return {status:201,payload:{ok:true,note:data}};
   }
   if(action==='save_portal_config'){
-    const {data,error}=await db.from('developer_company_portal_config').upsert({company_id:companyId,dashboard_widgets:Array.isArray(body.dashboardWidgets)?body.dashboardWidgets:[],sidebar_overrides:body.sidebarOverrides&&typeof body.sidebarOverrides==='object'?body.sidebarOverrides:{},branding:body.branding&&typeof body.branding==='object'?body.branding:{},landing_path:clean(body.landingPath,200)||'/dashboard',revision:Number(body.revision||0)+1,updated_by:actor,updated_at:new Date().toISOString()},{onConflict:'company_id'}).select('*').single(); if(error) throw error; await history(db,actor,companyId,'portal_config_save',{revision:data.revision}); return {status:200,payload:{ok:true,portalConfig:data}};
+    const requestedWidgets=Array.isArray(body.dashboardWidgets)?body.dashboardWidgets.map((value)=>clean(value,160)).filter(Boolean):[];
+    const validModuleKeys=new Set((companyData.modules||[]).map((module)=>module.module_key));
+    const dashboardWidgets=[...new Set(requestedWidgets)];
+    if(dashboardWidgets.length>8 || dashboardWidgets.some((key)=>!validModuleKeys.has(key))) return {status:400,payload:{ok:false,code:'INVALID_DASHBOARD_WIDGETS',message:'Dashboard Quick Access can contain up to 8 registered modules.'}};
+    const sidebarOverrides=body.sidebarOverrides&&typeof body.sidebarOverrides==='object'&&!Array.isArray(body.sidebarOverrides)?body.sidebarOverrides:{};
+    const knownNodeKeys=new Set((companyData.navigationNodes||[]).map((node)=>node.node_key));
+    const hiddenNodes=Array.isArray(sidebarOverrides.hidden_nodes)?[...new Set(sidebarOverrides.hidden_nodes.map((value)=>clean(value,160)).filter(Boolean))]:[];
+    if(hiddenNodes.some((key)=>!knownNodeKeys.has(key))) return {status:400,payload:{ok:false,code:'INVALID_SIDEBAR_OVERRIDE'}};
+    const normalizedSidebar={...sidebarOverrides,hidden_nodes:hiddenNodes};
+    const branding=body.branding&&typeof body.branding==='object'&&!Array.isArray(body.branding)?body.branding:{};
+    const requestedLanding='/' + (clean(body.landingPath,200)||'/dashboard').replace(/^\/+|\/+$/g,'');
+    const validRoutes=new Set(['/dashboard',...(companyData.navigationNodes||[]).filter((node)=>node.route).map((node)=>`/${String(node.route).replace(/^\/+|\/+$/g,'')}`)]);
+    if(!validRoutes.has(requestedLanding)) return {status:400,payload:{ok:false,code:'INVALID_LANDING_PATH',message:'Choose a registered Company Portal route.'}};
+    const {data,error}=await db.rpc('developer_company360_save_portal_config',{
+      p_company_id:companyId,
+      p_dashboard_widgets:dashboardWidgets,
+      p_sidebar_overrides:normalizedSidebar,
+      p_branding:branding,
+      p_landing_path:requestedLanding,
+      p_expected_revision:Number(body.expectedRevision??body.revision??0),
+      p_actor:actor,
+    });
+    if(error) throw error;
+    if(!data?.ok) return {status:data?.code==='REVISION_CONFLICT'?409:400,payload:{ok:false,...data,message:data?.code==='REVISION_CONFLICT'?'Portal configuration changed in another session. Refresh and try again.':undefined}};
+    return {status:200,payload:{ok:true,portalConfig:data.portal_config}};
   }
   return {status:400,payload:{ok:false,code:'INVALID_ACTION'}};
 }

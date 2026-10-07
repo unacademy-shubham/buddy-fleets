@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   AlertTriangle, BusFront, CalendarCheck2, Clock3, IndianRupee, PackageCheck, Route,
   Scale, Truck, UsersRound, Wrench, Building2, FileText, Boxes, GraduationCap,
@@ -13,7 +14,29 @@ import { getFleetPack } from '../config/fleetPacks';
 const siteName = (sites, id) => sites.find((s)=>s.id===id)?.name || '—';
 const ICONS = { Truck, UsersRound, Building2, Route, FileText, Boxes, Container: Boxes, GraduationCap, Gauge, UserCheck, IndianRupee, PackageCheck, Clock3, Scale, CalendarCheck2, BusFront, AlertTriangle, Wrench };
 
-function GenericFleetDashboard({ company, data, sites, selectedSiteId }) {
+
+function flattenRuntimeNavigation(nodes, output = []) {
+  for (const node of Array.isArray(nodes) ? nodes : []) {
+    if (node?.module_key && node?.route) output.push(node);
+    flattenRuntimeNavigation(node?.children, output);
+  }
+  return output;
+}
+
+function DashboardQuickAccess({ runtime, basePath }) {
+  const navigate = useNavigate();
+  const configured = Array.isArray(runtime?.portalConfig?.dashboard_widgets) ? runtime.portalConfig.dashboard_widgets : [];
+  const sidebar = runtime?.portalConfig?.sidebar_overrides || {};
+  const hiddenNodes = new Set(Array.isArray(sidebar.hidden_nodes) ? sidebar.hidden_nodes : []);
+  const hiddenModules = new Set(Array.isArray(sidebar.hidden_module_keys) ? sidebar.hidden_module_keys : []);
+  const nodes = useMemo(() => flattenRuntimeNavigation(runtime?.navigation || [], []), [runtime?.navigation]);
+  const nodeMap = new Map(nodes.filter((node) => !hiddenNodes.has(node.node_key) && !hiddenModules.has(node.module_key)).map((node) => [node.module_key, node]));
+  const shortcuts = configured.map((key) => nodeMap.get(key)).filter(Boolean).slice(0, 8);
+  if (!shortcuts.length) return null;
+  return <div className="bf-card" style={{marginBottom:16}}><div className="bf-card-head"><h3>Quick Access</h3></div><div className="bf-card-body"><div className="bf-grid bf-grid-4">{shortcuts.map((node)=><button key={node.module_key} type="button" className="bf-btn bf-btn-secondary" onClick={()=>navigate(`${basePath}/${String(node.route).replace(/^\/+/, '')}`.replace(/\/+/g,'/'))}>{node.label || node.module_key}</button>)}</div></div></div>;
+}
+
+function GenericFleetDashboard({ company, data, sites, selectedSiteId, runtime, basePath }) {
   const pack = getFleetPack(company?.fleetPack);
   const filter = (rows=[]) => selectedSiteId === 'all' ? rows : rows.filter((row)=>(row.site_id || row.home_site_id || row.primary_site_id) === selectedSiteId);
   const vehicles = filter(data?.vehicles || []);
@@ -120,6 +143,7 @@ function GenericFleetDashboard({ company, data, sites, selectedSiteId }) {
       title={`${pack?.shortName || pack?.name || 'Fleet'} Dashboard`}
       subtitle={selectedSiteId==='all' ? 'Live consolidated view across all authorized sites.' : `Live site view: ${siteName(sites, selectedSiteId)}`}
     />
+    <DashboardQuickAccess runtime={runtime} basePath={basePath} />
     <div className="bf-grid bf-grid-4">
       {metrics.map((metric, index)=>{
         const Icon = ICONS[metric.icon] || Truck;
@@ -136,7 +160,7 @@ function GenericFleetDashboard({ company, data, sites, selectedSiteId }) {
 }
 
 export default function DashboardPage() {
-  const { company, data, sites = [], selectedSiteId } = useClientPortal();
+  const { company, data, sites = [], selectedSiteId, runtime, basePath } = useClientPortal();
   const isCement = company?.fleetPack === 'bagged_cement';
   const isTravels = company?.fleetPack === 'travels';
   const filter = (rows=[]) => selectedSiteId === 'all' ? rows : rows.filter((row)=>(row.site_id || row.home_site_id || row.primary_site_id) === selectedSiteId);
@@ -170,10 +194,11 @@ export default function DashboardPage() {
     expenses: expenses.reduce((a,b)=>a+Number(b.amount||0),0),
   }),[vehicles,bookings,drivers,expenses]);
 
-  if (!isCement && !isTravels) return <GenericFleetDashboard company={company} data={data} sites={sites} selectedSiteId={selectedSiteId}/>;
+  if (!isCement && !isTravels) return <GenericFleetDashboard company={company} data={data} sites={sites} selectedSiteId={selectedSiteId} runtime={runtime} basePath={basePath}/>;
 
   return <>
     <PageHeader title="Dashboard" subtitle={selectedSiteId==='all' ? 'Consolidated view across all authorized sites.' : `Site view: ${siteName(sites, selectedSiteId)}`} />
+    <DashboardQuickAccess runtime={runtime} basePath={basePath} />
     {isCement ? <>
       <div className="bf-grid bf-grid-4">
         <KpiCard title="Total Vehicles" value={cementStats.vehicles} icon={Truck}/>

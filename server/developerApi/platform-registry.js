@@ -241,30 +241,42 @@ async function saveCompanyModuleOverride({ db, actor, body }) {
   if (!UUID.test(companyId) || !KEY.test(moduleKey) || !ACCESS_LEVELS.has(accessLevel)) {
     return { status: 400, payload: { ok: false, code: 'INVALID_COMPANY_MODULE_OVERRIDE' } };
   }
-  const row = {
-    company_id: companyId,
-    module_key: moduleKey,
-    enabled: body.enabled !== false,
-    access_level: accessLevel,
-    action_overrides: isObject(body.actionOverrides) ? body.actionOverrides : {},
-    reason: clean(body.reason, 1000),
-    updated_by: actor || null,
-    updated_at: new Date().toISOString(),
-  };
-  const { data, error } = await db.from('developer_company_module_overrides').upsert(row, { onConflict: 'company_id,module_key' }).select('*').single();
+  const currentR = await db.from('developer_company_module_overrides').select('revision,reason').eq('company_id',companyId).eq('module_key',moduleKey).maybeSingle();
+  if (currentR.error) throw currentR.error;
+  const reason = clean(body.reason,1000) || currentR.data?.reason || 'Platform Registry change';
+  const { data, error } = await db.rpc('developer_company360_save_module_override', {
+    p_company_id: companyId,
+    p_module_key: moduleKey,
+    p_access_level: accessLevel,
+    p_action_overrides: isObject(body.actionOverrides) ? body.actionOverrides : {},
+    p_reason: reason,
+    p_expected_revision: Number(currentR.data?.revision || 0),
+    p_actor: actor || null,
+  });
   if (error) throw error;
-  await audit(db, actor, 'developer.registry.company_module_override.save', 'company_module_override', `${companyId}:${moduleKey}`, row);
-  return { status: 200, payload: { ok: true, override: data } };
+  if (!data?.ok) return { status: data?.code === 'REVISION_CONFLICT' ? 409 : 400, payload: { ok:false, ...data } };
+  await audit(db, actor, 'developer.registry.company_module_override.save', 'company_module_override', `${companyId}:${moduleKey}`, data.override);
+  return { status: 200, payload: { ok: true, override: data.override } };
 }
 
 async function removeCompanyModuleOverride({ db, actor, body }) {
   const companyId = clean(body.companyId, 80);
   const moduleKey = clean(body.moduleKey, 160);
   if (!UUID.test(companyId) || !KEY.test(moduleKey)) return { status: 400, payload: { ok: false, code: 'INVALID_COMPANY_MODULE_OVERRIDE' } };
-  const { error } = await db.from('developer_company_module_overrides').delete().eq('company_id', companyId).eq('module_key', moduleKey);
+  const currentR = await db.from('developer_company_module_overrides').select('revision').eq('company_id',companyId).eq('module_key',moduleKey).maybeSingle();
+  if (currentR.error) throw currentR.error;
+  if (!currentR.data) return { status:200, payload:{ok:true,idempotent:true} };
+  const { data, error } = await db.rpc('developer_company360_clear_module_override', {
+    p_company_id: companyId,
+    p_module_key: moduleKey,
+    p_expected_revision: Number(currentR.data.revision || 0),
+    p_reason: clean(body.reason,1000) || 'Platform Registry reset',
+    p_actor: actor || null,
+  });
   if (error) throw error;
+  if (!data?.ok) return { status: data?.code === 'REVISION_CONFLICT' ? 409 : 400, payload:{ok:false,...data} };
   await audit(db, actor, 'developer.registry.company_module_override.remove', 'company_module_override', `${companyId}:${moduleKey}`);
-  return { status: 200, payload: { ok: true } };
+  return { status: 200, payload: { ok: true, idempotent:data.idempotent===true } };
 }
 
 async function updateModule({ db, actor, body }) {

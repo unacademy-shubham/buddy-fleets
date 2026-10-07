@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
@@ -32,6 +32,8 @@ import {
   Tags,
   ReceiptText,
   RefreshCcw,
+  RotateCcw,
+  Search,
   Save,
   Settings2,
   ShieldCheck,
@@ -80,6 +82,7 @@ const NAV_GROUPS = [
       ['fleet', 'Fleet Packs', PanelsTopLeft],
       ['modules', 'Modules & Features', SlidersHorizontal],
       ['overrides', 'Overrides', Wrench],
+      ['access_inspector', 'Effective Access Inspector', ShieldCheck],
       ['portal', 'Portal Configuration', Settings2],
     ],
   },
@@ -1205,18 +1208,104 @@ function ReceiptDetail({ receipt }) {
   );
 }
 
+function EmployeesAccessPanel({ data, onAdd, onEdit, onReset, onStatus, onInspect }) {
+  const employees = data.employees || [];
+  const sites = data.sites || [];
+  const siteMap = new Map(sites.map((site) => [site.id, site.name]));
+  const integrity = data.accessIntegrity || {};
+
+  return (
+    <div className="space-y-4">
+      <Section
+        title="Employees & Runtime Access"
+        action={<Button icon={UserPlus} primary onClick={onAdd}>Add Employee</Button>}
+      >
+        <div className="mb-4 grid gap-3 sm:grid-cols-3">
+          <MetricMini label="Company Users" value={integrity.total ?? employees.length} />
+          <MetricMini label="Runtime Synced" value={integrity.synced ?? employees.filter((employee) => employee.runtime_sync?.synced).length} tone="success" />
+          <MetricMini label="Needs Attention" value={integrity.needs_attention ?? employees.filter((employee) => !employee.runtime_sync?.synced).length} tone={(integrity.needs_attention || 0) > 0 ? 'warning' : 'success'} />
+        </div>
+        {!employees.length && <Empty text="No employees have been provisioned yet." />}
+        <div className="grid gap-3 xl:grid-cols-2">
+          {employees.map((employee) => {
+            const access = employee.runtime_access || {};
+            const assignedSites = access.all_sites
+              ? ['All sites']
+              : (access.site_ids || []).map((id) => siteMap.get(id)).filter(Boolean);
+            const isOwner = employee.is_account_owner === true;
+            const synced = employee.runtime_sync?.synced === true;
+            return (
+              <article key={employee.id} className="rounded-[10px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="truncate text-[13px] font-extrabold text-[var(--bf-dev-text)]">{employee.full_name || employee.email}</div>
+                      {isOwner && <ToneBadge tone="primary">Account Owner</ToneBadge>}
+                      <ToneBadge tone={statusTone(employee.status)}>{humanize(employee.status)}</ToneBadge>
+                    </div>
+                    <div className="mt-1 truncate text-[11px] font-semibold text-[var(--bf-dev-text)]">{employee.email}</div>
+                  </div>
+                  <ToneBadge tone={synced ? 'success' : 'warning'}>{synced ? 'Runtime Synced' : 'Sync Attention'}</ToneBadge>
+                </div>
+
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  <InfoLine label="Role" value={humanize(employee.role_key || access.role_name || 'viewer')} />
+                  <InfoLine label="Site Scope" value={assignedSites.join(', ') || 'No site assigned'} />
+                  <InfoLine label="Designation" value={employee.designation || employee.runtime_profile?.designation || '—'} />
+                  <InfoLine label="Employee Code" value={employee.employee_code || employee.runtime_profile?.employee_code || '—'} />
+                </div>
+
+                {!synced && (
+                  <div className="mt-3 rounded-[7px] border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-[11px] font-semibold leading-5 text-[var(--bf-dev-text)]">
+                    Developer employee record and portal runtime access are not fully aligned. Editing and saving this user will repair the normalized runtime rows.
+                  </div>
+                )}
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <Button icon={Pencil} onClick={() => onEdit(employee)}>Edit Access</Button>
+                  <Button icon={ShieldCheck} onClick={() => onInspect(employee)}>Inspect Access</Button>
+                  <Button icon={KeyRound} onClick={() => onReset(employee)}>Reset Password</Button>
+                  {!isOwner && (employee.status === 'blocked' || employee.status === 'disabled'
+                    ? <Button icon={Unlock} onClick={() => onStatus('unblock_employee', employee)}>Restore Access</Button>
+                    : <Button icon={Lock} danger onClick={() => onStatus('block_employee', employee)}>Block</Button>)}
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      </Section>
+
+      <div className="rounded-[9px] border border-[rgb(var(--bf-dev-primary-rgb)/.22)] bg-[rgb(var(--bf-dev-primary-rgb)/.06)] p-4 text-[11px] font-semibold leading-5 text-[var(--bf-dev-text)]">
+        Employee access is synchronized across Auth identity, company membership, Company 360 employee record, portal profile and portal runtime access. The account owner is protected from accidental blocking or reassignment.
+      </div>
+    </div>
+  );
+}
+
+function MetricMini({ label: metricLabel, value, tone = 'neutral' }) {
+  const toneClass = tone === 'success' ? 'text-emerald-500' : tone === 'warning' ? 'text-amber-500' : 'text-[var(--bf-dev-text)]';
+  return <div className="rounded-[8px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] px-3 py-3"><div className="text-[10px] font-bold uppercase tracking-[.06em] text-[var(--bf-dev-text)]">{metricLabel}</div><div className={cx('mt-1 text-[20px] font-black', toneClass)}>{value}</div></div>;
+}
+
+function InfoLine({ label: infoLabel, value }) {
+  return <div className="rounded-[7px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] px-3 py-2"><div className="text-[9px] font-bold uppercase tracking-[.06em] text-[var(--bf-dev-text)]">{infoLabel}</div><div className="mt-0.5 truncate text-[11px] font-semibold text-[var(--bf-dev-text)]" title={String(value || '')}>{value}</div></div>;
+}
+
 function FleetAccessPanel({ data, onAction }) {
   const settings = data.portalSettings || {};
   const packs = data.fleetPacks || [];
+  const packModules = data.fleetPackModules || [];
   const [firstPack] = packs;
-  const [primary, setPrimary] = useState(settings.fleet_pack || firstPack?.pack_key || '');
-  const [enabled, setEnabled] = useState(Array.isArray(settings.enabled_packs) ? settings.enabled_packs : []);
+  const explicitlySelected = settings.fleet_pack_selection_status === 'selected';
+  const [primary, setPrimary] = useState(explicitlySelected ? (settings.fleet_pack || '') : '');
+  const [enabled, setEnabled] = useState(explicitlySelected && Array.isArray(settings.enabled_packs) ? settings.enabled_packs : []);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    setPrimary(settings.fleet_pack || firstPack?.pack_key || '');
-    setEnabled(Array.isArray(settings.enabled_packs) ? settings.enabled_packs : []);
-  }, [settings.fleet_pack, settings.fleet_pack_selection_status, firstPack?.pack_key]);
+    const selected = settings.fleet_pack_selection_status === 'selected';
+    setPrimary(selected ? (settings.fleet_pack || '') : '');
+    setEnabled(selected && Array.isArray(settings.enabled_packs) ? settings.enabled_packs : []);
+  }, [settings.fleet_pack, settings.fleet_pack_selection_status, settings.enabled_packs, firstPack?.pack_key]);
 
   async function savePacks() {
     setSaving(true);
@@ -1224,81 +1313,313 @@ function FleetAccessPanel({ data, onAction }) {
     setSaving(false);
   }
 
-  const overrides = new Map((data.companyModuleOverrides || []).map((override) => [override.module_key, override]));
-  async function saveOverride(moduleKey, accessLevel) {
-    await onAction({ action: 'save_module_override', moduleKey, accessLevel, enabled: accessLevel !== 'blocked', reason: 'Company 360 Developer override' }, 'Module override saved.');
-  }
-  async function clearOverride(moduleKey) {
-    await onAction({ action: 'clear_module_override', moduleKey }, 'Module override cleared.');
-  }
+  const moduleCount = (packKey) => packModules.filter((row) => row.pack_key === packKey && row.default_enabled !== false).length;
+  const coreCount = (packKey) => packModules.filter((row) => row.pack_key === packKey && row.is_core).length;
 
   return (
-    <div className="space-y-4">
-      <Section title="Fleet Pack Assignment" action={<Button primary icon={Save} disabled={saving || !primary} onClick={savePacks}>{saving ? 'Saving…' : 'Save Fleet Packs'}</Button>}>
-        <div className="grid gap-3 lg:grid-cols-3">
-          <label className={label}>
-            Primary Fleet Pack
-            <SelectMenu
-              value={primary}
-              ariaLabel="Primary Fleet Pack"
-              options={packs.map((pack) => ({ value: pack.pack_key, label: pack.name }))}
-              onChange={(value) => { setPrimary(value); setEnabled((current) => [...new Set([value, ...current])]); }}
-            />
-          </label>
-          <Grid rows={[["Selection status", settings.fleet_pack_selection_status || 'pending'], ["Selected at", formatDate(settings.fleet_pack_selected_at, true)]]} />
-        </div>
-        <div className="mt-4">
-          <div className="mb-2 text-[12px] font-bold text-[var(--bf-dev-text)]">Enabled Fleet Packs</div>
-          <div className="flex flex-wrap gap-2">
-            {packs.map((pack) => (
-              <label key={pack.pack_key} className="flex items-center gap-2 rounded-[5px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] px-3 py-2 text-[12px] font-semibold text-[var(--bf-dev-text)]">
-                <input
-                  type="checkbox"
-                  checked={enabled.includes(pack.pack_key) || primary === pack.pack_key}
-                  disabled={primary === pack.pack_key}
-                  onChange={(event) => setEnabled(event.target.checked ? [...new Set([...enabled, pack.pack_key])] : enabled.filter((value) => value !== pack.pack_key))}
-                />
-                {pack.short_name || pack.name}
-              </label>
-            ))}
+    <Section title="Fleet Pack Assignment" action={<Button primary icon={Save} disabled={saving || !primary} onClick={savePacks}>{saving ? 'Saving…' : 'Save Fleet Packs'}</Button>}>
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_260px]">
+        <div>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <div className="text-[13px] font-extrabold text-[var(--bf-dev-text)]">Primary operating model</div>
+              <div className="mt-1 text-[11px] font-semibold text-[var(--bf-dev-text)]">The primary pack determines the company’s main workflow; additional packs can extend the same tenant.</div>
+            </div>
+            <ToneBadge tone={settings.fleet_pack_selection_status === 'selected' ? 'success' : 'warning'}>{settings.fleet_pack_selection_status || 'pending'}</ToneBadge>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {packs.map((pack) => {
+              const isPrimary = primary === pack.pack_key;
+              const isEnabled = isPrimary || enabled.includes(pack.pack_key);
+              return (
+                <div key={pack.pack_key} className={cx('rounded-[10px] border p-4 transition', isPrimary ? 'border-[var(--bf-dev-primary)] bg-[rgb(var(--bf-dev-primary-rgb)/.09)]' : 'border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)]')}>
+                  <div className="flex items-start justify-between gap-2"><div className="text-[12px] font-extrabold text-[var(--bf-dev-text)]">{pack.short_name || pack.name}</div>{isPrimary && <ToneBadge tone="primary">Primary</ToneBadge>}</div>
+                  <div className="mt-1 min-h-[34px] text-[10px] font-medium leading-4 text-[var(--bf-dev-text)]">{pack.description || pack.name}</div>
+                  <div className="mt-3 flex flex-wrap gap-1.5"><ToneBadge tone="neutral">{moduleCount(pack.pack_key)} modules</ToneBadge><ToneBadge tone="neutral">{coreCount(pack.pack_key)} core</ToneBadge></div>
+                  <div className="mt-3 flex gap-2">
+                    {!isPrimary && <Button onClick={() => { setPrimary(pack.pack_key); setEnabled((current) => [...new Set([...current, pack.pack_key])]); }}>Make Primary</Button>}
+                    {!isPrimary && <Button onClick={() => setEnabled((current) => isEnabled ? current.filter((value) => value !== pack.pack_key) : [...new Set([...current, pack.pack_key])])}>{isEnabled ? 'Disable' : 'Enable'}</Button>}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
-        <p className="mt-3 text-[12px] font-medium text-[var(--bf-dev-text)]">Pending compatibility value <b>travels</b> is not treated as the real company type until this selection is explicitly saved.</p>
-      </Section>
-
-      <Section title="Company Module Overrides">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[760px] text-left">
-            <thead>
-              <tr>{['Module', 'Effective access', 'Company override', 'Set', 'Clear'].map((heading) => <th key={heading} className="border-b border-[var(--bf-dev-border)] px-3 py-3 text-[12px] font-bold uppercase tracking-[.05em] text-[var(--bf-dev-text)]">{heading}</th>)}</tr>
-            </thead>
-            <tbody>
-              {(data.modules || []).map((module) => {
-                const override = overrides.get(module.module_key);
-                return (
-                  <tr key={module.module_key} className="border-b border-[var(--bf-dev-border)]">
-                    <td className="px-3 py-3 text-[12px] text-[var(--bf-dev-text)]"><b>{module.module_name}</b><div className="mt-0.5 text-[11px] font-medium text-[var(--bf-dev-text)]">{module.module_key}</div></td>
-                    <td className="px-3 py-3 text-[12px] font-semibold text-[var(--bf-dev-text)]">{humanize(module.effective_access || 'blocked')}</td>
-                    <td className="px-3 py-3 text-[12px] font-semibold text-[var(--bf-dev-text)]">{override ? `${override.enabled ? 'Enabled' : 'Disabled'} · ${humanize(override.access_level)}` : 'Plan default'}</td>
-                    <td className="px-3 py-3">
-                      <SelectMenu
-                        value={override?.access_level || 'full'}
-                        ariaLabel={`Access for ${module.module_name}`}
-                        className="w-36"
-                        options={[{ value: 'full', label: 'Full' }, { value: 'read_only', label: 'Read only' }, { value: 'blocked', label: 'Blocked' }]}
-                        onChange={(value) => saveOverride(module.module_key, value)}
-                      />
-                    </td>
-                    <td className="px-3 py-3"><Button danger={Boolean(override)} disabled={!override} onClick={() => clearOverride(module.module_key)}>Clear</Button></td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        <div className="rounded-[10px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] p-4">
+          <div className="text-[11px] font-extrabold uppercase tracking-[.06em] text-[var(--bf-dev-text)]">Current assignment</div>
+          <div className="mt-3 space-y-2">
+            <InfoLine label="Primary" value={packs.find((pack) => pack.pack_key === primary)?.name || primary || 'Not selected'} />
+            <InfoLine label="Enabled Packs" value={`${new Set([primary, ...enabled].filter(Boolean)).size}`} />
+            <InfoLine label="Selected At" value={formatDate(settings.fleet_pack_selected_at, true)} />
+          </div>
+          <div className="mt-3 text-[10px] font-semibold leading-4 text-[var(--bf-dev-text)]">Module availability is resolved separately through Plan × Fleet Pack entitlements and Company Overrides.</div>
         </div>
+      </div>
+    </Section>
+  );
+}
+
+function accessSourceLabel(module, override, data) {
+  const lifecycle = data.subscriptionContext?.lifecycle_access;
+  if (lifecycle === 'blocked') return 'Lifecycle Block';
+  if (lifecycle === 'read_only' && module.effective_access === 'read_only') return override ? 'Override + Lifecycle Clamp' : 'Plan + Lifecycle Clamp';
+  if (override) return 'Company Override';
+  if (module.plan_access && module.plan_access !== 'blocked') return 'Plan × Fleet Pack';
+  return 'Not Entitled';
+}
+
+function moduleNavigationGroups(data) {
+  const nodes = data.navigationNodes || [];
+  const modules = data.modules || [];
+  const moduleMap = new Map(modules.map((module) => [module.module_key, module]));
+  const categories = nodes.filter((node) => node.node_type === 'category');
+  const used = new Set();
+  const groups = categories.map((category) => {
+    const rows = nodes
+      .filter((node) => node.parent_node_key === category.node_key && node.module_key)
+      .map((node) => {
+        const module = moduleMap.get(node.module_key);
+        if (!module) return null;
+        used.add(module.module_key);
+        return { ...module, navLabel: node.label, nodeKey: node.node_key, navRoute: node.route };
+      })
+      .filter(Boolean);
+    return { key: category.node_key, label: category.label, rows };
+  }).filter((group) => group.rows.length);
+  const remainder = modules.filter((module) => !used.has(module.module_key));
+  if (remainder.length) groups.push({ key: 'other', label: 'Other / Platform Modules', rows: remainder });
+  return groups;
+}
+
+function ModuleAccessMap({ data, onOverride, onClear, onInspect }) {
+  const groups = useMemo(() => moduleNavigationGroups(data), [data]);
+  const overrides = new Map((data.companyModuleOverrides || []).map((row) => [row.module_key, row]));
+  const [query, setQuery] = useState('');
+  const [filter, setFilter] = useState('all');
+  const [collapsed, setCollapsed] = useState({});
+
+  const normalizedQuery = query.trim().toLowerCase();
+  const filteredGroups = groups.map((group) => ({
+    ...group,
+    rows: group.rows.filter((module) => {
+      const override = overrides.get(module.module_key);
+      const matchesQuery = !normalizedQuery || `${module.module_name} ${module.navLabel || ''} ${module.module_key}`.toLowerCase().includes(normalizedQuery);
+      const effective = module.effective_access || 'blocked';
+      const matchesFilter = filter === 'all' || (filter === 'override' ? Boolean(override) : effective === filter);
+      return matchesQuery && matchesFilter;
+    }),
+  })).filter((group) => group.rows.length);
+
+  const counts = (data.modules || []).reduce((acc, module) => { const key = module.effective_access || 'blocked'; acc[key] = (acc[key] || 0) + 1; return acc; }, {});
+
+  return (
+    <Section title="Module Access Map">
+      <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+        <div className="relative max-w-xl flex-1">
+          <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--bf-dev-text)]" />
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search module, sidebar label or key…" className={`${input} pl-9`} />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {[
+            ['all', `All ${(data.modules || []).length}`],
+            ['full', `Full ${counts.full || 0}`],
+            ['read_only', `Read Only ${counts.read_only || 0}`],
+            ['blocked', `Blocked ${counts.blocked || 0}`],
+            ['override', `Overrides ${(data.companyModuleOverrides || []).length}`],
+          ].map(([key, text]) => <Button key={key} primary={filter === key} onClick={() => setFilter(key)}>{text}</Button>)}
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        {filteredGroups.map((group) => {
+          const closed = collapsed[group.key] === true;
+          const enabledCount = group.rows.filter((module) => module.effective_access !== 'blocked').length;
+          return (
+            <div key={group.key} className="overflow-hidden rounded-[10px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)]">
+              <button type="button" onClick={() => setCollapsed((current) => ({ ...current, [group.key]: !closed }))} className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left">
+                <div><div className="text-[12px] font-extrabold text-[var(--bf-dev-text)]">{group.label}</div><div className="mt-0.5 text-[10px] font-semibold text-[var(--bf-dev-text)]">{enabledCount}/{group.rows.length} available for the account-owner runtime</div></div>
+                <ChevronDown size={15} className={cx('transition', closed && '-rotate-90')} />
+              </button>
+              {!closed && <div className="border-t border-[var(--bf-dev-border)]">
+                {group.rows.map((module) => {
+                  const override = overrides.get(module.module_key);
+                  return (
+                    <div key={module.module_key} className="grid gap-3 border-b border-[var(--bf-dev-border)] px-4 py-3 last:border-b-0 lg:grid-cols-[minmax(0,1.3fr)_150px_190px_auto] lg:items-center">
+                      <div className="min-w-0"><div className="text-[12px] font-bold text-[var(--bf-dev-text)]">{module.navLabel || module.module_name}</div><div className="mt-0.5 truncate text-[10px] font-semibold text-[var(--bf-dev-text)]">{module.module_key}{module.navRoute ? ` · /${String(module.navRoute).replace(/^\/+/, '')}` : ''}</div></div>
+                      <div><ToneBadge tone={statusTone(module.effective_access)}>{humanize(module.effective_access || 'blocked')}</ToneBadge></div>
+                      <div className="text-[10px] font-bold text-[var(--bf-dev-text)]">{accessSourceLabel(module, override, data)}</div>
+                      <div className="flex flex-wrap justify-start gap-2 lg:justify-end">
+                        <Button icon={Eye} onClick={() => onInspect(module)}>Inspect</Button>
+                        <Button icon={Wrench} onClick={() => onOverride(module, override)}>{override ? 'Edit Override' : 'Override'}</Button>
+                        {override && <Button icon={RotateCcw} danger onClick={() => onClear(module, override)}>Reset</Button>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>}
+            </div>
+          );
+        })}
+        {!filteredGroups.length && <Empty text="No modules match the current search/filter." />}
+      </div>
+      <div className="mt-4 rounded-[8px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] p-3 text-[10px] font-semibold leading-4 text-[var(--bf-dev-text)]">
+        This map follows the real Company Portal sidebar hierarchy. Company module overrides are exceptions; they do not replace the commercial plan or fleet-pack entitlement model.
+      </div>
+    </Section>
+  );
+}
+
+function ModuleOverridesPanel({ data, onEdit, onClear, onInspect }) {
+  const overrides = data.companyModuleOverrides || [];
+  const moduleMap = new Map((data.modules || []).map((module) => [module.module_key, module]));
+  const legacy = data.override || null;
+  return (
+    <div className="space-y-4">
+      <Section title="Company Module Exceptions">
+        {!overrides.length && <Empty text="No module exceptions. Company access follows Plan × Fleet Pack defaults." />}
+        <div className="grid gap-3 xl:grid-cols-2">
+          {overrides.map((override) => {
+            const module = moduleMap.get(override.module_key) || { module_key: override.module_key, module_name: humanize(override.module_key) };
+            return <div key={override.module_key} className="rounded-[9px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] p-4"><div className="flex flex-wrap items-start justify-between gap-2"><div><div className="text-[12px] font-extrabold text-[var(--bf-dev-text)]">{module.module_name}</div><div className="mt-0.5 text-[10px] font-semibold text-[var(--bf-dev-text)]">{override.module_key}</div></div><ToneBadge tone={statusTone(override.access_level)}>{humanize(override.access_level)}</ToneBadge></div><div className="mt-3 text-[11px] font-semibold leading-5 text-[var(--bf-dev-text)]">{override.reason || 'No reason recorded'}</div><div className="mt-2 text-[10px] font-semibold text-[var(--bf-dev-text)]">Revision {override.revision || 1} · Updated {formatDate(override.updated_at, true)}</div><div className="mt-3 flex flex-wrap gap-2"><Button icon={Pencil} onClick={() => onEdit(module, override)}>Edit</Button><Button icon={Eye} onClick={() => onInspect(module)}>Inspect</Button><Button icon={RotateCcw} danger onClick={() => onClear(module, override)}>Reset to Default</Button></div></div>;
+          })}
+        </div>
+      </Section>
+      <Section title="Legacy Company-Level Metadata">
+        <div className="mb-3 rounded-[8px] border border-amber-500/25 bg-amber-500/10 p-3 text-[10px] font-semibold leading-4 text-[var(--bf-dev-text)]">This is the older company override layer. It is shown for diagnostics/backward compatibility. The paid commercial plan remains authoritative in Subscription & Plan; module exceptions are managed above.</div>
+        <Grid rows={[["Legacy Override", legacy?.enabled ? 'Enabled' : 'Disabled'],["Legacy Plan Key", legacy?.plan_key || 'None'],["Vehicle Limit Override", legacy?.limits_override?.vehicles_max ?? 'Default'],["User Limit Override", legacy?.limits_override?.users ?? 'Default'],["Site Limit Override", legacy?.limits_override?.sites ?? 'Default'],["Revision", legacy?.revision || '—']]} />
       </Section>
     </div>
   );
+}
+
+function EffectiveAccessInspectorPanel({ company, data, seed, onSeedChange }) {
+  const ownerId = company?.account_owner_user_id || '';
+  const employees = data.employees || [];
+  const people = employees.map((employee) => ({ value: employee.user_id, label: `${employee.full_name || employee.email}${employee.is_account_owner ? ' · Owner' : ''}` }));
+  if (ownerId && !people.some((person) => person.value === ownerId)) people.unshift({ value: ownerId, label: 'Company Account Owner' });
+  const modules = data.modules || [];
+  const [userId, setUserId] = useState(seed?.userId || ownerId || people[0]?.value || '');
+  const [moduleKey, setModuleKey] = useState(seed?.moduleKey || modules[0]?.module_key || '');
+  const [result, setResult] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (seed?.userId) setUserId(seed.userId);
+    if (seed?.moduleKey) setModuleKey(seed.moduleKey);
+  }, [seed?.userId, seed?.moduleKey]);
+
+  async function inspect(nextUserId = userId, nextModuleKey = moduleKey) {
+    if (!nextUserId || !nextModuleKey) return;
+    setBusy(true); setError('');
+    const response = await company360Action(company.id, { action: 'inspect_effective_access', userId: nextUserId, moduleKey: nextModuleKey });
+    if (response.ok) setResult(response.inspector || null);
+    else { setResult(null); setError(response.message || response.code || 'Unable to resolve effective access.'); }
+    setBusy(false);
+  }
+
+  useEffect(() => {
+    if (seed?.moduleKey && userId && moduleKey) inspect(userId, moduleKey);
+    // seed is intentionally the trigger for module-row drill-down.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seed?.moduleKey, seed?.userId]);
+
+  return (
+    <Section title="Effective Access Inspector" action={<Button icon={RefreshCcw} primary disabled={busy || !userId || !moduleKey} onClick={() => inspect()}>{busy ? 'Resolving…' : 'Resolve Access'}</Button>}>
+      <div className="grid gap-3 lg:grid-cols-2">
+        <label className={label}>Company User<SelectMenu value={userId} options={people} onChange={(value) => { setUserId(value); onSeedChange?.({ userId: value, moduleKey }); }} ariaLabel="Company user" /></label>
+        <label className={label}>Module<SelectMenu value={moduleKey} options={modules.map((module) => ({ value: module.module_key, label: module.module_name }))} onChange={(value) => { setModuleKey(value); onSeedChange?.({ userId, moduleKey: value }); }} ariaLabel="Module" /></label>
+      </div>
+      {error && <div className="mt-4 rounded-[8px] border border-rose-500/25 bg-rose-500/10 p-3 text-[11px] font-semibold text-rose-500">{error}</div>}
+      {!result && !error && <div className="mt-4"><Empty text="Choose a user and module to see exactly why the final access is Full, Read Only or Blocked." /></div>}
+      {result && <div className="mt-5 space-y-4">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><MetricMini label="Final Access" value={humanize(result.finalAccess)} tone={result.finalAccess === 'full' ? 'success' : result.finalAccess === 'read_only' ? 'warning' : 'neutral'} /><InfoLine label="Source" value={result.source} /><InfoLine label="Role" value={result.role?.name || result.role?.role_key || '—'} /><InfoLine label="Visible" value={result.visible ? 'Yes' : 'No'} /></div>
+        <div className="rounded-[10px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] p-4"><div className="mb-3 text-[12px] font-extrabold text-[var(--bf-dev-text)]">Resolution Chain</div><div className="grid gap-2">{(result.chain || []).map((step, index) => <div key={step.key || index} className="grid gap-2 rounded-[8px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] px-3 py-3 md:grid-cols-[24px_180px_140px_minmax(0,1fr)] md:items-center"><div className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--bf-dev-surface-2)] text-[10px] font-black text-[var(--bf-dev-text)]">{index + 1}</div><div className="text-[11px] font-bold text-[var(--bf-dev-text)]">{step.label}</div><ToneBadge tone={step.status === 'pass' ? 'success' : step.status === 'warning' ? 'warning' : step.status === 'blocked' ? 'danger' : 'neutral'}>{step.value || '—'}</ToneBadge><div className="text-[10px] font-semibold leading-4 text-[var(--bf-dev-text)]">{step.detail || ''}</div></div>)}</div></div>
+        <div className="rounded-[8px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] p-3 text-[10px] font-semibold leading-4 text-[var(--bf-dev-text)]">Final runtime access is resolved server-side; this inspector does not simulate or guess permissions.</div>
+      </div>}
+    </Section>
+  );
+}
+
+function PortalConfigurationPanel({ data, onSave }) {
+  const config = data.portalConfig || {};
+  const nodes = data.navigationNodes || [];
+  const moduleNodes = nodes.filter((node) => node.module_key && node.route);
+  const categoryNodes = nodes.filter((node) => node.node_type === 'category');
+  const initialHidden = config.sidebar_overrides?.hidden_nodes || [];
+  const [landingPath, setLandingPath] = useState(config.landing_path || '/dashboard');
+  const [hiddenNodes, setHiddenNodes] = useState(Array.isArray(initialHidden) ? initialHidden : []);
+  const [widgets, setWidgets] = useState(Array.isArray(config.dashboard_widgets) ? config.dashboard_widgets : []);
+  const [displayName, setDisplayName] = useState(config.branding?.company_display_name || '');
+  const [portalSubtitle, setPortalSubtitle] = useState(config.branding?.portal_subtitle || '');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setLandingPath(config.landing_path || '/dashboard');
+    setHiddenNodes(Array.isArray(config.sidebar_overrides?.hidden_nodes) ? config.sidebar_overrides.hidden_nodes : []);
+    setWidgets(Array.isArray(config.dashboard_widgets) ? config.dashboard_widgets : []);
+    setDisplayName(config.branding?.company_display_name || '');
+    setPortalSubtitle(config.branding?.portal_subtitle || '');
+  }, [config.revision]);
+
+  function toggleHidden(nodeKey) { setHiddenNodes((current) => current.includes(nodeKey) ? current.filter((key) => key !== nodeKey) : [...current, nodeKey]); }
+  function toggleWidget(moduleKey) { setWidgets((current) => current.includes(moduleKey) ? current.filter((key) => key !== moduleKey) : current.length >= 8 ? current : [...current, moduleKey]); }
+
+  async function save() {
+    setSaving(true);
+    await onSave({
+      dashboardWidgets: widgets,
+      sidebarOverrides: { ...(config.sidebar_overrides || {}), hidden_nodes: hiddenNodes },
+      branding: { ...(config.branding || {}), company_display_name: displayName.trim(), portal_subtitle: portalSubtitle.trim() },
+      landingPath,
+      expectedRevision: Number(config.revision || 0),
+    });
+    setSaving(false);
+  }
+
+  const landingOptions = [{ value: '/dashboard', label: 'Dashboard' }, ...moduleNodes.map((node) => ({ value: `/${String(node.route).replace(/^\/+/, '')}`, label: node.label }))];
+
+  return (
+    <div className="space-y-4">
+      <Section title="Portal Experience" action={<Button icon={Save} primary disabled={saving} onClick={save}>{saving ? 'Saving…' : 'Save Portal Configuration'}</Button>}>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <label className={label}>Default Landing Screen<SelectMenu value={landingPath} options={landingOptions} onChange={setLandingPath} ariaLabel="Default portal landing screen" /></label>
+          <div className="grid gap-3 sm:grid-cols-2"><Field title="Company Display Name" value={displayName} onChange={(event) => setDisplayName(event.target.value)} placeholder="Use registered company name" /><Field title="Portal Subtitle" value={portalSubtitle} onChange={(event) => setPortalSubtitle(event.target.value)} placeholder="Company Portal" /></div>
+        </div>
+        <div className="mt-3 rounded-[8px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] p-3 text-[10px] font-semibold leading-4 text-[var(--bf-dev-text)]">Branding here changes only tenant display text. Buddy Fleets global branding/theme remains controlled by the product shell.</div>
+      </Section>
+
+      <Section title="Sidebar Visibility">
+        <div className="space-y-3">
+          {categoryNodes.map((category) => {
+            const children = moduleNodes.filter((node) => node.parent_node_key === category.node_key);
+            if (!children.length) return null;
+            const visible = children.filter((node) => !hiddenNodes.includes(node.node_key)).length;
+            return <div key={category.node_key} className="rounded-[9px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] p-4"><div className="mb-3 flex items-center justify-between gap-3"><div className="text-[12px] font-extrabold text-[var(--bf-dev-text)]">{category.label}</div><ToneBadge tone="neutral">{visible}/{children.length} visible</ToneBadge></div><div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">{children.map((node) => <label key={node.node_key} className="flex cursor-pointer items-center gap-2 rounded-[7px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] px-3 py-2 text-[11px] font-semibold text-[var(--bf-dev-text)]"><input type="checkbox" checked={!hiddenNodes.includes(node.node_key)} onChange={() => toggleHidden(node.node_key)} />{node.label}</label>)}</div></div>;
+          })}
+        </div>
+        <div className="mt-3 text-[10px] font-semibold leading-4 text-[var(--bf-dev-text)]">Hiding a sidebar item is presentation-only. It never grants access that the entitlement resolver has blocked.</div>
+      </Section>
+
+      <Section title="Dashboard Quick Access">
+        <div className="mb-3 flex items-center justify-between gap-2"><div className="text-[11px] font-semibold text-[var(--bf-dev-text)]">Select up to 8 enabled modules to surface as quick-access shortcuts on the company dashboard.</div><ToneBadge tone={widgets.length >= 8 ? 'warning' : 'neutral'}>{widgets.length}/8</ToneBadge></div>
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">{moduleNodes.map((node) => <label key={node.node_key} className="flex cursor-pointer items-center gap-2 rounded-[7px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] px-3 py-2 text-[11px] font-semibold text-[var(--bf-dev-text)]"><input type="checkbox" checked={widgets.includes(node.module_key)} disabled={!widgets.includes(node.module_key) && widgets.length >= 8} onChange={() => toggleWidget(node.module_key)} />{node.label}</label>)}</div>
+      </Section>
+
+      <div className="text-right text-[10px] font-semibold text-[var(--bf-dev-text)]">Configuration revision {config.revision || 0}. Concurrent edits are rejected instead of silently overwritten.</div>
+    </div>
+  );
+}
+
+function ModuleOverrideForm({ module, override, onSubmit }) {
+  const [accessLevel, setAccessLevel] = useState(override?.access_level || module?.effective_access || 'full');
+  const [reason, setReason] = useState(override?.reason || '');
+  return <form onSubmit={(event) => { event.preventDefault(); onSubmit({ moduleKey: module.module_key, accessLevel, reason, expectedRevision: Number(override?.revision || 0), actionOverrides: override?.action_overrides || {} }); }}><div className="rounded-[8px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] p-3"><div className="text-[12px] font-extrabold text-[var(--bf-dev-text)]">{module.module_name}</div><div className="mt-1 text-[10px] font-semibold text-[var(--bf-dev-text)]">{module.module_key} · Current effective: {humanize(module.effective_access || 'blocked')}</div></div><label className={`${label} mt-4`}>Company Access Override<SelectMenu value={accessLevel} options={[{value:'full',label:'Full Access'},{value:'read_only',label:'Read Only'},{value:'blocked',label:'Blocked'}]} onChange={setAccessLevel} /></label><label className={`${label} mt-3`}>Reason *<textarea required minLength={3} rows={4} value={reason} onChange={(event) => setReason(event.target.value)} className={`${input} h-auto py-2`} placeholder="Why does this company need an exception to its plan default?" /></label><div className="mt-2 text-[10px] font-semibold text-[var(--bf-dev-text)]">Revision {override?.revision || 0}. Resetting the override returns the module to Plan × Fleet Pack behavior.</div><Submit text="Save Company Override" /></form>;
+}
+
+function ModuleOverrideResetForm({ module, override, onSubmit }) {
+  const [reason, setReason] = useState('');
+  return <form onSubmit={(event) => { event.preventDefault(); onSubmit({ moduleKey: module.module_key, expectedRevision: Number(override?.revision || 0), reason }); }}><div className="rounded-[8px] border border-amber-500/25 bg-amber-500/10 p-3 text-[11px] font-semibold leading-5 text-[var(--bf-dev-text)]">This removes the company-specific exception for <b>{module.module_name}</b>. Runtime access will immediately return to Plan × Fleet Pack + lifecycle + role rules.</div><label className={`${label} mt-4`}>Reset Reason *<textarea required minLength={3} rows={4} value={reason} onChange={(event) => setReason(event.target.value)} className={`${input} h-auto py-2`} placeholder="Why is this override being removed?" /></label><Submit text="Reset to Plan Default" /></form>;
 }
 
 export default function Company360Page() {
@@ -1310,6 +1631,7 @@ export default function Company360Page() {
   const [tab, setTab] = useState('overview');
   const [modal, setModal] = useState(null);
   const [notice, setNotice] = useState(null);
+  const [inspectorSeed, setInspectorSeed] = useState(null);
   const pageTopRef = useRef(null);
 
   async function load(silent = false) {
@@ -1458,7 +1780,7 @@ export default function Company360Page() {
 
               {tab === 'invoices' && <InvoicesReceiptsPanel data={data} onCreate={() => setModal('invoice')} onInvoice={(invoice) => setModal({ type: 'invoice_detail', invoice })} onReceipt={(receipt) => setModal({ type: 'receipt_detail', receipt })} />}
 
-              {tab === 'employees' && <Section title="Employees & Access" action={<Button icon={UserPlus} primary onClick={() => setModal('employee')}>Add Employee</Button>}><div className="space-y-2">{!(data.employees || []).length && <Empty />}{(data.employees || []).map((employee) => <div key={employee.id} className="flex flex-col gap-3 rounded-[8px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] p-4 lg:flex-row lg:items-center lg:justify-between"><div><div className="text-[13px] font-bold text-[var(--bf-dev-text)]">{employee.full_name}</div><div className="mt-1 text-[12px] font-medium text-[var(--bf-dev-text)]">{employee.email} · {humanize(employee.role_key)} · {employee.branch || 'No branch'} · {humanize(employee.status)}</div></div><div className="flex flex-wrap gap-2">{employee.status === 'blocked' ? <Button icon={Unlock} onClick={() => act({ action: 'unblock_employee', employeeId: employee.id }, 'Employee access restored.')}>Unblock</Button> : <Button icon={Lock} danger onClick={() => act({ action: 'block_employee', employeeId: employee.id }, 'Employee blocked.')}>Block</Button>}<Button icon={KeyRound} onClick={() => setModal({ type: 'reset', employee })}>Reset Password</Button></div></div>)}</div></Section>}
+              {tab === 'employees' && <EmployeesAccessPanel data={data} onAdd={() => setModal({type:'employee',employee:null})} onEdit={(employee) => setModal({type:'employee',employee})} onReset={(employee) => setModal({type:'reset',employee})} onStatus={(action,employee) => act({action,employeeId:employee.id},action==='unblock_employee'?'Employee access restored.':'Employee blocked.')} onInspect={(employee) => { setInspectorSeed({userId:employee.user_id,moduleKey:data.modules?.[0]?.module_key||''}); changeTab('access_inspector'); }} />}
 
               {tab === 'documents' && <DocumentsManagement documents={data.documents || []} onUpload={() => setModal({type:'document'})} onView={viewDocument} onVerify={(doc)=>act({action:'verify_document',documentId:doc.id},'Document verified.')} onReject={(doc)=>act({action:'reject_document',documentId:doc.id},'Document rejected.')} />}
 
@@ -1466,11 +1788,13 @@ export default function Company360Page() {
 
               {tab === 'fleet' && <FleetAccessPanel data={data} onAction={act} />}
 
-              {tab === 'modules' && <Section title="Modules & Features"><Table headers={['Module', 'Category', 'Effective Access', 'Availability UX']} rows={(data.modules || []).map((module) => [module.module_name, humanize(module.category), humanize(module.effective_access), humanize(module.unavailable_behavior)])} /></Section>}
+              {tab === 'modules' && <ModuleAccessMap data={data} onOverride={(module,override) => setModal({type:'module_override',module,override})} onClear={(module,override) => setModal({type:'module_override_reset',module,override})} onInspect={(module) => { setInspectorSeed({userId:company.account_owner_user_id||'',moduleKey:module.module_key}); changeTab('access_inspector'); }} />}
 
-              {tab === 'overrides' && <Section title="Company Overrides"><Grid rows={[["Override Enabled", data.override?.enabled ? 'Yes' : 'No'], ["Override Plan", data.override?.plan_key || 'Plan default'], ["Vehicle Max", data.override?.limits_override?.vehicles_max ?? 'Default'], ["Users", data.override?.limits_override?.users ?? 'Default'], ["Sites", data.override?.limits_override?.sites ?? 'Default'], ["Module Overrides", (data.override?.entitlements_override || []).join(', ') || 'None']]} /></Section>}
+              {tab === 'overrides' && <ModuleOverridesPanel data={data} onEdit={(module,override) => setModal({type:'module_override',module,override})} onClear={(module,override) => setModal({type:'module_override_reset',module,override})} onInspect={(module) => { setInspectorSeed({userId:company.account_owner_user_id||'',moduleKey:module.module_key}); changeTab('access_inspector'); }} />}
 
-              {tab === 'portal' && <Section title="Portal Configuration"><p className="text-[12px] font-medium leading-5 text-[var(--bf-dev-text)]">Controls company dashboard widgets, sidebar visibility, landing screen and company-specific branding. Module visibility is resolved from Plan → Lifecycle Policy → Company Override → Employee Role.</p><div className="mt-4"><Grid rows={[["Landing Path", data.portalConfig?.landing_path || '/dashboard'], ["Dashboard Widgets", Array.isArray(data.portalConfig?.dashboard_widgets) ? data.portalConfig.dashboard_widgets.join(', ') : 'Default'], ["Revision", data.portalConfig?.revision || 1]]} /></div></Section>}
+              {tab === 'access_inspector' && <EffectiveAccessInspectorPanel company={company} data={data} seed={inspectorSeed} onSeedChange={setInspectorSeed} />}
+
+              {tab === 'portal' && <PortalConfigurationPanel data={data} onSave={(payload) => act({action:'save_portal_config',...payload},'Portal configuration saved and applied to the company portal.')} />}
 
               {tab === 'bulk_import' && <BulkImportPanel companyId={companyId} company={company} sites={data.sites || []} onImported={() => load(true)} />}
 
@@ -1499,7 +1823,9 @@ export default function Company360Page() {
                     : modal?.type === 'reject_payment' ? 'Reject Payment'
                       : modal?.type === 'invoice_detail' ? `Invoice ${modal.invoice?.invoice_number || ''}`
                         : modal?.type === 'receipt_detail' ? `Receipt ${modal.receipt?.receipt_number || ''}`
-                          : modal === 'employee' ? 'Add Employee'
+                          : modal?.type === 'module_override_reset' ? 'Reset Module Override'
+                            : modal?.type === 'module_override' ? `${modal.override ? 'Edit' : 'Create'} Module Override`
+                            : modal?.type === 'employee' ? (modal.employee ? 'Edit Employee Access' : 'Add Employee')
                             : modal === 'payment' ? 'Record Payment'
                               : modal === 'invoice' ? 'Generate Invoice'
                                 : modal === 'announcement' ? 'Send Company Announcement'
@@ -1510,7 +1836,9 @@ export default function Company360Page() {
         {modal?.type === 'site' && <SiteForm site={modal.site} onSubmit={(payload)=>act({action:'save_site',...payload,siteId:modal.site?.id||null},modal.site?'Site updated.':'Site created.')} />}
         {modal?.type === 'document' && <DocumentUploadForm onSubmit={uploadDocument} />}
         {modal?.type === 'subscription' && <SubscriptionForm data={data} onSubmit={(payload)=>act({action:'update_subscription',...payload},'Commercial subscription updated.')} />}
-        {modal === 'employee' && <EmployeeForm onSubmit={(payload) => act({ action: 'create_employee', ...payload }, 'Employee created successfully.')} />}
+        {modal?.type === 'employee' && <EmployeeForm data={data} employee={modal.employee} onSubmit={(payload) => act({ action: modal.employee ? 'update_employee' : 'create_employee', employeeId: modal.employee?.id, ...payload }, modal.employee ? 'Employee runtime access updated.' : 'Employee created and provisioned successfully.')} />}
+        {modal?.type === 'module_override' && <ModuleOverrideForm module={modal.module} override={modal.override} onSubmit={(payload) => act({action:'save_module_override',...payload},'Company module override saved.')} />}
+        {modal?.type === 'module_override_reset' && <ModuleOverrideResetForm module={modal.module} override={modal.override} onSubmit={(payload) => act({action:'clear_module_override',...payload},'Module returned to Plan × Fleet Pack default.')} />}
         {modal?.type === 'reset' && <ResetForm employee={modal.employee} onSubmit={(payload) => act({ action: 'reset_password', employeeId: modal.employee.id, ...payload }, 'Password reset successfully.')} />}
         {modal === 'payment' && <PaymentForm invoices={data.commercial?.invoices || data.invoices || []} onSubmit={(payload) => act({ action: 'record_payment', ...payload }, 'Payment recorded for verification.')} />}
         {modal?.type === 'reject_payment' && <RejectPaymentForm payment={modal.payment} onSubmit={(payload)=>act({action:'reject_payment',paymentId:modal.payment.id,...payload},'Payment rejected.')} />}
@@ -1971,9 +2299,72 @@ function DocumentUploadForm({ onSubmit }) {
   return <form onSubmit={submit}><div className="grid gap-3 sm:grid-cols-2"><Select title="Document Type" value={form.documentType} onChange={(event)=>setForm({...form,documentType:event.target.value})}><option value="gst_certificate">GST Certificate</option><option value="pan">PAN</option><option value="incorporation_certificate">Incorporation Certificate</option><option value="agreement">Agreement</option><option value="other">Other</option></Select><Field title="Document Name" value={form.documentName} onChange={(event)=>setForm({...form,documentName:event.target.value})}/><Field title="Expiry Date" type="date" value={form.expiryDate} onChange={(event)=>setForm({...form,expiryDate:event.target.value})}/><label className={label}>File *<input required type="file" accept="application/pdf,image/jpeg,image/png,image/webp" onChange={(event)=>setForm({...form,file:event.target.files?.[0]||null})} className="block w-full rounded-[8px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] px-3 py-2 text-[12px] font-medium text-[var(--bf-dev-text)]"/></label></div><label className={`${label} mt-3`}>Notes<textarea rows={4} value={form.notes} onChange={(event)=>setForm({...form,notes:event.target.value})} className={`${input} h-auto py-2`}/></label><div className="mt-2 text-[11px] font-semibold text-[var(--bf-dev-text)]">Private storage · PDF/JPG/PNG/WEBP · maximum 15 MB.</div><Submit text={busy?'Uploading…':'Upload Document'}/></form>;
 }
 
-function EmployeeForm({ onSubmit }) {
-  const [form, setForm] = useState({ fullName: '', email: '', mobile: '', employeeCode: '', designation: '', branch: '', roleKey: 'viewer', password: '', forcePasswordChange: true });
-  return <form onSubmit={(event) => { event.preventDefault(); onSubmit(form); }}><div className="grid gap-3 sm:grid-cols-2"><Field title="Full Name *" required value={form.fullName} onChange={(event) => setForm({ ...form, fullName: event.target.value })} /><Field title="Email *" type="email" required value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} /><Field title="Mobile" value={form.mobile} onChange={(event) => setForm({ ...form, mobile: event.target.value })} /><Field title="Employee ID" value={form.employeeCode} onChange={(event) => setForm({ ...form, employeeCode: event.target.value })} /><Field title="Designation" value={form.designation} onChange={(event) => setForm({ ...form, designation: event.target.value })} /><Field title="Branch" value={form.branch} onChange={(event) => setForm({ ...form, branch: event.target.value })} /><Select title="Role" value={form.roleKey} onChange={(event) => setForm({ ...form, roleKey: event.target.value })}><option value="owner">Company Owner</option><option value="admin">Company Admin</option><option value="fleet_manager">Fleet Manager</option><option value="dispatcher">Dispatcher</option><option value="accountant">Accountant</option><option value="operations_manager">Operations Manager</option><option value="driver_manager">Driver Manager</option><option value="viewer">Viewer</option></Select><Field title="Password *" type="password" minLength={8} required value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} /></div><label className="mt-3 flex items-center gap-2 text-[12px] font-medium text-[var(--bf-dev-text)]"><input type="checkbox" checked={form.forcePasswordChange} onChange={(event) => setForm({ ...form, forcePasswordChange: event.target.checked })} />Force password change on first login</label><Submit text="Create Employee" /></form>;
+function EmployeeForm({ data, employee, onSubmit }) {
+  const editing = Boolean(employee);
+  const access = employee?.runtime_access || {};
+  const runtimeProfile = employee?.runtime_profile || {};
+  const sites = (data.sites || []).filter((site) => site.status !== 'archived');
+  const primarySite = sites.find((site) => site.is_primary && site.status === 'active') || sites[0] || null;
+  const availableRoles = (data.roles || []).filter((role) => role.role_key !== 'owner' || employee?.is_account_owner);
+  const initialRole = employee?.role_key || availableRoles.find((role) => role.role_key === 'viewer')?.role_key || availableRoles[0]?.role_key || 'viewer';
+  const [form, setForm] = useState({
+    fullName: employee?.full_name || runtimeProfile.full_name || '',
+    email: employee?.email || runtimeProfile.email || '',
+    mobile: employee?.mobile || runtimeProfile.mobile || '',
+    employeeCode: employee?.employee_code || runtimeProfile.employee_code || '',
+    designation: employee?.designation || runtimeProfile.designation || '',
+    department: runtimeProfile.department || '',
+    branch: employee?.branch || '',
+    roleKey: initialRole,
+    password: '',
+    forcePasswordChange: editing ? Boolean(access.force_password_change ?? employee?.force_password_change) : true,
+    allSites: editing ? Boolean(access.all_sites) : false,
+    primarySiteId: access.primary_site_id || primarySite?.id || '',
+    siteIds: editing ? (Array.isArray(access.site_ids) ? access.site_ids : []) : (primarySite?.id ? [primarySite.id] : []),
+    notes: employee?.notes || '',
+  });
+
+  function toggleSite(siteId) {
+    setForm((current) => {
+      const selected = current.siteIds.includes(siteId);
+      const siteIds = selected ? current.siteIds.filter((id) => id !== siteId) : [...current.siteIds, siteId];
+      const primarySiteId = selected && current.primarySiteId === siteId ? (siteIds[0] || '') : current.primarySiteId || siteId;
+      return { ...current, siteIds, primarySiteId };
+    });
+  }
+
+  const roleOptions = availableRoles.map((role) => ({ value: role.role_key, label: role.name || humanize(role.role_key) }));
+  const siteOptions = sites.map((site) => ({ value: site.id, label: `${site.name}${site.code ? ` · ${site.code}` : ''}` }));
+  const ownerLocked = employee?.is_account_owner === true;
+
+  return (
+    <form onSubmit={(event) => { event.preventDefault(); onSubmit(form); }}>
+      {ownerLocked && <div className="mb-4 rounded-[8px] border border-[rgb(var(--bf-dev-primary-rgb)/.25)] bg-[rgb(var(--bf-dev-primary-rgb)/.07)] p-3 text-[11px] font-semibold leading-5 text-[var(--bf-dev-text)]">This identity is the protected Company Account Owner. Profile/site access can be synchronized, but the owner role cannot be reassigned here.</div>}
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field title="Full Name *" required value={form.fullName} onChange={(event) => setForm({ ...form, fullName: event.target.value })} />
+        <Field title="Login Email *" type="email" required disabled={editing} value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} />
+        <Field title="Mobile" value={form.mobile} onChange={(event) => setForm({ ...form, mobile: event.target.value })} />
+        <Field title="Employee Code" value={form.employeeCode} onChange={(event) => setForm({ ...form, employeeCode: event.target.value })} />
+        <Field title="Designation" value={form.designation} onChange={(event) => setForm({ ...form, designation: event.target.value })} />
+        <Field title="Department" value={form.department} onChange={(event) => setForm({ ...form, department: event.target.value })} />
+        <Field title="Branch / Internal Label" value={form.branch} onChange={(event) => setForm({ ...form, branch: event.target.value })} />
+        <label className={label}>Portal Role{ownerLocked ? <div className="flex h-10 items-center rounded-[8px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] px-3 text-[13px] font-bold text-[var(--bf-dev-text)]">Company Owner</div> : <SelectMenu value={form.roleKey} options={roleOptions} onChange={(value) => setForm({ ...form, roleKey: value })} ariaLabel="Employee portal role" />}</label>
+        {!editing && <Field title="Temporary Password *" type="password" minLength={8} required value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} />}
+      </div>
+
+      <div className="mt-4 rounded-[9px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2"><div><div className="text-[12px] font-extrabold text-[var(--bf-dev-text)]">Site Scope</div><div className="mt-0.5 text-[10px] font-semibold text-[var(--bf-dev-text)]">Controls which branches/sites this user can operate.</div></div><label className="flex items-center gap-2 text-[11px] font-bold text-[var(--bf-dev-text)]"><input type="checkbox" checked={form.allSites} onChange={(event) => setForm({ ...form, allSites: event.target.checked })} />All company sites</label></div>
+        {!form.allSites && <>
+          <div className="mt-3"><label className={label}>Primary Site<SelectMenu value={form.primarySiteId} options={siteOptions} onChange={(value) => setForm((current) => ({ ...current, primarySiteId: value, siteIds: current.siteIds.includes(value) ? current.siteIds : [...current.siteIds, value] }))} ariaLabel="Primary site" /></label></div>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">{sites.map((site) => <label key={site.id} className="flex cursor-pointer items-center gap-2 rounded-[7px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] px-3 py-2 text-[11px] font-semibold text-[var(--bf-dev-text)]"><input type="checkbox" checked={form.siteIds.includes(site.id)} onChange={() => toggleSite(site.id)} />{site.name}{site.is_primary ? ' · Primary' : ''}</label>)}</div>
+        </>}
+      </div>
+
+      <label className="mt-3 flex items-center gap-2 text-[12px] font-medium text-[var(--bf-dev-text)]"><input type="checkbox" checked={form.forcePasswordChange} onChange={(event) => setForm({ ...form, forcePasswordChange: event.target.checked })} />Force password change at next login</label>
+      <label className={`${label} mt-3`}>Internal Notes<textarea rows={3} value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} className={`${input} h-auto py-2`} /></label>
+      <Submit text={editing ? 'Save Employee Access' : 'Create & Provision Employee'} />
+    </form>
+  );
 }
 
 function ResetForm({ employee, onSubmit }) {

@@ -35,6 +35,18 @@ function normalizeRuntimeNavigation(nodes) {
     .filter(Boolean);
 }
 
+function filterConfiguredNavigation(nodes, hiddenNodeKeys, hiddenModuleKeys) {
+  const hiddenNodes = new Set(Array.isArray(hiddenNodeKeys) ? hiddenNodeKeys : []);
+  const hiddenModules = new Set(Array.isArray(hiddenModuleKeys) ? hiddenModuleKeys : []);
+  const visit = (items) => (items || []).map((node) => {
+    if (hiddenNodes.has(node.id) || (node.moduleKey && hiddenModules.has(node.moduleKey))) return null;
+    const children = visit(node.children || []);
+    if (!node.route && !children.length && node.nodeType === 'category') return null;
+    return { ...node, children };
+  }).filter(Boolean);
+  return visit(nodes);
+}
+
 function hasDeepRuntimeNavigation(nodes, depth = 0) {
   return (nodes || []).some((node) =>
     ['submenu', 'level3'].includes(node.nodeType) ||
@@ -119,16 +131,16 @@ export default function ClientPortalShell({ children }) {
   const packKey = company?.fleetPack || company?.fleet_pack || null;
   const allowedKeys = userAccess?.moduleKeys || [];
 
+  const portalConfig = runtime?.portalConfig || {};
   const navigation = useMemo(() => {
     if (!packKey) return [];
 
     const local = getVisibleNavigation(packKey, allowedKeys);
     const runtimeNodes = normalizeRuntimeNavigation(runtimeNavigation);
-
-    return runtimeNodes.length && hasDeepRuntimeNavigation(runtimeNodes)
-      ? runtimeNodes
-      : local;
-  }, [packKey, allowedKeys, runtimeNavigation]);
+    const resolved = runtimeNodes.length ? runtimeNodes : local;
+    const sidebar = portalConfig?.sidebar_overrides || {};
+    return filterConfiguredNavigation(resolved, sidebar.hidden_nodes, sidebar.hidden_module_keys);
+  }, [packKey, allowedKeys, runtimeNavigation, portalConfig]);
 
   const menuTree = useMemo(
     () => toDeveloperMenuTree(navigation, basePath),
@@ -146,6 +158,7 @@ export default function ClientPortalShell({ children }) {
     'Portal User';
 
   const companyName =
+    portalConfig?.branding?.company_display_name ||
     company?.company_name ||
     company?.companyName ||
     'Buddy Fleets';
@@ -214,7 +227,7 @@ export default function ClientPortalShell({ children }) {
   );
 
 
-  const brandSubtitle = demo ? 'Demo Portal' : 'Company Portal';
+  const brandSubtitle = portalConfig?.branding?.portal_subtitle || (demo ? 'Demo Portal' : 'Company Portal');
   const profileMeta = demo
     ? `${companyName} • Demo` 
     : companyName;

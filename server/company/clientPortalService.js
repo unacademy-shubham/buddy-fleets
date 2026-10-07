@@ -263,6 +263,7 @@ async function bootstrap({db,companyId,userId,currentUser}) {
       visibleModuleCount:runtime.bootstrap?.visible_module_count||0,
       role:runtime.bootstrap?.role||null,
       siteScope:runtime.bootstrap?.site_scope||null,
+      portalConfig:runtime.portalConfig||null,
       limitsEnforced:false,
     },
     data:{
