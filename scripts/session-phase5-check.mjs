@@ -31,6 +31,8 @@ const secureLogin = read('supabase/functions/secure-login/index.ts');
 const secureMfa = read('supabase/functions/secure-mfa/index.ts');
 const supabaseConfig = read('supabase/config.toml');
 
+const sessionPolicyRepair = read('supabase/migrations/20261007175928_repair_session_device_portal_uniqueness.sql');
+
 expect(
   /SESSION_IDLE_TIMEOUT_MINUTES\s*=\s*30/.test(policy),
   'Authoritative idle timeout is exactly 30 minutes.'
@@ -121,6 +123,17 @@ expect(
     supabaseConfig.includes('[functions.consume-handoff]') &&
     (supabaseConfig.match(/verify_jwt\s*=\s*false/g) || []).length >= 3,
   'Supabase auth gateway function JWT settings are pinned in config.toml for safe repeat deployments.'
+);
+
+
+expect(
+  sessionPolicyRepair.includes('drop index if exists public.security_sessions_one_active_user_idx') &&
+    sessionPolicyRepair.includes('security_sessions_one_active_device_portal_idx') &&
+    sessionPolicyRepair.includes('security_sessions_one_active_unknown_device_portal_idx') &&
+    sessionPolicyRepair.includes('pg_advisory_xact_lock') &&
+    sessionPolicyRepair.includes("revoke_reason = 'HTTP_SESSION_EXPIRED'") &&
+    sessionPolicyRepair.includes("same_device_same_portal_replacement_v2"),
+  'Database migration removes the obsolete one-active-user constraint and enforces serialized same-device/same-portal replacement.'
 );
 
 console.log('\nBuddy Fleets Phase 6 final session acceptance check');
