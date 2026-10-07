@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Activity,
@@ -11,6 +12,7 @@ import {
   ChevronRight,
   CreditCard,
   Download,
+  FileSpreadsheet,
   ExternalLink,
   FileCheck2,
   FileText,
@@ -25,7 +27,6 @@ import {
   PackageCheck,
   PanelsTopLeft,
   Plus,
-  Printer,
   ReceiptText,
   RefreshCcw,
   Save,
@@ -33,6 +34,7 @@ import {
   ShieldCheck,
   SlidersHorizontal,
   Unlock,
+  UploadCloud,
   UserCog,
   UserPlus,
   Users,
@@ -77,6 +79,12 @@ const NAV_GROUPS = [
     ],
   },
   {
+    label: 'Data Management',
+    items: [
+      ['bulk_import', 'Bulk Data Import', UploadCloud],
+    ],
+  },
+  {
     label: 'Control',
     items: [
       ['security', 'Security', ShieldCheck],
@@ -102,6 +110,49 @@ const CONTROL_CARDS = [
   ['support', 'Support & Notes', 'Internal notes and future support follow-up context.', FileText],
 ];
 
+const BULK_IMPORT_DEFINITIONS = {
+  vehicles: {
+    label: 'Vehicle Master',
+    sheetName: 'Vehicles',
+    required: ['Vehicle Number'],
+    columns: [
+      ['Vehicle Number', 'vehicle_number'], ['Vehicle Code', 'vehicle_code'], ['Vehicle Type', 'vehicle_type'], ['Body Type', 'body_type'],
+      ['Ownership', 'ownership'], ['Home Site Code', 'home_site_code'], ['Current Site Code', 'current_site_code'], ['Status', 'status'],
+      ['Maker', 'maker'], ['Model', 'model'], ['Variant', 'variant'], ['Manufacturing Year', 'manufacturing_year'],
+      ['Chassis Number', 'chassis_number'], ['Engine Number', 'engine_number'], ['Fuel Type', 'fuel_type'], ['GVW', 'gvw'],
+      ['Unladen Weight', 'unladen_weight'], ['Payload MT', 'payload_mt'], ['Seating Capacity', 'seating_capacity'], ['Axle Count', 'axle_count'],
+      ['Tyre Count', 'tyre_count'], ['Fuel Tank Capacity', 'fuel_tank_capacity'], ['RC Number', 'rc_number'], ['Registration Date', 'registration_date'],
+      ['RC Validity', 'rc_validity'], ['Owner Name', 'owner_name'], ['RTO', 'rto'], ['Insurance Policy No', 'insurance_policy_no'],
+      ['Insurance Company', 'insurance_company'], ['Insurance Expiry', 'insurance_expiry'], ['Fitness No', 'fitness_no'], ['Fitness Expiry', 'fitness_expiry'],
+      ['PUC No', 'puc_no'], ['PUC Expiry', 'puc_expiry'], ['National Permit No', 'national_permit_no'], ['National Permit Expiry', 'national_permit_expiry'],
+      ['State Permit No', 'state_permit_no'], ['State Permit Expiry', 'state_permit_expiry'], ['Road Tax Expiry', 'road_tax_expiry'], ['FASTag Reference', 'fastag_reference'],
+    ],
+    sample: {
+      vehicle_number: 'GJ01AB1234', vehicle_code: 'VH-001', vehicle_type: 'Truck', body_type: 'Open Body', ownership: 'Own',
+      home_site_code: 'HQ', current_site_code: 'HQ', status: 'available', maker: 'Tata', model: 'LPT', manufacturing_year: '2024', fuel_type: 'Diesel',
+      registration_date: '2024-01-15', insurance_expiry: '2027-01-14', fitness_expiry: '2027-01-14', puc_expiry: '2027-01-14',
+    },
+  },
+  drivers: {
+    label: 'Driver Master',
+    sheetName: 'Drivers',
+    required: ['Driver Code', 'Full Name', 'Mobile'],
+    columns: [
+      ['Driver Code', 'driver_code'], ['Full Name', 'full_name'], ['Mobile', 'mobile'], ['Father Name', 'father_name'], ['DOB', 'dob'],
+      ['Blood Group', 'blood_group'], ['Alternate Mobile', 'alternate_mobile'], ['Email', 'email'], ['Address', 'address'], ['City', 'city'],
+      ['State', 'state'], ['Pincode', 'pincode'], ['Emergency Contact', 'emergency_contact'], ['Driver Type', 'driver_type'], ['Joining Date', 'joining_date'],
+      ['Primary Site Code', 'primary_site_code'], ['Status', 'status'], ['DL Number', 'dl_number'], ['DL Class', 'dl_class'], ['DL Issue Date', 'dl_issue_date'],
+      ['DL Expiry', 'dl_expiry'], ['Issuing RTO', 'issuing_rto'], ['Badge Number', 'badge_number'], ['Badge Expiry', 'badge_expiry'],
+      ['Medical Fitness Date', 'medical_fitness_date'], ['Police Verification Status', 'police_verification_status'], ['Payment Type', 'payment_type'],
+      ['Per Trip Rate', 'per_trip_rate'], ['Daily Allowance', 'daily_allowance'], ['Bank Account Last4', 'bank_account_last4'], ['IFSC', 'ifsc'], ['UPI ID', 'upi_id'],
+    ],
+    sample: {
+      driver_code: 'DRV-001', full_name: 'Rahul Sharma', mobile: '9876543210', driver_type: 'Own Driver', primary_site_code: 'HQ',
+      status: 'active', dl_number: 'GJ0120240012345', dl_class: 'HMV', dl_expiry: '2030-12-31', payment_type: 'Per Trip', per_trip_rate: '1500',
+    },
+  },
+};
+
 const surfaceCard = 'rounded-[10px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] shadow-[0_8px_24px_rgba(0,0,0,.05)]';
 const input = 'h-10 w-full rounded-[8px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] px-3 text-[13px] font-medium text-[var(--bf-dev-text)] outline-none placeholder:text-[var(--bf-dev-text)] focus:border-[var(--bf-dev-primary)]';
 const label = 'block space-y-1.5 text-[12px] font-semibold text-[var(--bf-dev-text)]';
@@ -126,33 +177,77 @@ function humanize(value) {
 
 function SelectMenu({ value, options, onChange, ariaLabel = 'Select option', className = '' }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef(null);
+  const [menuStyle, setMenuStyle] = useState(null);
+  const triggerRef = useRef(null);
+  const menuRef = useRef(null);
   const selected = options.find((option) => String(option.value) === String(value));
+
+  function positionMenu() {
+    const rect = triggerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const viewportPadding = 10;
+    const preferredHeight = 208;
+    const below = window.innerHeight - rect.bottom - viewportPadding;
+    const above = rect.top - viewportPadding;
+    const openUp = below < 150 && above > below;
+    const available = Math.max(112, Math.min(preferredHeight, (openUp ? above : below) - 6));
+    setMenuStyle({
+      position: 'fixed',
+      left: `${Math.max(viewportPadding, Math.min(rect.left, window.innerWidth - rect.width - viewportPadding))}px`,
+      width: `${Math.min(Math.max(180, rect.width), window.innerWidth - (viewportPadding * 2))}px`,
+      maxHeight: `${available}px`,
+      ...(openUp
+        ? { bottom: `${Math.max(viewportPadding, window.innerHeight - rect.top + 6)}px` }
+        : { top: `${Math.min(window.innerHeight - viewportPadding - available, rect.bottom + 6)}px` }),
+    });
+  }
 
   useEffect(() => {
     if (!open) return undefined;
+    positionMenu();
     const close = (event) => {
-      if (ref.current && !ref.current.contains(event.target)) setOpen(false);
+      if (event.key === 'Escape') {
+        setOpen(false);
+        return;
+      }
+      if (event.type === 'pointerdown'
+        && !triggerRef.current?.contains(event.target)
+        && !menuRef.current?.contains(event.target)) setOpen(false);
     };
+    const reposition = () => positionMenu();
     document.addEventListener('pointerdown', close);
-    return () => document.removeEventListener('pointerdown', close);
+    document.addEventListener('keydown', close);
+    window.addEventListener('resize', reposition);
+    window.addEventListener('scroll', reposition, true);
+    return () => {
+      document.removeEventListener('pointerdown', close);
+      document.removeEventListener('keydown', close);
+      window.removeEventListener('resize', reposition);
+      window.removeEventListener('scroll', reposition, true);
+    };
   }, [open]);
 
   return (
-    <div ref={ref} className={cx('relative', className)}>
+    <div className={cx('relative', className)}>
       <button
+        ref={triggerRef}
         type="button"
         aria-label={ariaLabel}
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => setOpen((current) => !current)}
-        className="flex h-10 w-full items-center justify-between gap-2 rounded-[5px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] px-3 text-left text-[13px] font-medium text-[var(--bf-dev-text)] outline-none transition hover:bg-[var(--bf-dev-surface-2)] focus-visible:ring-2 focus-visible:ring-[rgb(var(--bf-dev-primary-rgb)/.24)]"
+        className="flex h-10 w-full items-center justify-between gap-2 rounded-[7px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] px-3 text-left text-[13px] font-medium text-[var(--bf-dev-text)] outline-none transition hover:bg-[var(--bf-dev-surface-2)] focus-visible:ring-2 focus-visible:ring-[rgb(var(--bf-dev-primary-rgb)/.24)]"
       >
         <span className="truncate">{selected?.label || 'Select'}</span>
         <ChevronDown size={13} className={cx('shrink-0 transition', open && 'rotate-180')} />
       </button>
-      {open && (
-        <div role="listbox" className="absolute left-0 top-[calc(100%+6px)] z-[150] max-h-72 min-w-full overflow-y-auto rounded-[5px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] p-1.5 shadow-[0_16px_44px_rgba(0,0,0,.22)]">
+      {open && menuStyle && createPortal(
+        <div
+          ref={menuRef}
+          role="listbox"
+          style={menuStyle}
+          className="bf-c360-scrollbar z-[420] overflow-y-auto rounded-[8px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] p-1.5 shadow-[0_18px_50px_rgba(0,0,0,.24)]"
+        >
           {options.map((option) => {
             const active = String(option.value) === String(value);
             return (
@@ -163,7 +258,7 @@ function SelectMenu({ value, options, onChange, ariaLabel = 'Select option', cla
                 aria-selected={active}
                 onClick={() => { onChange(option.value); setOpen(false); }}
                 className={cx(
-                  'flex w-full items-center justify-between gap-3 rounded-[4px] px-3 py-2.5 text-left text-[13px] font-medium transition',
+                  'flex w-full items-center justify-between gap-3 rounded-[6px] px-3 py-2.5 text-left text-[13px] font-medium transition',
                   active
                     ? 'bg-[rgb(var(--bf-dev-primary-rgb)/.12)] font-bold text-[var(--bf-dev-primary)]'
                     : 'text-[var(--bf-dev-text)] hover:bg-[var(--bf-dev-surface-2)]'
@@ -174,7 +269,8 @@ function SelectMenu({ value, options, onChange, ariaLabel = 'Select option', cla
               </button>
             );
           })}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
@@ -230,26 +326,30 @@ function Empty({ text = 'No records yet.' }) {
   );
 }
 
-function MoreActionsMenu({ onRefresh, onPrint, onExport, onAnnouncement, onPayment, onEmployee }) {
+function MoreActionsMenu({ onRefresh, onAnnouncement }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
   useEffect(() => {
     if (!open) return undefined;
     const close = (event) => {
-      if (ref.current && !ref.current.contains(event.target)) setOpen(false);
+      if (event.key === 'Escape') {
+        setOpen(false);
+        return;
+      }
+      if (event.type === 'pointerdown' && ref.current && !ref.current.contains(event.target)) setOpen(false);
     };
     document.addEventListener('pointerdown', close);
-    return () => document.removeEventListener('pointerdown', close);
+    document.addEventListener('keydown', close);
+    return () => {
+      document.removeEventListener('pointerdown', close);
+      document.removeEventListener('keydown', close);
+    };
   }, [open]);
 
   const actions = [
     ['Refresh Data', RefreshCcw, onRefresh],
     ['Send Announcement', Bell, onAnnouncement],
-    ['Record Payment', WalletCards, onPayment],
-    ['Add Employee', UserPlus, onEmployee],
-    ['Export Excel', Download, onExport],
-    ['Print Report', Printer, onPrint],
   ];
 
   return (
@@ -283,8 +383,8 @@ function Company360Nav({ active, onChange }) {
   const items = NAV_GROUPS.flatMap((group) => group.items);
   return (
     <aside className="print:hidden lg:sticky lg:top-4 lg:self-start">
-      <div className="hidden lg:block">
-        <div className="mb-4 flex items-center gap-3 px-1">
+      <div className="hidden lg:flex lg:max-h-[calc(100dvh-100px)] lg:flex-col">
+        <div className="mb-3 flex shrink-0 items-center gap-3 px-1">
           <div className="flex h-9 w-9 items-center justify-center rounded-[9px] bg-[rgb(var(--bf-dev-primary-rgb)/.13)] text-[var(--bf-dev-primary)]">
             <Building2 size={18} />
           </div>
@@ -294,7 +394,7 @@ function Company360Nav({ active, onChange }) {
           </div>
         </div>
 
-        <nav className="space-y-1.5">
+        <nav className="bf-c360-scrollbar min-h-0 flex-1 space-y-1.5 overflow-y-auto pr-1.5">
           {items.map(([key, text, Icon], index) => {
             const selected = active === key;
             const groupStart = NAV_GROUPS.some((group) => group.items[0]?.[0] === key) && index !== 0;
@@ -320,7 +420,7 @@ function Company360Nav({ active, onChange }) {
         </nav>
       </div>
 
-      <div className="flex gap-1 overflow-x-auto pb-2 lg:hidden">
+      <div className="bf-c360-scrollbar flex gap-1 overflow-x-auto pb-2 lg:hidden">
         {items.map(([key, text, Icon]) => {
           const selected = active === key;
           return (
@@ -715,17 +815,27 @@ export default function Company360Page() {
   const [tab, setTab] = useState('overview');
   const [modal, setModal] = useState(null);
   const [notice, setNotice] = useState(null);
+  const pageTopRef = useRef(null);
 
-  async function load() {
-    setLoading(true);
+  async function load(silent = false) {
+    if (!silent) setLoading(true);
     setError('');
     const result = await getCompany360(companyId);
     if (result.ok) setData(result);
     else setError(result.status === 401 ? 'Developer session expired. Please sign in again.' : 'Unable to load Company 360 profile.');
-    setLoading(false);
+    if (!silent) setLoading(false);
   }
 
   useEffect(() => { load(); }, [companyId]);
+
+  useEffect(() => {
+    document.documentElement.classList.add('bf-c360-page-active');
+    document.body.classList.add('bf-c360-page-active');
+    return () => {
+      document.documentElement.classList.remove('bf-c360-page-active');
+      document.body.classList.remove('bf-c360-page-active');
+    };
+  }, []);
 
   const company = data?.company || {};
   const profile = data?.profile || {};
@@ -745,24 +855,14 @@ export default function Company360Page() {
     return true;
   }
 
-  function printCompany() { window.print(); }
-
-  async function exportExcel() {
-    if (!data) return;
-    const XLSX = await import('xlsx');
-    const workbook = XLSX.utils.book_new();
-    const add = (name, rows) => XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(rows.length ? rows : [{ Info: 'No records' }]), name.slice(0, 31));
-    add('Company_Profile', [{ ...company, ...profile }]);
-    add('Subscription', [subscription]);
-    add('Effective_Limits', [data.effective?.limits || {}]);
-    add('Employees', data.employees || []);
-    add('Invoices', data.invoices || []);
-    add('Payments', data.payments || []);
-    add('Documents', data.documents || []);
-    add('Modules', (data.modules || []).map((module) => ({ module_key: module.module_key, module_name: module.module_name, effective_access: module.effective_access, status: module.status })));
-    add('Announcements', data.announcements || []);
-    add('Notes', data.notes || []);
-    XLSX.writeFile(workbook, `${(company.company_name || 'Company').replace(/[^a-z0-9]+/gi, '_')}_BuddyFleets_Export.xlsx`);
+  function changeTab(nextTab) {
+    setTab(nextTab);
+    requestAnimationFrame(() => {
+      const element = pageTopRef.current;
+      if (!element) return;
+      const top = element.getBoundingClientRect().top + window.scrollY - 78;
+      window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+    });
   }
 
   function openPortal() {
@@ -795,11 +895,23 @@ export default function Company360Page() {
 
   return (
     <div className="min-h-[calc(100dvh-var(--bf-header-height,66px))] bg-[var(--bf-dev-page-bg)] text-[var(--bf-dev-text)] print:bg-white print:text-black">
+      <style>{`
+        .bf-c360-scrollbar { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--bf-dev-text) 18%, transparent) transparent; }
+        .bf-c360-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
+        .bf-c360-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .bf-c360-scrollbar::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--bf-dev-text) 18%, transparent); border-radius: 999px; }
+        .bf-c360-scrollbar:hover::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--bf-dev-text) 28%, transparent); }
+        html.bf-c360-page-active, body.bf-c360-page-active { scrollbar-width: thin; scrollbar-color: rgba(127,127,127,.28) transparent; }
+        html.bf-c360-page-active::-webkit-scrollbar, body.bf-c360-page-active::-webkit-scrollbar { width: 6px; height: 6px; }
+        html.bf-c360-page-active::-webkit-scrollbar-track, body.bf-c360-page-active::-webkit-scrollbar-track { background: transparent; }
+        html.bf-c360-page-active::-webkit-scrollbar-thumb, body.bf-c360-page-active::-webkit-scrollbar-thumb { background: rgba(127,127,127,.28); border-radius: 999px; }
+        html.bf-c360-page-active::-webkit-scrollbar-thumb:hover, body.bf-c360-page-active::-webkit-scrollbar-thumb:hover { background: rgba(127,127,127,.42); }
+      `}</style>
       <div className="mx-auto max-w-[1720px] px-4 py-5 sm:px-6 xl:px-7">
         <div className="grid gap-5 lg:grid-cols-[205px_minmax(0,1fr)]">
-          <Company360Nav active={tab} onChange={setTab} />
+          <Company360Nav active={tab} onChange={changeTab} />
 
-          <main className="min-w-0">
+          <main ref={pageTopRef} className="min-w-0">
             <div className="mb-5 print:hidden">
               <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold text-[var(--bf-dev-text)]">
                 <button type="button" onClick={() => navigate('/saas-platform/companies/all-companies')} className="hover:text-[var(--bf-dev-primary)]">Companies</button>
@@ -816,14 +928,14 @@ export default function Company360Page() {
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <Button icon={ExternalLink} onClick={openPortal} disabled={!company.subdomain_slug}>Open Portal</Button>
-                  <Button icon={UserCog} primary onClick={() => setTab('profile')}>Edit Company</Button>
-                  <MoreActionsMenu onRefresh={load} onPrint={printCompany} onExport={exportExcel} onAnnouncement={() => setModal('announcement')} onPayment={() => setModal('payment')} onEmployee={() => setModal('employee')} />
+                  <Button icon={UserCog} primary onClick={() => changeTab('profile')}>Edit Company</Button>
+                  <MoreActionsMenu onRefresh={load} onAnnouncement={() => setModal('announcement')} />
                 </div>
               </div>
             </div>
 
             <div className="print:hidden">
-              {tab === 'overview' && <OverviewPage data={data} activeEmployees={activeEmployees} onOpen={setTab} company={company} profile={profile} />}
+              {tab === 'overview' && <OverviewPage data={data} activeEmployees={activeEmployees} onOpen={changeTab} company={company} profile={profile} />}
 
               {tab !== 'overview' && <div className="mb-5"><HeroCard company={company} profile={profile} data={data} activeEmployees={activeEmployees} /></div>}
 
@@ -853,6 +965,8 @@ export default function Company360Page() {
 
               {tab === 'portal' && <Section title="Portal Configuration"><p className="text-[12px] font-medium leading-5 text-[var(--bf-dev-text)]">Controls company dashboard widgets, sidebar visibility, landing screen and company-specific branding. Module visibility is resolved from Plan → Lifecycle Policy → Company Override → Employee Role.</p><div className="mt-4"><Grid rows={[["Landing Path", data.portalConfig?.landing_path || '/dashboard'], ["Dashboard Widgets", Array.isArray(data.portalConfig?.dashboard_widgets) ? data.portalConfig.dashboard_widgets.join(', ') : 'Default'], ["Revision", data.portalConfig?.revision || 1]]} /></div></Section>}
 
+              {tab === 'bulk_import' && <BulkImportPanel companyId={companyId} company={company} sites={data.sites || []} onImported={() => load(true)} />}
+
               {tab === 'communications' && <Section title="Communications" action={<Button icon={Bell} primary onClick={() => setModal('announcement')}>Send Announcement</Button>}><Table headers={['Created', 'Title', 'Priority', 'Audience', 'Status']} rows={(data.announcements || []).map((announcement) => [formatDate(announcement.created_at, true), announcement.title, humanize(announcement.priority), humanize(announcement.audience_type), humanize(announcement.status)])} /></Section>}
 
               {tab === 'security' && <Section title="Security"><Grid rows={[["Company Status", humanize(company.status)], ["Owner User ID", company.account_owner_user_id || 'Not linked'], ["Access Policy", company.status === 'suspended' ? 'Blocked by company suspension' : humanize(subscription.status || 'Standard')], ["Employees", `${activeEmployees} active`]]} /><p className="mt-3 text-[12px] font-medium leading-5 text-[var(--bf-dev-text)]">Password hashes and session tokens are never shown. Block/unblock and password reset actions operate through secure server-side admin APIs.</p></Section>}
@@ -862,18 +976,6 @@ export default function Company360Page() {
               {tab === 'support' && <Section title="Support & Notes" action={<Button icon={Plus} onClick={() => setModal('note')}>Add Note</Button>}><div className="space-y-2">{!(data.notes || []).length && <Empty />}{(data.notes || []).map((note) => <div key={note.id} className="rounded-[8px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] p-4"><div className="text-[13px] font-bold text-[var(--bf-dev-text)]">{note.title || humanize(note.note_type)}</div><div className="mt-1 whitespace-pre-wrap text-[12px] font-medium leading-5 text-[var(--bf-dev-text)]">{note.body}</div></div>)}</div></Section>}
             </div>
 
-            <div className="hidden print:block print:text-black">
-              <div className="space-y-4">
-                <h2 className="text-xl font-bold">Buddy Fleets — Company 360° Report</h2>
-                <div>Generated: {new Date().toLocaleString()}</div>
-                <Grid rows={[["Company", company.company_name], ["Code", company.company_code], ["Status", company.status], ["Plan", data.effective?.plan?.name || data.effective?.planKey], ["GSTIN", profile.gstin], ["PAN", profile.pan], ["Owner", profile.owner_name], ["Owner Email", profile.owner_email], ["Owner Mobile", profile.owner_mobile], ["Address", [profile.address_line1, profile.address_line2, profile.city, profile.state, profile.postal_code].filter(Boolean).join(', ')]]} />
-                <Grid rows={[["Subscription Status", subscription.status], ["Trial End", subscription.trial_end_at], ["Subscription End", subscription.subscription_end_at], ["Total Invoiced", `₹${Number(summary.totalInvoiced || 0).toLocaleString('en-IN')}`], ["Total Paid", `₹${Number(summary.totalPaid || 0).toLocaleString('en-IN')}`], ["Outstanding", `₹${Number(summary.outstanding || 0).toLocaleString('en-IN')}`]]} />
-                <h3 className="font-bold">Employees</h3><Table headers={['Name', 'Email', 'Role', 'Branch', 'Status']} rows={(data.employees || []).map((employee) => [employee.full_name, employee.email, employee.role_key, employee.branch, employee.status])} />
-                <h3 className="font-bold">Invoices</h3><Table headers={['Invoice', 'Date', 'Amount', 'Paid', 'Status']} rows={(data.invoices || []).map((invoice) => [invoice.invoice_number, invoice.invoice_date, `₹${invoice.grand_total}`, `₹${invoice.paid_amount}`, invoice.status])} />
-                <h3 className="font-bold">Payments</h3><Table headers={['Date', 'Amount', 'Mode', 'Reference', 'Status']} rows={(data.payments || []).map((payment) => [payment.payment_date, `₹${payment.amount}`, payment.payment_mode, payment.transaction_reference, payment.status])} />
-                <h3 className="font-bold">Modules</h3><Table headers={['Module', 'Access']} rows={(data.modules || []).map((module) => [module.module_name, module.effective_access])} />
-              </div>
-            </div>
           </main>
         </div>
       </div>
@@ -955,15 +1057,334 @@ function Toast({ tone = 'success', message, onClose }) {
   );
 }
 
+function normalizeImportHeader(value) {
+  return String(value || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+function normalizeImportCell(key, value, XLSX) {
+  const dateLike = key === 'dob' || key === 'registration_date' || key === 'rc_validity' || key.endsWith('_date') || key.endsWith('_expiry');
+  if (!dateLike) return typeof value === 'string' ? value.trim() : value;
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString().slice(0, 10);
+  if (typeof value === 'number') {
+    const parsed = XLSX.SSF?.parse_date_code?.(value);
+    if (parsed?.y && parsed?.m && parsed?.d) return `${String(parsed.y).padStart(4, '0')}-${String(parsed.m).padStart(2, '0')}-${String(parsed.d).padStart(2, '0')}`;
+  }
+  return typeof value === 'string' ? value.trim() : value;
+}
+
+function BulkImportPanel({ companyId, company, sites, onImported }) {
+  const [importType, setImportType] = useState('vehicles');
+  const [fileName, setFileName] = useState('');
+  const [rows, setRows] = useState([]);
+  const [parseError, setParseError] = useState('');
+  const [validation, setValidation] = useState(null);
+  const [result, setResult] = useState(null);
+  const [busy, setBusy] = useState('');
+  const fileRef = useRef(null);
+  const definition = BULK_IMPORT_DEFINITIONS[importType];
+
+  function resetFileState() {
+    setFileName('');
+    setRows([]);
+    setParseError('');
+    setValidation(null);
+    setResult(null);
+    if (fileRef.current) fileRef.current.value = '';
+  }
+
+  async function downloadTemplate() {
+    const XLSX = await import('xlsx');
+    const workbook = XLSX.utils.book_new();
+    const headers = definition.columns.map(([header]) => header);
+    const firstActiveSite = (sites || []).find((site) => site.status === 'active') || (sites || [])[0] || null;
+    const sampleValues = { ...definition.sample };
+    if (importType === 'vehicles') {
+      sampleValues.home_site_code = firstActiveSite?.code || '';
+      sampleValues.current_site_code = firstActiveSite?.code || '';
+    } else {
+      sampleValues.primary_site_code = firstActiveSite?.code || '';
+    }
+    const sample = definition.columns.map(([, key]) => sampleValues?.[key] ?? '');
+    const dataSheet = XLSX.utils.aoa_to_sheet([headers]);
+    dataSheet['!cols'] = headers.map((header) => ({ wch: Math.max(14, Math.min(24, header.length + 3)) }));
+    XLSX.utils.book_append_sheet(workbook, dataSheet, definition.sheetName);
+    const exampleSheet = XLSX.utils.aoa_to_sheet([headers, sample]);
+    exampleSheet['!cols'] = dataSheet['!cols'];
+    XLSX.utils.book_append_sheet(workbook, exampleSheet, 'Example');
+
+    const instructions = [
+      ['Buddy Fleets Bulk Import Template'],
+      ['Template Version', 'BF-C360-IMPORT-V1'],
+      ['Import Type', definition.label],
+      ['Company', company.company_name || ''],
+      ['Company Code', company.company_code || ''],
+      [],
+      ['Rules'],
+      ['1', `Required columns: ${definition.required.join(', ')}`],
+      ['2', 'Do not rename template headers. Column order may be changed.'],
+      ['3', 'Dates must use YYYY-MM-DD format.'],
+      ['4', 'Site fields use the Site Code shown in the Sites sheet. Leave blank when no site assignment is needed.'],
+      ['5', 'Duplicate vehicle numbers / driver codes are rejected. Existing records are never overwritten by bulk import.'],
+      ['6', 'The Example sheet is for reference only. Enter real records in the main data sheet. Maximum 1,000 data rows per import.'],
+      ['7', 'The import is validated before commit. If validation fails, no rows are written.'],
+    ];
+    const instructionSheet = XLSX.utils.aoa_to_sheet(instructions);
+    instructionSheet['!cols'] = [{ wch: 22 }, { wch: 95 }];
+    XLSX.utils.book_append_sheet(workbook, instructionSheet, 'Instructions');
+
+    const siteRows = [['Site Code', 'Site Name', 'Type', 'Status'], ...(sites || []).map((site) => [site.code || '', site.name || '', site.site_type || '', site.status || ''])];
+    const sitesSheet = XLSX.utils.aoa_to_sheet(siteRows);
+    sitesSheet['!cols'] = [{ wch: 18 }, { wch: 28 }, { wch: 22 }, { wch: 14 }];
+    XLSX.utils.book_append_sheet(workbook, sitesSheet, 'Sites');
+
+    const metaSheet = XLSX.utils.aoa_to_sheet([
+      ['template_version', 'BF-C360-IMPORT-V1'],
+      ['import_type', importType],
+      ['company_id', companyId],
+    ]);
+    XLSX.utils.book_append_sheet(workbook, metaSheet, '_BF_Meta');
+    const metaIndex = workbook.SheetNames.indexOf('_BF_Meta');
+    if (metaIndex >= 0) workbook.Workbook = { ...(workbook.Workbook || {}), Sheets: workbook.SheetNames.map((name, index) => ({ name, Hidden: index === metaIndex ? 1 : 0 })) };
+
+    const safeCompany = (company.company_name || 'Company').replace(/[^a-z0-9]+/gi, '_').replace(/^_+|_+$/g, '');
+    XLSX.writeFile(workbook, `${safeCompany}_${definition.sheetName}_Import_Template.xlsx`);
+  }
+
+  async function parseFile(file) {
+    setParseError('');
+    setValidation(null);
+    setResult(null);
+    setRows([]);
+    setFileName(file?.name || '');
+    if (!file) return;
+    if (!/\.(xlsx|xls|csv)$/i.test(file.name)) {
+      setParseError('Unsupported file. Upload an Excel (.xlsx/.xls) or CSV file.');
+      return;
+    }
+    try {
+      const XLSX = await import('xlsx');
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: 'array', cellDates: true });
+      const meta = workbook.Sheets._BF_Meta ? XLSX.utils.sheet_to_json(workbook.Sheets._BF_Meta, { header: 1, defval: '' }) : [];
+      const metaMap = Object.fromEntries(meta.filter((row) => row?.[0]).map((row) => [String(row[0]), String(row[1] ?? '')]));
+      if (metaMap.import_type && metaMap.import_type !== importType) {
+        setParseError(`This template is for ${BULK_IMPORT_DEFINITIONS[metaMap.import_type]?.label || metaMap.import_type}. Select the matching import type or download a new template.`);
+        return;
+      }
+      const sheetName = workbook.SheetNames.includes(definition.sheetName) ? definition.sheetName : workbook.SheetNames.find((name) => !['Instructions', 'Sites', 'Example', '_BF_Meta'].includes(name));
+      if (!sheetName || !workbook.Sheets[sheetName]) {
+        setParseError(`Data sheet not found. Expected a sheet named “${definition.sheetName}”.`);
+        return;
+      }
+      const sheet = workbook.Sheets[sheetName];
+      const matrix = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false, blankrows: false });
+      const headers = (matrix[0] || []).map((value) => String(value || '').trim()).filter(Boolean);
+      if (!headers.length) {
+        setParseError('The file has no header row. Download the Buddy Fleets template and use its headers.');
+        return;
+      }
+      const allowed = new Map(definition.columns.map(([header, key]) => [normalizeImportHeader(header), { header, key }]));
+      const normalizedHeaders = headers.map(normalizeImportHeader);
+      const duplicateHeaders = normalizedHeaders.filter((header, index) => header && normalizedHeaders.indexOf(header) !== index);
+      const unknownHeaders = headers.filter((header) => !allowed.has(normalizeImportHeader(header)));
+      const missingRequired = definition.required.filter((required) => !normalizedHeaders.includes(normalizeImportHeader(required)));
+      if (duplicateHeaders.length || unknownHeaders.length || missingRequired.length) {
+        const messages = [];
+        if (missingRequired.length) messages.push(`Missing required column(s): ${missingRequired.join(', ')}`);
+        if (unknownHeaders.length) messages.push(`Unsupported column(s): ${unknownHeaders.join(', ')}`);
+        if (duplicateHeaders.length) messages.push('Duplicate column headers detected.');
+        setParseError(`${messages.join(' ')} Download the latest template and keep the supported headers unchanged.`);
+        return;
+      }
+      const rawRows = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: true, blankrows: false });
+      const mapped = rawRows.map((raw) => {
+        const output = {};
+        for (const [header, value] of Object.entries(raw)) {
+          const match = allowed.get(normalizeImportHeader(header));
+          if (match) output[match.key] = normalizeImportCell(match.key, value, XLSX);
+        }
+        return output;
+      }).filter((row) => Object.values(row).some((value) => String(value ?? '').trim() !== ''));
+      if (!mapped.length) {
+        setParseError('No data rows found. Add records below the template header and try again.');
+        return;
+      }
+      if (mapped.length > 1000) {
+        setParseError(`This file contains ${mapped.length.toLocaleString('en-IN')} rows. Maximum 1,000 rows are allowed per import.`);
+        return;
+      }
+      setRows(mapped);
+    } catch (error) {
+      setParseError(error?.message ? `Unable to read this file: ${error.message}` : 'Unable to read this file. Download a fresh template and try again.');
+    }
+  }
+
+  async function validateFile() {
+    if (!rows.length) return;
+    setBusy('validate');
+    setValidation(null);
+    setResult(null);
+    const response = await company360Action(companyId, {
+      action: 'validate_bulk_import',
+      importType,
+      templateVersion: 'BF-C360-IMPORT-V1',
+      rows,
+    });
+    setBusy('');
+    if (!response.ok) {
+      setValidation({ valid: false, summary: response.summary || { total: rows.length, valid: 0, invalid: rows.length }, errors: response.errors || [{ row: '—', field: 'File', message: response.message || response.code || 'Validation failed.' }] });
+      return;
+    }
+    setValidation(response);
+  }
+
+  async function commitImport() {
+    if (!validation?.valid || !rows.length) return;
+    setBusy('import');
+    setResult(null);
+    const response = await company360Action(companyId, {
+      action: 'commit_bulk_import',
+      importType,
+      templateVersion: 'BF-C360-IMPORT-V1',
+      rows,
+    });
+    setBusy('');
+    if (!response.ok) {
+      setValidation({ valid: false, summary: response.summary || validation.summary, errors: response.errors || [{ row: '—', field: 'Import', message: response.message || response.code || 'Import failed.' }] });
+      return;
+    }
+    setResult(response);
+    setValidation({ ...validation, valid: true });
+    await onImported?.();
+  }
+
+  const previewColumns = definition.columns.filter(([, key]) => rows.some((row) => String(row[key] ?? '').trim() !== '')).slice(0, 6);
+  const summary = validation?.summary;
+
+  return (
+    <div className="space-y-4">
+      <Section title="Bulk Data Import">
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
+          <div className="space-y-4">
+            <div className="rounded-[9px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] p-4">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                <div className="min-w-0 flex-1">
+                  <Select
+                    title="Import Type"
+                    value={importType}
+                    onChange={(event) => { setImportType(event.target.value); resetFileState(); }}
+                  >
+                    <option value="vehicles">Vehicle Master</option>
+                    <option value="drivers">Driver Master</option>
+                  </Select>
+                </div>
+                <Button icon={Download} onClick={downloadTemplate}>Download Template</Button>
+              </div>
+              <div className="mt-3 text-[12px] font-medium leading-5 text-[var(--bf-dev-text)]">
+                Download the current Buddy Fleets template, keep its supported headers unchanged, then upload the completed file. Existing records are never overwritten by this importer.
+              </div>
+            </div>
+
+            <div className="rounded-[9px] border border-dashed border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] p-5">
+              <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[9px] bg-[rgb(var(--bf-dev-primary-rgb)/.12)] text-[var(--bf-dev-primary)]"><FileSpreadsheet size={19} /></div>
+                  <div>
+                    <div className="text-[13px] font-extrabold text-[var(--bf-dev-text)]">{fileName || 'Choose completed import file'}</div>
+                    <div className="mt-1 text-[11px] font-semibold text-[var(--bf-dev-text)]">Excel .xlsx/.xls or CSV · maximum 1,000 rows</div>
+                  </div>
+                </div>
+                <label style={{ color: '#FFFFFF' }} className="inline-flex min-h-9 cursor-pointer items-center gap-2 rounded-[8px] bg-[var(--bf-dev-primary)] px-3.5 text-[12px] font-bold !text-white transition hover:brightness-110">
+                  <UploadCloud size={14} /> Select File
+                  <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={(event) => parseFile(event.target.files?.[0])} />
+                </label>
+              </div>
+              {parseError && <div className="mt-4 rounded-[8px] border border-rose-500/30 bg-rose-500/10 p-3 text-[12px] font-semibold leading-5 text-rose-500">{parseError}</div>}
+            </div>
+
+            {!!rows.length && !parseError && (
+              <div className="rounded-[9px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <div className="text-[13px] font-extrabold text-[var(--bf-dev-text)]">File loaded · {rows.length.toLocaleString('en-IN')} rows</div>
+                    <div className="mt-1 text-[11px] font-semibold text-[var(--bf-dev-text)]">Validate against company sites, duplicates and field rules before importing.</div>
+                  </div>
+                  <Button icon={CheckCircle2} primary disabled={Boolean(busy)} onClick={validateFile}>{busy === 'validate' ? 'Validating…' : 'Validate File'}</Button>
+                </div>
+                {previewColumns.length > 0 && (
+                  <div className="bf-c360-scrollbar mt-4 overflow-x-auto">
+                    <table className="w-full min-w-[720px] text-left">
+                      <thead className="bg-[var(--bf-dev-surface-2)]"><tr>{previewColumns.map(([header]) => <th key={header} className="border-b border-[var(--bf-dev-border)] px-3 py-2.5 text-[11px] font-bold text-[var(--bf-dev-text)]">{header}</th>)}</tr></thead>
+                      <tbody>{rows.slice(0, 5).map((row, index) => <tr key={index}>{previewColumns.map(([header, key]) => <td key={key} className="border-b border-[var(--bf-dev-border)] px-3 py-2.5 text-[11px] font-medium text-[var(--bf-dev-text)]">{String(row[key] ?? '') || '—'}</td>)}</tr>)}</tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-4">
+            <div className="rounded-[9px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] p-4">
+              <div className="text-[13px] font-extrabold text-[var(--bf-dev-text)]">Import Safety</div>
+              <div className="mt-3 space-y-3 text-[11px] font-semibold leading-5 text-[var(--bf-dev-text)]">
+                <div>✓ Server re-validates every row before commit.</div>
+                <div>✓ Existing vehicle numbers / driver codes are protected from overwrite.</div>
+                <div>✓ Site codes must belong to this company.</div>
+                <div>✓ Validation failure writes zero rows.</div>
+                <div>✓ Successful import is recorded in the Developer audit history.</div>
+              </div>
+            </div>
+
+            {summary && (
+              <div className={cx('rounded-[9px] border p-4', validation.valid ? 'border-emerald-500/30 bg-emerald-500/[.08]' : 'border-amber-500/30 bg-amber-500/[.08]')}>
+                <div className="flex items-center gap-2 text-[13px] font-extrabold text-[var(--bf-dev-text)]">{validation.valid ? <CheckCircle2 size={16} className="text-emerald-500" /> : <AlertTriangle size={16} className="text-amber-500" />} Validation Summary</div>
+                <div className="mt-3 grid grid-cols-3 gap-2">
+                  {[['Total', summary.total], ['Valid', summary.valid], ['Invalid', summary.invalid]].map(([title, value]) => <div key={title} className="rounded-[7px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] p-2.5"><div className="text-[10px] font-bold uppercase text-[var(--bf-dev-text)]">{title}</div><div className="mt-1 text-[18px] font-black text-[var(--bf-dev-text)]">{Number(value || 0).toLocaleString('en-IN')}</div></div>)}
+                </div>
+                {validation.valid && <Button className="mt-3 w-full" icon={UploadCloud} primary disabled={Boolean(busy) || Boolean(result?.ok)} onClick={commitImport}>{result?.ok ? 'Import Complete' : busy === 'import' ? 'Importing…' : `Import ${summary.valid} Rows`}</Button>}
+              </div>
+            )}
+
+            {result?.ok && (
+              <div className="rounded-[9px] border border-emerald-500/30 bg-emerald-500/10 p-4">
+                <div className="flex items-center gap-2 text-[13px] font-extrabold text-emerald-500"><CheckCircle2 size={16} /> Import Completed</div>
+                <div className="mt-2 text-[12px] font-semibold leading-5 text-[var(--bf-dev-text)]">{Number(result.imported || 0).toLocaleString('en-IN')} {definition.label.toLowerCase()} record(s) imported successfully. No existing records were overwritten.</div>
+              </div>
+            )}
+          </div>
+        </div>
+      </Section>
+
+      {!!validation?.errors?.length && (
+        <Section title="Validation Errors">
+          <div className="bf-c360-scrollbar max-h-[360px] overflow-auto">
+            <table className="w-full min-w-[720px] text-left">
+              <thead className="sticky top-0 bg-[var(--bf-dev-surface-2)]"><tr>{['Excel Row', 'Field', 'Issue'].map((heading) => <th key={heading} className="border-b border-[var(--bf-dev-border)] px-3 py-3 text-[11px] font-bold text-[var(--bf-dev-text)]">{heading}</th>)}</tr></thead>
+              <tbody>{validation.errors.map((error, index) => <tr key={`${error.row}-${error.field}-${index}`}><td className="border-b border-[var(--bf-dev-border)] px-3 py-3 text-[12px] font-bold text-[var(--bf-dev-text)]">{error.row}</td><td className="border-b border-[var(--bf-dev-border)] px-3 py-3 text-[12px] font-semibold text-[var(--bf-dev-text)]">{error.field || '—'}</td><td className="border-b border-[var(--bf-dev-border)] px-3 py-3 text-[12px] font-medium text-rose-500">{error.message}</td></tr>)}</tbody>
+            </table>
+          </div>
+          {validation.errorsTruncated && <div className="mt-3 text-[11px] font-semibold text-[var(--bf-dev-text)]">Only the first validation errors are shown. Correct the file and validate again.</div>}
+        </Section>
+      )}
+    </div>
+  );
+}
+
 function ModalShell({ title, onClose, children }) {
+  useEffect(() => {
+    const close = (event) => { if (event.key === 'Escape') onClose?.(); };
+    document.addEventListener('keydown', close);
+    return () => document.removeEventListener('keydown', close);
+  }, [onClose]);
+
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/65 p-4 print:hidden">
-      <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-[7px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] p-5 shadow-2xl">
-        <div className="mb-4 flex items-center justify-between gap-3 border-b border-[var(--bf-dev-border)] pb-3">
+      <div className="flex max-h-[90dvh] w-full max-w-3xl flex-col overflow-hidden rounded-[9px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] shadow-2xl">
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[var(--bf-dev-border)] px-5 py-4">
           <h3 className="text-[17px] font-bold text-[var(--bf-dev-text)]">{title}</h3>
           <Button onClick={onClose}>Close</Button>
         </div>
-        {children}
+        <div className="bf-c360-scrollbar min-h-0 flex-1 overflow-y-auto p-5">{children}</div>
       </div>
     </div>
   );

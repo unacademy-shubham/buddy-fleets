@@ -15,6 +15,247 @@ function clean(value, max = 5000) { return String(value ?? '').trim().slice(0, m
 function money(value) { const n = Number(value); return Number.isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : null; }
 function asDate(value) { if (!value) return null; const t = Date.parse(value); return Number.isFinite(t) ? new Date(t).toISOString().slice(0,10) : undefined; }
 
+const BULK_IMPORT_MAX_ROWS = 1000;
+const IMPORT_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+function importDate(value) {
+  const text = clean(value, 30);
+  if (!text) return null;
+  if (!IMPORT_DATE.test(text)) return undefined;
+  const parsed = new Date(`${text}T00:00:00.000Z`);
+  if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== text) return undefined;
+  return text;
+}
+
+function importNumber(value, { integer = false, min = 0, max = Number.POSITIVE_INFINITY } = {}) {
+  const text = clean(value, 80).replace(/,/g, '');
+  if (!text) return null;
+  const number = Number(text);
+  if (!Number.isFinite(number) || number < min || number > max || (integer && !Number.isInteger(number))) return undefined;
+  return number;
+}
+
+function importMobile(value) {
+  const text = clean(value, 30);
+  if (!text) return '';
+  return /^[0-9+()\-\s]{7,30}$/.test(text) ? text : undefined;
+}
+
+function importSiteResolver(sites) {
+  const byCode = new Map();
+  const byName = new Map();
+  for (const site of sites || []) {
+    if (site.code) byCode.set(clean(site.code, 80).toUpperCase(), site);
+    if (site.name) byName.set(clean(site.name, 160).toLowerCase(), site);
+  }
+  return (value) => {
+    const text = clean(value, 160);
+    if (!text) return { id: null, site: null };
+    const site = byCode.get(text.toUpperCase()) || byName.get(text.toLowerCase()) || null;
+    return { id: site?.id || null, site };
+  };
+}
+
+async function buildBulkImportPlan(db, companyId, importType, inputRows, effectiveLimits = {}) {
+  const rows = Array.isArray(inputRows) ? inputRows : [];
+  if (!['vehicles', 'drivers'].includes(importType)) {
+    return { valid: false, status: 400, code: 'INVALID_IMPORT_TYPE', summary: { total: rows.length, valid: 0, invalid: rows.length }, errors: [{ row: '—', field: 'Import Type', message: 'Supported import types are Vehicle Master and Driver Master.' }] };
+  }
+  if (!rows.length) {
+    return { valid: false, status: 400, code: 'IMPORT_ROWS_REQUIRED', summary: { total: 0, valid: 0, invalid: 0 }, errors: [{ row: '—', field: 'File', message: 'No data rows were supplied.' }] };
+  }
+  if (rows.length > BULK_IMPORT_MAX_ROWS) {
+    return { valid: false, status: 413, code: 'IMPORT_ROW_LIMIT_EXCEEDED', summary: { total: rows.length, valid: 0, invalid: rows.length }, errors: [{ row: '—', field: 'File', message: `Maximum ${BULK_IMPORT_MAX_ROWS.toLocaleString('en-IN')} rows are allowed per import.` }] };
+  }
+
+  const [{ data: sites, error: sitesError }, existingResult] = await Promise.all([
+    db.from('company_portal_sites').select('id,code,name,status').eq('company_id', companyId),
+    importType === 'vehicles'
+      ? db.from('company_portal_vehicles').select('vehicle_number').eq('company_id', companyId)
+      : db.from('company_portal_drivers').select('driver_code').eq('company_id', companyId),
+  ]);
+  if (sitesError) throw sitesError;
+  if (existingResult.error) throw existingResult.error;
+
+  const resolveSite = importSiteResolver(sites || []);
+  const errors = [];
+  const invalidRows = new Set();
+  const records = [];
+  const seen = new Set();
+  const existing = new Set(
+    (existingResult.data || [])
+      .map((record) => importType === 'vehicles' ? clean(record.vehicle_number, 30).toUpperCase() : clean(record.driver_code, 50).toUpperCase())
+      .filter(Boolean)
+  );
+  const addError = (index, field, message) => {
+    invalidRows.add(index);
+    if (errors.length < 200) errors.push({ row: index + 2, field, message });
+  };
+  const dateField = (row, index, key, field) => {
+    const value = importDate(row?.[key]);
+    if (value === undefined) addError(index, field, 'Use YYYY-MM-DD format or leave this field blank.');
+    return value === undefined ? null : value;
+  };
+  const numberField = (row, index, key, field, options) => {
+    const value = importNumber(row?.[key], options);
+    if (value === undefined) addError(index, field, 'Enter a valid numeric value or leave this field blank.');
+    return value === undefined ? null : value;
+  };
+  const siteField = (row, index, key, field) => {
+    const raw = clean(row?.[key], 160);
+    if (!raw) return null;
+    const resolved = resolveSite(raw);
+    if (!resolved.site) {
+      addError(index, field, `Site “${raw}” does not belong to this company. Use a Site Code from the template Sites sheet.`);
+      return null;
+    }
+    if (resolved.site.status !== 'active') {
+      addError(index, field, `Site “${raw}” is ${resolved.site.status || 'inactive'} and cannot be assigned during import.`);
+      return null;
+    }
+    return resolved.id;
+  };
+
+  rows.forEach((row, index) => {
+    const beforeErrors = invalidRows.has(index);
+    if (!row || typeof row !== 'object' || Array.isArray(row)) {
+      addError(index, 'Row', 'Invalid row data.');
+      return;
+    }
+
+    if (importType === 'vehicles') {
+      const vehicleNumber = clean(row.vehicle_number, 30).toUpperCase();
+      if (!vehicleNumber) addError(index, 'Vehicle Number', 'Vehicle Number is required.');
+      if (vehicleNumber && existing.has(vehicleNumber)) addError(index, 'Vehicle Number', `Vehicle ${vehicleNumber} already exists in this company.`);
+      if (vehicleNumber && seen.has(vehicleNumber)) addError(index, 'Vehicle Number', `Vehicle ${vehicleNumber} appears more than once in this file.`);
+      if (vehicleNumber) seen.add(vehicleNumber);
+
+      const manufacturingYear = numberField(row, index, 'manufacturing_year', 'Manufacturing Year', { integer: true, min: 1900, max: new Date().getFullYear() + 1 });
+      const record = {
+        company_id: companyId,
+        vehicle_number: vehicleNumber,
+        vehicle_code: clean(row.vehicle_code, 50) || null,
+        vehicle_type: clean(row.vehicle_type, 100) || null,
+        body_type: clean(row.body_type, 120) || null,
+        ownership: clean(row.ownership, 50) || 'Own',
+        home_site_id: siteField(row, index, 'home_site_code', 'Home Site Code'),
+        current_site_id: siteField(row, index, 'current_site_code', 'Current Site Code'),
+        status: clean(row.status, 30).toLowerCase() || 'available',
+        maker: clean(row.maker, 80) || null,
+        model: clean(row.model, 80) || null,
+        variant: clean(row.variant, 80) || null,
+        manufacturing_year: manufacturingYear,
+        chassis_number: clean(row.chassis_number, 100) || null,
+        engine_number: clean(row.engine_number, 100) || null,
+        fuel_type: clean(row.fuel_type, 40) || null,
+        gvw: numberField(row, index, 'gvw', 'GVW'),
+        unladen_weight: numberField(row, index, 'unladen_weight', 'Unladen Weight'),
+        payload_mt: numberField(row, index, 'payload_mt', 'Payload MT'),
+        seating_capacity: numberField(row, index, 'seating_capacity', 'Seating Capacity', { integer: true, min: 0 }),
+        axle_count: numberField(row, index, 'axle_count', 'Axle Count', { integer: true, min: 0 }),
+        tyre_count: numberField(row, index, 'tyre_count', 'Tyre Count', { integer: true, min: 0 }),
+        fuel_tank_capacity: numberField(row, index, 'fuel_tank_capacity', 'Fuel Tank Capacity'),
+        rc_number: clean(row.rc_number, 80) || null,
+        registration_date: dateField(row, index, 'registration_date', 'Registration Date'),
+        rc_validity: dateField(row, index, 'rc_validity', 'RC Validity'),
+        owner_name: clean(row.owner_name, 150) || null,
+        rto: clean(row.rto, 100) || null,
+        insurance_policy_no: clean(row.insurance_policy_no, 100) || null,
+        insurance_company: clean(row.insurance_company, 120) || null,
+        insurance_expiry: dateField(row, index, 'insurance_expiry', 'Insurance Expiry'),
+        fitness_no: clean(row.fitness_no, 100) || null,
+        fitness_expiry: dateField(row, index, 'fitness_expiry', 'Fitness Expiry'),
+        puc_no: clean(row.puc_no, 100) || null,
+        puc_expiry: dateField(row, index, 'puc_expiry', 'PUC Expiry'),
+        national_permit_no: clean(row.national_permit_no, 100) || null,
+        national_permit_expiry: dateField(row, index, 'national_permit_expiry', 'National Permit Expiry'),
+        state_permit_no: clean(row.state_permit_no, 100) || null,
+        state_permit_expiry: dateField(row, index, 'state_permit_expiry', 'State Permit Expiry'),
+        road_tax_expiry: dateField(row, index, 'road_tax_expiry', 'Road Tax Expiry'),
+        fastag_reference: clean(row.fastag_reference, 160) || null,
+        extra: {},
+      };
+      if (!invalidRows.has(index) && !beforeErrors) records.push(record);
+      return;
+    }
+
+    const driverCode = clean(row.driver_code, 50).toUpperCase();
+    const fullName = clean(row.full_name, 150);
+    const mobile = importMobile(row.mobile);
+    if (!driverCode) addError(index, 'Driver Code', 'Driver Code is required for safe duplicate protection.');
+    if (!fullName) addError(index, 'Full Name', 'Full Name is required.');
+    if (!clean(row.mobile, 30)) addError(index, 'Mobile', 'Mobile is required.');
+    else if (mobile === undefined) addError(index, 'Mobile', 'Enter a valid mobile number.');
+    if (driverCode && existing.has(driverCode)) addError(index, 'Driver Code', `Driver Code ${driverCode} already exists in this company.`);
+    if (driverCode && seen.has(driverCode)) addError(index, 'Driver Code', `Driver Code ${driverCode} appears more than once in this file.`);
+    if (driverCode) seen.add(driverCode);
+    const email = clean(row.email, 254).toLowerCase();
+    if (email && !EMAIL.test(email)) addError(index, 'Email', 'Enter a valid email address or leave this field blank.');
+    const bankLast4 = clean(row.bank_account_last4, 4);
+    if (bankLast4 && !/^\d{4}$/.test(bankLast4)) addError(index, 'Bank Account Last4', 'Enter exactly the last 4 digits only.');
+    const ifsc = clean(row.ifsc, 20).toUpperCase();
+    if (ifsc && !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc)) addError(index, 'IFSC', 'Enter a valid 11-character IFSC code.');
+
+    const record = {
+      company_id: companyId,
+      driver_code: driverCode,
+      full_name: fullName,
+      father_name: clean(row.father_name, 150) || null,
+      dob: dateField(row, index, 'dob', 'DOB'),
+      blood_group: clean(row.blood_group, 20) || null,
+      mobile: mobile || '',
+      alternate_mobile: clean(row.alternate_mobile, 30) || null,
+      email: email || null,
+      address: clean(row.address, 500) || null,
+      city: clean(row.city, 100) || null,
+      state: clean(row.state, 100) || null,
+      pincode: clean(row.pincode, 12) || null,
+      emergency_contact: clean(row.emergency_contact, 100) || null,
+      driver_type: clean(row.driver_type, 80) || 'Own Driver',
+      joining_date: dateField(row, index, 'joining_date', 'Joining Date'),
+      primary_site_id: siteField(row, index, 'primary_site_code', 'Primary Site Code'),
+      status: clean(row.status, 30).toLowerCase() || 'active',
+      dl_number: clean(row.dl_number, 80) || null,
+      dl_class: clean(row.dl_class, 80) || null,
+      dl_issue_date: dateField(row, index, 'dl_issue_date', 'DL Issue Date'),
+      dl_expiry: dateField(row, index, 'dl_expiry', 'DL Expiry'),
+      issuing_rto: clean(row.issuing_rto, 100) || null,
+      badge_number: clean(row.badge_number, 80) || null,
+      badge_expiry: dateField(row, index, 'badge_expiry', 'Badge Expiry'),
+      medical_fitness_date: dateField(row, index, 'medical_fitness_date', 'Medical Fitness Date'),
+      police_verification_status: clean(row.police_verification_status, 80) || null,
+      payment_type: clean(row.payment_type, 80) || null,
+      per_trip_rate: numberField(row, index, 'per_trip_rate', 'Per Trip Rate'),
+      daily_allowance: numberField(row, index, 'daily_allowance', 'Daily Allowance'),
+      bank_account_last4: bankLast4 || null,
+      ifsc: ifsc || null,
+      upi_id: clean(row.upi_id, 160) || null,
+      financial: {},
+      extra: {},
+    };
+    if (!invalidRows.has(index) && !beforeErrors) records.push(record);
+  });
+
+  const invalid = invalidRows.size;
+  if (importType === 'vehicles') {
+    const rawVehicleLimit = effectiveLimits?.vehicles_max;
+    const vehicleLimit = rawVehicleLimit === null || rawVehicleLimit === undefined || rawVehicleLimit === '' ? Number.NaN : Number(rawVehicleLimit);
+    if (Number.isFinite(vehicleLimit) && vehicleLimit >= 0 && existing.size + records.length > vehicleLimit) {
+      errors.push({ row: '—', field: 'Vehicle Limit', message: `This import would exceed the effective vehicle limit (${existing.size} existing + ${records.length} import > ${vehicleLimit} allowed).` });
+    }
+  }
+  const globallyBlocked = invalid === 0 && errors.length > 0;
+  return {
+    valid: invalid === 0 && errors.length === 0,
+    status: 200,
+    code: errors.length === 0 ? null : 'IMPORT_VALIDATION_FAILED',
+    records,
+    summary: { total: rows.length, valid: globallyBlocked ? 0 : rows.length - invalid, invalid: globallyBlocked ? rows.length : invalid },
+    errors,
+    errorsTruncated: errors.length >= 200,
+  };
+}
+
 async function history(db, actorUserId, companyId, action, details = {}) {
   try {
     await db.from('developer_saas_history').insert({
@@ -265,6 +506,36 @@ async function handlePost(db, actor, companyId, body) {
   const action=clean(body.action,80);
   if (action.includes('employee')) return employeeAction(db,actor,companyId,body);
   const companyData=await loadCompany(db,companyId); if(!companyData) return {status:404,payload:{ok:false,code:'COMPANY_NOT_FOUND'}};
+
+  if(action==='validate_bulk_import' || action==='commit_bulk_import'){
+    const importType=clean(body.importType,40);
+    const templateVersion=clean(body.templateVersion,80);
+    if(templateVersion!=='BF-C360-IMPORT-V1') return {status:400,payload:{ok:false,code:'UNSUPPORTED_IMPORT_TEMPLATE',message:'Download the latest Buddy Fleets import template and try again.'}};
+    const plan=await buildBulkImportPlan(db,companyId,importType,body.rows,companyData.effective?.limits||{});
+    if(action==='validate_bulk_import'){
+      return {status:plan.status||200,payload:{ok:true,valid:plan.valid,code:plan.code,summary:plan.summary,errors:plan.errors,errorsTruncated:plan.errorsTruncated}};
+    }
+    if(!plan.valid){
+      return {status:422,payload:{ok:false,valid:false,code:plan.code||'IMPORT_VALIDATION_FAILED',message:'Import validation failed. No rows were written.',summary:plan.summary,errors:plan.errors,errorsTruncated:plan.errorsTruncated}};
+    }
+    const table=importType==='vehicles'?'company_portal_vehicles':'company_portal_drivers';
+    const {data:inserted,error:insertError}=await db.from(table).insert(plan.records).select('id');
+    if(insertError){
+      if(insertError.code==='23505') return {status:409,payload:{ok:false,code:'IMPORT_DUPLICATE_DETECTED',message:'A duplicate record was created after validation. Refresh the company data and validate the file again.'}};
+      throw insertError;
+    }
+    const imported=(inserted||[]).length;
+    await history(db,actor,companyId,`bulk_import_${importType}`,{template_version:templateVersion,import_type:importType,imported});
+    try{
+      await db.from('company_portal_audit').insert({
+        company_id:companyId,user_id:actor,site_id:null,module_key:importType==='vehicles'?'vehicles':'drivers',action_type:'bulk_import',
+        entity_type:importType==='vehicles'?'vehicle':'driver',entity_id:null,
+        description:`Developer bulk imported ${imported} ${importType} record(s)`,before_data:null,
+        after_data:{template_version:templateVersion,import_type:importType,imported},
+      });
+    }catch(auditError){console.error('Company portal bulk import audit failed:',auditError?.message||auditError);}
+    return {status:201,payload:{ok:true,valid:true,importType,imported,summary:{total:imported,valid:imported,invalid:0}}};
+  }
 
   if(action==='set_fleet_packs'){
     const primaryPack=clean(body.primaryPack,120);
