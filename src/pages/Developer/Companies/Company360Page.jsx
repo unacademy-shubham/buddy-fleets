@@ -9,7 +9,6 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronRight,
-  CircleDollarSign,
   CreditCard,
   Download,
   ExternalLink,
@@ -103,8 +102,8 @@ const CONTROL_CARDS = [
   ['support', 'Support & Notes', 'Internal notes and future support follow-up context.', FileText],
 ];
 
-const surfaceCard = 'rounded-[6px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] shadow-[0_1px_2px_rgba(0,0,0,.04)]';
-const input = 'h-10 w-full rounded-[5px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] px-3 text-[13px] font-medium text-[var(--bf-dev-text)] outline-none placeholder:text-[var(--bf-dev-text)] focus:border-[var(--bf-dev-primary)]';
+const surfaceCard = 'rounded-[10px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] shadow-[0_8px_24px_rgba(0,0,0,.05)]';
+const input = 'h-10 w-full rounded-[8px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] px-3 text-[13px] font-medium text-[var(--bf-dev-text)] outline-none placeholder:text-[var(--bf-dev-text)] focus:border-[var(--bf-dev-primary)]';
 const label = 'block space-y-1.5 text-[12px] font-semibold text-[var(--bf-dev-text)]';
 
 function cx(...classes) {
@@ -181,15 +180,17 @@ function SelectMenu({ value, options, onChange, ariaLabel = 'Select option', cla
   );
 }
 
-function Button({ children, icon: Icon, primary = false, danger = false, className = '', ...props }) {
+function Button({ children, icon: Icon, primary = false, danger = false, className = '', style, ...props }) {
+  const fixedStyle = primary ? { ...style, color: '#FFFFFF' } : style;
   return (
     <button
       type="button"
       {...props}
+      style={fixedStyle}
       className={cx(
-        'inline-flex min-h-9 items-center justify-center gap-2 rounded-[4px] border px-3 text-[12px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--bf-dev-primary-rgb)/.28)] disabled:cursor-not-allowed disabled:opacity-50',
+        'inline-flex min-h-9 items-center justify-center gap-2 rounded-[8px] border px-3.5 text-[12px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--bf-dev-primary-rgb)/.28)] disabled:cursor-not-allowed disabled:opacity-50',
         primary
-          ? 'border-[var(--bf-dev-primary)] bg-[var(--bf-dev-primary)] text-white hover:brightness-110'
+          ? 'border-[var(--bf-dev-primary)] bg-[var(--bf-dev-primary)] !text-white hover:brightness-110'
           : danger
             ? 'border-rose-500/30 bg-rose-500/10 text-rose-500 hover:bg-rose-500/15'
             : 'border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] text-[var(--bf-dev-text)] hover:bg-[var(--bf-dev-surface-2)] hover:text-[var(--bf-dev-text)]',
@@ -229,29 +230,7 @@ function Empty({ text = 'No records yet.' }) {
   );
 }
 
-function InfoStat({ icon: Icon, label: statLabel, value, helper, progress }) {
-  return (
-    <div className={cx(surfaceCard, 'p-4')}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="text-[12px] font-bold uppercase tracking-[.06em] text-[var(--bf-dev-text)]">{statLabel}</div>
-          <div className="mt-2 truncate text-[22px] font-extrabold tracking-[-.02em] text-[var(--bf-dev-text)]">{value}</div>
-          {helper && <div className="mt-1 text-[12px] font-medium text-[var(--bf-dev-text)]">{helper}</div>}
-        </div>
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[5px] bg-[rgb(var(--bf-dev-primary-rgb)/.12)] text-[var(--bf-dev-primary)]">
-          <Icon size={17} />
-        </div>
-      </div>
-      {Number.isFinite(progress) && (
-        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[var(--bf-dev-surface-3)]">
-          <div className="h-full rounded-full bg-[var(--bf-dev-primary)]" style={{ width: `${Math.max(0, Math.min(100, progress))}%` }} />
-        </div>
-      )}
-    </div>
-  );
-}
-
-function MoreActionsMenu({ onPrint, onExport, onAnnouncement, onPayment, onEmployee }) {
+function MoreActionsMenu({ onRefresh, onPrint, onExport, onAnnouncement, onPayment, onEmployee }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -265,6 +244,7 @@ function MoreActionsMenu({ onPrint, onExport, onAnnouncement, onPayment, onEmplo
   }, [open]);
 
   const actions = [
+    ['Refresh Data', RefreshCcw, onRefresh],
     ['Send Announcement', Bell, onAnnouncement],
     ['Record Payment', WalletCards, onPayment],
     ['Add Employee', UserPlus, onEmployee],
@@ -278,16 +258,16 @@ function MoreActionsMenu({ onPrint, onExport, onAnnouncement, onPayment, onEmplo
         More Actions <ChevronDown size={13} className={cx('transition', open && 'rotate-180')} />
       </Button>
       {open && (
-        <div className="absolute right-0 top-[calc(100%+6px)] z-[120] w-56 rounded-[5px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] p-1.5 shadow-[0_18px_48px_rgba(0,0,0,.22)]">
+        <div className="absolute right-0 top-[calc(100%+7px)] z-[120] w-56 rounded-[9px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] p-1.5 shadow-[0_18px_48px_rgba(0,0,0,.22)]">
           {actions.map(([text, Icon, onClick]) => (
             <button
               key={text}
               type="button"
               onClick={() => {
                 setOpen(false);
-                onClick();
+                onClick?.();
               }}
-              className="flex w-full items-center gap-2.5 rounded-[4px] px-3 py-2.5 text-left text-[12px] font-semibold text-[var(--bf-dev-text)] transition hover:bg-[var(--bf-dev-surface-2)]"
+              className="flex w-full items-center gap-2.5 rounded-[7px] px-3 py-2.5 text-left text-[12px] font-semibold text-[var(--bf-dev-text)] transition hover:bg-[var(--bf-dev-surface-2)]"
             >
               <Icon size={14} className="text-[var(--bf-dev-primary)]" />
               {text}
@@ -300,69 +280,67 @@ function MoreActionsMenu({ onPrint, onExport, onAnnouncement, onPayment, onEmplo
 }
 
 function Company360Nav({ active, onChange }) {
+  const items = NAV_GROUPS.flatMap((group) => group.items);
   return (
-    <aside className={cx(surfaceCard, 'overflow-hidden print:hidden lg:sticky lg:top-4 lg:self-start')}>
-      <div className="border-b border-[var(--bf-dev-border)] px-4 py-4">
-        <div className="flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-[5px] bg-[rgb(var(--bf-dev-primary-rgb)/.12)] text-[var(--bf-dev-primary)]">
-            <Building2 size={17} />
+    <aside className="print:hidden lg:sticky lg:top-4 lg:self-start">
+      <div className="hidden lg:block">
+        <div className="mb-4 flex items-center gap-3 px-1">
+          <div className="flex h-9 w-9 items-center justify-center rounded-[9px] bg-[rgb(var(--bf-dev-primary-rgb)/.13)] text-[var(--bf-dev-primary)]">
+            <Building2 size={18} />
           </div>
           <div>
-            <div className="text-[15px] font-bold text-[var(--bf-dev-text)]">Company 360</div>
-            <div className="mt-0.5 text-[12px] font-medium text-[var(--bf-dev-text)]">Tenant control center</div>
+            <div className="text-[15px] font-extrabold text-[var(--bf-dev-text)]">Company 360</div>
+            <div className="mt-0.5 text-[11px] font-semibold text-[var(--bf-dev-text)]">Tenant control center</div>
           </div>
         </div>
+
+        <nav className="space-y-1.5">
+          {items.map(([key, text, Icon], index) => {
+            const selected = active === key;
+            const groupStart = NAV_GROUPS.some((group) => group.items[0]?.[0] === key) && index !== 0;
+            return (
+              <React.Fragment key={key}>
+                {groupStart && <div className="my-2 h-px bg-[var(--bf-dev-border)]" />}
+                <button
+                  type="button"
+                  onClick={() => onChange(key)}
+                  className={cx(
+                    'flex w-full items-center gap-2.5 rounded-[8px] border px-3 py-2.5 text-left text-[12px] font-semibold transition',
+                    selected
+                      ? 'border-[rgb(var(--bf-dev-primary-rgb)/.22)] bg-[rgb(var(--bf-dev-primary-rgb)/.12)] text-[var(--bf-dev-primary)] shadow-[inset_2px_0_0_var(--bf-dev-primary)]'
+                      : 'border-transparent text-[var(--bf-dev-text)] hover:border-[var(--bf-dev-border)] hover:bg-[var(--bf-dev-surface)]'
+                  )}
+                >
+                  <Icon size={15} />
+                  <span className="min-w-0 flex-1 truncate">{text}</span>
+                </button>
+              </React.Fragment>
+            );
+          })}
+        </nav>
       </div>
 
-      <div className="hidden max-h-[calc(100dvh-150px)] overflow-y-auto p-2 lg:block">
-        {NAV_GROUPS.map((group, groupIndex) => (
-          <div key={group.label} className={cx(groupIndex > 0 && 'mt-4')}>
-            <div className="px-2 pb-1.5 text-[11px] font-extrabold uppercase tracking-[.08em] text-[var(--bf-dev-text)]">
-              {group.label}
-            </div>
-            <div className="space-y-1">
-              {group.items.map(([key, text, Icon]) => {
-                const selected = active === key;
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => onChange(key)}
-                    className={cx(
-                      'flex w-full items-center gap-2.5 rounded-[5px] border px-3 py-2.5 text-left text-[12px] font-semibold transition',
-                      selected
-                        ? 'border-[rgb(var(--bf-dev-primary-rgb)/.24)] bg-[rgb(var(--bf-dev-primary-rgb)/.12)] text-[var(--bf-dev-primary)]'
-                        : 'border-transparent text-[var(--bf-dev-text)] hover:border-[var(--bf-dev-border)] hover:bg-[var(--bf-dev-surface-2)]'
-                    )}
-                  >
-                    <Icon size={15} />
-                    <span className="min-w-0 flex-1 truncate">{text}</span>
-                    {selected && <ChevronRight size={13} />}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="flex gap-1 overflow-x-auto p-2 lg:hidden">
-        {NAV_GROUPS.flatMap((group) => group.items).map(([key, text, Icon]) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => onChange(key)}
-            className={cx(
-              'inline-flex shrink-0 items-center gap-2 rounded-[5px] border px-3 py-2 text-[12px] font-semibold transition',
-              active === key
-                ? 'border-[var(--bf-dev-primary)] bg-[var(--bf-dev-primary)] text-white'
-                : 'border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] text-[var(--bf-dev-text)]'
-            )}
-          >
-            <Icon size={14} />
-            {text}
-          </button>
-        ))}
+      <div className="flex gap-1 overflow-x-auto pb-2 lg:hidden">
+        {items.map(([key, text, Icon]) => {
+          const selected = active === key;
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => onChange(key)}
+              style={selected ? { color: '#FFFFFF' } : undefined}
+              className={cx(
+                'inline-flex shrink-0 items-center gap-2 rounded-[8px] border px-3 py-2 text-[12px] font-semibold transition',
+                selected
+                  ? 'border-[var(--bf-dev-primary)] bg-[var(--bf-dev-primary)] !text-white'
+                  : 'border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] text-[var(--bf-dev-text)]'
+              )}
+            >
+              <Icon size={14} />
+              {text}
+            </button>
+          );
+        })}
       </div>
     </aside>
   );
@@ -371,73 +349,64 @@ function Company360Nav({ active, onChange }) {
 function HeroCard({ company, profile, data, activeEmployees }) {
   const sites = data.sites || [];
   const activeSites = sites.filter((site) => site.status === 'active').length;
-  const planName = data.effective?.plan?.name || data.effective?.planKey || 'No plan assigned';
-  const lifecycle = data.subscriptionContext?.lifecycle_state || data.subscription?.status || company.status;
+  const planName = data.effective?.plan?.name || data.effective?.planKey || 'Not assigned';
   const location = [profile.city, profile.state].filter(Boolean).join(', ') || 'Location not configured';
+  const initials = (company.company_name || 'C').split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
 
   return (
-    <section className={cx(surfaceCard, 'relative overflow-hidden p-5 sm:p-6')}>
-      <div className="pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full bg-[rgb(var(--bf-dev-primary-rgb)/.14)] blur-3xl" />
-      <div className="relative flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[6px] border border-[rgb(var(--bf-dev-primary-rgb)/.28)] bg-[rgb(var(--bf-dev-primary-rgb)/.14)] text-[20px] font-black text-[var(--bf-dev-primary)]">
-              {(company.company_name || 'C').split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase()}
-            </div>
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <h1 className="truncate text-[24px] font-extrabold tracking-[-.02em] text-[var(--bf-dev-text)] sm:text-[28px]">
-                  {company.company_name || 'Company'}
-                </h1>
-                <ToneBadge tone={company.status === 'suspended' ? 'danger' : company.status?.includes('expired') ? 'warning' : 'success'}>
-                  {humanize(company.status)}
-                </ToneBadge>
-              </div>
-              <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] font-semibold text-[var(--bf-dev-text)]">
-                <span>{company.company_code || 'No company code'}</span>
-                <span aria-hidden="true">•</span>
-                <span className="break-all">portal.buddyfleets.in/{company.subdomain_slug || 'no-slug'}</span>
-              </div>
-            </div>
-          </div>
+    <section className={cx(surfaceCard, 'relative min-h-[176px] overflow-hidden p-5 sm:p-6')}>
+      <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-[38%] overflow-hidden xl:block">
+        <img src="/images/truck-640.webp" alt="" className="h-full w-full object-cover" />
+        <div className="absolute inset-0 bg-gradient-to-r from-[var(--bf-dev-surface)] via-[color:rgb(0_0_0/.18)] to-[color:rgb(0_0_0/.48)]" />
+        <div className="absolute inset-x-6 bottom-5 text-right" style={{ color: '#FFFFFF' }}>
+          <div className="text-[14px] font-extrabold leading-5">Reliable Transport<br />for a Better Tomorrow</div>
+          <div className="mt-2 ml-auto h-0.5 w-16 rounded-full bg-[var(--bf-dev-primary)]" />
+        </div>
+      </div>
 
-          <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <HeroFact icon={MapPin} label="Location" value={location} />
-            <HeroFact icon={Landmark} label="Sites / Branches" value={`${activeSites} active`} />
-            <HeroFact icon={Users} label="Employees" value={`${activeEmployees} active`} />
-            <HeroFact icon={PackageCheck} label="Effective Plan" value={planName} />
+      <div className="relative z-10 max-w-full xl:max-w-[70%]">
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[10px] border border-[rgb(var(--bf-dev-primary-rgb)/.28)] bg-[rgb(var(--bf-dev-primary-rgb)/.15)] text-[22px] font-black text-[var(--bf-dev-primary)]">
+            {initials}
+          </div>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <h1 className="truncate text-[23px] font-extrabold tracking-[-.02em] text-[var(--bf-dev-text)] sm:text-[27px]">
+                {company.company_name || 'Company'}
+              </h1>
+              <ToneBadge tone={company.status === 'suspended' ? 'danger' : company.status?.includes('expired') ? 'warning' : 'success'}>
+                {humanize(company.status)}
+              </ToneBadge>
+            </div>
+            <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[12px] font-semibold text-[var(--bf-dev-text)]">
+              <span>{company.company_code || 'No company code'}</span>
+              <span aria-hidden="true">|</span>
+              <span className="break-all">{company.subdomain_slug ? `${company.subdomain_slug}.buddyfleets.com` : 'Portal subdomain not configured'}</span>
+            </div>
           </div>
         </div>
 
-        <div className="min-w-[220px] rounded-[6px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] p-4 xl:max-w-[280px]">
-          <div className="text-[11px] font-extrabold uppercase tracking-[.08em] text-[var(--bf-dev-text)]">Runtime State</div>
-          <div className="mt-3 flex items-center justify-between gap-3 text-[12px] font-semibold text-[var(--bf-dev-text)]">
-            <span>Lifecycle</span>
-            <span className="text-right">{humanize(lifecycle)}</span>
-          </div>
-          <div className="mt-2 flex items-center justify-between gap-3 text-[12px] font-semibold text-[var(--bf-dev-text)]">
-            <span>Access</span>
-            <span className="text-right">{humanize(data.subscriptionContext?.lifecycle_access || '—')}</span>
-          </div>
-          <div className="mt-2 flex items-center justify-between gap-3 text-[12px] font-semibold text-[var(--bf-dev-text)]">
-            <span>Fleet Setup</span>
-            <span className="text-right">{humanize(data.portalSettings?.fleet_pack_selection_status || 'pending')}</span>
-          </div>
+        <div className="mt-6 grid gap-y-4 sm:grid-cols-2 xl:grid-cols-4">
+          <HeroFact icon={MapPin} label="Location" value={location} />
+          <HeroFact icon={Landmark} label="Sites / Branches" value={`${activeSites}`} helper="Active sites" />
+          <HeroFact icon={Users} label="Employees" value={`${activeEmployees}`} helper="Active users" />
+          <HeroFact icon={PackageCheck} label="Effective Plan" value={planName} />
         </div>
       </div>
     </section>
   );
 }
 
-function HeroFact({ icon: Icon, label: factLabel, value }) {
+function HeroFact({ icon: Icon, label: factLabel, value, helper }) {
   return (
-    <div className="flex items-center gap-2.5 rounded-[5px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] px-3 py-3">
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[5px] bg-[rgb(var(--bf-dev-primary-rgb)/.11)] text-[var(--bf-dev-primary)]">
-        <Icon size={15} />
+    <div className="flex min-w-0 items-center gap-2.5 border-l border-[var(--bf-dev-border)] pl-3 first:border-l-0 first:pl-0 sm:[&:nth-child(odd)]:border-l-0 sm:[&:nth-child(odd)]:pl-0 xl:[&:nth-child(n)]:border-l xl:[&:nth-child(n)]:pl-3 xl:[&:first-child]:border-l-0 xl:[&:first-child]:pl-0">
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center text-[var(--bf-dev-primary)]">
+        <Icon size={17} />
       </div>
       <div className="min-w-0">
-        <div className="text-[11px] font-bold uppercase tracking-[.05em] text-[var(--bf-dev-text)]">{factLabel}</div>
+        <div className="text-[10px] font-extrabold uppercase tracking-[.06em] text-[var(--bf-dev-text)]">{factLabel}</div>
         <div className="mt-0.5 truncate text-[13px] font-bold text-[var(--bf-dev-text)]">{value}</div>
+        {helper && <div className="mt-0.5 text-[10px] font-semibold text-[var(--bf-dev-text)]">{helper}</div>}
       </div>
     </div>
   );
@@ -452,38 +421,57 @@ function ControlModuleGrid({ onOpen, data, activeEmployees }) {
     modules: `${(data.modules || []).filter((module) => module.effective_access !== 'blocked').length} enabled`,
     security: companySecurityLabel(data),
   };
+  const visual = {
+    profile: ['bg-indigo-500/14', 'text-indigo-500', 'View Profile'],
+    sites: ['bg-emerald-500/14', 'text-emerald-500', 'Manage Sites'],
+    subscription: ['bg-amber-500/14', 'text-amber-500', 'View Plan'],
+    billing: ['bg-yellow-500/14', 'text-yellow-500', 'View Billing'],
+    employees: ['bg-violet-500/14', 'text-violet-500', 'Manage Access'],
+    fleet: ['bg-blue-500/14', 'text-blue-500', 'Manage Fleet Packs'],
+    modules: ['bg-teal-500/14', 'text-teal-500', 'Manage Modules'],
+    portal: ['bg-sky-500/14', 'text-sky-500', 'Configure Portal'],
+    security: ['bg-emerald-500/14', 'text-emerald-500', 'View Security'],
+    communications: ['bg-indigo-500/14', 'text-indigo-500', 'Manage Comms'],
+    activity: ['bg-purple-500/14', 'text-purple-500', 'View Logs'],
+    support: ['bg-pink-500/14', 'text-pink-500', 'View Support'],
+  };
 
   return (
     <section>
-      <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-[18px] font-bold text-[var(--bf-dev-text)]">Control Modules</h2>
-          <p className="mt-1 text-[12px] font-medium text-[var(--bf-dev-text)]">Open a tenant-control area without mixing in the client’s daily operations.</p>
+          <h2 className="text-[18px] font-extrabold text-[var(--bf-dev-text)]">Control Modules</h2>
+          <p className="mt-1 text-[12px] font-semibold text-[var(--bf-dev-text)]">Everything you need to manage this company in one place.</p>
         </div>
-        <ToneBadge tone="primary">Developer Control Plane</ToneBadge>
+        <Button icon={Settings2} onClick={() => onOpen('modules')}>Manage Modules</Button>
       </div>
-      <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
-        {CONTROL_CARDS.map(([key, title, description, Icon]) => (
-          <button key={key} type="button" onClick={() => onOpen(key)} className="group text-left">
-            <div className={cx(surfaceCard, 'h-full p-4 transition group-hover:border-[rgb(var(--bf-dev-primary-rgb)/.38)] group-hover:shadow-[0_0_0_1px_rgb(var(--bf-dev-primary-rgb)/.10)]')}>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {CONTROL_CARDS.map(([key, title, description, Icon]) => {
+          const [iconBg, iconText, cta] = visual[key] || ['bg-[rgb(var(--bf-dev-primary-rgb)/.12)]', 'text-[var(--bf-dev-primary)]', 'Open'];
+          return (
+            <div key={key} className={cx(surfaceCard, 'flex min-h-[148px] flex-col p-4')}>
               <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[5px] bg-[rgb(var(--bf-dev-primary-rgb)/.12)] text-[var(--bf-dev-primary)]">
+                <div className={cx('flex h-10 w-10 shrink-0 items-center justify-center rounded-[9px]', iconBg, iconText)}>
                   <Icon size={18} />
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="text-[14px] font-bold text-[var(--bf-dev-text)]">{title}</div>
-                    {badges[key] && <span className="rounded-full bg-[var(--bf-dev-surface-2)] px-2 py-1 text-[10px] font-bold text-[var(--bf-dev-text)]">{badges[key]}</span>}
+                    <div className="text-[13px] font-extrabold text-[var(--bf-dev-text)]">{title}</div>
+                    {badges[key] && <span className="rounded-full border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] px-2 py-0.5 text-[9px] font-bold text-[var(--bf-dev-text)]">{badges[key]}</span>}
                   </div>
-                  <p className="mt-1.5 text-[12px] font-medium leading-5 text-[var(--bf-dev-text)]">{description}</p>
-                  <div className="mt-3 inline-flex items-center gap-1.5 text-[12px] font-bold text-[var(--bf-dev-primary)]">
-                    Manage <ChevronRight size={13} />
-                  </div>
+                  <p className="mt-1.5 line-clamp-2 text-[11px] font-semibold leading-[18px] text-[var(--bf-dev-text)]">{description}</p>
                 </div>
               </div>
+              <button
+                type="button"
+                onClick={() => onOpen(key)}
+                className="mt-auto inline-flex w-fit items-center gap-1.5 rounded-[7px] border border-[rgb(var(--bf-dev-primary-rgb)/.34)] px-2.5 py-1.5 text-[10px] font-bold text-[var(--bf-dev-primary)] transition hover:bg-[rgb(var(--bf-dev-primary-rgb)/.10)]"
+              >
+                {cta} <ChevronRight size={12} />
+              </button>
             </div>
-          </button>
-        ))}
+          );
+        })}
       </div>
     </section>
   );
@@ -495,31 +483,33 @@ function companySecurityLabel(data) {
   return 'Clear';
 }
 
-function TenantDiagnostics({ data }) {
+function TenantDiagnostics({ data, onOpen }) {
   const health = data.provisioningHealth || {};
   const items = [
-    ['Tenant profile', Boolean(data.profile), 'Company profile record available'],
-    ['Portal settings', health.portal_settings, 'Runtime portal settings provisioned'],
-    ['Primary site', health.primary_site, 'Primary active site available'],
-    ['Owner access', health.owner_access, 'Owner runtime access linked'],
-    ['Portal config', health.portal_config, 'Tenant portal configuration available'],
+    ['Tenant Provisioned', Boolean(data.profile), 'Company profile available'],
+    ['Portal Active', health.portal_settings, data.company?.subdomain_slug ? `${data.company.subdomain_slug}.buddyfleets.com` : 'Portal settings check'],
+    ['Primary Site', health.primary_site, 'Primary company site available'],
+    ['Modules Configured', Boolean((data.modules || []).length), `${(data.modules || []).filter((module) => module.effective_access !== 'blocked').length} modules available`],
+    ['Owner Access', health.owner_access, 'Runtime owner access linked'],
   ];
   return (
     <div className={cx(surfaceCard, 'p-4')}>
       <div className="flex items-center justify-between gap-3">
-        <div>
-          <div className="text-[15px] font-bold text-[var(--bf-dev-text)]">Tenant Diagnostics</div>
-          <div className="mt-1 text-[12px] font-medium text-[var(--bf-dev-text)]">Current foundation checks from live tenant data.</div>
+        <div className="flex items-center gap-2.5">
+          <Wrench size={17} className="text-[var(--bf-dev-primary)]" />
+          <div className="text-[14px] font-extrabold text-[var(--bf-dev-text)]">Tenant Diagnostics</div>
         </div>
-        <Wrench size={18} className="text-[var(--bf-dev-primary)]" />
+        <button type="button" onClick={() => onOpen('activity')} className="text-[10px] font-bold text-[var(--bf-dev-primary)] hover:underline">View All</button>
       </div>
-      <div className="mt-4 space-y-3">
+      <div className="mt-3">
         {items.map(([title, ok, helper]) => (
-          <div key={title} className="flex items-start gap-2.5 border-t border-[var(--bf-dev-border)] pt-3 first:border-0 first:pt-0">
-            {ok ? <CheckCircle2 size={17} className="mt-0.5 shrink-0 text-emerald-500" /> : <AlertTriangle size={17} className="mt-0.5 shrink-0 text-amber-500" />}
+          <div key={title} className="flex items-start gap-2.5 border-t border-[var(--bf-dev-border)] py-3 first:border-0">
+            <span className={cx('mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full', ok ? 'bg-emerald-500/14 text-emerald-500' : 'bg-amber-500/14 text-amber-500')}>
+              {ok ? <CheckCircle2 size={14} /> : <AlertTriangle size={14} />}
+            </span>
             <div className="min-w-0">
-              <div className="text-[12px] font-bold text-[var(--bf-dev-text)]">{title}</div>
-              <div className="mt-0.5 text-[12px] font-medium leading-5 text-[var(--bf-dev-text)]">{helper}</div>
+              <div className="text-[11px] font-extrabold text-[var(--bf-dev-text)]">{title}</div>
+              <div className="mt-0.5 truncate text-[10px] font-semibold text-[var(--bf-dev-text)]">{helper}</div>
             </div>
           </div>
         ))}
@@ -530,41 +520,41 @@ function TenantDiagnostics({ data }) {
 
 function ProvisioningReadiness({ health = {}, onOpen }) {
   const items = [
-    ['Portal settings', health.portal_settings],
-    ['Fleet Pack selected', health.fleet_pack_selected],
-    ['Primary site', health.primary_site],
-    ['System roles', health.system_roles],
-    ['Owner access', health.owner_access],
-    ['Owner profile', health.owner_profile],
-    ['Developer owner row', health.developer_owner_employee],
-    ['Portal config', health.portal_config],
-    ['Subscription', health.subscription],
+    ['Company Setup', Boolean(health.portal_settings)],
+    ['Admin User Created', Boolean(health.owner_access)],
+    ['Subscription Active', Boolean(health.subscription)],
+    ['Modules Provisioned', Boolean(health.system_roles)],
+    ['Portal Configured', Boolean(health.portal_config)],
   ];
   const passed = items.filter(([, ok]) => ok).length;
   const percent = items.length ? Math.round((passed / items.length) * 100) : 0;
 
   return (
     <div className={cx(surfaceCard, 'p-4')}>
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <div className="text-[15px] font-bold text-[var(--bf-dev-text)]">Provisioning Readiness</div>
-          <div className="mt-1 text-[12px] font-medium text-[var(--bf-dev-text)]">{passed}/{items.length} checks currently healthy</div>
-        </div>
-        <ToneBadge tone={percent === 100 ? 'success' : 'warning'}>{percent}%</ToneBadge>
+      <div className="flex items-center gap-2.5">
+        <PackageCheck size={17} className="text-[var(--bf-dev-primary)]" />
+        <div className="text-[14px] font-extrabold text-[var(--bf-dev-text)]">Provisioning Readiness</div>
       </div>
-      <div className="mt-4 h-2 overflow-hidden rounded-full bg-[var(--bf-dev-surface-3)]">
-        <div className={cx('h-full rounded-full', percent === 100 ? 'bg-emerald-500' : 'bg-amber-500')} style={{ width: `${percent}%` }} />
-      </div>
-      <div className="mt-4 space-y-2.5">
-        {items.slice(0, 6).map(([name, ok]) => (
-          <div key={name} className="flex items-center justify-between gap-3 text-[12px] font-semibold text-[var(--bf-dev-text)]">
-            <span>{name}</span>
-            {ok ? <CheckCircle2 size={15} className="text-emerald-500" /> : <AlertTriangle size={15} className="text-amber-500" />}
+      <div className="mt-4 grid grid-cols-[92px_minmax(0,1fr)] items-center gap-4">
+        <div
+          className="relative flex h-[88px] w-[88px] items-center justify-center rounded-full"
+          style={{ background: `conic-gradient(#22c55e ${percent}%, var(--bf-dev-surface-3) ${percent}% 100%)` }}
+        >
+          <div className="flex h-[66px] w-[66px] items-center justify-center rounded-full bg-[var(--bf-dev-surface)] text-[18px] font-black text-[var(--bf-dev-text)]">
+            {percent}%
           </div>
-        ))}
+        </div>
+        <div className="space-y-2">
+          {items.map(([name, ok]) => (
+            <div key={name} className="flex items-center gap-2 text-[10px] font-bold text-[var(--bf-dev-text)]">
+              {ok ? <CheckCircle2 size={13} className="shrink-0 text-emerald-500" /> : <AlertTriangle size={13} className="shrink-0 text-amber-500" />}
+              <span className="truncate">{name}</span>
+            </div>
+          ))}
+        </div>
       </div>
-      <button type="button" onClick={() => onOpen('activity')} className="mt-4 inline-flex items-center gap-1.5 text-[12px] font-bold text-[var(--bf-dev-primary)] hover:underline">
-        View tenant control history <ChevronRight size={13} />
+      <button type="button" onClick={() => onOpen('activity')} className="mt-3 inline-flex items-center gap-1 text-[10px] font-bold text-[var(--bf-dev-primary)] hover:underline">
+        View provisioning <ChevronRight size={11} />
       </button>
     </div>
   );
@@ -574,30 +564,29 @@ function QuickAlerts({ data, onOpen }) {
   const alerts = [];
   const outstanding = Number(data.billingSummary?.outstanding || 0);
   const health = data.provisioningHealth || {};
-  if (outstanding > 0) alerts.push(['Billing outstanding', `₹${outstanding.toLocaleString('en-IN')} currently outstanding`, 'billing', 'warning']);
-  if (!health.fleet_pack_selected) alerts.push(['Fleet Pack setup pending', 'Company has not completed explicit Fleet Pack selection.', 'fleet', 'warning']);
-  if (!health.owner_access) alerts.push(['Owner access needs review', 'Company owner runtime access is not healthy.', 'employees', 'danger']);
-  if (!health.primary_site) alerts.push(['Primary site missing', 'No active primary site is currently provisioned.', 'sites', 'warning']);
-  if (!alerts.length) alerts.push(['No critical foundation alerts', 'Current Company 360 foundation checks are healthy.', 'overview', 'success']);
+  if (outstanding > 0) alerts.push(['Invoice / billing attention', `₹${outstanding.toLocaleString('en-IN')} outstanding`, 'billing', 'warning']);
+  if (!health.fleet_pack_selected) alerts.push(['Fleet Pack setup pending', 'Explicit fleet pack selection is incomplete', 'fleet', 'warning']);
+  if (!health.owner_access) alerts.push(['Owner access needs review', 'Owner runtime access is not healthy', 'employees', 'danger']);
+  if (!health.primary_site) alerts.push(['Primary site missing', 'No active primary site is provisioned', 'sites', 'warning']);
+  if (!alerts.length) alerts.push(['Tenant foundation healthy', 'No critical control-plane alerts', 'overview', 'success']);
 
   return (
     <div className={cx(surfaceCard, 'p-4')}>
       <div className="flex items-center justify-between gap-3">
-        <div>
-          <div className="text-[15px] font-bold text-[var(--bf-dev-text)]">Recent Alerts</div>
-          <div className="mt-1 text-[12px] font-medium text-[var(--bf-dev-text)]">Only current tenant-control attention items are shown.</div>
+        <div className="flex items-center gap-2.5">
+          <Bell size={17} className="text-rose-500" />
+          <div className="text-[14px] font-extrabold text-[var(--bf-dev-text)]">Recent Alerts</div>
         </div>
-        <Bell size={18} className="text-[var(--bf-dev-primary)]" />
+        <button type="button" onClick={() => onOpen('activity')} className="text-[10px] font-bold text-[var(--bf-dev-primary)] hover:underline">View All</button>
       </div>
-      <div className="mt-4 space-y-3">
+      <div className="mt-3">
         {alerts.slice(0, 4).map(([title, helper, target, tone]) => (
-          <button key={title} type="button" onClick={() => onOpen(target)} className="flex w-full items-start gap-2.5 border-t border-[var(--bf-dev-border)] pt-3 text-left first:border-0 first:pt-0">
-            <span className={cx('mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full', tone === 'success' ? 'bg-emerald-500' : tone === 'danger' ? 'bg-rose-500' : 'bg-amber-500')} />
+          <button key={title} type="button" onClick={() => onOpen(target)} className="flex w-full items-start gap-2.5 border-t border-[var(--bf-dev-border)] py-3 text-left first:border-0">
+            <span className={cx('mt-1 h-2 w-2 shrink-0 rounded-full', tone === 'success' ? 'bg-emerald-500' : tone === 'danger' ? 'bg-rose-500' : 'bg-amber-500')} />
             <span className="min-w-0 flex-1">
-              <span className="block text-[12px] font-bold text-[var(--bf-dev-text)]">{title}</span>
-              <span className="mt-0.5 block text-[12px] font-medium leading-5 text-[var(--bf-dev-text)]">{helper}</span>
+              <span className="block text-[11px] font-extrabold text-[var(--bf-dev-text)]">{title}</span>
+              <span className="mt-0.5 block truncate text-[10px] font-semibold text-[var(--bf-dev-text)]">{helper}</span>
             </span>
-            <ChevronRight size={14} className="mt-1 shrink-0 text-[var(--bf-dev-primary)]" />
           </button>
         ))}
       </div>
@@ -605,33 +594,18 @@ function QuickAlerts({ data, onOpen }) {
   );
 }
 
-function OverviewPage({ data, activeEmployees, onOpen }) {
-  const limits = data.effective?.limits || {};
-  const activeSites = (data.sites || []).filter((site) => site.status === 'active').length;
-  const userLimit = Number(limits.users);
-  const siteLimit = Number(limits.sites);
-  const employeeProgress = Number.isFinite(userLimit) && userLimit > 0 ? (activeEmployees / userLimit) * 100 : undefined;
-  const siteProgress = Number.isFinite(siteLimit) && siteLimit > 0 ? (activeSites / siteLimit) * 100 : undefined;
-
+function OverviewPage({ data, activeEmployees, onOpen, company, profile }) {
   return (
-    <div className="space-y-5">
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <InfoStat icon={PackageCheck} label="Effective Plan" value={data.effective?.plan?.name || data.effective?.planKey || '—'} helper={humanize(data.subscription?.status || 'No subscription')} />
-        <InfoStat icon={CircleDollarSign} label="Outstanding" value={<Money value={data.billingSummary?.outstanding} />} helper="Current billing balance" />
-        <InfoStat icon={Users} label="Active Employees" value={activeEmployees} helper={Number.isFinite(userLimit) ? `${activeEmployees} / ${userLimit} users` : `${(data.employees || []).length} total records`} progress={employeeProgress} />
-        <InfoStat icon={MapPin} label="Active Sites" value={activeSites} helper={Number.isFinite(siteLimit) ? `${activeSites} / ${siteLimit} sites` : `${(data.sites || []).length} total sites`} progress={siteProgress} />
+    <div className="grid gap-4 2xl:grid-cols-[minmax(0,1fr)_280px]">
+      <div className="min-w-0 space-y-5">
+        <HeroCard company={company} profile={profile} data={data} activeEmployees={activeEmployees} />
+        <ControlModuleGrid onOpen={onOpen} data={data} activeEmployees={activeEmployees} />
       </div>
-
-      <div className="grid gap-4 2xl:grid-cols-[minmax(0,1fr)_340px]">
-        <div className="min-w-0">
-          <ControlModuleGrid onOpen={onOpen} data={data} activeEmployees={activeEmployees} />
-        </div>
-        <div className="space-y-4">
-          <TenantDiagnostics data={data} />
-          <ProvisioningReadiness health={data.provisioningHealth} onOpen={onOpen} />
-          <QuickAlerts data={data} onOpen={onOpen} />
-        </div>
-      </div>
+      <aside className="space-y-4">
+        <TenantDiagnostics data={data} onOpen={onOpen} />
+        <ProvisioningReadiness health={data.provisioningHealth} onOpen={onOpen} />
+        <QuickAlerts data={data} onOpen={onOpen} />
+      </aside>
     </div>
   );
 }
@@ -821,88 +795,87 @@ export default function Company360Page() {
 
   return (
     <div className="min-h-[calc(100dvh-var(--bf-header-height,66px))] bg-[var(--bf-dev-page-bg)] text-[var(--bf-dev-text)] print:bg-white print:text-black">
-      <div className="border-b border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] px-4 py-4 print:hidden sm:px-6 xl:px-8">
-        <div className="mx-auto flex max-w-[1720px] flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2 text-[12px] font-semibold text-[var(--bf-dev-text)]">
-              <button type="button" onClick={() => navigate('/saas-platform/companies/all-companies')} className="inline-flex items-center gap-1.5 hover:text-[var(--bf-dev-primary)]"><ArrowLeft size={14} /> All Companies</button>
-              <span>/</span>
-              <span>{company.company_name}</span>
-              <span>/</span>
-              <span className="text-[var(--bf-dev-primary)]">Company 360</span>
-            </div>
-            <div className="mt-2 flex flex-wrap items-end gap-x-3 gap-y-1">
-              <h2 className="text-[22px] font-extrabold tracking-[-.02em] text-[var(--bf-dev-text)]">Company 360</h2>
-              <span className="pb-0.5 text-[12px] font-medium text-[var(--bf-dev-text)]">Complete developer-side view and control for this tenant.</span>
-            </div>
-          </div>
+      <div className="mx-auto max-w-[1720px] px-4 py-5 sm:px-6 xl:px-7">
+        <div className="grid gap-5 lg:grid-cols-[205px_minmax(0,1fr)]">
+          <Company360Nav active={tab} onChange={setTab} />
 
-          <div className="flex flex-wrap items-center gap-2">
-            <Button icon={RefreshCcw} onClick={load}>Refresh</Button>
-            <Button icon={ExternalLink} onClick={openPortal} disabled={!company.subdomain_slug}>Open Portal</Button>
-            <Button icon={UserCog} primary onClick={() => setTab('profile')}>Edit Company</Button>
-            <MoreActionsMenu onPrint={printCompany} onExport={exportExcel} onAnnouncement={() => setModal('announcement')} onPayment={() => setModal('payment')} onEmployee={() => setModal('employee')} />
-          </div>
+          <main className="min-w-0">
+            <div className="mb-5 print:hidden">
+              <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold text-[var(--bf-dev-text)]">
+                <button type="button" onClick={() => navigate('/saas-platform/companies/all-companies')} className="hover:text-[var(--bf-dev-primary)]">Companies</button>
+                <ChevronRight size={12} />
+                <span>{company.company_name}</span>
+                <ChevronRight size={12} />
+                <span className="font-bold">Company 360</span>
+              </div>
+
+              <div className="mt-2 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                <div>
+                  <h2 className="text-[24px] font-extrabold tracking-[-.025em] text-[var(--bf-dev-text)]">Company 360</h2>
+                  <p className="mt-1 text-[12px] font-semibold text-[var(--bf-dev-text)]">Complete view and control for this company. Manage configuration, users, subscription and platform access.</p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button icon={ExternalLink} onClick={openPortal} disabled={!company.subdomain_slug}>Open Portal</Button>
+                  <Button icon={UserCog} primary onClick={() => setTab('profile')}>Edit Company</Button>
+                  <MoreActionsMenu onRefresh={load} onPrint={printCompany} onExport={exportExcel} onAnnouncement={() => setModal('announcement')} onPayment={() => setModal('payment')} onEmployee={() => setModal('employee')} />
+                </div>
+              </div>
+            </div>
+
+            <div className="print:hidden">
+              {tab === 'overview' && <OverviewPage data={data} activeEmployees={activeEmployees} onOpen={setTab} company={company} profile={profile} />}
+
+              {tab !== 'overview' && <div className="mb-5"><HeroCard company={company} profile={profile} data={data} activeEmployees={activeEmployees} /></div>}
+
+              {tab === 'profile' && <Section title="Company Profile"><Grid rows={[
+                ['Company Name', company.company_name], ['Company Code', company.company_code], ['Legal Name', profile.legal_name], ['Trade Name', profile.trade_name], ['GSTIN', profile.gstin], ['PAN', profile.pan], ['CIN / Registration', profile.cin], ['Aadhaar Ref', profile.aadhaar_last4 ? `•••• ${profile.aadhaar_last4}` : ''], ['Owner', profile.owner_name], ['Owner Email', profile.owner_email], ['Owner Mobile', profile.owner_mobile], ['Company Email', profile.contact_email], ['Company Mobile', profile.contact_mobile], ['Billing Email', profile.billing_email], ['Website', profile.website], ['Address', [profile.address_line1, profile.address_line2, profile.city, profile.state, profile.postal_code, profile.country].filter(Boolean).join(', ')],
+              ]} /></Section>}
+
+              {tab === 'sites' && <Section title="Sites & Branches"><Table headers={['Code', 'Site', 'Type', 'Primary', 'Status']} rows={(data.sites || []).map((site) => [site.code, site.name, site.site_type, site.is_primary ? 'Yes' : 'No', humanize(site.status)])} /></Section>}
+
+              {tab === 'subscription' && <Section title="Subscription & Plan"><Grid rows={[["Status", humanize(subscription.status)], ["Selected commercial plan", subscription.plan_key || 'Not assigned'], ["Effective runtime plan", data.subscriptionContext?.effective_plan_key || data.effective?.planKey], ["Lifecycle access", humanize(data.subscriptionContext?.lifecycle_access || '—')], ["Trial Start", formatDate(subscription.trial_start_at)], ["Trial End", formatDate(subscription.trial_end_at)], ["Subscription Start", formatDate(subscription.subscription_start_at)], ["Subscription End", formatDate(subscription.subscription_end_at)]]} /></Section>}
+
+              {tab === 'billing' && <Section title="Billing & Payments" action={<Button icon={Plus} primary onClick={() => setModal('payment')}>Record Payment</Button>}><Table headers={['Date', 'Amount', 'Mode', 'Reference', 'Status']} rows={(data.payments || []).map((payment) => [formatDate(payment.payment_date), <Money value={payment.amount} />, humanize(payment.payment_mode), payment.transaction_reference, humanize(payment.status)])} /></Section>}
+
+              {tab === 'invoices' && <Section title="Invoices & Receipts" action={<Button icon={Plus} primary onClick={() => setModal('invoice')}>Generate Invoice</Button>}><Table headers={['Invoice', 'Date', 'Due', 'Amount', 'Paid', 'Status']} rows={(data.invoices || []).map((invoice) => [invoice.invoice_number, formatDate(invoice.invoice_date), formatDate(invoice.due_date), <Money value={invoice.grand_total} />, <Money value={invoice.paid_amount} />, humanize(invoice.status)])} /></Section>}
+
+              {tab === 'employees' && <Section title="Employees & Access" action={<Button icon={UserPlus} primary onClick={() => setModal('employee')}>Add Employee</Button>}><div className="space-y-2">{!(data.employees || []).length && <Empty />}{(data.employees || []).map((employee) => <div key={employee.id} className="flex flex-col gap-3 rounded-[8px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] p-4 lg:flex-row lg:items-center lg:justify-between"><div><div className="text-[13px] font-bold text-[var(--bf-dev-text)]">{employee.full_name}</div><div className="mt-1 text-[12px] font-medium text-[var(--bf-dev-text)]">{employee.email} · {humanize(employee.role_key)} · {employee.branch || 'No branch'} · {humanize(employee.status)}</div></div><div className="flex flex-wrap gap-2">{employee.status === 'blocked' ? <Button icon={Unlock} onClick={() => act({ action: 'unblock_employee', employeeId: employee.id }, 'Employee access restored.')}>Unblock</Button> : <Button icon={Lock} danger onClick={() => act({ action: 'block_employee', employeeId: employee.id }, 'Employee blocked.')}>Block</Button>}<Button icon={KeyRound} onClick={() => setModal({ type: 'reset', employee })}>Reset Password</Button></div></div>)}</div></Section>}
+
+              {tab === 'documents' && <Section title="Documents & KYC"><Table headers={['Type', 'Document', 'Status', 'Expiry']} rows={(data.documents || []).map((document) => [humanize(document.document_type), document.document_name, humanize(document.status), formatDate(document.expiry_date)])} /></Section>}
+
+              {tab === 'usage' && <Section title="Usage & Limits"><Grid rows={[["Vehicles", `— / ${data.effective?.limits?.vehicles_max ?? 'Unlimited'}`], ["Employees", `${activeEmployees} / ${data.effective?.limits?.users ?? 'Unlimited'}`], ["Branches / Sites", `${(data.sites || []).filter((site) => site.status === 'active').length} / ${data.effective?.limits?.sites ?? 'Unlimited'}`]]} /><p className="mt-3 text-[12px] font-medium text-[var(--bf-dev-text)]">Vehicle usage will be connected to the authoritative transport runtime in its dedicated phase. Employee and site counts shown here are current live tenant counts.</p></Section>}
+
+              {tab === 'fleet' && <FleetAccessPanel data={data} onAction={act} />}
+
+              {tab === 'modules' && <Section title="Modules & Features"><Table headers={['Module', 'Category', 'Effective Access', 'Availability UX']} rows={(data.modules || []).map((module) => [module.module_name, humanize(module.category), humanize(module.effective_access), humanize(module.unavailable_behavior)])} /></Section>}
+
+              {tab === 'overrides' && <Section title="Company Overrides"><Grid rows={[["Override Enabled", data.override?.enabled ? 'Yes' : 'No'], ["Override Plan", data.override?.plan_key || 'Plan default'], ["Vehicle Max", data.override?.limits_override?.vehicles_max ?? 'Default'], ["Users", data.override?.limits_override?.users ?? 'Default'], ["Sites", data.override?.limits_override?.sites ?? 'Default'], ["Module Overrides", (data.override?.entitlements_override || []).join(', ') || 'None']]} /></Section>}
+
+              {tab === 'portal' && <Section title="Portal Configuration"><p className="text-[12px] font-medium leading-5 text-[var(--bf-dev-text)]">Controls company dashboard widgets, sidebar visibility, landing screen and company-specific branding. Module visibility is resolved from Plan → Lifecycle Policy → Company Override → Employee Role.</p><div className="mt-4"><Grid rows={[["Landing Path", data.portalConfig?.landing_path || '/dashboard'], ["Dashboard Widgets", Array.isArray(data.portalConfig?.dashboard_widgets) ? data.portalConfig.dashboard_widgets.join(', ') : 'Default'], ["Revision", data.portalConfig?.revision || 1]]} /></div></Section>}
+
+              {tab === 'communications' && <Section title="Communications" action={<Button icon={Bell} primary onClick={() => setModal('announcement')}>Send Announcement</Button>}><Table headers={['Created', 'Title', 'Priority', 'Audience', 'Status']} rows={(data.announcements || []).map((announcement) => [formatDate(announcement.created_at, true), announcement.title, humanize(announcement.priority), humanize(announcement.audience_type), humanize(announcement.status)])} /></Section>}
+
+              {tab === 'security' && <Section title="Security"><Grid rows={[["Company Status", humanize(company.status)], ["Owner User ID", company.account_owner_user_id || 'Not linked'], ["Access Policy", company.status === 'suspended' ? 'Blocked by company suspension' : humanize(subscription.status || 'Standard')], ["Employees", `${activeEmployees} active`]]} /><p className="mt-3 text-[12px] font-medium leading-5 text-[var(--bf-dev-text)]">Password hashes and session tokens are never shown. Block/unblock and password reset actions operate through secure server-side admin APIs.</p></Section>}
+
+              {tab === 'activity' && <Section title="Activity Log"><p className="text-[12px] font-medium leading-5 text-[var(--bf-dev-text)]">Company 360 actions are already written to the Developer SaaS history layer. The full filtered timeline will be connected in the Control Plane phase without changing this visual foundation.</p></Section>}
+
+              {tab === 'support' && <Section title="Support & Notes" action={<Button icon={Plus} onClick={() => setModal('note')}>Add Note</Button>}><div className="space-y-2">{!(data.notes || []).length && <Empty />}{(data.notes || []).map((note) => <div key={note.id} className="rounded-[8px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] p-4"><div className="text-[13px] font-bold text-[var(--bf-dev-text)]">{note.title || humanize(note.note_type)}</div><div className="mt-1 whitespace-pre-wrap text-[12px] font-medium leading-5 text-[var(--bf-dev-text)]">{note.body}</div></div>)}</div></Section>}
+            </div>
+
+            <div className="hidden print:block print:text-black">
+              <div className="space-y-4">
+                <h2 className="text-xl font-bold">Buddy Fleets — Company 360° Report</h2>
+                <div>Generated: {new Date().toLocaleString()}</div>
+                <Grid rows={[["Company", company.company_name], ["Code", company.company_code], ["Status", company.status], ["Plan", data.effective?.plan?.name || data.effective?.planKey], ["GSTIN", profile.gstin], ["PAN", profile.pan], ["Owner", profile.owner_name], ["Owner Email", profile.owner_email], ["Owner Mobile", profile.owner_mobile], ["Address", [profile.address_line1, profile.address_line2, profile.city, profile.state, profile.postal_code].filter(Boolean).join(', ')]]} />
+                <Grid rows={[["Subscription Status", subscription.status], ["Trial End", subscription.trial_end_at], ["Subscription End", subscription.subscription_end_at], ["Total Invoiced", `₹${Number(summary.totalInvoiced || 0).toLocaleString('en-IN')}`], ["Total Paid", `₹${Number(summary.totalPaid || 0).toLocaleString('en-IN')}`], ["Outstanding", `₹${Number(summary.outstanding || 0).toLocaleString('en-IN')}`]]} />
+                <h3 className="font-bold">Employees</h3><Table headers={['Name', 'Email', 'Role', 'Branch', 'Status']} rows={(data.employees || []).map((employee) => [employee.full_name, employee.email, employee.role_key, employee.branch, employee.status])} />
+                <h3 className="font-bold">Invoices</h3><Table headers={['Invoice', 'Date', 'Amount', 'Paid', 'Status']} rows={(data.invoices || []).map((invoice) => [invoice.invoice_number, invoice.invoice_date, `₹${invoice.grand_total}`, `₹${invoice.paid_amount}`, invoice.status])} />
+                <h3 className="font-bold">Payments</h3><Table headers={['Date', 'Amount', 'Mode', 'Reference', 'Status']} rows={(data.payments || []).map((payment) => [payment.payment_date, `₹${payment.amount}`, payment.payment_mode, payment.transaction_reference, payment.status])} />
+                <h3 className="font-bold">Modules</h3><Table headers={['Module', 'Access']} rows={(data.modules || []).map((module) => [module.module_name, module.effective_access])} />
+              </div>
+            </div>
+          </main>
         </div>
-      </div>
-
-      <div className="mx-auto grid max-w-[1720px] gap-4 px-4 py-5 sm:px-6 xl:px-8 lg:grid-cols-[245px_minmax(0,1fr)]">
-        <Company360Nav active={tab} onChange={setTab} />
-
-        <main className="min-w-0 space-y-5">
-          <HeroCard company={company} profile={profile} data={data} activeEmployees={activeEmployees} />
-
-          <div className="print:hidden">
-            {tab === 'overview' && <OverviewPage data={data} activeEmployees={activeEmployees} onOpen={setTab} />}
-
-            {tab === 'profile' && <Section title="Company Profile"><Grid rows={[
-              ['Company Name', company.company_name], ['Company Code', company.company_code], ['Legal Name', profile.legal_name], ['Trade Name', profile.trade_name], ['GSTIN', profile.gstin], ['PAN', profile.pan], ['CIN / Registration', profile.cin], ['Aadhaar Ref', profile.aadhaar_last4 ? `•••• ${profile.aadhaar_last4}` : ''], ['Owner', profile.owner_name], ['Owner Email', profile.owner_email], ['Owner Mobile', profile.owner_mobile], ['Company Email', profile.contact_email], ['Company Mobile', profile.contact_mobile], ['Billing Email', profile.billing_email], ['Website', profile.website], ['Address', [profile.address_line1, profile.address_line2, profile.city, profile.state, profile.postal_code, profile.country].filter(Boolean).join(', ')],
-            ]} /></Section>}
-
-            {tab === 'sites' && <Section title="Sites & Branches"><Table headers={['Code', 'Site', 'Type', 'Primary', 'Status']} rows={(data.sites || []).map((site) => [site.code, site.name, site.site_type, site.is_primary ? 'Yes' : 'No', humanize(site.status)])} /></Section>}
-
-            {tab === 'subscription' && <Section title="Subscription & Plan"><Grid rows={[["Status", humanize(subscription.status)], ["Selected commercial plan", subscription.plan_key || 'Not assigned'], ["Effective runtime plan", data.subscriptionContext?.effective_plan_key || data.effective?.planKey], ["Lifecycle access", humanize(data.subscriptionContext?.lifecycle_access || '—')], ["Trial Start", formatDate(subscription.trial_start_at)], ["Trial End", formatDate(subscription.trial_end_at)], ["Subscription Start", formatDate(subscription.subscription_start_at)], ["Subscription End", formatDate(subscription.subscription_end_at)]]} /></Section>}
-
-            {tab === 'billing' && <Section title="Billing & Payments" action={<Button icon={Plus} primary onClick={() => setModal('payment')}>Record Payment</Button>}><Table headers={['Date', 'Amount', 'Mode', 'Reference', 'Status']} rows={(data.payments || []).map((payment) => [formatDate(payment.payment_date), <Money value={payment.amount} />, humanize(payment.payment_mode), payment.transaction_reference, humanize(payment.status)])} /></Section>}
-
-            {tab === 'invoices' && <Section title="Invoices & Receipts" action={<Button icon={Plus} primary onClick={() => setModal('invoice')}>Generate Invoice</Button>}><Table headers={['Invoice', 'Date', 'Due', 'Amount', 'Paid', 'Status']} rows={(data.invoices || []).map((invoice) => [invoice.invoice_number, formatDate(invoice.invoice_date), formatDate(invoice.due_date), <Money value={invoice.grand_total} />, <Money value={invoice.paid_amount} />, humanize(invoice.status)])} /></Section>}
-
-            {tab === 'employees' && <Section title="Employees & Access" action={<Button icon={UserPlus} primary onClick={() => setModal('employee')}>Add Employee</Button>}><div className="space-y-2">{!(data.employees || []).length && <Empty />}{(data.employees || []).map((employee) => <div key={employee.id} className="flex flex-col gap-3 rounded-[5px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] p-4 lg:flex-row lg:items-center lg:justify-between"><div><div className="text-[13px] font-bold text-[var(--bf-dev-text)]">{employee.full_name}</div><div className="mt-1 text-[12px] font-medium text-[var(--bf-dev-text)]">{employee.email} · {humanize(employee.role_key)} · {employee.branch || 'No branch'} · {humanize(employee.status)}</div></div><div className="flex flex-wrap gap-2">{employee.status === 'blocked' ? <Button icon={Unlock} onClick={() => act({ action: 'unblock_employee', employeeId: employee.id }, 'Employee access restored.')}>Unblock</Button> : <Button icon={Lock} danger onClick={() => act({ action: 'block_employee', employeeId: employee.id }, 'Employee blocked.')}>Block</Button>}<Button icon={KeyRound} onClick={() => setModal({ type: 'reset', employee })}>Reset Password</Button></div></div>)}</div></Section>}
-
-            {tab === 'documents' && <Section title="Documents & KYC"><Table headers={['Type', 'Document', 'Status', 'Expiry']} rows={(data.documents || []).map((document) => [humanize(document.document_type), document.document_name, humanize(document.status), formatDate(document.expiry_date)])} /></Section>}
-
-            {tab === 'usage' && <Section title="Usage & Limits"><Grid rows={[["Vehicles", `— / ${data.effective?.limits?.vehicles_max ?? 'Unlimited'}`], ["Employees", `${activeEmployees} / ${data.effective?.limits?.users ?? 'Unlimited'}`], ["Branches / Sites", `${(data.sites || []).filter((site) => site.status === 'active').length} / ${data.effective?.limits?.sites ?? 'Unlimited'}`]]} /><p className="mt-3 text-[12px] font-medium text-[var(--bf-dev-text)]">Vehicle usage will be connected to the authoritative transport runtime in its dedicated phase. Employee and site counts shown here are current live tenant counts.</p></Section>}
-
-            {tab === 'fleet' && <FleetAccessPanel data={data} onAction={act} />}
-
-            {tab === 'modules' && <Section title="Modules & Features"><Table headers={['Module', 'Category', 'Effective Access', 'Availability UX']} rows={(data.modules || []).map((module) => [module.module_name, humanize(module.category), humanize(module.effective_access), humanize(module.unavailable_behavior)])} /></Section>}
-
-            {tab === 'overrides' && <Section title="Company Overrides"><Grid rows={[["Override Enabled", data.override?.enabled ? 'Yes' : 'No'], ["Override Plan", data.override?.plan_key || 'Plan default'], ["Vehicle Max", data.override?.limits_override?.vehicles_max ?? 'Default'], ["Users", data.override?.limits_override?.users ?? 'Default'], ["Sites", data.override?.limits_override?.sites ?? 'Default'], ["Module Overrides", (data.override?.entitlements_override || []).join(', ') || 'None']]} /></Section>}
-
-            {tab === 'portal' && <Section title="Portal Configuration"><p className="text-[12px] font-medium leading-5 text-[var(--bf-dev-text)]">Controls company dashboard widgets, sidebar visibility, landing screen and company-specific branding. Module visibility is resolved from Plan → Lifecycle Policy → Company Override → Employee Role.</p><div className="mt-4"><Grid rows={[["Landing Path", data.portalConfig?.landing_path || '/dashboard'], ["Dashboard Widgets", Array.isArray(data.portalConfig?.dashboard_widgets) ? data.portalConfig.dashboard_widgets.join(', ') : 'Default'], ["Revision", data.portalConfig?.revision || 1]]} /></div></Section>}
-
-            {tab === 'communications' && <Section title="Communications" action={<Button icon={Bell} primary onClick={() => setModal('announcement')}>Send Announcement</Button>}><Table headers={['Created', 'Title', 'Priority', 'Audience', 'Status']} rows={(data.announcements || []).map((announcement) => [formatDate(announcement.created_at, true), announcement.title, humanize(announcement.priority), humanize(announcement.audience_type), humanize(announcement.status)])} /></Section>}
-
-            {tab === 'security' && <Section title="Security"><Grid rows={[["Company Status", humanize(company.status)], ["Owner User ID", company.account_owner_user_id || 'Not linked'], ["Access Policy", company.status === 'suspended' ? 'Blocked by company suspension' : humanize(subscription.status || 'Standard')], ["Employees", `${activeEmployees} active`]]} /><p className="mt-3 text-[12px] font-medium leading-5 text-[var(--bf-dev-text)]">Password hashes and session tokens are never shown. Block/unblock and password reset actions operate through secure server-side admin APIs.</p></Section>}
-
-            {tab === 'activity' && <Section title="Activity Log"><p className="text-[12px] font-medium leading-5 text-[var(--bf-dev-text)]">Company 360 actions are already written to the Developer SaaS history layer. The full filtered timeline will be connected in the Control Plane phase without changing this visual foundation.</p></Section>}
-
-            {tab === 'support' && <Section title="Support & Notes" action={<Button icon={Plus} onClick={() => setModal('note')}>Add Note</Button>}><div className="space-y-2">{!(data.notes || []).length && <Empty />}{(data.notes || []).map((note) => <div key={note.id} className="rounded-[5px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] p-4"><div className="text-[13px] font-bold text-[var(--bf-dev-text)]">{note.title || humanize(note.note_type)}</div><div className="mt-1 whitespace-pre-wrap text-[12px] font-medium leading-5 text-[var(--bf-dev-text)]">{note.body}</div></div>)}</div></Section>}
-          </div>
-
-          <div className="hidden print:block print:text-black">
-            <div className="space-y-4">
-              <h2 className="text-xl font-bold">Buddy Fleets — Company 360° Report</h2>
-              <div>Generated: {new Date().toLocaleString()}</div>
-              <Grid rows={[["Company", company.company_name], ["Code", company.company_code], ["Status", company.status], ["Plan", data.effective?.plan?.name || data.effective?.planKey], ["GSTIN", profile.gstin], ["PAN", profile.pan], ["Owner", profile.owner_name], ["Owner Email", profile.owner_email], ["Owner Mobile", profile.owner_mobile], ["Address", [profile.address_line1, profile.address_line2, profile.city, profile.state, profile.postal_code].filter(Boolean).join(', ')]]} />
-              <Grid rows={[["Subscription Status", subscription.status], ["Trial End", subscription.trial_end_at], ["Subscription End", subscription.subscription_end_at], ["Total Invoiced", `₹${Number(summary.totalInvoiced || 0).toLocaleString('en-IN')}`], ["Total Paid", `₹${Number(summary.totalPaid || 0).toLocaleString('en-IN')}`], ["Outstanding", `₹${Number(summary.outstanding || 0).toLocaleString('en-IN')}`]]} />
-              <h3 className="font-bold">Employees</h3><Table headers={['Name', 'Email', 'Role', 'Branch', 'Status']} rows={(data.employees || []).map((employee) => [employee.full_name, employee.email, employee.role_key, employee.branch, employee.status])} />
-              <h3 className="font-bold">Invoices</h3><Table headers={['Invoice', 'Date', 'Amount', 'Paid', 'Status']} rows={(data.invoices || []).map((invoice) => [invoice.invoice_number, invoice.invoice_date, `₹${invoice.grand_total}`, `₹${invoice.paid_amount}`, invoice.status])} />
-              <h3 className="font-bold">Payments</h3><Table headers={['Date', 'Amount', 'Mode', 'Reference', 'Status']} rows={(data.payments || []).map((payment) => [payment.payment_date, `₹${payment.amount}`, payment.payment_mode, payment.transaction_reference, payment.status])} />
-              <h3 className="font-bold">Modules</h3><Table headers={['Module', 'Access']} rows={(data.modules || []).map((module) => [module.module_name, module.effective_access])} />
-            </div>
-          </div>
-        </main>
       </div>
 
       {notice && <Toast tone={notice.tone} message={notice.message} onClose={() => setNotice(null)} />}
@@ -1020,7 +993,7 @@ function Select({ title, children, value, onChange, ...props }) {
 }
 
 function Submit({ text = 'Save' }) {
-  return <div className="mt-4 flex justify-end"><button className="inline-flex min-h-10 items-center gap-2 rounded-[4px] bg-[var(--bf-dev-primary)] px-4 text-[12px] font-bold text-white"><Save size={14} />{text}</button></div>;
+  return <div className="mt-4 flex justify-end"><button style={{ color: '#FFFFFF' }} className="inline-flex min-h-10 items-center gap-2 rounded-[8px] bg-[var(--bf-dev-primary)] px-4 text-[12px] font-bold !text-white"><Save size={14} />{text}</button></div>;
 }
 
 function EmployeeForm({ onSubmit }) {
