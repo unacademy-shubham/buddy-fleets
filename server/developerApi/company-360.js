@@ -6,6 +6,17 @@ import {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const SECURITY_RISK_EVENT_TYPES = [
+  'LOGIN_PASSWORD_FAILED',
+  'LOCKED_ACCOUNT_LOGIN_ATTEMPT',
+  'MFA_CODE_FAILED',
+  'PORTAL_SESSION_AUTH_INVALID',
+  'PORTAL_AUTHORIZATION_REJECTED',
+  'ACCOUNT_SECURITY_LOCKED',
+  'PORTAL_SESSION_BROWSER_CHANGED',
+  'PORTAL_SESSION_IP_CHANGED',
+  'HANDOFF_BROWSER_CHANGED',
+];
 
 function send(res, status, payload) {
   setDeveloperApiHeaders(res);
@@ -14,6 +25,280 @@ function send(res, status, payload) {
 function clean(value, max = 5000) { return String(value ?? '').trim().slice(0, max); }
 function money(value) { const n = Number(value); return Number.isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : null; }
 function asDate(value) { if (!value) return null; const t = Date.parse(value); return Number.isFinite(t) ? new Date(t).toISOString().slice(0,10) : undefined; }
+
+function daysFromNow(value) {
+  if (!value) return null;
+  const date = new Date(`${String(value).slice(0, 10)}T00:00:00.000Z`);
+  if (Number.isNaN(date.getTime())) return null;
+  const now = new Date();
+  const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  return Math.ceil((date.getTime() - today) / 86400000);
+}
+
+function clampPercent(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return 0;
+  return Math.max(0, Math.min(100, Math.round(number)));
+}
+
+function usageMetric(key, label, used, limit, target) {
+  const normalizedUsed = Math.max(0, Number(used || 0));
+  const normalizedLimit = limit === null || limit === undefined || limit === '' ? null : Number(limit);
+  const finiteLimit = Number.isFinite(normalizedLimit) && normalizedLimit >= 0 ? normalizedLimit : null;
+  const percent = finiteLimit && finiteLimit > 0 ? clampPercent((normalizedUsed / finiteLimit) * 100) : 0;
+  const status = finiteLimit === null || finiteLimit === 0
+    ? 'healthy'
+    : normalizedUsed >= finiteLimit
+      ? 'critical'
+      : percent >= 80
+        ? 'warning'
+        : 'healthy';
+  return { key, label, used: normalizedUsed, limit: finiteLimit, percent, status, target };
+}
+
+function humanAction(value) {
+  return clean(value, 160).replaceAll('_', ' ').replace(/\b\w/g, (match) => match.toUpperCase());
+}
+
+function activityCategory(action = '', domain = '') {
+  const value = `${domain} ${action}`.toLowerCase();
+  if (/payment|invoice|receipt|billing/.test(value)) return 'billing';
+  if (/employee|role|access|password/.test(value)) return 'access';
+  if (/module|fleet|portal|override|config/.test(value)) return 'configuration';
+  if (/security|session|login|lock/.test(value)) return 'security';
+  if (/announcement|communication/.test(value)) return 'communication';
+  if (/document|kyc/.test(value)) return 'documents';
+  if (/site|branch/.test(value)) return 'company';
+  return 'company';
+}
+
+function activityTitle(action = '') {
+  const titles = {
+    employee_create: 'Employee added',
+    employee_update: 'Employee updated',
+    employee_password_reset: 'Employee password reset',
+    block_employee: 'Employee blocked',
+    unblock_employee: 'Employee unblocked',
+    disable_employee: 'Employee disabled',
+    fleet_packs_set: 'Fleet Pack configuration changed',
+    module_override_save: 'Module override changed',
+    module_override_clear: 'Module override cleared',
+    invoice_create: 'Invoice generated',
+    payment_record: 'Payment recorded',
+    payment_verify: 'Payment verified',
+    document_add: 'Document added',
+    announcement_publish: 'Announcement published',
+    portal_config_save: 'Portal configuration changed',
+    bulk_import_vehicles: 'Vehicle Master bulk import completed',
+    bulk_import_drivers: 'Driver Master bulk import completed',
+    suspend: 'Company suspended',
+    restore: 'Company restored',
+    update_trial: 'Trial updated',
+  };
+  return titles[action] || humanAction(action) || 'Company activity';
+}
+
+function activityDescription(action = '', payload = {}) {
+  if (action === 'payment_verify' || action === 'payment_record') {
+    const amount = Number(payload?.amount);
+    return Number.isFinite(amount) ? `₹${amount.toLocaleString('en-IN')} payment` : 'Billing record updated';
+  }
+  if (action === 'invoice_create') {
+    const number = clean(payload?.invoice_number, 120);
+    const total = Number(payload?.total);
+    if (number && Number.isFinite(total)) return `${number} · ₹${total.toLocaleString('en-IN')}`;
+    return number || 'Invoice created';
+  }
+  if (action === 'fleet_packs_set') {
+    const primary = clean(payload?.primary_pack, 120);
+    return primary ? `Primary pack: ${primary}` : 'Fleet Pack access updated';
+  }
+  if (action === 'module_override_save' || action === 'module_override_clear') {
+    const moduleKey = clean(payload?.module_key, 160);
+    return moduleKey ? `Module: ${moduleKey}` : 'Module access updated';
+  }
+  if (action === 'announcement_publish') {
+    const recipients = Number(payload?.recipients || 0);
+    return recipients ? `Delivered to ${recipients} recipient${recipients === 1 ? '' : 's'}` : 'Company announcement updated';
+  }
+  if (action.startsWith('bulk_import_')) {
+    const imported = Number(payload?.imported || 0);
+    return `${imported} record${imported === 1 ? '' : 's'} imported`;
+  }
+  const role = clean(payload?.role_key, 100);
+  const status = clean(payload?.status, 100);
+  if (role) return `Role: ${role}`;
+  if (status) return `Status: ${status}`;
+  return '';
+}
+
+function buildOverviewIntelligence({
+  company, profile, subscription, subscriptionContext, effectiveLimits, provisioningHealth,
+  employees, invoices, payments, documents, portalAccess, vehicleCount, sites, activeSessionCount,
+  securityEvents, securityAlertCount24h, userSecurity, recentActivity,
+}) {
+  const now = Date.now();
+  const activeEmployees = (employees || []).filter((employee) => employee.status === 'active').length;
+  const blockedEmployees = (employees || []).filter((employee) => employee.status === 'blocked').length;
+  const activeSites = (sites || []).filter((site) => site.status === 'active').length;
+  const vehiclesUsed = Math.max(0, Number(vehicleCount || 0));
+  const userLimit = effectiveLimits?.users ?? null;
+  const vehicleLimit = effectiveLimits?.vehicles_max ?? effectiveLimits?.vehicles ?? null;
+  const siteLimit = effectiveLimits?.sites ?? null;
+  const usage = [
+    usageMetric('employees', 'Employees', activeEmployees, userLimit, 'employees'),
+    usageMetric('vehicles', 'Vehicles', vehiclesUsed, vehicleLimit, 'usage'),
+    usageMetric('sites', 'Sites', activeSites, siteLimit, 'sites'),
+  ];
+
+  const verifiedPaid = (payments || []).filter((payment) => payment.status === 'verified').reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+  const totalInvoiced = (invoices || []).reduce((sum, invoice) => sum + Number(invoice.grand_total || 0), 0);
+  const outstanding = Math.max(0, totalInvoiced - verifiedPaid);
+  const today = new Date().toISOString().slice(0, 10);
+  const overdueInvoices = (invoices || []).filter((invoice) => {
+    if (!invoice.due_date || invoice.due_date >= today) return false;
+    return !['paid', 'cancelled', 'void'].includes(String(invoice.status || '').toLowerCase()) && Number(invoice.paid_amount || 0) < Number(invoice.grand_total || 0);
+  });
+  const pendingPayments = (payments || []).filter((payment) => ['submitted', 'pending'].includes(String(payment.status || '').toLowerCase()));
+
+  const expiredDocuments = (documents || []).filter((document) => {
+    const days = daysFromNow(document.expiry_date);
+    return days !== null && days < 0;
+  });
+  const expiringDocuments = (documents || []).filter((document) => {
+    const days = daysFromNow(document.expiry_date);
+    return days !== null && days >= 0 && days <= 30;
+  });
+  const pendingDocuments = (documents || []).filter((document) => ['pending', 'submitted'].includes(String(document.status || '').toLowerCase()));
+
+  const activeSessions = Math.max(0, Number(activeSessionCount || 0));
+  const securityWindow = now - 24 * 60 * 60 * 1000;
+  const riskySecurityTypes = new Set(SECURITY_RISK_EVENT_TYPES);
+  const securityAlerts24h = (securityEvents || []).filter((event) => riskySecurityTypes.has(event.event_type) && new Date(event.created_at).getTime() >= securityWindow);
+  const securityAlertTotal24h = Math.max(Number(securityAlertCount24h || 0), securityAlerts24h.length);
+  const failedAuth24h = securityAlerts24h.filter((event) => /FAILED|REJECTED|LOCKED/.test(event.event_type)).length;
+  const lockedUsers = (userSecurity || []).filter((row) => row.is_locked).length;
+  const forcePasswordChange = (portalAccess || []).filter((row) => row.force_password_change).length;
+
+  const lifecycleAccess = clean(subscriptionContext?.lifecycle_access, 40) || 'blocked';
+  const lifecycleState = clean(subscriptionContext?.lifecycle_state, 60) || clean(subscription?.status, 60) || clean(company?.status, 60);
+
+  const diagnostics = [
+    { key: 'profile', label: 'Company profile', ok: Boolean(profile), detail: profile ? 'Profile record available' : 'Company profile is missing', target: 'profile' },
+    { key: 'subscription', label: 'Subscription record', ok: Boolean(subscription), detail: subscription ? humanAction(subscription.status || 'configured') : 'Subscription is missing', target: 'subscription' },
+    { key: 'portal_settings', label: 'Portal settings', ok: Boolean(provisioningHealth.portal_settings), detail: provisioningHealth.portal_settings ? 'Portal settings provisioned' : 'Portal settings missing', target: 'portal' },
+    { key: 'primary_site', label: 'Primary site', ok: Boolean(provisioningHealth.primary_site), detail: provisioningHealth.primary_site ? 'Active primary site available' : 'Active primary site missing', target: 'sites' },
+    { key: 'fleet_pack', label: 'Fleet Pack selected', ok: Boolean(provisioningHealth.fleet_pack_selected), detail: provisioningHealth.fleet_pack_selected ? 'Explicit fleet pack selection complete' : 'Fleet Pack selection is pending', target: 'fleet' },
+    { key: 'system_roles', label: 'System roles', ok: Boolean(provisioningHealth.system_roles), detail: provisioningHealth.system_roles ? 'System role foundation available' : 'System roles incomplete', target: 'employees' },
+    { key: 'owner_employee', label: 'Owner employee record', ok: Boolean(provisioningHealth.developer_owner_employee), detail: provisioningHealth.developer_owner_employee ? 'Developer owner employee linked' : 'Owner employee linkage missing', target: 'employees' },
+    { key: 'owner_access', label: 'Owner runtime access', ok: Boolean(provisioningHealth.owner_access), detail: provisioningHealth.owner_access ? 'Owner portal access linked' : 'Owner portal access missing', target: 'employees' },
+    { key: 'owner_profile', label: 'Owner portal profile', ok: Boolean(provisioningHealth.owner_profile), detail: provisioningHealth.owner_profile ? 'Owner portal profile available' : 'Owner portal profile missing', target: 'employees' },
+    { key: 'portal_config', label: 'Portal configuration', ok: Boolean(provisioningHealth.portal_config), detail: provisioningHealth.portal_config ? 'Developer portal configuration available' : 'Portal configuration missing', target: 'portal' },
+  ];
+  const readinessPassed = diagnostics.filter((item) => item.ok).length;
+  const provisioning = {
+    percent: diagnostics.length ? Math.round((readinessPassed / diagnostics.length) * 100) : 0,
+    passed: readinessPassed,
+    total: diagnostics.length,
+    ready: readinessPassed === diagnostics.length,
+    steps: diagnostics,
+  };
+
+  const checks = [];
+  const addCheck = (key, label, status, summary, target) => checks.push({ key, label, status, summary, target });
+
+  const failedDiagnostics = diagnostics.filter((item) => !item.ok);
+  const failedProvisioning = failedDiagnostics.length;
+  addCheck(
+    'provisioning', 'Provisioning',
+    failedProvisioning === 0 ? 'healthy' : failedProvisioning >= 3 ? 'critical' : 'warning',
+    failedProvisioning === 0 ? 'Tenant foundation is fully provisioned' : `${failedProvisioning} provisioning check${failedProvisioning === 1 ? '' : 's'} need attention`,
+    failedDiagnostics[0]?.target || 'overview'
+  );
+
+  addCheck(
+    'subscription', 'Subscription',
+    !subscription ? 'critical' : lifecycleAccess === 'blocked' ? 'critical' : lifecycleAccess === 'read_only' ? 'warning' : 'healthy',
+    !subscription ? 'Subscription record is missing' : lifecycleAccess === 'blocked' ? `${humanAction(lifecycleState)} · runtime access blocked` : lifecycleAccess === 'read_only' ? `${humanAction(lifecycleState)} · runtime is read only` : `${humanAction(lifecycleState)} · runtime access healthy`,
+    'subscription'
+  );
+
+  addCheck(
+    'billing', 'Billing',
+    overdueInvoices.length > 0 ? 'critical' : outstanding > 0 || pendingPayments.length > 0 ? 'warning' : 'healthy',
+    overdueInvoices.length > 0 ? `${overdueInvoices.length} overdue invoice${overdueInvoices.length === 1 ? '' : 's'} · ₹${outstanding.toLocaleString('en-IN')} outstanding` : outstanding > 0 ? `₹${outstanding.toLocaleString('en-IN')} outstanding` : pendingPayments.length > 0 ? `${pendingPayments.length} payment${pendingPayments.length === 1 ? '' : 's'} pending verification` : 'Billing is clear',
+    'billing'
+  );
+
+  addCheck(
+    'security', 'Security',
+    lockedUsers > 0 ? 'critical' : failedAuth24h >= 5 || securityAlertTotal24h > 0 ? 'warning' : 'healthy',
+    lockedUsers > 0 ? `${lockedUsers} locked account${lockedUsers === 1 ? '' : 's'}` : securityAlertTotal24h > 0 ? `${securityAlertTotal24h} security alert${securityAlertTotal24h === 1 ? '' : 's'} in the last 24 hours` : `${activeSessions} active session${activeSessions === 1 ? '' : 's'} · no recent security alerts`,
+    'security'
+  );
+
+  addCheck(
+    'documents', 'Documents & KYC',
+    expiredDocuments.length > 0 ? 'critical' : expiringDocuments.length > 0 || pendingDocuments.length > 0 || documents.length === 0 ? 'warning' : 'healthy',
+    expiredDocuments.length > 0 ? `${expiredDocuments.length} expired document${expiredDocuments.length === 1 ? '' : 's'}` : expiringDocuments.length > 0 ? `${expiringDocuments.length} document${expiringDocuments.length === 1 ? '' : 's'} expiring within 30 days` : pendingDocuments.length > 0 ? `${pendingDocuments.length} document${pendingDocuments.length === 1 ? '' : 's'} pending verification` : documents.length === 0 ? 'No company documents uploaded' : 'Documents are current',
+    'documents'
+  );
+
+  const usageCritical = usage.filter((item) => item.status === 'critical');
+  const usageWarning = usage.filter((item) => item.status === 'warning');
+  addCheck(
+    'usage', 'Usage & Limits',
+    usageCritical.length ? 'critical' : usageWarning.length ? 'warning' : 'healthy',
+    usageCritical.length ? `${usageCritical.map((item) => item.label).join(', ')} limit reached` : usageWarning.length ? `${usageWarning.map((item) => item.label).join(', ')} above 80% of plan limit` : 'Usage is within plan limits',
+    'usage'
+  );
+
+  addCheck(
+    'portal', 'Portal Setup',
+    !provisioningHealth.portal_settings || !provisioningHealth.portal_config ? 'critical' : !provisioningHealth.fleet_pack_selected || !provisioningHealth.owner_access ? 'warning' : 'healthy',
+    !provisioningHealth.portal_settings ? 'Portal settings are missing' : !provisioningHealth.portal_config ? 'Portal configuration is missing' : !provisioningHealth.fleet_pack_selected ? 'Fleet Pack selection is pending' : !provisioningHealth.owner_access ? 'Owner access linkage needs repair' : 'Portal control-plane setup is complete',
+    'portal'
+  );
+
+  const points = { healthy: 100, warning: 60, critical: 20 };
+  const score = checks.length ? Math.round(checks.reduce((sum, item) => sum + (points[item.status] || 0), 0) / checks.length) : 0;
+  const overallStatus = checks.some((item) => item.status === 'critical') ? 'critical' : checks.some((item) => item.status === 'warning') ? 'warning' : 'healthy';
+
+  const attention = [];
+  const addAttention = (key, severity, title, detail, target) => attention.push({ key, severity, title, detail, target });
+  if (!subscription) addAttention('subscription_missing', 'critical', 'Subscription missing', 'This tenant does not have a subscription record.', 'subscription');
+  else if (lifecycleAccess === 'blocked') addAttention('lifecycle_blocked', 'critical', 'Runtime access blocked', `${humanAction(lifecycleState)} currently resolves to blocked access.`, 'subscription');
+  else if (lifecycleAccess === 'read_only') addAttention('lifecycle_read_only', 'warning', 'Runtime is read only', `${humanAction(lifecycleState)} currently limits the company portal to read-only access.`, 'subscription');
+  if (overdueInvoices.length) addAttention('overdue_invoices', 'critical', 'Invoice overdue', `${overdueInvoices.length} invoice${overdueInvoices.length === 1 ? '' : 's'} overdue · ₹${outstanding.toLocaleString('en-IN')} outstanding.`, 'billing');
+  else if (outstanding > 0) addAttention('outstanding', 'warning', 'Outstanding balance', `₹${outstanding.toLocaleString('en-IN')} remains outstanding.`, 'billing');
+  if (pendingPayments.length) addAttention('pending_payments', 'warning', 'Payment verification pending', `${pendingPayments.length} submitted payment${pendingPayments.length === 1 ? '' : 's'} need verification.`, 'billing');
+  if (lockedUsers > 0) addAttention('locked_users', 'critical', 'Locked user account', `${lockedUsers} tenant user${lockedUsers === 1 ? '' : 's'} currently locked.`, 'security');
+  else if (securityAlertTotal24h > 0) addAttention('security_events', 'warning', 'Recent security events', `${securityAlertTotal24h} security alert${securityAlertTotal24h === 1 ? '' : 's'} recorded in the last 24 hours.`, 'security');
+  if (forcePasswordChange > 0) addAttention('forced_password', 'warning', 'Password change pending', `${forcePasswordChange} user${forcePasswordChange === 1 ? '' : 's'} must change password on next login.`, 'employees');
+  if (expiredDocuments.length) addAttention('expired_documents', 'critical', 'Company document expired', `${expiredDocuments.length} document${expiredDocuments.length === 1 ? '' : 's'} have expired.`, 'documents');
+  else if (expiringDocuments.length) addAttention('expiring_documents', 'warning', 'Document expiry approaching', `${expiringDocuments.length} document${expiringDocuments.length === 1 ? '' : 's'} expire within 30 days.`, 'documents');
+  if (!provisioningHealth.fleet_pack_selected) addAttention('fleet_pack_pending', 'warning', 'Fleet Pack setup pending', 'Explicit Fleet Pack selection is incomplete.', 'fleet');
+  if (!provisioningHealth.primary_site) addAttention('primary_site_missing', 'warning', 'Primary site missing', 'No active primary site is configured.', 'sites');
+  if (!provisioningHealth.owner_access || !provisioningHealth.owner_profile || !provisioningHealth.developer_owner_employee) addAttention('owner_linkage', 'critical', 'Owner provisioning incomplete', 'Owner identity, employee profile and runtime access are not fully aligned.', 'employees');
+  for (const metric of usage.filter((item) => item.status !== 'healthy')) {
+    addAttention(`usage_${metric.key}`, metric.status === 'critical' ? 'critical' : 'warning', `${metric.label} ${metric.status === 'critical' ? 'limit reached' : 'near plan limit'}`, metric.limit === null ? `${metric.used} in use.` : `${metric.used} of ${metric.limit} in use (${metric.percent}%).`, metric.target);
+  }
+  const severityOrder = { critical: 0, warning: 1, info: 2 };
+  attention.sort((a, b) => (severityOrder[a.severity] ?? 9) - (severityOrder[b.severity] ?? 9));
+
+  return {
+    generatedAt: new Date().toISOString(),
+    health: { score, status: overallStatus, checks },
+    attention,
+    diagnostics,
+    provisioning,
+    usage,
+    billing: { totalInvoiced, verifiedPaid, outstanding, overdueCount: overdueInvoices.length, pendingPayments: pendingPayments.length },
+    security: { activeSessions, lockedUsers, failedAuth24h, alerts24h: securityAlertTotal24h, blockedEmployees },
+    access: { forcePasswordChange },
+    recentActivity: (recentActivity || []).slice(0, 12),
+  };
+}
 
 const BULK_IMPORT_MAX_ROWS = 1000;
 const IMPORT_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -276,7 +561,7 @@ async function loadCompany(db, companyId) {
     profileR, subscriptionR, overrideR, plansR, employeesR, invoicesR, paymentsR,
     documentsR, announcementsR, notesR, modulesR, portalR, policiesR, settingsR,
     fleetPacksR, companyModuleOverridesR, sitesR, rolesR, portalAccessR, portalProfilesR,
-    subscriptionContextR,
+    subscriptionContextR, vehiclesR, securitySessionsR, securityEventsR, historyR, portalAuditR,
   ] = await Promise.all([
     db.from('developer_company_profiles').select('*').eq('company_id', companyId).maybeSingle(),
     db.from('subscriptions').select('*').eq('company_id', companyId).maybeSingle(),
@@ -299,8 +584,13 @@ async function loadCompany(db, companyId) {
     db.from('company_portal_user_access').select('company_id,user_id,role_id,role_name,primary_site_id,site_ids,all_sites,force_password_change').eq('company_id', companyId),
     db.from('company_portal_user_profiles').select('company_id,user_id,employee_code,full_name,designation,department,email,mobile').eq('company_id', companyId),
     db.rpc('bf_resolve_subscription_context', { p_company_id: companyId }),
+    db.from('company_portal_vehicles').select('id', { count: 'exact', head: true }).eq('company_id', companyId),
+    db.from('security_sessions').select('id', { count: 'exact', head: true }).eq('company_id', companyId).eq('status', 'active'),
+    db.from('security_events').select('id,user_id,event_type,portal_type,ip_address,metadata,created_at', { count: 'exact' }).eq('company_id', companyId).in('event_type', SECURITY_RISK_EVENT_TYPES).gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()).order('created_at', { ascending: false }).limit(200),
+    db.from('developer_saas_history').select('id,domain,entity_id,action,before_payload,after_payload,actor_user_id,created_at').eq('entity_id', companyId).order('created_at', { ascending: false }).limit(80),
+    db.from('company_portal_audit').select('id,user_id,module_key,action_type,entity_type,entity_id,description,before_data,after_data,created_at').eq('company_id', companyId).order('created_at', { ascending: false }).limit(80),
   ]);
-  for (const r of [profileR,subscriptionR,overrideR,plansR,employeesR,invoicesR,paymentsR,documentsR,announcementsR,notesR,modulesR,portalR,policiesR,settingsR,fleetPacksR,companyModuleOverridesR,sitesR,rolesR,portalAccessR,portalProfilesR]) {
+  for (const r of [profileR,subscriptionR,overrideR,plansR,employeesR,invoicesR,paymentsR,documentsR,announcementsR,notesR,modulesR,portalR,policiesR,settingsR,fleetPacksR,companyModuleOverridesR,sitesR,rolesR,portalAccessR,portalProfilesR,vehiclesR,securitySessionsR,securityEventsR,historyR,portalAuditR]) {
     if (r.error) throw r.error;
   }
   if (subscriptionContextR.error) console.warn('Subscription context resolver unavailable in Company 360:', subscriptionContextR.error.message);
@@ -371,6 +661,86 @@ async function loadCompany(db, companyId) {
     subscription: Boolean(subscription),
   };
 
+  const companyUserIds = [...new Set([
+    ...(portalAccessR.data || []).map((row) => row.user_id),
+    ...(employeesR.data || []).map((row) => row.user_id),
+  ].filter(Boolean))];
+
+  let userSecurity = [];
+  for (let offset = 0; offset < companyUserIds.length; offset += 200) {
+    const batch = companyUserIds.slice(offset, offset + 200);
+    const userSecurityR = await db.from('user_security')
+      .select('user_id,failed_password_attempts,is_locked,locked_at,lock_reason,last_failed_at,last_successful_login_at,failed_mfa_attempts,mfa_enabled')
+      .in('user_id', batch);
+    if (userSecurityR.error) throw userSecurityR.error;
+    userSecurity = userSecurity.concat(userSecurityR.data || []);
+  }
+
+  const actorIds = [...new Set([
+    ...(historyR.data || []).map((row) => row.actor_user_id),
+    ...(portalAuditR.data || []).map((row) => row.user_id),
+  ].filter(Boolean))];
+  let actorProfiles = [];
+  if (actorIds.length) {
+    const actorProfilesR = await db.from('profiles').select('id,full_name,email').in('id', actorIds);
+    if (actorProfilesR.error) throw actorProfilesR.error;
+    actorProfiles = actorProfilesR.data || [];
+  }
+  const actorMap = new Map(actorProfiles.map((row) => [row.id, row.full_name || row.email || 'System']));
+
+  const historyActivity = (historyR.data || []).map((row) => ({
+    id: `developer:${row.id}`,
+    source: 'developer',
+    category: activityCategory(row.action, row.domain),
+    action: row.action,
+    title: activityTitle(row.action),
+    description: activityDescription(row.action, row.after_payload || {}),
+    actorUserId: row.actor_user_id || null,
+    actorName: row.actor_user_id ? (actorMap.get(row.actor_user_id) || 'Developer') : 'System',
+    createdAt: row.created_at,
+    before: row.before_payload || null,
+    after: row.after_payload || null,
+  }));
+
+  const portalActivity = (portalAuditR.data || []).map((row) => ({
+    id: `portal:${row.id}`,
+    source: 'portal',
+    category: activityCategory(row.action_type, row.module_key),
+    action: row.action_type,
+    title: row.description || activityTitle(row.action_type),
+    description: row.description ? [row.module_key, row.entity_type].filter(Boolean).join(' · ') : '',
+    actorUserId: row.user_id || null,
+    actorName: row.user_id ? (actorMap.get(row.user_id) || 'Company user') : 'System',
+    createdAt: row.created_at,
+    before: row.before_data || null,
+    after: row.after_data || null,
+  }));
+
+  const recentActivity = [...historyActivity, ...portalActivity]
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, 20);
+
+  const overview = buildOverviewIntelligence({
+    company,
+    profile: profileR.data || null,
+    subscription,
+    subscriptionContext,
+    effectiveLimits,
+    provisioningHealth,
+    employees: employeesR.data || [],
+    invoices: invoicesR.data || [],
+    payments: paymentsR.data || [],
+    documents: documentsR.data || [],
+    portalAccess: portalAccessR.data || [],
+    vehicleCount: vehiclesR.count || 0,
+    sites: sitesR.data || [],
+    activeSessionCount: securitySessionsR.count || 0,
+    securityEvents: securityEventsR.data || [],
+    securityAlertCount24h: securityEventsR.count || 0,
+    userSecurity,
+    recentActivity,
+  });
+
   return {
     company,
     profile: profileR.data || null,
@@ -386,6 +756,7 @@ async function loadCompany(db, companyId) {
     portalUserAccess: portalAccessR.data || [],
     portalUserProfiles: portalProfilesR.data || [],
     provisioningHealth,
+    overview,
     override,
     plans,
     employees: employeesR.data || [],

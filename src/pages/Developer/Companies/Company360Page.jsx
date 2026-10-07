@@ -33,6 +33,7 @@ import {
   Settings2,
   ShieldCheck,
   SlidersHorizontal,
+  Truck,
   Unlock,
   UploadCloud,
   UserCog,
@@ -578,19 +579,191 @@ function ControlModuleGrid({ onOpen, data, activeEmployees }) {
 }
 
 function companySecurityLabel(data) {
+  const security = data.overview?.security || {};
+  if (Number(security.lockedUsers || 0) > 0) return `${security.lockedUsers} locked`;
+  if (Number(security.alerts24h || 0) > 0) return `${security.alerts24h} alerts`;
   const blocked = (data.employees || []).filter((employee) => employee.status === 'blocked').length;
   if (blocked > 0) return `${blocked} blocked`;
   return 'Clear';
 }
 
+function statusTone(status) {
+  if (status === 'critical') return 'danger';
+  if (status === 'warning') return 'warning';
+  if (status === 'healthy') return 'success';
+  return 'neutral';
+}
+
+function statusDot(status) {
+  if (status === 'critical') return 'bg-rose-500';
+  if (status === 'warning') return 'bg-amber-500';
+  if (status === 'healthy') return 'bg-emerald-500';
+  return 'bg-[var(--bf-dev-text)]';
+}
+
+function relativeTime(value) {
+  if (!value) return '—';
+  const time = new Date(value).getTime();
+  if (!Number.isFinite(time)) return '—';
+  const seconds = Math.max(0, Math.floor((Date.now() - time) / 1000));
+  if (seconds < 60) return 'Just now';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days}d ago`;
+  return formatDate(value);
+}
+
+function UsageMetricCard({ icon: Icon, label: metricLabel, metric, helper }) {
+  const used = Number(metric?.used || 0);
+  const limit = metric?.limit;
+  const unlimited = limit === null || limit === undefined;
+  const percent = Number(metric?.percent || 0);
+  return (
+    <div className={cx(surfaceCard, 'p-4')}>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-[10px] font-extrabold uppercase tracking-[.06em] text-[var(--bf-dev-text)]">{metricLabel}</div>
+          <div className="mt-1.5 text-[21px] font-black tracking-[-.02em] text-[var(--bf-dev-text)]">
+            {used}{unlimited ? '' : ` / ${limit}`}
+          </div>
+          <div className="mt-1 text-[10px] font-semibold text-[var(--bf-dev-text)]">{helper || (unlimited ? 'No plan cap' : `${percent}% of plan limit`)}</div>
+        </div>
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] bg-[rgb(var(--bf-dev-primary-rgb)/.12)] text-[var(--bf-dev-primary)]">
+          <Icon size={17} />
+        </div>
+      </div>
+      {!unlimited && (
+        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[var(--bf-dev-surface-3)]">
+          <div
+            className={cx('h-full rounded-full', metric?.status === 'critical' ? 'bg-rose-500' : metric?.status === 'warning' ? 'bg-amber-500' : 'bg-[var(--bf-dev-primary)]')}
+            style={{ width: `${Math.min(100, percent)}%` }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function OverviewMetrics({ data }) {
+  const overview = data.overview || {};
+  const metrics = Object.fromEntries((overview.usage || []).map((metric) => [metric.key, metric]));
+  const billing = overview.billing || {};
+  return (
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <UsageMetricCard icon={Truck} label="Vehicles" metric={metrics.vehicles} />
+      <UsageMetricCard icon={Users} label="Employees" metric={metrics.employees} />
+      <UsageMetricCard icon={MapPin} label="Sites" metric={metrics.sites} />
+      <div className={cx(surfaceCard, 'p-4')}>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="text-[10px] font-extrabold uppercase tracking-[.06em] text-[var(--bf-dev-text)]">Outstanding</div>
+            <div className="mt-1.5 text-[21px] font-black tracking-[-.02em] text-[var(--bf-dev-text)]">
+              ₹{Number(billing.outstanding || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+            </div>
+            <div className="mt-1 text-[10px] font-semibold text-[var(--bf-dev-text)]">
+              {Number(billing.overdueCount || 0) > 0
+                ? `${billing.overdueCount} overdue invoice${billing.overdueCount === 1 ? '' : 's'}`
+                : Number(billing.pendingPayments || 0) > 0
+                  ? `${billing.pendingPayments} payment${billing.pendingPayments === 1 ? '' : 's'} pending verification`
+                  : 'Billing clear'}
+            </div>
+          </div>
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] bg-[rgb(var(--bf-dev-primary-rgb)/.12)] text-[var(--bf-dev-primary)]">
+            <WalletCards size={17} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CompanyHealthPanel({ data, onOpen }) {
+  const health = data.overview?.health || {};
+  const checks = Array.isArray(health.checks) ? health.checks : [];
+  const tone = statusTone(health.status);
+  return (
+    <div className={cx(surfaceCard, 'p-4')}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <ShieldCheck size={18} className="text-[var(--bf-dev-primary)]" />
+          <div>
+            <div className="text-[14px] font-extrabold text-[var(--bf-dev-text)]">Company Health</div>
+            <div className="mt-0.5 text-[10px] font-semibold text-[var(--bf-dev-text)]">Deterministic checks from the tenant's current runtime state.</div>
+          </div>
+        </div>
+        <ToneBadge tone={tone}>{Number(health.score || 0)}% {humanize(health.status || 'unknown')}</ToneBadge>
+      </div>
+      <div className="mt-3 divide-y divide-[var(--bf-dev-border)]">
+        {checks.map((check) => (
+          <button
+            key={check.key}
+            type="button"
+            onClick={() => onOpen(check.target || 'overview')}
+            className="grid w-full gap-1 py-2.5 text-left sm:grid-cols-[140px_minmax(0,1fr)_auto] sm:items-center sm:gap-3"
+          >
+            <span className="flex items-center gap-2 text-[11px] font-extrabold text-[var(--bf-dev-text)]">
+              <span className={cx('h-2 w-2 shrink-0 rounded-full', statusDot(check.status))} />
+              {check.label}
+            </span>
+            <span className="text-[10px] font-semibold leading-4 text-[var(--bf-dev-text)]">{check.summary}</span>
+            <ChevronRight size={13} className="hidden text-[var(--bf-dev-primary)] sm:block" />
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function NeedsAttentionPanel({ data, onOpen }) {
+  const attention = Array.isArray(data.overview?.attention) ? data.overview.attention : [];
+  return (
+    <div className={cx(surfaceCard, 'p-4')}>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <AlertTriangle size={18} className={attention.length ? 'text-amber-500' : 'text-emerald-500'} />
+          <div>
+            <div className="text-[14px] font-extrabold text-[var(--bf-dev-text)]">Needs Attention</div>
+            <div className="mt-0.5 text-[10px] font-semibold text-[var(--bf-dev-text)]">Only items that need developer action.</div>
+          </div>
+        </div>
+        <ToneBadge tone={attention.some((item) => item.severity === 'critical') ? 'danger' : attention.length ? 'warning' : 'success'}>
+          {attention.length ? `${attention.length} item${attention.length === 1 ? '' : 's'}` : 'Clear'}
+        </ToneBadge>
+      </div>
+      <div className="mt-3 divide-y divide-[var(--bf-dev-border)]">
+        {attention.length === 0 ? (
+          <div className="flex items-center gap-2 py-5 text-[11px] font-bold text-[var(--bf-dev-text)]">
+            <CheckCircle2 size={16} className="text-emerald-500" /> No developer action required right now.
+          </div>
+        ) : attention.slice(0, 6).map((item) => (
+          <button key={item.key} type="button" onClick={() => onOpen(item.target || 'overview')} className="flex w-full items-start gap-3 py-3 text-left">
+            <span className={cx('mt-1.5 h-2 w-2 shrink-0 rounded-full', item.severity === 'critical' ? 'bg-rose-500' : 'bg-amber-500')} />
+            <span className="min-w-0 flex-1">
+              <span className="block text-[11px] font-extrabold text-[var(--bf-dev-text)]">{item.title}</span>
+              <span className="mt-0.5 block text-[10px] font-semibold leading-4 text-[var(--bf-dev-text)]">{item.detail}</span>
+            </span>
+            <ChevronRight size={13} className="mt-1 shrink-0 text-[var(--bf-dev-primary)]" />
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function TenantDiagnostics({ data, onOpen }) {
+  const overview = data.overview || {};
   const health = data.provisioningHealth || {};
+  const lifecycleAccess = data.subscriptionContext?.lifecycle_access || 'blocked';
+  const enabledModules = (data.modules || []).filter((module) => module.effective_access !== 'blocked').length;
   const items = [
-    ['Tenant Provisioned', Boolean(data.profile), 'Company profile available'],
-    ['Portal Active', health.portal_settings, data.company?.subdomain_slug ? `${data.company.subdomain_slug}.buddyfleets.com` : 'Portal settings check'],
-    ['Primary Site', health.primary_site, 'Primary company site available'],
-    ['Modules Configured', Boolean((data.modules || []).length), `${(data.modules || []).filter((module) => module.effective_access !== 'blocked').length} modules available`],
-    ['Owner Access', health.owner_access, 'Runtime owner access linked'],
+    ['Runtime access', lifecycleAccess !== 'blocked', humanize(lifecycleAccess), 'subscription'],
+    ['Portal settings', Boolean(health.portal_settings), health.portal_settings ? 'Available' : 'Missing', 'portal'],
+    ['Owner access', Boolean(health.owner_access), health.owner_access ? 'Runtime access linked' : 'Linkage missing', 'employees'],
+    ['Module resolution', enabledModules > 0, `${enabledModules} effective module${enabledModules === 1 ? '' : 's'}`, 'modules'],
+    ['Security state', Number(overview.security?.lockedUsers || 0) === 0, Number(overview.security?.lockedUsers || 0) ? `${overview.security.lockedUsers} locked` : `${overview.security?.activeSessions || 0} active session${overview.security?.activeSessions === 1 ? '' : 's'}`, 'security'],
   ];
   return (
     <div className={cx(surfaceCard, 'p-4')}>
@@ -599,94 +772,18 @@ function TenantDiagnostics({ data, onOpen }) {
           <Wrench size={17} className="text-[var(--bf-dev-primary)]" />
           <div className="text-[14px] font-extrabold text-[var(--bf-dev-text)]">Tenant Diagnostics</div>
         </div>
-        <button type="button" onClick={() => onOpen('activity')} className="text-[10px] font-bold text-[var(--bf-dev-primary)] hover:underline">View All</button>
       </div>
       <div className="mt-3">
-        {items.map(([title, ok, helper]) => (
-          <div key={title} className="flex items-start gap-2.5 border-t border-[var(--bf-dev-border)] py-3 first:border-0">
+        {items.map(([title, ok, helper, target]) => (
+          <button key={title} type="button" onClick={() => onOpen(target)} className="flex w-full items-start gap-2.5 border-t border-[var(--bf-dev-border)] py-3 text-left first:border-0">
             <span className={cx('mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full', ok ? 'bg-emerald-500/14 text-emerald-500' : 'bg-amber-500/14 text-amber-500')}>
               {ok ? <CheckCircle2 size={14} /> : <AlertTriangle size={14} />}
             </span>
-            <div className="min-w-0">
-              <div className="text-[11px] font-extrabold text-[var(--bf-dev-text)]">{title}</div>
-              <div className="mt-0.5 truncate text-[10px] font-semibold text-[var(--bf-dev-text)]">{helper}</div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function ProvisioningReadiness({ health = {}, onOpen }) {
-  const items = [
-    ['Company Setup', Boolean(health.portal_settings)],
-    ['Admin User Created', Boolean(health.owner_access)],
-    ['Subscription Active', Boolean(health.subscription)],
-    ['Modules Provisioned', Boolean(health.system_roles)],
-    ['Portal Configured', Boolean(health.portal_config)],
-  ];
-  const passed = items.filter(([, ok]) => ok).length;
-  const percent = items.length ? Math.round((passed / items.length) * 100) : 0;
-
-  return (
-    <div className={cx(surfaceCard, 'p-4')}>
-      <div className="flex items-center gap-2.5">
-        <PackageCheck size={17} className="text-[var(--bf-dev-primary)]" />
-        <div className="text-[14px] font-extrabold text-[var(--bf-dev-text)]">Provisioning Readiness</div>
-      </div>
-      <div className="mt-4 grid grid-cols-[92px_minmax(0,1fr)] items-center gap-4">
-        <div
-          className="relative flex h-[88px] w-[88px] items-center justify-center rounded-full"
-          style={{ background: `conic-gradient(#22c55e ${percent}%, var(--bf-dev-surface-3) ${percent}% 100%)` }}
-        >
-          <div className="flex h-[66px] w-[66px] items-center justify-center rounded-full bg-[var(--bf-dev-surface)] text-[18px] font-black text-[var(--bf-dev-text)]">
-            {percent}%
-          </div>
-        </div>
-        <div className="space-y-2">
-          {items.map(([name, ok]) => (
-            <div key={name} className="flex items-center gap-2 text-[10px] font-bold text-[var(--bf-dev-text)]">
-              {ok ? <CheckCircle2 size={13} className="shrink-0 text-emerald-500" /> : <AlertTriangle size={13} className="shrink-0 text-amber-500" />}
-              <span className="truncate">{name}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-      <button type="button" onClick={() => onOpen('activity')} className="mt-3 inline-flex items-center gap-1 text-[10px] font-bold text-[var(--bf-dev-primary)] hover:underline">
-        View provisioning <ChevronRight size={11} />
-      </button>
-    </div>
-  );
-}
-
-function QuickAlerts({ data, onOpen }) {
-  const alerts = [];
-  const outstanding = Number(data.billingSummary?.outstanding || 0);
-  const health = data.provisioningHealth || {};
-  if (outstanding > 0) alerts.push(['Invoice / billing attention', `₹${outstanding.toLocaleString('en-IN')} outstanding`, 'billing', 'warning']);
-  if (!health.fleet_pack_selected) alerts.push(['Fleet Pack setup pending', 'Explicit fleet pack selection is incomplete', 'fleet', 'warning']);
-  if (!health.owner_access) alerts.push(['Owner access needs review', 'Owner runtime access is not healthy', 'employees', 'danger']);
-  if (!health.primary_site) alerts.push(['Primary site missing', 'No active primary site is provisioned', 'sites', 'warning']);
-  if (!alerts.length) alerts.push(['Tenant foundation healthy', 'No critical control-plane alerts', 'overview', 'success']);
-
-  return (
-    <div className={cx(surfaceCard, 'p-4')}>
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5">
-          <Bell size={17} className="text-rose-500" />
-          <div className="text-[14px] font-extrabold text-[var(--bf-dev-text)]">Recent Alerts</div>
-        </div>
-        <button type="button" onClick={() => onOpen('activity')} className="text-[10px] font-bold text-[var(--bf-dev-primary)] hover:underline">View All</button>
-      </div>
-      <div className="mt-3">
-        {alerts.slice(0, 4).map(([title, helper, target, tone]) => (
-          <button key={title} type="button" onClick={() => onOpen(target)} className="flex w-full items-start gap-2.5 border-t border-[var(--bf-dev-border)] py-3 text-left first:border-0">
-            <span className={cx('mt-1 h-2 w-2 shrink-0 rounded-full', tone === 'success' ? 'bg-emerald-500' : tone === 'danger' ? 'bg-rose-500' : 'bg-amber-500')} />
             <span className="min-w-0 flex-1">
               <span className="block text-[11px] font-extrabold text-[var(--bf-dev-text)]">{title}</span>
               <span className="mt-0.5 block truncate text-[10px] font-semibold text-[var(--bf-dev-text)]">{helper}</span>
             </span>
+            <ChevronRight size={12} className="mt-1 text-[var(--bf-dev-primary)]" />
           </button>
         ))}
       </div>
@@ -694,17 +791,85 @@ function QuickAlerts({ data, onOpen }) {
   );
 }
 
+function ProvisioningReadiness({ data, onOpen }) {
+  const provisioning = data.overview?.provisioning || {};
+  const steps = Array.isArray(provisioning.steps) ? provisioning.steps : [];
+  const visibleSteps = [...steps].sort((a, b) => Number(a.ok) - Number(b.ok)).slice(0, 6);
+  const percent = Number(provisioning.percent || 0);
+  return (
+    <div className={cx(surfaceCard, 'p-4')}>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <PackageCheck size={17} className="text-[var(--bf-dev-primary)]" />
+          <div className="text-[14px] font-extrabold text-[var(--bf-dev-text)]">Provisioning Readiness</div>
+        </div>
+        <span className="text-[10px] font-bold text-[var(--bf-dev-text)]">{provisioning.passed || 0}/{provisioning.total || 0}</span>
+      </div>
+      <div className="mt-4 grid grid-cols-[92px_minmax(0,1fr)] items-center gap-4">
+        <div className="relative flex h-[88px] w-[88px] items-center justify-center rounded-full" style={{ background: `conic-gradient(${percent === 100 ? '#22c55e' : '#f59e0b'} ${percent}%, var(--bf-dev-surface-3) ${percent}% 100%)` }}>
+          <div className="flex h-[66px] w-[66px] items-center justify-center rounded-full bg-[var(--bf-dev-surface)] text-[18px] font-black text-[var(--bf-dev-text)]">{percent}%</div>
+        </div>
+        <div className="space-y-2">
+          {visibleSteps.map((item) => (
+            <button key={item.key} type="button" onClick={() => onOpen(item.target || 'overview')} className="flex w-full items-center gap-2 text-left text-[10px] font-bold text-[var(--bf-dev-text)]">
+              {item.ok ? <CheckCircle2 size={13} className="shrink-0 text-emerald-500" /> : <AlertTriangle size={13} className="shrink-0 text-amber-500" />}
+              <span className="truncate">{item.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RecentActivityCard({ data, onOpen }) {
+  const activity = Array.isArray(data.overview?.recentActivity) ? data.overview.recentActivity : [];
+  return (
+    <div className={cx(surfaceCard, 'p-4')}>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <Activity size={17} className="text-[var(--bf-dev-primary)]" />
+          <div className="text-[14px] font-extrabold text-[var(--bf-dev-text)]">Recent Activity</div>
+        </div>
+        <button type="button" onClick={() => onOpen('activity')} className="text-[10px] font-bold text-[var(--bf-dev-primary)] hover:underline">View all</button>
+      </div>
+      <div className="mt-3">
+        {activity.length === 0 ? (
+          <div className="py-5 text-[10px] font-semibold text-[var(--bf-dev-text)]">No recent company activity.</div>
+        ) : activity.slice(0, 5).map((item) => (
+          <div key={item.id} className="flex items-start gap-2.5 border-t border-[var(--bf-dev-border)] py-3 first:border-0">
+            <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-[var(--bf-dev-primary)]" />
+            <div className="min-w-0 flex-1">
+              <div className="text-[11px] font-extrabold text-[var(--bf-dev-text)]">{item.title}</div>
+              <div className="mt-0.5 line-clamp-2 text-[10px] font-semibold leading-4 text-[var(--bf-dev-text)]">{item.description || item.actorName || 'Company activity'}</div>
+              <div className="mt-1 text-[9px] font-semibold text-[var(--bf-dev-text)]">{item.actorName || 'System'} · {relativeTime(item.createdAt)}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function OverviewPage({ data, activeEmployees, onOpen, company, profile }) {
+  const hasOverview = Boolean(data.overview);
   return (
     <div className="grid gap-4 2xl:grid-cols-[minmax(0,1fr)_280px]">
       <div className="min-w-0 space-y-5">
         <HeroCard company={company} profile={profile} data={data} activeEmployees={activeEmployees} />
+        {hasOverview && <OverviewMetrics data={data} />}
+        {hasOverview && (
+          <div className="grid gap-4 xl:grid-cols-2">
+            <CompanyHealthPanel data={data} onOpen={onOpen} />
+            <NeedsAttentionPanel data={data} onOpen={onOpen} />
+          </div>
+        )}
         <ControlModuleGrid onOpen={onOpen} data={data} activeEmployees={activeEmployees} />
       </div>
       <aside className="space-y-4">
         <TenantDiagnostics data={data} onOpen={onOpen} />
-        <ProvisioningReadiness health={data.provisioningHealth} onOpen={onOpen} />
-        <QuickAlerts data={data} onOpen={onOpen} />
+        <ProvisioningReadiness data={data} onOpen={onOpen} />
+        <RecentActivityCard data={data} onOpen={onOpen} />
       </aside>
     </div>
   );
