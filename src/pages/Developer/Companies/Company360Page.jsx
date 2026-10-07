@@ -180,6 +180,39 @@ function humanize(value) {
   return String(value).replaceAll('_', ' ').replace(/\b\w/g, (match) => match.toUpperCase());
 }
 
+function dateInputValue(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value).slice(0, 10);
+  return date.toISOString().slice(0, 10);
+}
+
+function moneyText(value, currency = 'INR') {
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: currency || 'INR',
+    maximumFractionDigits: 2,
+  }).format(Number(value || 0));
+}
+
+function statusTone(value) {
+  const status = String(value || '').toLowerCase();
+  if (['active', 'paid', 'verified', 'healthy', 'full', 'trial_active'].includes(status)) return 'success';
+  if (['submitted', 'pending', 'partially_paid', 'trial_expired', 'read_only'].includes(status)) return 'warning';
+  if (['overdue', 'rejected', 'cancelled', 'void', 'suspended', 'blocked', 'critical'].includes(status)) return 'danger';
+  if (['issued', 'draft'].includes(status)) return 'primary';
+  return 'neutral';
+}
+
+function newRequestId() {
+  if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (char) => {
+    const random = Math.floor(Math.random() * 16);
+    const value = char === 'x' ? random : ((random & 0x3) | 0x8);
+    return value.toString(16);
+  });
+}
+
 function SelectMenu({ value, options, onChange, ariaLabel = 'Select option', className = '' }) {
   const [open, setOpen] = useState(false);
   const [menuStyle, setMenuStyle] = useState(null);
@@ -591,13 +624,6 @@ function companySecurityLabel(data) {
   return 'Clear';
 }
 
-function statusTone(status) {
-  if (status === 'critical') return 'danger';
-  if (status === 'warning') return 'warning';
-  if (status === 'healthy') return 'success';
-  return 'neutral';
-}
-
 function statusDot(status) {
   if (status === 'critical') return 'bg-rose-500';
   if (status === 'warning') return 'bg-amber-500';
@@ -911,6 +937,274 @@ function DocumentsManagement({ documents, onUpload, onView, onVerify, onReject }
   </Section>;
 }
 
+
+function CommercialMetric({ label: metricLabel, value, helper, tone = 'neutral' }) {
+  const toneClass = {
+    success: 'border-emerald-500/25 bg-emerald-500/[.07]',
+    warning: 'border-amber-500/25 bg-amber-500/[.07]',
+    danger: 'border-rose-500/25 bg-rose-500/[.07]',
+    primary: 'border-[rgb(var(--bf-dev-primary-rgb)/.25)] bg-[rgb(var(--bf-dev-primary-rgb)/.07)]',
+    neutral: 'border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)]',
+  }[tone] || 'border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)]';
+  return (
+    <div className={cx('rounded-[8px] border p-3.5', toneClass)}>
+      <div className="text-[10px] font-extrabold uppercase tracking-[.07em] text-[var(--bf-dev-text)]">{metricLabel}</div>
+      <div className="mt-1.5 text-[18px] font-black tracking-[-.02em] text-[var(--bf-dev-text)]">{value}</div>
+      {helper && <div className="mt-1 text-[10px] font-semibold leading-4 text-[var(--bf-dev-text)]">{helper}</div>}
+    </div>
+  );
+}
+
+function PlanLimitsLine({ plan }) {
+  const limits = plan?.limits || {};
+  return (
+    <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[10px] font-semibold text-[var(--bf-dev-text)]">
+      <span>Vehicles: {limits.vehicles_max ?? 'Unlimited'}</span>
+      <span>Users: {limits.users ?? 'Unlimited'}</span>
+      <span>Sites: {limits.sites ?? 'Unlimited'}</span>
+    </div>
+  );
+}
+
+function SubscriptionPlanPanel({ data, onEdit }) {
+  const subscription = data.subscription || {};
+  const plans = data.plans || [];
+  const commercialPlan = plans.find((plan) => plan.plan_key === subscription.plan_key) || null;
+  const effectiveKey = data.subscriptionContext?.effective_plan_key || data.effective?.planKey || '';
+  const effectivePlan = plans.find((plan) => plan.plan_key === effectiveKey) || data.effective?.plan || null;
+  const source = data.subscriptionContext?.effective_plan_source || 'Not resolved';
+  const lifecycleAccess = data.subscriptionContext?.lifecycle_access || 'blocked';
+  const status = subscription.status || 'missing';
+
+  return (
+    <div className="space-y-4">
+      <Section title="Subscription & Plan" action={<Button icon={Pencil} primary onClick={onEdit}>Edit Commercial Subscription</Button>}>
+        <div className="grid gap-3 xl:grid-cols-2">
+          <div className="rounded-[9px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] p-4">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div>
+                <div className="text-[10px] font-extrabold uppercase tracking-[.08em] text-[var(--bf-dev-text)]">Commercial Subscription</div>
+                <div className="mt-1 text-[20px] font-black tracking-[-.02em] text-[var(--bf-dev-text)]">{commercialPlan?.name || subscription.plan_key || 'Not assigned'}</div>
+              </div>
+              <ToneBadge tone={statusTone(status)}>{humanize(status)}</ToneBadge>
+            </div>
+            <PlanLimitsLine plan={commercialPlan} />
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              <div className="rounded-[7px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] p-3"><div className="text-[10px] font-bold uppercase text-[var(--bf-dev-text)]">Trial</div><div className="mt-1 text-[11px] font-semibold text-[var(--bf-dev-text)]">{formatDate(subscription.trial_start_at)} → {formatDate(subscription.trial_end_at)}</div></div>
+              <div className="rounded-[7px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] p-3"><div className="text-[10px] font-bold uppercase text-[var(--bf-dev-text)]">Paid Term</div><div className="mt-1 text-[11px] font-semibold text-[var(--bf-dev-text)]">{formatDate(subscription.subscription_start_at)} → {formatDate(subscription.subscription_end_at)}</div></div>
+            </div>
+            <div className="mt-3 text-[10px] font-semibold text-[var(--bf-dev-text)]">Revision {subscription.revision || 1} · Commercial plan changes use optimistic revision protection.</div>
+          </div>
+
+          <div className="rounded-[9px] border border-[rgb(var(--bf-dev-primary-rgb)/.24)] bg-[rgb(var(--bf-dev-primary-rgb)/.06)] p-4">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div>
+                <div className="text-[10px] font-extrabold uppercase tracking-[.08em] text-[var(--bf-dev-text)]">Effective Runtime Access</div>
+                <div className="mt-1 text-[20px] font-black tracking-[-.02em] text-[var(--bf-dev-text)]">{effectivePlan?.name || effectiveKey || 'Not resolved'}</div>
+              </div>
+              <ToneBadge tone={statusTone(lifecycleAccess)}>{humanize(lifecycleAccess)}</ToneBadge>
+            </div>
+            <PlanLimitsLine plan={effectivePlan} />
+            <div className="mt-4 rounded-[7px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] p-3">
+              <div className="text-[10px] font-bold uppercase text-[var(--bf-dev-text)]">Resolver Source</div>
+              <div className="mt-1 text-[11px] font-semibold text-[var(--bf-dev-text)]">{humanize(source)}</div>
+            </div>
+            <p className="mt-3 text-[10px] font-semibold leading-4 text-[var(--bf-dev-text)]">Commercial Plan is the paid contract selection. Effective Runtime Plan is what the portal currently receives after trial/lifecycle resolution. Company Overrides remain a separate control and are not treated as a paid plan change.</p>
+          </div>
+        </div>
+      </Section>
+
+      <Section title="Available Commercial Plans">
+        <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-4">
+          {plans.filter((plan) => plan.status !== 'archived').map((plan) => {
+            const selected = plan.plan_key === subscription.plan_key;
+            return (
+              <div key={plan.id || plan.plan_key} className={cx('rounded-[9px] border p-4', selected ? 'border-[var(--bf-dev-primary)] bg-[rgb(var(--bf-dev-primary-rgb)/.08)]' : 'border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)]')}>
+                <div className="flex items-center justify-between gap-2"><div className="text-[14px] font-extrabold text-[var(--bf-dev-text)]">{plan.name}</div>{selected && <ToneBadge tone="primary">Selected</ToneBadge>}</div>
+                <div className="mt-1 text-[10px] font-semibold leading-4 text-[var(--bf-dev-text)]">{plan.tagline || 'Commercial fleet plan'}</div>
+                <PlanLimitsLine plan={plan} />
+                <div className="mt-3 grid grid-cols-3 gap-1.5">
+                  {[1, 6, 12].map((months) => <div key={months} className="rounded-[6px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] px-2 py-2 text-center"><div className="text-[9px] font-bold uppercase text-[var(--bf-dev-text)]">{months}M</div><div className="mt-0.5 text-[10px] font-extrabold text-[var(--bf-dev-text)]">{moneyText(plan.prices?.[String(months)] || 0, plan.currency || 'INR')}</div></div>)}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </Section>
+    </div>
+  );
+}
+
+function BillingPaymentsPanel({ data, onRecord, onVerify, onReject, onReceipt }) {
+  const commercial = data.commercial || {};
+  const summary = commercial.summary || data.billingSummary || {};
+  const payments = commercial.payments || data.payments || [];
+  const integrity = commercial.integrity || { healthy: true, issueCount: 0 };
+
+  return (
+    <div className="space-y-4">
+      <Section title="Billing & Payments" action={<Button icon={Plus} primary onClick={onRecord}>Record Payment</Button>}>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <CommercialMetric label="Invoiced" value={moneyText(summary.totalInvoiced)} />
+          <CommercialMetric label="Applied to Invoices" value={moneyText(summary.appliedPaid)} tone="success" />
+          <CommercialMetric label="Outstanding" value={moneyText(summary.outstanding)} tone={Number(summary.outstanding || 0) > 0 ? 'warning' : 'success'} />
+          <CommercialMetric label="Pending Verification" value={moneyText(summary.pendingPaymentAmount)} helper={`${Number(summary.pendingPayments || 0)} payment(s)`} tone={Number(summary.pendingPayments || 0) ? 'warning' : 'neutral'} />
+          <CommercialMetric label="Unallocated Advance" value={moneyText(summary.unallocatedVerified)} helper="Verified payments not linked to an invoice" />
+        </div>
+
+        <div className={cx('mt-4 flex flex-wrap items-center justify-between gap-3 rounded-[8px] border p-3', integrity.healthy ? 'border-emerald-500/25 bg-emerald-500/[.06]' : 'border-rose-500/25 bg-rose-500/[.06]')}>
+          <div>
+            <div className="text-[11px] font-extrabold text-[var(--bf-dev-text)]">Commercial Ledger Integrity</div>
+            <div className="mt-0.5 text-[10px] font-semibold text-[var(--bf-dev-text)]">{integrity.healthy ? 'Invoice paid totals and verified-payment receipts are consistent.' : `${integrity.issueCount} consistency issue(s) detected. Do not manually edit financial rows.`}</div>
+          </div>
+          <ToneBadge tone={integrity.healthy ? 'success' : 'danger'}>{integrity.healthy ? 'Healthy' : 'Needs Review'}</ToneBadge>
+        </div>
+      </Section>
+
+      <Section title="Payment Ledger">
+        {!payments.length ? <Empty text="No payments recorded yet." /> : (
+          <div className="bf-c360-scrollbar overflow-x-auto">
+            <table className="w-full min-w-[980px] text-left">
+              <thead className="bg-[var(--bf-dev-surface-2)]"><tr>{['Date','Amount','Invoice','Mode / Reference','Status','Receipt','Actions'].map((heading)=><th key={heading} className="border-b border-[var(--bf-dev-border)] px-3 py-3 text-[11px] font-bold uppercase tracking-[.05em] text-[var(--bf-dev-text)]">{heading}</th>)}</tr></thead>
+              <tbody>{payments.map((payment)=>(
+                <tr key={payment.id} className="border-b border-[var(--bf-dev-border)] last:border-0">
+                  <td className="px-3 py-3 text-[12px] font-semibold text-[var(--bf-dev-text)]">{formatDate(payment.payment_date)}</td>
+                  <td className="px-3 py-3 text-[12px] font-extrabold text-[var(--bf-dev-text)]"><Money value={payment.amount}/></td>
+                  <td className="px-3 py-3 text-[12px] font-semibold text-[var(--bf-dev-text)]">{payment.invoice_number || 'Advance / Unallocated'}</td>
+                  <td className="px-3 py-3"><div className="text-[11px] font-semibold text-[var(--bf-dev-text)]">{humanize(payment.payment_mode)}</div><div className="mt-0.5 text-[10px] font-medium text-[var(--bf-dev-text)]">{payment.transaction_reference || 'No reference'}</div></td>
+                  <td className="px-3 py-3"><ToneBadge tone={statusTone(payment.status)}>{humanize(payment.status)}</ToneBadge></td>
+                  <td className="px-3 py-3">{payment.receipt ? <button type="button" onClick={()=>onReceipt(payment.receipt)} className="text-[11px] font-bold text-[var(--bf-dev-primary)] hover:underline">{payment.receipt.receipt_number}</button> : <span className="text-[11px] font-semibold text-[var(--bf-dev-text)]">—</span>}</td>
+                  <td className="px-3 py-3"><div className="flex flex-wrap gap-2">{['pending','submitted'].includes(String(payment.status).toLowerCase()) && <><Button icon={CheckCircle2} primary onClick={()=>onVerify(payment)}>Verify</Button><Button icon={X} danger onClick={()=>onReject(payment)}>Reject</Button></>}{payment.status==='verified'&&payment.receipt&&<Button icon={Eye} onClick={()=>onReceipt(payment.receipt)}>View Receipt</Button>}</div></td>
+                </tr>
+              ))}</tbody>
+            </table>
+          </div>
+        )}
+      </Section>
+    </div>
+  );
+}
+
+function InvoicesReceiptsPanel({ data, onCreate, onInvoice, onReceipt }) {
+  const commercial = data.commercial || {};
+  const invoices = commercial.invoices || data.invoices || [];
+  const receipts = commercial.receipts || data.receipts || [];
+  const summary = commercial.summary || {};
+
+  return (
+    <div className="space-y-4">
+      <Section title="Invoices" action={<Button icon={Plus} primary onClick={onCreate}>Generate Invoice</Button>}>
+        <div className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <CommercialMetric label="Total Invoiced" value={moneyText(summary.totalInvoiced)} />
+          <CommercialMetric label="Outstanding" value={moneyText(summary.outstanding)} tone={Number(summary.outstanding || 0) ? 'warning' : 'success'} />
+          <CommercialMetric label="Overdue" value={moneyText(summary.overdueBalance)} helper={`${Number(summary.overdueCount || 0)} invoice(s)`} tone={Number(summary.overdueCount || 0) ? 'danger' : 'neutral'} />
+          <CommercialMetric label="Receipts Issued" value={Number(summary.receiptCount || receipts.length).toLocaleString('en-IN')} />
+        </div>
+        {!invoices.length ? <Empty text="No invoices generated yet." /> : (
+          <div className="bf-c360-scrollbar overflow-x-auto">
+            <table className="w-full min-w-[920px] text-left">
+              <thead className="bg-[var(--bf-dev-surface-2)]"><tr>{['Invoice','Invoice / Due Date','Total','Paid','Balance','Status','Action'].map((heading)=><th key={heading} className="border-b border-[var(--bf-dev-border)] px-3 py-3 text-[11px] font-bold uppercase tracking-[.05em] text-[var(--bf-dev-text)]">{heading}</th>)}</tr></thead>
+              <tbody>{invoices.map((invoice)=>(
+                <tr key={invoice.id} className="border-b border-[var(--bf-dev-border)] last:border-0">
+                  <td className="px-3 py-3"><div className="text-[12px] font-extrabold text-[var(--bf-dev-text)]">{invoice.invoice_number}</div><div className="mt-0.5 text-[10px] font-semibold text-[var(--bf-dev-text)]">{humanize(invoice.invoice_type)}</div></td>
+                  <td className="px-3 py-3"><div className="text-[11px] font-semibold text-[var(--bf-dev-text)]">{formatDate(invoice.invoice_date)}</div><div className="mt-0.5 text-[10px] font-semibold text-[var(--bf-dev-text)]">Due {formatDate(invoice.due_date)}</div></td>
+                  <td className="px-3 py-3 text-[12px] font-extrabold text-[var(--bf-dev-text)]"><Money value={invoice.grand_total}/></td>
+                  <td className="px-3 py-3 text-[12px] font-semibold text-[var(--bf-dev-text)]"><Money value={invoice.paid_amount}/></td>
+                  <td className="px-3 py-3 text-[12px] font-semibold text-[var(--bf-dev-text)]"><Money value={invoice.balance_due}/></td>
+                  <td className="px-3 py-3"><ToneBadge tone={statusTone(invoice.display_status || invoice.status)}>{humanize(invoice.display_status || invoice.status)}</ToneBadge></td>
+                  <td className="px-3 py-3"><Button icon={Eye} onClick={()=>onInvoice(invoice)}>View</Button></td>
+                </tr>
+              ))}</tbody>
+            </table>
+          </div>
+        )}
+      </Section>
+
+      <Section title="Receipts">
+        {!receipts.length ? <Empty text="Receipts are issued automatically when a payment is verified." /> : (
+          <Table headers={['Receipt','Issued','Amount','Invoice','Reference','Action']} rows={receipts.map((receipt)=>{
+            const payment=receipt.payment||{};
+            return [receipt.receipt_number,formatDate(receipt.issued_at,true),<Money value={payment.amount ?? receipt.snapshot?.amount}/>,receipt.invoice_number||'Advance / Unallocated',payment.transaction_reference||receipt.snapshot?.transaction_reference||'—',<Button key={receipt.id} icon={Eye} onClick={()=>onReceipt(receipt)}>View</Button>];
+          })}/>
+        )}
+      </Section>
+    </div>
+  );
+}
+
+function UsageLimitsPanel({ data }) {
+  const metrics = data.overview?.usage || [];
+  const effectivePlan = data.effective?.plan || {};
+  const commercialPlan = (data.plans || []).find((plan)=>plan.plan_key===data.subscription?.plan_key) || null;
+  return (
+    <div className="space-y-4">
+      <Section title="Usage & Limits">
+        <div className="grid gap-3 xl:grid-cols-3">
+          {metrics.map((metric)=>(
+            <div key={metric.key} className="rounded-[9px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] p-4">
+              <div className="flex items-center justify-between gap-2"><div className="text-[11px] font-extrabold uppercase tracking-[.06em] text-[var(--bf-dev-text)]">{metric.label}</div><ToneBadge tone={metric.status==='critical'?'danger':metric.status==='warning'?'warning':'success'}>{humanize(metric.status)}</ToneBadge></div>
+              <div className="mt-2 text-[22px] font-black tracking-[-.03em] text-[var(--bf-dev-text)]">{Number(metric.used||0).toLocaleString('en-IN')} <span className="text-[13px] font-bold">/ {metric.limit===null?'Unlimited':Number(metric.limit).toLocaleString('en-IN')}</span></div>
+              {metric.limit!==null&&<div className="mt-3 h-2 overflow-hidden rounded-full bg-[var(--bf-dev-surface)]"><div className={cx('h-full rounded-full',metric.status==='critical'?'bg-rose-500':metric.status==='warning'?'bg-amber-500':'bg-emerald-500')} style={{width:`${Math.min(100,Number(metric.percent||0))}%`}}/></div>}
+              <div className="mt-2 text-[10px] font-semibold text-[var(--bf-dev-text)]">{metric.limit===null?'No hard limit on the effective plan.':`${metric.percent}% of effective plan capacity used.`}</div>
+            </div>
+          ))}
+        </div>
+      </Section>
+      <Section title="Limit Source">
+        <div className="grid gap-3 xl:grid-cols-2">
+          <div className="rounded-[8px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] p-4"><div className="text-[10px] font-bold uppercase text-[var(--bf-dev-text)]">Commercial Plan</div><div className="mt-1 text-[15px] font-extrabold text-[var(--bf-dev-text)]">{commercialPlan?.name||data.subscription?.plan_key||'Not assigned'}</div><PlanLimitsLine plan={commercialPlan}/></div>
+          <div className="rounded-[8px] border border-[rgb(var(--bf-dev-primary-rgb)/.24)] bg-[rgb(var(--bf-dev-primary-rgb)/.06)] p-4"><div className="text-[10px] font-bold uppercase text-[var(--bf-dev-text)]">Effective Runtime Plan</div><div className="mt-1 text-[15px] font-extrabold text-[var(--bf-dev-text)]">{effectivePlan?.name||data.effective?.planKey||'Not resolved'}</div><PlanLimitsLine plan={effectivePlan}/><div className="mt-2 text-[10px] font-semibold text-[var(--bf-dev-text)]">Source: {humanize(data.subscriptionContext?.effective_plan_source||'unknown')}</div></div>
+        </div>
+        <p className="mt-3 text-[10px] font-semibold leading-4 text-[var(--bf-dev-text)]">Usage is counted from live tenant runtime data. A commercial plan change is blocked when current tenant usage exceeds the selected plan limits.</p>
+      </Section>
+    </div>
+  );
+}
+
+function InvoiceDetail({ invoice, payments, onReceipt }) {
+  const linkedPayments=(payments||[]).filter((payment)=>payment.invoice_id===invoice.id);
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <CommercialMetric label="Invoice" value={invoice.invoice_number}/>
+        <CommercialMetric label="Total" value={moneyText(invoice.grand_total,invoice.currency)}/>
+        <CommercialMetric label="Paid" value={moneyText(invoice.paid_amount,invoice.currency)} tone="success"/>
+        <CommercialMetric label="Balance" value={moneyText(invoice.balance_due,invoice.currency)} tone={Number(invoice.balance_due||0)>0?'warning':'success'}/>
+      </div>
+      <Grid rows={[['Type',humanize(invoice.invoice_type)],['Status',humanize(invoice.display_status||invoice.status)],['Invoice Date',formatDate(invoice.invoice_date)],['Due Date',formatDate(invoice.due_date)],['Billing Period',`${formatDate(invoice.billing_period_start)} → ${formatDate(invoice.billing_period_end)}`],['Place of Supply',invoice.place_of_supply||'—']]}/>
+      <div>
+        <div className="mb-2 text-[12px] font-extrabold text-[var(--bf-dev-text)]">Line Items</div>
+        <Table headers={['Description','Qty','Rate','Discount','Tax','Taxable']} rows={(invoice.items||[]).map((item)=>[item.description,item.quantity,<Money value={item.rate}/>,<Money value={item.discount}/>,`${Number(item.tax_rate||0)}%`,<Money value={item.amount}/>])}/>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+        <CommercialMetric label="Subtotal" value={moneyText(invoice.subtotal,invoice.currency)}/>
+        <CommercialMetric label="Discount" value={moneyText(invoice.discount,invoice.currency)}/>
+        <CommercialMetric label="GST" value={moneyText(Number(invoice.cgst||0)+Number(invoice.sgst||0)+Number(invoice.igst||0),invoice.currency)}/>
+        <CommercialMetric label="Grand Total" value={moneyText(invoice.grand_total,invoice.currency)} tone="primary"/>
+      </div>
+      <div>
+        <div className="mb-2 text-[12px] font-extrabold text-[var(--bf-dev-text)]">Linked Payments</div>
+        {!linkedPayments.length?<Empty text="No payment linked to this invoice."/>:<Table headers={['Date','Amount','Status','Receipt']} rows={linkedPayments.map((payment)=>[formatDate(payment.payment_date),<Money value={payment.amount}/>,<ToneBadge tone={statusTone(payment.status)}>{humanize(payment.status)}</ToneBadge>,payment.receipt?<Button icon={Eye} onClick={()=>onReceipt(payment.receipt)}>{payment.receipt.receipt_number}</Button>:'—'])}/>}
+      </div>
+    </div>
+  );
+}
+
+function ReceiptDetail({ receipt }) {
+  const payment=receipt.payment||{};
+  return (
+    <div className="space-y-4">
+      <div className="rounded-[10px] border border-emerald-500/25 bg-emerald-500/[.06] p-5">
+        <div className="text-[10px] font-extrabold uppercase tracking-[.08em] text-[var(--bf-dev-text)]">Buddy Fleets Payment Receipt</div>
+        <div className="mt-1 text-[22px] font-black text-[var(--bf-dev-text)]">{receipt.receipt_number}</div>
+        <div className="mt-2"><ToneBadge tone="success">Verified Payment</ToneBadge></div>
+      </div>
+      <Grid rows={[['Issued At',formatDate(receipt.issued_at,true)],['Amount',moneyText(payment.amount??receipt.snapshot?.amount)],['Payment Date',formatDate(payment.payment_date??receipt.snapshot?.payment_date)],['Payment Mode',humanize(payment.payment_mode??receipt.snapshot?.payment_mode)],['Transaction Reference',payment.transaction_reference||receipt.snapshot?.transaction_reference||'—'],['Invoice',receipt.invoice_number||receipt.snapshot?.invoice_number||'Advance / Unallocated']]}/>
+      <p className="text-[10px] font-semibold leading-4 text-[var(--bf-dev-text)]">Receipt issuance is idempotent: one verified payment can have only one receipt. Re-verifying a previously verified payment returns the existing receipt instead of creating a duplicate.</p>
+    </div>
+  );
+}
+
 function FleetAccessPanel({ data, onAction }) {
   const settings = data.portalSettings || {};
   const packs = data.fleetPacks || [];
@@ -1041,7 +1335,6 @@ export default function Company360Page() {
   const company = data?.company || {};
   const profile = data?.profile || {};
   const subscription = data?.subscription || {};
-  const summary = data?.billingSummary || {};
   const activeEmployees = (data?.employees || []).filter((employee) => employee.status === 'active').length;
 
   async function act(payload, success) {
@@ -1159,17 +1452,17 @@ export default function Company360Page() {
 
               {tab === 'sites' && <SitesManagement sites={data.sites || []} onAdd={() => setModal({type:'site',site:null})} onEdit={(site) => setModal({type:'site',site})} />}
 
-              {tab === 'subscription' && <Section title="Subscription & Plan"><Grid rows={[["Status", humanize(subscription.status)], ["Selected commercial plan", subscription.plan_key || 'Not assigned'], ["Effective runtime plan", data.subscriptionContext?.effective_plan_key || data.effective?.planKey], ["Lifecycle access", humanize(data.subscriptionContext?.lifecycle_access || '—')], ["Trial Start", formatDate(subscription.trial_start_at)], ["Trial End", formatDate(subscription.trial_end_at)], ["Subscription Start", formatDate(subscription.subscription_start_at)], ["Subscription End", formatDate(subscription.subscription_end_at)]]} /></Section>}
+              {tab === 'subscription' && <SubscriptionPlanPanel data={data} onEdit={() => setModal({ type: 'subscription' })} />}
 
-              {tab === 'billing' && <Section title="Billing & Payments" action={<Button icon={Plus} primary onClick={() => setModal('payment')}>Record Payment</Button>}><Table headers={['Date', 'Amount', 'Mode', 'Reference', 'Status']} rows={(data.payments || []).map((payment) => [formatDate(payment.payment_date), <Money value={payment.amount} />, humanize(payment.payment_mode), payment.transaction_reference, humanize(payment.status)])} /></Section>}
+              {tab === 'billing' && <BillingPaymentsPanel data={data} onRecord={() => setModal('payment')} onVerify={(payment) => act({ action: 'verify_payment', paymentId: payment.id }, 'Payment verified and receipt issued.')} onReject={(payment) => setModal({ type: 'reject_payment', payment })} onReceipt={(receipt) => setModal({ type: 'receipt_detail', receipt })} />}
 
-              {tab === 'invoices' && <Section title="Invoices & Receipts" action={<Button icon={Plus} primary onClick={() => setModal('invoice')}>Generate Invoice</Button>}><Table headers={['Invoice', 'Date', 'Due', 'Amount', 'Paid', 'Status']} rows={(data.invoices || []).map((invoice) => [invoice.invoice_number, formatDate(invoice.invoice_date), formatDate(invoice.due_date), <Money value={invoice.grand_total} />, <Money value={invoice.paid_amount} />, humanize(invoice.status)])} /></Section>}
+              {tab === 'invoices' && <InvoicesReceiptsPanel data={data} onCreate={() => setModal('invoice')} onInvoice={(invoice) => setModal({ type: 'invoice_detail', invoice })} onReceipt={(receipt) => setModal({ type: 'receipt_detail', receipt })} />}
 
               {tab === 'employees' && <Section title="Employees & Access" action={<Button icon={UserPlus} primary onClick={() => setModal('employee')}>Add Employee</Button>}><div className="space-y-2">{!(data.employees || []).length && <Empty />}{(data.employees || []).map((employee) => <div key={employee.id} className="flex flex-col gap-3 rounded-[8px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] p-4 lg:flex-row lg:items-center lg:justify-between"><div><div className="text-[13px] font-bold text-[var(--bf-dev-text)]">{employee.full_name}</div><div className="mt-1 text-[12px] font-medium text-[var(--bf-dev-text)]">{employee.email} · {humanize(employee.role_key)} · {employee.branch || 'No branch'} · {humanize(employee.status)}</div></div><div className="flex flex-wrap gap-2">{employee.status === 'blocked' ? <Button icon={Unlock} onClick={() => act({ action: 'unblock_employee', employeeId: employee.id }, 'Employee access restored.')}>Unblock</Button> : <Button icon={Lock} danger onClick={() => act({ action: 'block_employee', employeeId: employee.id }, 'Employee blocked.')}>Block</Button>}<Button icon={KeyRound} onClick={() => setModal({ type: 'reset', employee })}>Reset Password</Button></div></div>)}</div></Section>}
 
               {tab === 'documents' && <DocumentsManagement documents={data.documents || []} onUpload={() => setModal({type:'document'})} onView={viewDocument} onVerify={(doc)=>act({action:'verify_document',documentId:doc.id},'Document verified.')} onReject={(doc)=>act({action:'reject_document',documentId:doc.id},'Document rejected.')} />}
 
-              {tab === 'usage' && <Section title="Usage & Limits"><Grid rows={[["Vehicles", `— / ${data.effective?.limits?.vehicles_max ?? 'Unlimited'}`], ["Employees", `${activeEmployees} / ${data.effective?.limits?.users ?? 'Unlimited'}`], ["Branches / Sites", `${(data.sites || []).filter((site) => site.status === 'active').length} / ${data.effective?.limits?.sites ?? 'Unlimited'}`]]} /><p className="mt-3 text-[12px] font-medium text-[var(--bf-dev-text)]">Vehicle usage will be connected to the authoritative transport runtime in its dedicated phase. Employee and site counts shown here are current live tenant counts.</p></Section>}
+              {tab === 'usage' && <UsageLimitsPanel data={data} />}
 
               {tab === 'fleet' && <FleetAccessPanel data={data} onAction={act} />}
 
@@ -1196,15 +1489,34 @@ export default function Company360Page() {
 
       {notice && <Toast tone={notice.tone} message={notice.message} onClose={() => setNotice(null)} />}
 
-      {modal && <ModalShell title={typeof modal === 'object' && modal.type === 'reset' ? 'Reset Employee Password' : modal?.type === 'profile' ? 'Edit Company Profile' : modal?.type === 'internal_profile' ? 'Internal Account Ownership' : modal?.type === 'site' ? (modal.site ? 'Edit Site / Branch' : 'Add Site / Branch') : modal?.type === 'document' ? 'Upload Company Document' : modal === 'employee' ? 'Add Employee' : modal === 'payment' ? 'Record Payment' : modal === 'invoice' ? 'Generate Invoice' : modal === 'announcement' ? 'Send Company Announcement' : 'Add Internal Note'} onClose={() => setModal(null)}>
+      {modal && <ModalShell title={
+        modal?.type === 'reset' ? 'Reset Employee Password'
+          : modal?.type === 'profile' ? 'Edit Company Profile'
+            : modal?.type === 'internal_profile' ? 'Internal Account Ownership'
+              : modal?.type === 'site' ? (modal.site ? 'Edit Site / Branch' : 'Add Site / Branch')
+                : modal?.type === 'document' ? 'Upload Company Document'
+                  : modal?.type === 'subscription' ? 'Edit Commercial Subscription'
+                    : modal?.type === 'reject_payment' ? 'Reject Payment'
+                      : modal?.type === 'invoice_detail' ? `Invoice ${modal.invoice?.invoice_number || ''}`
+                        : modal?.type === 'receipt_detail' ? `Receipt ${modal.receipt?.receipt_number || ''}`
+                          : modal === 'employee' ? 'Add Employee'
+                            : modal === 'payment' ? 'Record Payment'
+                              : modal === 'invoice' ? 'Generate Invoice'
+                                : modal === 'announcement' ? 'Send Company Announcement'
+                                  : 'Add Internal Note'
+      } onClose={() => setModal(null)}>
         {modal?.type === 'profile' && <ProfileForm company={company} profile={profile} onSubmit={(payload)=>act({action:'update_profile',...payload,expectedRevision:profile.revision||0},'Company profile updated.')} />}
         {modal?.type === 'internal_profile' && <InternalProfileForm value={data.internalProfile||{}} assignees={data.developerAssignees||[]} onSubmit={(payload)=>act({action:'save_internal_profile',...payload,expectedRevision:data.internalProfile?.revision||0},'Internal ownership updated.')} />}
         {modal?.type === 'site' && <SiteForm site={modal.site} onSubmit={(payload)=>act({action:'save_site',...payload,siteId:modal.site?.id||null},modal.site?'Site updated.':'Site created.')} />}
         {modal?.type === 'document' && <DocumentUploadForm onSubmit={uploadDocument} />}
+        {modal?.type === 'subscription' && <SubscriptionForm data={data} onSubmit={(payload)=>act({action:'update_subscription',...payload},'Commercial subscription updated.')} />}
         {modal === 'employee' && <EmployeeForm onSubmit={(payload) => act({ action: 'create_employee', ...payload }, 'Employee created successfully.')} />}
-        {typeof modal === 'object' && modal.type === 'reset' && <ResetForm employee={modal.employee} onSubmit={(payload) => act({ action: 'reset_password', employeeId: modal.employee.id, ...payload }, 'Password reset successfully.')} />}
-        {modal === 'payment' && <PaymentForm invoices={data.invoices || []} onSubmit={(payload) => act({ action: 'record_payment', ...payload }, 'Payment recorded.')} />}
+        {modal?.type === 'reset' && <ResetForm employee={modal.employee} onSubmit={(payload) => act({ action: 'reset_password', employeeId: modal.employee.id, ...payload }, 'Password reset successfully.')} />}
+        {modal === 'payment' && <PaymentForm invoices={data.commercial?.invoices || data.invoices || []} onSubmit={(payload) => act({ action: 'record_payment', ...payload }, 'Payment recorded for verification.')} />}
+        {modal?.type === 'reject_payment' && <RejectPaymentForm payment={modal.payment} onSubmit={(payload)=>act({action:'reject_payment',paymentId:modal.payment.id,...payload},'Payment rejected.')} />}
         {modal === 'invoice' && <InvoiceForm onSubmit={(payload) => act({ action: 'create_invoice', ...payload }, 'Invoice generated.')} />}
+        {modal?.type === 'invoice_detail' && <InvoiceDetail invoice={modal.invoice} payments={data.commercial?.payments || data.payments || []} onReceipt={(receipt)=>setModal({type:'receipt_detail',receipt})} />}
+        {modal?.type === 'receipt_detail' && <ReceiptDetail receipt={modal.receipt} />}
         {modal === 'announcement' && <AnnouncementForm onSubmit={(payload) => act({ action: 'send_announcement', ...payload }, 'Announcement published to company employees.')} />}
         {modal === 'note' && <NoteForm onSubmit={(payload) => act({ action: 'add_note', ...payload }, 'Note saved.')} />}
       </ModalShell>}
@@ -1669,15 +1981,146 @@ function ResetForm({ employee, onSubmit }) {
   return <form onSubmit={(event) => { event.preventDefault(); onSubmit({ password, forcePasswordChange: true }); }}><p className="mb-3 text-[12px] font-medium text-[var(--bf-dev-text)]">Reset password for {employee.full_name}. Current password is never displayed.</p><Field title="New Password *" type="password" minLength={8} required value={password} onChange={(event) => setPassword(event.target.value)} /><Submit text="Reset Password" /></form>;
 }
 
+function SubscriptionForm({ data, onSubmit }) {
+  const subscription = data.subscription || {};
+  const plans = (data.plans || []).filter((plan) => plan.status === 'active');
+  const usage = data.overview?.usage || [];
+  const [form, setForm] = useState({
+    expectedRevision: Number(subscription.revision || 1),
+    planKey: subscription.plan_key || '',
+    status: subscription.status || 'trial_active',
+    trialStartAt: dateInputValue(subscription.trial_start_at),
+    trialEndAt: dateInputValue(subscription.trial_end_at),
+    subscriptionStartAt: dateInputValue(subscription.subscription_start_at),
+    subscriptionEndAt: dateInputValue(subscription.subscription_end_at),
+    reason: '',
+  });
+  const selectedPlan = plans.find((plan) => plan.plan_key === form.planKey) || null;
+  const selectedLimits = selectedPlan?.limits || {};
+  const usageMap = Object.fromEntries(usage.map((metric) => [metric.key, Number(metric.used || 0)]));
+  const conflicts = [];
+  if (selectedPlan) {
+    if (selectedLimits.vehicles_max != null && Number(usageMap.vehicles || 0) > Number(selectedLimits.vehicles_max)) conflicts.push(`Vehicles ${usageMap.vehicles || 0}/${selectedLimits.vehicles_max}`);
+    if (selectedLimits.users != null && Number(usageMap.employees || 0) > Number(selectedLimits.users)) conflicts.push(`Users ${usageMap.employees || 0}/${selectedLimits.users}`);
+    if (selectedLimits.sites != null && Number(usageMap.sites || 0) > Number(selectedLimits.sites)) conflicts.push(`Sites ${usageMap.sites || 0}/${selectedLimits.sites}`);
+  }
+  const companyBlocked = ['pending_confirmation', 'suspended', 'cancelled'].includes(String(data.company?.status || '').toLowerCase());
+  const set = (key) => (event) => setForm((current) => ({ ...current, [key]: event.target.value }));
+
+  return (
+    <form onSubmit={(event) => { event.preventDefault(); onSubmit(form); }}>
+      <div className="rounded-[8px] border border-[rgb(var(--bf-dev-primary-rgb)/.24)] bg-[rgb(var(--bf-dev-primary-rgb)/.06)] p-3 text-[11px] font-semibold leading-5 text-[var(--bf-dev-text)]">
+        This changes the commercial subscription only. Effective Runtime Access is still resolved by lifecycle state, trial rules, fleet packs and overrides.
+      </div>
+      {companyBlocked && <div className="mt-3 rounded-[8px] border border-amber-500/30 bg-amber-500/10 p-3 text-[11px] font-semibold leading-5 text-[var(--bf-dev-text)]">Company control state is {humanize(data.company?.status)}. Commercial edits cannot bypass suspension, cancellation or pending-confirmation controls.</div>}
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <Select title="Commercial Plan" value={form.planKey} onChange={set('planKey')}>
+          <option value="">No paid plan assigned</option>
+          {plans.map((plan) => <option key={plan.plan_key} value={plan.plan_key}>{plan.name}</option>)}
+        </Select>
+        <Select title="Subscription Status" value={form.status} onChange={set('status')}>
+          <option value="trial_active">Trial Active</option>
+          <option value="trial_expired">Trial Expired</option>
+          <option value="active">Paid Active</option>
+        </Select>
+        <Field title="Trial Start" type="date" value={form.trialStartAt} onChange={set('trialStartAt')} />
+        <Field title="Trial End" type="date" value={form.trialEndAt} onChange={set('trialEndAt')} />
+        <Field title="Paid Term Start" type="date" value={form.subscriptionStartAt} onChange={set('subscriptionStartAt')} />
+        <Field title="Paid Term End" type="date" value={form.subscriptionEndAt} onChange={set('subscriptionEndAt')} />
+      </div>
+      {selectedPlan && <div className="mt-3 rounded-[8px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] p-3"><div className="flex flex-wrap items-center justify-between gap-2"><div><div className="text-[12px] font-extrabold text-[var(--bf-dev-text)]">{selectedPlan.name}</div><PlanLimitsLine plan={selectedPlan}/></div><div className="flex flex-wrap gap-1.5">{[1,6,12].map((months)=><ToneBadge key={months} tone="neutral">{months}M {moneyText(selectedPlan.prices?.[String(months)] || 0,selectedPlan.currency||'INR')}</ToneBadge>)}</div></div></div>}
+      {!!conflicts.length && <div className="mt-3 rounded-[8px] border border-rose-500/30 bg-rose-500/10 p-3 text-[11px] font-semibold leading-5 text-[var(--bf-dev-text)]">Current tenant usage exceeds this plan: {conflicts.join(' · ')}. Server will block the downgrade until usage is reduced or a suitable plan is selected.</div>}
+      <label className={`${label} mt-3`}>Change Reason *<textarea required minLength={3} rows={4} value={form.reason} onChange={set('reason')} className={`${input} h-auto py-2`} placeholder="Why is the commercial subscription being changed?" /></label>
+      <div className="mt-2 text-[10px] font-semibold text-[var(--bf-dev-text)]">Revision {form.expectedRevision}. If another admin changes this subscription first, this save will be rejected instead of overwriting their change.</div>
+      <Submit text="Save Commercial Subscription" />
+    </form>
+  );
+}
+
 function PaymentForm({ invoices, onSubmit }) {
-  const [form, setForm] = useState({ invoiceId: '', amount: '', paymentDate: new Date().toISOString().slice(0, 10), paymentMode: 'bank_transfer', transactionReference: '', proofUrl: '', status: 'submitted', remarks: '' });
-  return <form onSubmit={(event) => { event.preventDefault(); onSubmit(form); }}><div className="grid gap-3 sm:grid-cols-2"><Select title="Invoice" value={form.invoiceId} onChange={(event) => setForm({ ...form, invoiceId: event.target.value })}><option value="">Unallocated / Advance</option>{invoices.map((invoice) => <option key={invoice.id} value={invoice.id}>{invoice.invoice_number} · ₹{invoice.grand_total}</option>)}</Select><Field title="Amount *" type="number" min="0" step="0.01" required value={form.amount} onChange={(event) => setForm({ ...form, amount: event.target.value })} /><Field title="Payment Date *" type="date" required value={form.paymentDate} onChange={(event) => setForm({ ...form, paymentDate: event.target.value })} /><Select title="Mode" value={form.paymentMode} onChange={(event) => setForm({ ...form, paymentMode: event.target.value })}><option value="upi">UPI</option><option value="bank_transfer">Bank Transfer / NEFT / RTGS / IMPS</option><option value="card">Card</option><option value="payment_gateway">Payment Gateway</option><option value="cheque">Cheque</option><option value="cash">Cash</option><option value="other">Other</option></Select><Field title="Transaction / UTR" value={form.transactionReference} onChange={(event) => setForm({ ...form, transactionReference: event.target.value })} /><Field title="Payment Proof URL" value={form.proofUrl} onChange={(event) => setForm({ ...form, proofUrl: event.target.value })} /></div><Submit text="Record Payment" /></form>;
+  const payable = invoices.filter((invoice) => {
+    const state = String(invoice.display_status || invoice.status || '').toLowerCase();
+    const balance = Number(invoice.balance_due ?? (Number(invoice.grand_total || 0) - Number(invoice.paid_amount || 0)));
+    const available = Math.max(0, balance - Number(invoice.pending_payment_total || 0));
+    return !['draft','paid','cancelled','void'].includes(state) && available > 0.009;
+  });
+  const [form, setForm] = useState({ requestId: newRequestId(), invoiceId: '', amount: '', paymentDate: new Date().toISOString().slice(0, 10), paymentMode: 'bank_transfer', transactionReference: '', proofUrl: '', remarks: '' });
+  const selectedInvoice = payable.find((invoice) => invoice.id === form.invoiceId) || null;
+  const availableBalance = selectedInvoice ? Math.max(0, Number(selectedInvoice.balance_due ?? 0) - Number(selectedInvoice.pending_payment_total || 0)) : null;
+  const referenceRequired = form.paymentMode !== 'cash';
+
+  function chooseInvoice(event) {
+    const invoiceId = event.target.value;
+    const invoice = payable.find((row) => row.id === invoiceId);
+    const available = invoice ? Math.max(0, Number(invoice.balance_due ?? 0) - Number(invoice.pending_payment_total || 0)) : null;
+    setForm((current) => ({ ...current, invoiceId, amount: invoice && available > 0 ? available.toFixed(2) : current.amount }));
+  }
+
+  return (
+    <form onSubmit={(event) => { event.preventDefault(); onSubmit(form); }}>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Select title="Invoice Allocation" value={form.invoiceId} onChange={chooseInvoice}>
+          <option value="">Unallocated / Advance</option>
+          {payable.map((invoice) => <option key={invoice.id} value={invoice.id}>{invoice.invoice_number} · Open {moneyText(Math.max(0,Number(invoice.balance_due||0)-Number(invoice.pending_payment_total||0)),invoice.currency)}</option>)}
+        </Select>
+        <Field title="Amount *" type="number" min="0.01" step="0.01" required value={form.amount} onChange={(event) => setForm({ ...form, amount: event.target.value })} />
+        <Field title="Payment Date *" type="date" required value={form.paymentDate} onChange={(event) => setForm({ ...form, paymentDate: event.target.value })} />
+        <Select title="Mode" value={form.paymentMode} onChange={(event) => setForm({ ...form, paymentMode: event.target.value })}>
+          <option value="upi">UPI</option><option value="bank_transfer">Bank Transfer / NEFT / RTGS / IMPS</option><option value="card">Card</option><option value="payment_gateway">Payment Gateway</option><option value="cheque">Cheque</option><option value="cash">Cash</option><option value="other">Other</option>
+        </Select>
+        <Field title={`Transaction / UTR${referenceRequired ? ' *' : ''}`} required={referenceRequired} value={form.transactionReference} onChange={(event) => setForm({ ...form, transactionReference: event.target.value })} />
+        <Field title="Payment Proof URL" value={form.proofUrl} onChange={(event) => setForm({ ...form, proofUrl: event.target.value })} />
+      </div>
+      {selectedInvoice && <div className="mt-3 rounded-[8px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] p-3 text-[11px] font-semibold text-[var(--bf-dev-text)]">Invoice {selectedInvoice.invoice_number}: balance {moneyText(selectedInvoice.balance_due,selectedInvoice.currency)} · pending payments {moneyText(selectedInvoice.pending_payment_total,selectedInvoice.currency)} · currently available {moneyText(availableBalance,selectedInvoice.currency)}.</div>}
+      <label className={`${label} mt-3`}>Remarks<textarea rows={3} value={form.remarks} onChange={(event)=>setForm({...form,remarks:event.target.value})} className={`${input} h-auto py-2`} /></label>
+      <div className="mt-2 text-[10px] font-semibold leading-4 text-[var(--bf-dev-text)]">New payments are recorded as Submitted. Invoice paid totals and receipts change only after verification.</div>
+      <Submit text="Record Payment" />
+    </form>
+  );
+}
+
+function RejectPaymentForm({ payment, onSubmit }) {
+  const [reason,setReason]=useState('');
+  return <form onSubmit={(event)=>{event.preventDefault();onSubmit({reason});}}><div className="rounded-[8px] border border-rose-500/25 bg-rose-500/[.07] p-3 text-[11px] font-semibold leading-5 text-[var(--bf-dev-text)]">Reject {moneyText(payment.amount)} payment{payment.transaction_reference?` · ${payment.transaction_reference}`:''}. A verified payment cannot be rejected from this action.</div><label className={`${label} mt-3`}>Rejection Reason *<textarea required minLength={3} rows={4} value={reason} onChange={(event)=>setReason(event.target.value)} className={`${input} h-auto py-2`} /></label><Submit text="Reject Payment"/></form>;
 }
 
 function InvoiceForm({ onSubmit }) {
-  const [form, setForm] = useState({ invoiceType: 'subscription', invoiceDate: new Date().toISOString().slice(0, 10), dueDate: '', placeOfSupply: 'Gujarat', interstate: false, items: [{ description: 'Buddy Fleets Subscription', quantity: 1, rate: '', discount: 0, taxRate: 18, hsnSac: '' }] });
-  const item = form.items[0];
-  return <form onSubmit={(event) => { event.preventDefault(); onSubmit(form); }}><div className="grid gap-3 sm:grid-cols-2"><Select title="Invoice Type" value={form.invoiceType} onChange={(event) => setForm({ ...form, invoiceType: event.target.value })}><option value="subscription">Subscription</option><option value="renewal">Renewal</option><option value="upgrade">Upgrade / Downgrade</option><option value="addon">Add-on</option><option value="custom">Custom</option><option value="proforma">Proforma</option></Select><Field title="Invoice Date" type="date" value={form.invoiceDate} onChange={(event) => setForm({ ...form, invoiceDate: event.target.value })} /><Field title="Due Date" type="date" value={form.dueDate} onChange={(event) => setForm({ ...form, dueDate: event.target.value })} /><Field title="Place of Supply" value={form.placeOfSupply} onChange={(event) => setForm({ ...form, placeOfSupply: event.target.value })} /><Field title="Description" value={item.description} onChange={(event) => setForm({ ...form, items: [{ ...item, description: event.target.value }] })} /><Field title="Rate" type="number" min="0" step="0.01" required value={item.rate} onChange={(event) => setForm({ ...form, items: [{ ...item, rate: event.target.value }] })} /><Field title="Discount" type="number" min="0" step="0.01" value={item.discount} onChange={(event) => setForm({ ...form, items: [{ ...item, discount: event.target.value }] })} /><Field title="Tax %" type="number" min="0" max="100" value={item.taxRate} onChange={(event) => setForm({ ...form, items: [{ ...item, taxRate: event.target.value }] })} /></div><label className="mt-3 flex items-center gap-2 text-[12px] font-medium text-[var(--bf-dev-text)]"><input type="checkbox" checked={form.interstate} onChange={(event) => setForm({ ...form, interstate: event.target.checked })} />Inter-state supply (IGST)</label><Submit text="Generate Invoice" /></form>;
+  const newLine = () => ({ description: '', quantity: 1, rate: '', discount: 0, taxRate: 18, hsnSac: '' });
+  const [form, setForm] = useState({ requestId: newRequestId(), invoiceType: 'subscription', invoiceDate: new Date().toISOString().slice(0, 10), dueDate: '', billingPeriodStart: '', billingPeriodEnd: '', placeOfSupply: 'Gujarat', interstate: false, roundOff: 0, notes: '', terms: '', items: [{ ...newLine(), description: 'Buddy Fleets Subscription' }] });
+
+  function updateLine(index,key,value){setForm((current)=>({...current,items:current.items.map((item,itemIndex)=>itemIndex===index?{...item,[key]:value}:item)}));}
+  function addLine(){setForm((current)=>({...current,items:[...current.items,newLine()]}));}
+  function removeLine(index){setForm((current)=>({...current,items:current.items.filter((_,itemIndex)=>itemIndex!==index)}));}
+
+  const preview=form.items.reduce((acc,item)=>{
+    const qty=Math.max(0,Number(item.quantity||0)); const rate=Math.max(0,Number(item.rate||0)); const discount=Math.max(0,Number(item.discount||0)); const taxRate=Math.max(0,Number(item.taxRate||0));
+    const gross=qty*rate; const taxable=Math.max(0,gross-discount); const tax=taxable*taxRate/100;
+    acc.subtotal+=gross; acc.discount+=discount; acc.taxable+=taxable; acc.tax+=tax; return acc;
+  },{subtotal:0,discount:0,taxable:0,tax:0});
+  preview.total=preview.taxable+preview.tax+Number(form.roundOff||0);
+
+  return (
+    <form onSubmit={(event)=>{event.preventDefault();onSubmit(form);}}>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Select title="Invoice Type" value={form.invoiceType} onChange={(event)=>setForm({...form,invoiceType:event.target.value})}><option value="subscription">Subscription</option><option value="renewal">Renewal</option><option value="upgrade">Upgrade / Downgrade</option><option value="addon">Add-on</option><option value="custom">Custom</option><option value="proforma">Proforma</option></Select>
+        <Field title="Invoice Date *" type="date" required value={form.invoiceDate} onChange={(event)=>setForm({...form,invoiceDate:event.target.value})}/>
+        <Field title="Due Date" type="date" min={form.invoiceDate} value={form.dueDate} onChange={(event)=>setForm({...form,dueDate:event.target.value})}/>
+        <Field title="Place of Supply" value={form.placeOfSupply} onChange={(event)=>setForm({...form,placeOfSupply:event.target.value})}/>
+        <Field title="Billing Period Start" type="date" value={form.billingPeriodStart} onChange={(event)=>setForm({...form,billingPeriodStart:event.target.value})}/>
+        <Field title="Billing Period End" type="date" min={form.billingPeriodStart||undefined} value={form.billingPeriodEnd} onChange={(event)=>setForm({...form,billingPeriodEnd:event.target.value})}/>
+        <Field title="Round Off" type="number" min="-100" max="100" step="0.01" value={form.roundOff} onChange={(event)=>setForm({...form,roundOff:event.target.value})}/>
+        <label className="flex items-end gap-2 pb-2 text-[12px] font-semibold text-[var(--bf-dev-text)]"><input type="checkbox" checked={form.interstate} onChange={(event)=>setForm({...form,interstate:event.target.checked})}/>Inter-state supply (IGST)</label>
+      </div>
+
+      <div className="mt-4 flex items-center justify-between gap-3"><div><div className="text-[12px] font-extrabold text-[var(--bf-dev-text)]">Invoice Items</div><div className="mt-0.5 text-[10px] font-semibold text-[var(--bf-dev-text)]">Totals are recalculated and validated on the server.</div></div><Button icon={Plus} onClick={addLine}>Add Line</Button></div>
+      <div className="mt-2 space-y-2">{form.items.map((item,index)=><div key={index} className="rounded-[8px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] p-3"><div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-6"><div className="xl:col-span-2"><Field title="Description *" required value={item.description} onChange={(event)=>updateLine(index,'description',event.target.value)}/></div><Field title="Qty *" type="number" min="0.01" step="0.01" required value={item.quantity} onChange={(event)=>updateLine(index,'quantity',event.target.value)}/><Field title="Rate *" type="number" min="0" step="0.01" required value={item.rate} onChange={(event)=>updateLine(index,'rate',event.target.value)}/><Field title="Discount" type="number" min="0" step="0.01" value={item.discount} onChange={(event)=>updateLine(index,'discount',event.target.value)}/><Field title="Tax %" type="number" min="0" max="100" step="0.01" value={item.taxRate} onChange={(event)=>updateLine(index,'taxRate',event.target.value)}/><div className="xl:col-span-2"><Field title="HSN / SAC" value={item.hsnSac} onChange={(event)=>updateLine(index,'hsnSac',event.target.value)}/></div><div className="flex items-end xl:col-span-4"><Button icon={X} danger disabled={form.items.length===1} onClick={()=>removeLine(index)}>Remove Line</Button></div></div></div>)}</div>
+
+      <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-5"><CommercialMetric label="Subtotal" value={moneyText(preview.subtotal)}/><CommercialMetric label="Discount" value={moneyText(preview.discount)}/><CommercialMetric label="Taxable" value={moneyText(preview.taxable)}/><CommercialMetric label="GST" value={moneyText(preview.tax)}/><CommercialMetric label="Grand Total" value={moneyText(preview.total)} tone="primary"/></div>
+      <label className={`${label} mt-3`}>Notes<textarea rows={3} value={form.notes} onChange={(event)=>setForm({...form,notes:event.target.value})} className={`${input} h-auto py-2`}/></label>
+      <label className={`${label} mt-3`}>Terms<textarea rows={3} value={form.terms} onChange={(event)=>setForm({...form,terms:event.target.value})} className={`${input} h-auto py-2`}/></label>
+      <Submit text={form.invoiceType==='proforma'?'Create Proforma':'Generate Invoice'}/>
+    </form>
+  );
 }
 
 function AnnouncementForm({ onSubmit }) {

@@ -25,6 +25,11 @@ function send(res, status, payload) {
 function clean(value, max = 5000) { return String(value ?? '').trim().slice(0, max); }
 function money(value) { const n = Number(value); return Number.isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : null; }
 function asDate(value) { if (!value) return null; const t = Date.parse(value); return Number.isFinite(t) ? new Date(t).toISOString().slice(0,10) : undefined; }
+function asDateTimestamp(value, endOfDay = false) {
+  const date = asDate(value);
+  if (date === undefined || date === null) return date;
+  return `${date}T${endOfDay ? '23:59:59.999' : '00:00:00.000'}Z`;
+}
 
 function daysFromNow(value) {
   if (!value) return null;
@@ -86,6 +91,8 @@ function activityTitle(action = '') {
     invoice_create: 'Invoice generated',
     payment_record: 'Payment recorded',
     payment_verify: 'Payment verified',
+    payment_reject: 'Payment rejected',
+    subscription_update: 'Subscription updated',
     document_add: 'Document added',
     verify_document: 'Document verified',
     reject_document: 'Document rejected',
@@ -105,9 +112,15 @@ function activityTitle(action = '') {
 }
 
 function activityDescription(action = '', payload = {}) {
-  if (action === 'payment_verify' || action === 'payment_record') {
+  if (action === 'payment_verify' || action === 'payment_record' || action === 'payment_reject') {
     const amount = Number(payload?.amount);
-    return Number.isFinite(amount) ? `₹${amount.toLocaleString('en-IN')} payment` : 'Billing record updated';
+    const suffix = action === 'payment_reject' ? 'payment rejected' : action === 'payment_verify' ? 'payment verified' : 'payment recorded';
+    return Number.isFinite(amount) ? `₹${amount.toLocaleString('en-IN')} ${suffix}` : 'Billing record updated';
+  }
+  if (action === 'subscription_update') {
+    const plan = clean(payload?.plan_key, 100) || 'No commercial plan';
+    const status = clean(payload?.status, 100);
+    return status ? `${humanAction(plan)} · ${humanAction(status)}` : humanAction(plan);
   }
   if (action === 'invoice_create') {
     const number = clean(payload?.invoice_number, 120);
@@ -157,15 +170,21 @@ function buildOverviewIntelligence({
     usageMetric('sites', 'Sites', activeSites, siteLimit, 'sites'),
   ];
 
-  const verifiedPaid = (payments || []).filter((payment) => payment.status === 'verified').reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
-  const totalInvoiced = (invoices || []).reduce((sum, invoice) => sum + Number(invoice.grand_total || 0), 0);
-  const outstanding = Math.max(0, totalInvoiced - verifiedPaid);
+  const receivableInvoices = (invoices || []).filter((invoice) => !['draft', 'cancelled', 'void'].includes(String(invoice.status || '').toLowerCase()));
+  const totalInvoiced = receivableInvoices.reduce((sum, invoice) => sum + Number(invoice.grand_total || 0), 0);
+  const appliedPaid = receivableInvoices.reduce((sum, invoice) => sum + Math.min(Number(invoice.paid_amount || 0), Number(invoice.grand_total || 0)), 0);
+  const outstanding = receivableInvoices.reduce((sum, invoice) => sum + Math.max(0, Number(invoice.grand_total || 0) - Number(invoice.paid_amount || 0)), 0);
+  const verifiedPayments = (payments || []).filter((payment) => payment.status === 'verified');
+  const verifiedPaid = verifiedPayments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+  const unallocatedVerified = verifiedPayments.filter((payment) => !payment.invoice_id).reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
   const today = new Date().toISOString().slice(0, 10);
-  const overdueInvoices = (invoices || []).filter((invoice) => {
+  const overdueInvoices = receivableInvoices.filter((invoice) => {
     if (!invoice.due_date || invoice.due_date >= today) return false;
-    return !['paid', 'cancelled', 'void'].includes(String(invoice.status || '').toLowerCase()) && Number(invoice.paid_amount || 0) < Number(invoice.grand_total || 0);
+    return Number(invoice.paid_amount || 0) < Number(invoice.grand_total || 0);
   });
+  const overdueBalance = overdueInvoices.reduce((sum, invoice) => sum + Math.max(0, Number(invoice.grand_total || 0) - Number(invoice.paid_amount || 0)), 0);
   const pendingPayments = (payments || []).filter((payment) => ['submitted', 'pending'].includes(String(payment.status || '').toLowerCase()));
+  const pendingPaymentAmount = pendingPayments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
 
   const expiredDocuments = (documents || []).filter((document) => {
     const days = daysFromNow(document.expiry_date);
@@ -299,10 +318,146 @@ function buildOverviewIntelligence({
     diagnostics,
     provisioning,
     usage,
-    billing: { totalInvoiced, verifiedPaid, outstanding, overdueCount: overdueInvoices.length, pendingPayments: pendingPayments.length },
+    billing: {
+      totalInvoiced,
+      appliedPaid,
+      verifiedPaid,
+      unallocatedVerified,
+      outstanding,
+      overdueCount: overdueInvoices.length,
+      overdueBalance,
+      pendingPayments: pendingPayments.length,
+      pendingPaymentAmount,
+    },
     security: { activeSessions, lockedUsers, failedAuth24h, alerts24h: securityAlertTotal24h, blockedEmployees },
     access: { forcePasswordChange },
     recentActivity: (recentActivity || []).slice(0, 12),
+  };
+}
+
+
+function buildCommercialLedger({ invoices = [], invoiceItems = [], payments = [], receipts = [] }) {
+  const today = new Date().toISOString().slice(0, 10);
+  const itemMap = new Map();
+  for (const item of invoiceItems) {
+    const list = itemMap.get(item.invoice_id) || [];
+    list.push(item);
+    itemMap.set(item.invoice_id, list);
+  }
+
+  const receiptByPayment = new Map(receipts.map((receipt) => [receipt.payment_id, receipt]));
+  const verifiedByInvoice = new Map();
+  const pendingByInvoice = new Map();
+
+  for (const payment of payments) {
+    if (!payment.invoice_id) continue;
+    if (payment.status === 'verified') {
+      verifiedByInvoice.set(payment.invoice_id, (verifiedByInvoice.get(payment.invoice_id) || 0) + Number(payment.amount || 0));
+    }
+    if (['pending', 'submitted'].includes(String(payment.status || '').toLowerCase())) {
+      pendingByInvoice.set(payment.invoice_id, (pendingByInvoice.get(payment.invoice_id) || 0) + Number(payment.amount || 0));
+    }
+  }
+
+  const enrichedInvoices = invoices.map((invoice) => {
+    const total = Number(invoice.grand_total || 0);
+    const paid = Math.min(total, Number(invoice.paid_amount || 0));
+    const balance = Math.max(0, Math.round((total - paid) * 100) / 100);
+    const rawStatus = String(invoice.status || 'issued').toLowerCase();
+    const displayStatus = ['draft', 'cancelled', 'void'].includes(rawStatus)
+      ? rawStatus
+      : balance <= 0.01
+        ? 'paid'
+        : invoice.due_date && invoice.due_date < today
+          ? 'overdue'
+          : paid > 0
+            ? 'partially_paid'
+            : rawStatus === 'paid' ? 'issued' : rawStatus;
+    return {
+      ...invoice,
+      display_status: displayStatus,
+      balance_due: balance,
+      verified_payment_total: Math.round((verifiedByInvoice.get(invoice.id) || 0) * 100) / 100,
+      pending_payment_total: Math.round((pendingByInvoice.get(invoice.id) || 0) * 100) / 100,
+      items: (itemMap.get(invoice.id) || []).sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0)),
+    };
+  });
+
+  const invoiceMap = new Map(enrichedInvoices.map((invoice) => [invoice.id, invoice]));
+  const enrichedPayments = payments.map((payment) => ({
+    ...payment,
+    invoice_number: payment.invoice_id ? (invoiceMap.get(payment.invoice_id)?.invoice_number || '') : '',
+    receipt: receiptByPayment.get(payment.id) || null,
+  }));
+
+  const paymentMap = new Map(enrichedPayments.map((payment) => [payment.id, payment]));
+  const enrichedReceipts = receipts.map((receipt) => {
+    const payment = paymentMap.get(receipt.payment_id) || null;
+    return {
+      ...receipt,
+      payment,
+      invoice_number: payment?.invoice_number || receipt.snapshot?.invoice_number || '',
+    };
+  });
+
+  const receivable = enrichedInvoices.filter((invoice) => !['draft', 'cancelled', 'void'].includes(invoice.display_status));
+  const totalInvoiced = receivable.reduce((sum, invoice) => sum + Number(invoice.grand_total || 0), 0);
+  const appliedPaid = receivable.reduce((sum, invoice) => sum + Math.min(Number(invoice.paid_amount || 0), Number(invoice.grand_total || 0)), 0);
+  const outstanding = receivable.reduce((sum, invoice) => sum + Number(invoice.balance_due || 0), 0);
+  const overdue = receivable.filter((invoice) => invoice.display_status === 'overdue');
+  const overdueBalance = overdue.reduce((sum, invoice) => sum + Number(invoice.balance_due || 0), 0);
+  const verifiedPayments = enrichedPayments.filter((payment) => payment.status === 'verified');
+  const verifiedPaymentTotal = verifiedPayments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+  const unallocatedVerified = verifiedPayments.filter((payment) => !payment.invoice_id).reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+  const pendingPayments = enrichedPayments.filter((payment) => ['pending', 'submitted'].includes(String(payment.status || '').toLowerCase()));
+  const pendingPaymentAmount = pendingPayments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+
+  const integrityIssues = [];
+  for (const invoice of receivable) {
+    const verified = Number(invoice.verified_payment_total || 0);
+    if (Math.abs(verified - Number(invoice.paid_amount || 0)) > 0.01) {
+      integrityIssues.push({
+        key: `invoice_paid_mismatch:${invoice.id}`,
+        type: 'invoice_paid_mismatch',
+        invoice_id: invoice.id,
+        invoice_number: invoice.invoice_number,
+        stored_paid: Number(invoice.paid_amount || 0),
+        verified_paid: verified,
+      });
+    }
+  }
+  for (const payment of verifiedPayments) {
+    if (!payment.receipt) {
+      integrityIssues.push({
+        key: `receipt_missing:${payment.id}`,
+        type: 'receipt_missing',
+        payment_id: payment.id,
+        amount: Number(payment.amount || 0),
+      });
+    }
+  }
+
+  return {
+    invoices: enrichedInvoices,
+    payments: enrichedPayments,
+    receipts: enrichedReceipts,
+    summary: {
+      totalInvoiced: Math.round(totalInvoiced * 100) / 100,
+      appliedPaid: Math.round(appliedPaid * 100) / 100,
+      verifiedPaymentTotal: Math.round(verifiedPaymentTotal * 100) / 100,
+      unallocatedVerified: Math.round(unallocatedVerified * 100) / 100,
+      outstanding: Math.round(outstanding * 100) / 100,
+      overdueCount: overdue.length,
+      overdueBalance: Math.round(overdueBalance * 100) / 100,
+      pendingPayments: pendingPayments.length,
+      pendingPaymentAmount: Math.round(pendingPaymentAmount * 100) / 100,
+      receiptCount: enrichedReceipts.length,
+    },
+    integrity: {
+      healthy: integrityIssues.length === 0,
+      issueCount: integrityIssues.length,
+      issues: integrityIssues.slice(0, 50),
+    },
   };
 }
 
@@ -564,7 +719,7 @@ async function loadCompany(db, companyId) {
   if (!company) return null;
 
   const [
-    profileR, subscriptionR, overrideR, plansR, employeesR, invoicesR, paymentsR,
+    profileR, subscriptionR, overrideR, plansR, employeesR, invoicesR, paymentsR, receiptsR,
     documentsR, announcementsR, notesR, modulesR, portalR, policiesR, settingsR,
     fleetPacksR, companyModuleOverridesR, sitesR, rolesR, portalAccessR, portalProfilesR, internalProfileR,
     teamMembersR, platformAdminsR, subscriptionContextR, vehiclesR, securitySessionsR, securityEventsR, historyR, portalAuditR,
@@ -575,7 +730,8 @@ async function loadCompany(db, companyId) {
     db.from('developer_plans').select('*').order('display_order', { ascending: true }),
     db.from('developer_company_employees').select('*').eq('company_id', companyId).order('created_at', { ascending: true }),
     db.from('developer_company_invoices').select('*').eq('company_id', companyId).order('invoice_date', { ascending: false }),
-    db.from('developer_company_payments').select('*').eq('company_id', companyId).order('payment_date', { ascending: false }),
+    db.from('developer_company_payments').select('*').eq('company_id', companyId).order('payment_date', { ascending: false }).order('created_at', { ascending: false }),
+    db.from('developer_company_receipts').select('*').eq('company_id', companyId).order('issued_at', { ascending: false }),
     db.from('developer_company_documents').select('*').eq('company_id', companyId).order('created_at', { ascending: false }),
     db.from('developer_company_announcements').select('*').eq('company_id', companyId).order('created_at', { ascending: false }).limit(100),
     db.from('developer_company_notes').select('*').eq('company_id', companyId).order('created_at', { ascending: false }).limit(200),
@@ -599,10 +755,22 @@ async function loadCompany(db, companyId) {
     db.from('developer_saas_history').select('id,domain,entity_id,action,before_payload,after_payload,actor_user_id,created_at').eq('entity_id', companyId).order('created_at', { ascending: false }).limit(80),
     db.from('company_portal_audit').select('id,user_id,module_key,action_type,entity_type,entity_id,description,before_data,after_data,created_at').eq('company_id', companyId).order('created_at', { ascending: false }).limit(80),
   ]);
-  for (const r of [profileR,subscriptionR,overrideR,plansR,employeesR,invoicesR,paymentsR,documentsR,announcementsR,notesR,modulesR,portalR,policiesR,settingsR,fleetPacksR,companyModuleOverridesR,sitesR,rolesR,portalAccessR,portalProfilesR,internalProfileR,teamMembersR,platformAdminsR,vehiclesR,securitySessionsR,securityEventsR,historyR,portalAuditR]) {
+  for (const r of [profileR,subscriptionR,overrideR,plansR,employeesR,invoicesR,paymentsR,receiptsR,documentsR,announcementsR,notesR,modulesR,portalR,policiesR,settingsR,fleetPacksR,companyModuleOverridesR,sitesR,rolesR,portalAccessR,portalProfilesR,internalProfileR,teamMembersR,platformAdminsR,vehiclesR,securitySessionsR,securityEventsR,historyR,portalAuditR]) {
     if (r.error) throw r.error;
   }
   if (subscriptionContextR.error) console.warn('Subscription context resolver unavailable in Company 360:', subscriptionContextR.error.message);
+
+  let invoiceItems = [];
+  const invoiceIds = (invoicesR.data || []).map((row) => row.id).filter(Boolean);
+  for (let offset = 0; offset < invoiceIds.length; offset += 150) {
+    const batch = invoiceIds.slice(offset, offset + 150);
+    const itemsR = await db.from('developer_company_invoice_items')
+      .select('*')
+      .in('invoice_id', batch)
+      .order('sort_order', { ascending: true });
+    if (itemsR.error) throw itemsR.error;
+    invoiceItems = invoiceItems.concat(itemsR.data || []);
+  }
 
   let ownerAccess = null;
   let ownerBootstrap = null;
@@ -655,8 +823,12 @@ async function loadCompany(db, companyId) {
     });
   }
 
-  const totalInvoiced = (invoicesR.data || []).reduce((sum, invoice) => sum + Number(invoice.grand_total || 0), 0);
-  const totalPaid = (paymentsR.data || []).filter((payment) => payment.status === 'verified').reduce((sum,payment)=>sum+Number(payment.amount||0),0);
+  const commercial = buildCommercialLedger({
+    invoices: invoicesR.data || [],
+    invoiceItems,
+    payments: paymentsR.data || [],
+    receipts: receiptsR.data || [],
+  });
   const portalSettings = settingsR.data || null;
   const provisioningHealth = {
     portal_settings: Boolean(portalSettings),
@@ -747,8 +919,8 @@ async function loadCompany(db, companyId) {
     effectiveLimits,
     provisioningHealth,
     employees: employeesR.data || [],
-    invoices: invoicesR.data || [],
-    payments: paymentsR.data || [],
+    invoices: commercial.invoices,
+    payments: commercial.payments,
     documents: documentsR.data || [],
     portalAccess: portalAccessR.data || [],
     vehicleCount: vehiclesR.count || 0,
@@ -781,8 +953,11 @@ async function loadCompany(db, companyId) {
     override,
     plans,
     employees: employeesR.data || [],
-    invoices: invoicesR.data || [],
-    payments: paymentsR.data || [],
+    invoices: commercial.invoices,
+    invoiceItems,
+    payments: commercial.payments,
+    receipts: commercial.receipts,
+    commercial,
     documents: documentsR.data || [],
     announcements: announcementsR.data || [],
     notes: notesR.data || [],
@@ -790,7 +965,7 @@ async function loadCompany(db, companyId) {
     portalConfig: portalR.data || null,
     lifecycle,
     effective: { planKey, plan, limits: effectiveLimits, modules: effectiveModules },
-    billingSummary: { totalInvoiced, totalPaid, outstanding: Math.max(0, totalInvoiced - totalPaid) },
+    billingSummary: commercial.summary,
   };
 }
 
@@ -938,33 +1113,227 @@ async function documentAction(db, actor, companyId, body, companyData) {
   return {status:400,payload:{ok:false,code:'INVALID_DOCUMENT_ACTION'}};
 }
 
+async function updateCommercialSubscription(db, actor, companyId, body, companyData) {
+  const current = companyData.subscription;
+  if (!current) return { status:409, payload:{ok:false,code:'SUBSCRIPTION_NOT_FOUND'} };
+
+  const expectedRevision = Number(body.expectedRevision ?? current.revision ?? 1);
+  if (!Number.isInteger(expectedRevision) || expectedRevision < 1) {
+    return { status:400, payload:{ok:false,code:'INVALID_SUBSCRIPTION_REVISION'} };
+  }
+
+  const status = clean(body.status, 40).toLowerCase();
+  const planKey = clean(body.planKey, 80).toLowerCase();
+  const reason = clean(body.reason, 1000);
+  if (!['trial_active','trial_expired','active'].includes(status)) {
+    return { status:400, payload:{ok:false,code:'INVALID_SUBSCRIPTION_STATUS'} };
+  }
+  if (!reason || reason.length < 3) {
+    return { status:400, payload:{ok:false,code:'CHANGE_REASON_REQUIRED',message:'Add a short reason for this commercial change.'} };
+  }
+
+  const trialStartAt = asDateTimestamp(body.trialStartAt);
+  const trialEndAt = asDateTimestamp(body.trialEndAt, true);
+  const subscriptionStartAt = asDateTimestamp(body.subscriptionStartAt);
+  const subscriptionEndAt = asDateTimestamp(body.subscriptionEndAt, true);
+  if ([trialStartAt,trialEndAt,subscriptionStartAt,subscriptionEndAt].some((value) => value === undefined)) {
+    return { status:400, payload:{ok:false,code:'INVALID_SUBSCRIPTION_DATE'} };
+  }
+
+  const { data, error } = await db.rpc('developer_company360_update_subscription', {
+    p_company_id: companyId,
+    p_actor: actor,
+    p_expected_revision: expectedRevision,
+    p_plan_key: planKey || null,
+    p_status: status,
+    p_reason: reason,
+    p_trial_start_at: trialStartAt,
+    p_trial_end_at: trialEndAt,
+    p_subscription_start_at: subscriptionStartAt,
+    p_subscription_end_at: subscriptionEndAt,
+  });
+  if (error) throw error;
+  if (!data?.ok) {
+    return {
+      status: data?.code === 'REVISION_CONFLICT' ? 409 : data?.code === 'PLAN_LIMIT_CONFLICT' ? 409 : 400,
+      payload: { ok:false, ...data },
+    };
+  }
+
+  return { status:200, payload:{ok:true,subscription:data.subscription,companyStatus:data.company_status} };
+}
+
 async function createInvoice(db, actor, companyId, body, companyData) {
+  const requestId = clean(body.requestId, 80);
+  if (!UUID.test(requestId)) return {status:400,payload:{ok:false,code:'REQUEST_ID_REQUIRED'}};
+
   const items = Array.isArray(body.items) ? body.items.slice(0,100) : [];
   if (!items.length) return {status:400,payload:{ok:false,code:'INVOICE_ITEMS_REQUIRED'}};
-  const normalized = items.map((i,idx)=>{
-    const q=Number(i.quantity||1), r=money(i.rate), d=money(i.discount||0), tr=Number(i.taxRate||0);
-    if (!clean(i.description,500) || !Number.isFinite(q) || q<=0 || r===null || d===null || !Number.isFinite(tr) || tr<0 || tr>100) return null;
-    const base=Math.max(0,q*r-d); return {description:clean(i.description,500),quantity:q,rate:r,discount:d,tax_rate:tr,hsn_sac:clean(i.hsnSac,50),amount:base,sort_order:idx};
+
+  const normalized = items.map((item) => {
+    const quantity = Number(item.quantity ?? 1);
+    const rate = money(item.rate);
+    const discount = money(item.discount ?? 0);
+    const taxRate = Number(item.taxRate ?? 0);
+    const description = clean(item.description, 500);
+    if (!description || !Number.isFinite(quantity) || quantity <= 0 || rate === null || discount === null || !Number.isFinite(taxRate) || taxRate < 0 || taxRate > 100) return null;
+    return {
+      description,
+      quantity,
+      rate,
+      discount,
+      tax_rate: Math.round(taxRate * 100) / 100,
+      hsn_sac: clean(item.hsnSac, 50),
+    };
   });
-  if (normalized.some((x)=>!x)) return {status:400,payload:{ok:false,code:'INVALID_INVOICE_ITEM'}};
-  const subtotal=normalized.reduce((s,i)=>s+i.quantity*i.rate,0), discount=normalized.reduce((s,i)=>s+i.discount,0), taxable=Math.max(0,subtotal-discount);
-  const tax=normalized.reduce((s,i)=>s+(i.amount*i.tax_rate/100),0);
-  const interstate=Boolean(body.interstate); const cgst=interstate?0:tax/2, sgst=interstate?0:tax/2, igst=interstate?tax:0;
-  const roundOff=Number(body.roundOff||0); const grand=Math.round((taxable+tax+roundOff)*100)/100;
-  const { data: numData, error:numErr } = await db.rpc('developer_next_invoice_number'); if (numErr) throw numErr;
-  const profile=companyData.profile||{};
-  const { data: invoice, error } = await db.from('developer_company_invoices').insert({
-    company_id:companyId, invoice_number:numData, invoice_type:clean(body.invoiceType,50)||'subscription', invoice_date:asDate(body.invoiceDate)||new Date().toISOString().slice(0,10), due_date:asDate(body.dueDate),
-    subtotal,discount,taxable_amount:taxable,cgst,sgst,igst,round_off:roundOff,grand_total:grand,status:clean(body.status,30)||'issued',
-    billing_period_start:asDate(body.billingPeriodStart), billing_period_end:asDate(body.billingPeriodEnd), place_of_supply:clean(body.placeOfSupply,120), notes:clean(body.notes,5000), terms:clean(body.terms,5000),
-    company_snapshot:{company_name:companyData.company.company_name,company_code:companyData.company.company_code,gstin:profile.gstin||'',pan:profile.pan||'',address:[profile.address_line1,profile.address_line2,profile.city,profile.state,profile.postal_code].filter(Boolean).join(', ')},
-    plan_snapshot:{plan_key:companyData.effective.planKey,plan_name:companyData.effective.plan?.name||'',limits:companyData.effective.limits}, created_by:actor,updated_by:actor,
-  }).select('*').single();
+  if (normalized.some((item) => !item)) return {status:400,payload:{ok:false,code:'INVALID_INVOICE_ITEM'}};
+
+  const parsedInvoiceDate = asDate(body.invoiceDate);
+  const invoiceDate = parsedInvoiceDate === null ? new Date().toISOString().slice(0,10) : parsedInvoiceDate;
+  const dueDate = asDate(body.dueDate);
+  const billingPeriodStart = asDate(body.billingPeriodStart);
+  const billingPeriodEnd = asDate(body.billingPeriodEnd);
+  const roundOff = Number(body.roundOff ?? 0);
+  if (invoiceDate === undefined || [dueDate,billingPeriodStart,billingPeriodEnd].some((value) => value === undefined)) {
+    return {status:400,payload:{ok:false,code:'INVALID_INVOICE_DATE'}};
+  }
+  if (!Number.isFinite(roundOff) || roundOff < -100 || roundOff > 100) {
+    return {status:400,payload:{ok:false,code:'INVALID_ROUND_OFF'}};
+  }
+
+  const profile = companyData.profile || {};
+  const commercialPlanKey = companyData.subscription?.plan_key || '';
+  const commercialPlan = (companyData.plans || []).find((plan) => plan.plan_key === commercialPlanKey) || null;
+  const effectivePlan = companyData.effective?.plan || null;
+  const companySnapshot = {
+    company_name: companyData.company.company_name,
+    company_code: companyData.company.company_code,
+    legal_name: profile.legal_name || '',
+    trade_name: profile.trade_name || '',
+    gstin: profile.gstin || '',
+    pan: profile.pan || '',
+    email: profile.billing_email || profile.contact_email || '',
+    phone: profile.contact_mobile || '',
+    address: [profile.address_line1,profile.address_line2,profile.city,profile.state,profile.postal_code,profile.country].filter(Boolean).join(', '),
+  };
+  const planSnapshot = {
+    commercial_plan_key: commercialPlanKey || null,
+    commercial_plan_name: commercialPlan?.name || '',
+    commercial_plan_revision: commercialPlan?.revision || null,
+    effective_plan_key: companyData.subscriptionContext?.effective_plan_key || companyData.effective?.planKey || null,
+    effective_plan_name: effectivePlan?.name || '',
+    effective_plan_source: companyData.subscriptionContext?.effective_plan_source || null,
+    lifecycle_state: companyData.subscriptionContext?.lifecycle_state || null,
+    lifecycle_access: companyData.subscriptionContext?.lifecycle_access || null,
+    subscription_revision: companyData.subscription?.revision || 1,
+    limits: companyData.effective?.limits || {},
+  };
+
+  const { data, error } = await db.rpc('developer_company360_create_invoice', {
+    p_company_id: companyId,
+    p_actor: actor,
+    p_request_id: requestId,
+    p_invoice_type: clean(body.invoiceType,50) || 'subscription',
+    p_invoice_date: invoiceDate,
+    p_due_date: dueDate,
+    p_currency: commercialPlan?.currency || effectivePlan?.currency || 'INR',
+    p_billing_period_start: billingPeriodStart,
+    p_billing_period_end: billingPeriodEnd,
+    p_place_of_supply: clean(body.placeOfSupply,120),
+    p_notes: clean(body.notes,5000),
+    p_terms: clean(body.terms,5000),
+    p_interstate: Boolean(body.interstate),
+    p_round_off: roundOff,
+    p_items: normalized,
+    p_company_snapshot: companySnapshot,
+    p_plan_snapshot: planSnapshot,
+  });
   if (error) throw error;
-  const { error: itemErr } = await db.from('developer_company_invoice_items').insert(normalized.map(i=>({...i,invoice_id:invoice.id})));
-  if (itemErr) throw itemErr;
-  await history(db, actor, companyId, 'invoice_create', { invoice_id:invoice.id, invoice_number:invoice.invoice_number, total:grand });
-  return {status:201,payload:{ok:true,invoice}};
+  if (!data?.ok) return {status:400,payload:{ok:false,...data}};
+
+  const invoice = data.invoice || null;
+  return {status:data.created ? 201 : 200,payload:{ok:true,invoice,created:Boolean(data.created),idempotent:!data.created}};
+}
+
+async function recordPayment(db, actor, companyId, body) {
+  const requestId = clean(body.requestId,80);
+  const amount = money(body.amount);
+  const paymentDate = asDate(body.paymentDate);
+  const invoiceId = UUID.test(clean(body.invoiceId,80)) ? clean(body.invoiceId,80) : null;
+  const paymentMode = clean(body.paymentMode,50).toLowerCase() || 'bank_transfer';
+  const transactionReference = clean(body.transactionReference,200);
+  if (!UUID.test(requestId)) return {status:400,payload:{ok:false,code:'REQUEST_ID_REQUIRED'}};
+  if (amount === null || amount <= 0 || !paymentDate || paymentDate === undefined) {
+    return {status:400,payload:{ok:false,code:'INVALID_PAYMENT'}};
+  }
+  if (!['upi','bank_transfer','card','payment_gateway','cheque','cash','other'].includes(paymentMode)) {
+    return {status:400,payload:{ok:false,code:'INVALID_PAYMENT_MODE'}};
+  }
+  if (paymentMode !== 'cash' && !transactionReference) {
+    return {status:400,payload:{ok:false,code:'TRANSACTION_REFERENCE_REQUIRED',message:'Transaction / UTR reference is required for non-cash payments.'}};
+  }
+
+  const { data, error } = await db.rpc('developer_company360_record_payment', {
+    p_company_id: companyId,
+    p_actor: actor,
+    p_request_id: requestId,
+    p_invoice_id: invoiceId,
+    p_amount: amount,
+    p_payment_date: paymentDate,
+    p_payment_mode: paymentMode,
+    p_transaction_reference: transactionReference,
+    p_proof_url: clean(body.proofUrl,1000),
+    p_remarks: clean(body.remarks,3000),
+  });
+  if (error) throw error;
+  if (!data?.ok) {
+    return {
+      status: ['PAYMENT_REFERENCE_EXISTS','PAYMENT_EXCEEDS_OPEN_BALANCE'].includes(data?.code) ? 409 : 400,
+      payload:{ok:false,...data},
+    };
+  }
+
+  return {status:data.created ? 201 : 200,payload:{ok:true,payment:data.payment,created:Boolean(data.created),idempotent:!data.created}};
+}
+
+async function verifyPayment(db, actor, companyId, body) {
+  const paymentId = clean(body.paymentId,80);
+  if (!UUID.test(paymentId)) return {status:400,payload:{ok:false,code:'INVALID_PAYMENT_ID'}};
+
+  const { data, error } = await db.rpc('developer_company360_verify_payment', {
+    p_company_id: companyId,
+    p_payment_id: paymentId,
+    p_actor: actor,
+  });
+  if (error) throw error;
+  if (!data?.ok) {
+    return {
+      status: data?.code === 'PAYMENT_NOT_FOUND' ? 404 : data?.code === 'PAYMENT_EXCEEDS_OPEN_BALANCE' ? 409 : 400,
+      payload:{ok:false,...data},
+    };
+  }
+
+  return {status:200,payload:{ok:true,payment:data.payment,invoice:data.invoice,receipt:data.receipt,idempotent:!data.verified_now}};
+}
+
+async function rejectPayment(db, actor, companyId, body) {
+  const paymentId = clean(body.paymentId,80);
+  const reason = clean(body.reason,1000);
+  if (!UUID.test(paymentId)) return {status:400,payload:{ok:false,code:'INVALID_PAYMENT_ID'}};
+  if (!reason || reason.length < 3) return {status:400,payload:{ok:false,code:'REJECTION_REASON_REQUIRED',message:'Add a reason before rejecting this payment.'}};
+
+  const { data, error } = await db.rpc('developer_company360_reject_payment', {
+    p_company_id: companyId,
+    p_payment_id: paymentId,
+    p_actor: actor,
+    p_reason: reason,
+  });
+  if (error) throw error;
+  if (!data?.ok) {
+    return {status:data?.code === 'PAYMENT_NOT_FOUND' ? 404 : 400,payload:{ok:false,...data}};
+  }
+
+  return {status:200,payload:{ok:true,payment:data.payment,idempotent:!data.changed}};
 }
 
 async function handlePost(db, actor, companyId, body) {
@@ -1032,24 +1401,11 @@ async function handlePost(db, actor, companyId, body) {
     await history(db,actor,companyId,'module_override_clear',{module_key:moduleKey});
     return {status:200,payload:{ok:true}};
   }
+  if(action==='update_subscription') return updateCommercialSubscription(db,actor,companyId,body,companyData);
   if(action==='create_invoice') return createInvoice(db,actor,companyId,body,companyData);
-  if(action==='record_payment'){
-    const amount=money(body.amount); const paymentDate=asDate(body.paymentDate); if(amount===null||!paymentDate) return {status:400,payload:{ok:false,code:'INVALID_PAYMENT'}};
-    const {data,error}=await db.from('developer_company_payments').insert({company_id:companyId,invoice_id:UUID.test(body.invoiceId||'')?body.invoiceId:null,amount,payment_date:paymentDate,payment_mode:clean(body.paymentMode,50)||'bank_transfer',transaction_reference:clean(body.transactionReference,200),proof_url:clean(body.proofUrl,1000),status:clean(body.status,30)||'submitted',remarks:clean(body.remarks,3000),created_by:actor}).select('*').single();
-    if(error) throw error;
-    await history(db,actor,companyId,'payment_record',{payment_id:data.id,amount:data.amount,status:data.status});
-    return {status:201,payload:{ok:true,payment:data}};
-  }
-  if(action==='verify_payment'){
-    const paymentId=clean(body.paymentId,80); const {data,error}=await db.from('developer_company_payments').update({status:'verified',verified_by:actor,verified_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq('id',paymentId).eq('company_id',companyId).select('*').single(); if(error) throw error;
-    if(data.invoice_id){ const {data:invoice}=await db.from('developer_company_invoices').select('id,grand_total,paid_amount').eq('id',data.invoice_id).maybeSingle(); if(invoice){ const paid=Number(invoice.paid_amount||0)+Number(data.amount||0); await db.from('developer_company_invoices').update({paid_amount:paid,status:paid>=Number(invoice.grand_total||0)?'paid':'partially_paid',updated_at:new Date().toISOString()}).eq('id',invoice.id); }}
-    const {data:receiptNo,error:rErr}=await db.rpc('developer_next_receipt_number');
-    if(rErr) throw rErr;
-    const receiptNumber=receiptNo||`BFR/${new Date().getFullYear()}/${String(Date.now()).slice(-8)}`;
-    const receiptResult=await db.from('developer_company_receipts').insert({company_id:companyId,payment_id:data.id,receipt_number:receiptNumber,snapshot:{amount:data.amount,payment_date:data.payment_date,payment_mode:data.payment_mode,transaction_reference:data.transaction_reference},created_by:actor});
-    if(receiptResult.error) throw receiptResult.error;
-    await history(db,actor,companyId,'payment_verify',{payment_id:data.id}); return {status:200,payload:{ok:true,payment:data}};
-  }
+  if(action==='record_payment') return recordPayment(db,actor,companyId,body);
+  if(action==='verify_payment') return verifyPayment(db,actor,companyId,body);
+  if(action==='reject_payment') return rejectPayment(db,actor,companyId,body);
   if(action==='send_announcement'){
     const title=clean(body.title,200), message=clean(body.message,10000); if(!title||!message)return {status:400,payload:{ok:false,code:'INVALID_ANNOUNCEMENT'}};
     const {data:ann,error}=await db.from('developer_company_announcements').insert({company_id:companyId,title,message,priority:clean(body.priority,20)||'normal',audience_type:'all_employees',require_acknowledgement:Boolean(body.requireAcknowledgement),allow_dismiss:body.allowDismiss!==false,starts_at:body.startsAt||new Date().toISOString(),expires_at:body.expiresAt||null,status:'published',created_by:actor}).select('*').single(); if(error) throw error;
