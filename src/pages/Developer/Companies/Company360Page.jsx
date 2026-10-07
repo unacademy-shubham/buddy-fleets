@@ -27,6 +27,9 @@ import {
   PackageCheck,
   PanelsTopLeft,
   Plus,
+  Pencil,
+  Eye,
+  Tags,
   ReceiptText,
   RefreshCcw,
   Save,
@@ -44,6 +47,7 @@ import {
   X,
 } from 'lucide-react';
 import { company360Action, getCompany360 } from '../../../services/developerCompany360Api';
+import { supabase } from '../../../supabaseClient';
 
 const NAV_GROUPS = [
   {
@@ -875,6 +879,38 @@ function OverviewPage({ data, activeEmployees, onOpen, company, profile }) {
   );
 }
 
+function ProfileManagement({ data, onEditProfile, onEditInternal }) {
+  const company=data.company||{}, profile=data.profile||{}, internal=data.internalProfile||{};
+  const assignees=new Map((data.developerAssignees||[]).map((row)=>[row.id,row]));
+  const manager=assignees.get(internal.account_manager_user_id), support=assignees.get(internal.support_owner_user_id);
+  return <div className="space-y-4">
+    <Section title="Company Profile" action={<Button icon={Pencil} primary onClick={onEditProfile}>Edit Profile</Button>}>
+      <Grid rows={[["Company Name",company.company_name],["Company Code",company.company_code],["Legal Name",profile.legal_name],["Trade Name",profile.trade_name],["Registration Type",profile.registration_type],["Business Type",profile.business_type],["GSTIN",profile.gstin],["PAN",profile.pan],["CIN / Registration",profile.cin],["Owner",profile.owner_name],["Owner Email",profile.owner_email],["Owner Mobile",profile.owner_mobile],["Company Email",profile.contact_email],["Company Mobile",profile.contact_mobile],["Billing Email",profile.billing_email],["Website",profile.website],["Address",[profile.address_line1,profile.address_line2,profile.city,profile.state,profile.postal_code,profile.country].filter(Boolean).join(', ')]]}/>
+    </Section>
+    <Section title="Internal Account Ownership" action={<Button icon={Tags} onClick={onEditInternal}>Manage Ownership</Button>}>
+      <Grid rows={[["Account Manager",manager?.full_name||manager?.email||'Unassigned'],["Support Owner",support?.full_name||support?.email||'Unassigned'],["Customer Segment",humanize(internal.customer_segment||'standard')],["Priority",humanize(internal.priority||'normal')],["Risk Level",humanize(internal.risk_level||'low')],["Internal Tags",Array.isArray(internal.tags)&&internal.tags.length?internal.tags.join(', '):'None']]}/>
+    </Section>
+  </div>;
+}
+
+function SitesManagement({ sites, onAdd, onEdit }) {
+  return <Section title="Sites & Branches" action={<Button icon={Plus} primary onClick={onAdd}>Add Site</Button>}>
+    {!sites.length?<Empty/>:<div className="grid gap-3 xl:grid-cols-2">{sites.map((site)=><div key={site.id} className="rounded-[8px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] p-4">
+      <div className="flex items-start justify-between gap-3"><div><div className="flex flex-wrap items-center gap-2"><span className="text-[14px] font-extrabold text-[var(--bf-dev-text)]">{site.name}</span>{site.is_primary&&<span className="rounded-full bg-emerald-500/12 px-2 py-1 text-[9px] font-extrabold text-emerald-500">PRIMARY</span>}</div><div className="mt-1 text-[11px] font-semibold text-[var(--bf-dev-text)]">{site.code} · {site.site_type} · {humanize(site.status)}</div></div><Button icon={Pencil} onClick={()=>onEdit(site)}>Edit</Button></div>
+      <div className="mt-3 border-t border-[var(--bf-dev-border)] pt-3 text-[11px] font-semibold leading-5 text-[var(--bf-dev-text)]">{[site.address,site.city,site.state,site.pincode].filter(Boolean).join(', ')||'Address not configured'}</div>
+    </div>)}</div>}
+  </Section>;
+}
+
+function DocumentsManagement({ documents, onUpload, onView, onVerify, onReject }) {
+  return <Section title="Documents & KYC" action={<Button icon={UploadCloud} primary onClick={onUpload}>Upload Document</Button>}>
+    {!documents.length?<Empty/>:<div className="space-y-2">{documents.map((doc)=><div key={doc.id} className="flex flex-col gap-3 rounded-[8px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] p-4 xl:flex-row xl:items-center xl:justify-between">
+      <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className="truncate text-[13px] font-extrabold text-[var(--bf-dev-text)]">{doc.document_name||humanize(doc.document_type)}</span><span className={cx('rounded-full px-2 py-1 text-[9px] font-extrabold',doc.status==='verified'?'bg-emerald-500/12 text-emerald-500':doc.status==='rejected'?'bg-rose-500/12 text-rose-500':'bg-amber-500/12 text-amber-500')}>{humanize(doc.status)}</span></div><div className="mt-1 text-[11px] font-semibold text-[var(--bf-dev-text)]">{humanize(doc.document_type)} · Expiry {formatDate(doc.expiry_date)}{doc.mime_type?` · ${doc.mime_type}`:''}</div></div>
+      <div className="flex flex-wrap gap-2"><Button icon={Eye} onClick={()=>onView(doc)}>View</Button>{doc.status!=='verified'&&<Button icon={CheckCircle2} onClick={()=>onVerify(doc)}>Verify</Button>}{doc.status!=='rejected'&&<Button danger icon={X} onClick={()=>onReject(doc)}>Reject</Button>}</div>
+    </div>)}</div>}
+  </Section>;
+}
+
 function FleetAccessPanel({ data, onAction }) {
   const settings = data.portalSettings || {};
   const packs = data.fleetPacks || [];
@@ -1035,6 +1071,21 @@ export default function Company360Page() {
     window.open(`https://portal.buddyfleets.in/${encodeURIComponent(company.subdomain_slug)}/`, '_blank', 'noopener,noreferrer');
   }
 
+  async function viewDocument(document) {
+    const result=await company360Action(companyId,{action:'get_document_url',documentId:document.id});
+    if(!result.ok||!result.url){setNotice({tone:'danger',message:result.message||result.code||'Unable to open document.'});return;}
+    window.open(result.url,'_blank','noopener,noreferrer');
+  }
+
+  async function uploadDocument(payload) {
+    const file=payload.file;
+    const ticket=await company360Action(companyId,{action:'request_document_upload',fileName:file.name,mimeType:file.type,fileSize:file.size});
+    if(!ticket.ok){setNotice({tone:'danger',message:ticket.message||ticket.code||'Unable to prepare secure upload.'});return false;}
+    const {error:uploadError}=await supabase.storage.from(ticket.bucket).uploadToSignedUrl(ticket.path,ticket.token,file,{contentType:file.type,upsert:false});
+    if(uploadError){setNotice({tone:'danger',message:uploadError.message||'Document upload failed.'});return false;}
+    return act({action:'add_document',documentType:payload.documentType,documentName:payload.documentName||file.name,expiryDate:payload.expiryDate||null,notes:payload.notes||'',storageBucket:ticket.bucket,storagePath:ticket.path,fileName:file.name,mimeType:file.type,fileSize:file.size},'Document uploaded for verification.');
+  }
+
   if (loading) {
     return (
       <div className="min-h-[calc(100dvh-var(--bf-header-height,66px))] bg-[var(--bf-dev-page-bg)] p-6 text-[var(--bf-dev-text)]">
@@ -1104,11 +1155,9 @@ export default function Company360Page() {
 
               {tab !== 'overview' && <div className="mb-5"><HeroCard company={company} profile={profile} data={data} activeEmployees={activeEmployees} /></div>}
 
-              {tab === 'profile' && <Section title="Company Profile"><Grid rows={[
-                ['Company Name', company.company_name], ['Company Code', company.company_code], ['Legal Name', profile.legal_name], ['Trade Name', profile.trade_name], ['GSTIN', profile.gstin], ['PAN', profile.pan], ['CIN / Registration', profile.cin], ['Aadhaar Ref', profile.aadhaar_last4 ? `•••• ${profile.aadhaar_last4}` : ''], ['Owner', profile.owner_name], ['Owner Email', profile.owner_email], ['Owner Mobile', profile.owner_mobile], ['Company Email', profile.contact_email], ['Company Mobile', profile.contact_mobile], ['Billing Email', profile.billing_email], ['Website', profile.website], ['Address', [profile.address_line1, profile.address_line2, profile.city, profile.state, profile.postal_code, profile.country].filter(Boolean).join(', ')],
-              ]} /></Section>}
+              {tab === 'profile' && <ProfileManagement data={data} onEditProfile={() => setModal({type:'profile'})} onEditInternal={() => setModal({type:'internal_profile'})} />}
 
-              {tab === 'sites' && <Section title="Sites & Branches"><Table headers={['Code', 'Site', 'Type', 'Primary', 'Status']} rows={(data.sites || []).map((site) => [site.code, site.name, site.site_type, site.is_primary ? 'Yes' : 'No', humanize(site.status)])} /></Section>}
+              {tab === 'sites' && <SitesManagement sites={data.sites || []} onAdd={() => setModal({type:'site',site:null})} onEdit={(site) => setModal({type:'site',site})} />}
 
               {tab === 'subscription' && <Section title="Subscription & Plan"><Grid rows={[["Status", humanize(subscription.status)], ["Selected commercial plan", subscription.plan_key || 'Not assigned'], ["Effective runtime plan", data.subscriptionContext?.effective_plan_key || data.effective?.planKey], ["Lifecycle access", humanize(data.subscriptionContext?.lifecycle_access || '—')], ["Trial Start", formatDate(subscription.trial_start_at)], ["Trial End", formatDate(subscription.trial_end_at)], ["Subscription Start", formatDate(subscription.subscription_start_at)], ["Subscription End", formatDate(subscription.subscription_end_at)]]} /></Section>}
 
@@ -1118,7 +1167,7 @@ export default function Company360Page() {
 
               {tab === 'employees' && <Section title="Employees & Access" action={<Button icon={UserPlus} primary onClick={() => setModal('employee')}>Add Employee</Button>}><div className="space-y-2">{!(data.employees || []).length && <Empty />}{(data.employees || []).map((employee) => <div key={employee.id} className="flex flex-col gap-3 rounded-[8px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface-2)] p-4 lg:flex-row lg:items-center lg:justify-between"><div><div className="text-[13px] font-bold text-[var(--bf-dev-text)]">{employee.full_name}</div><div className="mt-1 text-[12px] font-medium text-[var(--bf-dev-text)]">{employee.email} · {humanize(employee.role_key)} · {employee.branch || 'No branch'} · {humanize(employee.status)}</div></div><div className="flex flex-wrap gap-2">{employee.status === 'blocked' ? <Button icon={Unlock} onClick={() => act({ action: 'unblock_employee', employeeId: employee.id }, 'Employee access restored.')}>Unblock</Button> : <Button icon={Lock} danger onClick={() => act({ action: 'block_employee', employeeId: employee.id }, 'Employee blocked.')}>Block</Button>}<Button icon={KeyRound} onClick={() => setModal({ type: 'reset', employee })}>Reset Password</Button></div></div>)}</div></Section>}
 
-              {tab === 'documents' && <Section title="Documents & KYC"><Table headers={['Type', 'Document', 'Status', 'Expiry']} rows={(data.documents || []).map((document) => [humanize(document.document_type), document.document_name, humanize(document.status), formatDate(document.expiry_date)])} /></Section>}
+              {tab === 'documents' && <DocumentsManagement documents={data.documents || []} onUpload={() => setModal({type:'document'})} onView={viewDocument} onVerify={(doc)=>act({action:'verify_document',documentId:doc.id},'Document verified.')} onReject={(doc)=>act({action:'reject_document',documentId:doc.id},'Document rejected.')} />}
 
               {tab === 'usage' && <Section title="Usage & Limits"><Grid rows={[["Vehicles", `— / ${data.effective?.limits?.vehicles_max ?? 'Unlimited'}`], ["Employees", `${activeEmployees} / ${data.effective?.limits?.users ?? 'Unlimited'}`], ["Branches / Sites", `${(data.sites || []).filter((site) => site.status === 'active').length} / ${data.effective?.limits?.sites ?? 'Unlimited'}`]]} /><p className="mt-3 text-[12px] font-medium text-[var(--bf-dev-text)]">Vehicle usage will be connected to the authoritative transport runtime in its dedicated phase. Employee and site counts shown here are current live tenant counts.</p></Section>}
 
@@ -1147,7 +1196,11 @@ export default function Company360Page() {
 
       {notice && <Toast tone={notice.tone} message={notice.message} onClose={() => setNotice(null)} />}
 
-      {modal && <ModalShell title={typeof modal === 'object' && modal.type === 'reset' ? 'Reset Employee Password' : modal === 'employee' ? 'Add Employee' : modal === 'payment' ? 'Record Payment' : modal === 'invoice' ? 'Generate Invoice' : modal === 'announcement' ? 'Send Company Announcement' : 'Add Internal Note'} onClose={() => setModal(null)}>
+      {modal && <ModalShell title={typeof modal === 'object' && modal.type === 'reset' ? 'Reset Employee Password' : modal?.type === 'profile' ? 'Edit Company Profile' : modal?.type === 'internal_profile' ? 'Internal Account Ownership' : modal?.type === 'site' ? (modal.site ? 'Edit Site / Branch' : 'Add Site / Branch') : modal?.type === 'document' ? 'Upload Company Document' : modal === 'employee' ? 'Add Employee' : modal === 'payment' ? 'Record Payment' : modal === 'invoice' ? 'Generate Invoice' : modal === 'announcement' ? 'Send Company Announcement' : 'Add Internal Note'} onClose={() => setModal(null)}>
+        {modal?.type === 'profile' && <ProfileForm company={company} profile={profile} onSubmit={(payload)=>act({action:'update_profile',...payload,expectedRevision:profile.revision||0},'Company profile updated.')} />}
+        {modal?.type === 'internal_profile' && <InternalProfileForm value={data.internalProfile||{}} assignees={data.developerAssignees||[]} onSubmit={(payload)=>act({action:'save_internal_profile',...payload,expectedRevision:data.internalProfile?.revision||0},'Internal ownership updated.')} />}
+        {modal?.type === 'site' && <SiteForm site={modal.site} onSubmit={(payload)=>act({action:'save_site',...payload,siteId:modal.site?.id||null},modal.site?'Site updated.':'Site created.')} />}
+        {modal?.type === 'document' && <DocumentUploadForm onSubmit={uploadDocument} />}
         {modal === 'employee' && <EmployeeForm onSubmit={(payload) => act({ action: 'create_employee', ...payload }, 'Employee created successfully.')} />}
         {typeof modal === 'object' && modal.type === 'reset' && <ResetForm employee={modal.employee} onSubmit={(payload) => act({ action: 'reset_password', employeeId: modal.employee.id, ...payload }, 'Password reset successfully.')} />}
         {modal === 'payment' && <PaymentForm invoices={data.invoices || []} onSubmit={(payload) => act({ action: 'record_payment', ...payload }, 'Payment recorded.')} />}
@@ -1580,6 +1633,30 @@ function Select({ title, children, value, onChange, ...props }) {
 
 function Submit({ text = 'Save' }) {
   return <div className="mt-4 flex justify-end"><button style={{ color: '#FFFFFF' }} className="inline-flex min-h-10 items-center gap-2 rounded-[8px] bg-[var(--bf-dev-primary)] px-4 text-[12px] font-bold !text-white"><Save size={14} />{text}</button></div>;
+}
+
+function ProfileForm({ company, profile, onSubmit }) {
+  const [form,setForm]=useState({companyName:company.company_name||'',legalName:profile.legal_name||'',tradeName:profile.trade_name||'',registrationType:profile.registration_type||'',businessType:profile.business_type||'',gstin:profile.gstin||'',pan:profile.pan||'',aadhaarLast4:profile.aadhaar_last4||'',cin:profile.cin||'',contactEmail:profile.contact_email||'',contactMobile:profile.contact_mobile||'',alternateMobile:profile.alternate_mobile||'',billingEmail:profile.billing_email||'',website:profile.website||'',ownerName:profile.owner_name||'',ownerEmail:profile.owner_email||'',ownerMobile:profile.owner_mobile||'',addressLine1:profile.address_line1||'',addressLine2:profile.address_line2||'',city:profile.city||'',state:profile.state||'',postalCode:profile.postal_code||'',country:profile.country||'India',notes:profile.notes||''});
+  const set=(key)=>(event)=>setForm({...form,[key]:event.target.value});
+  return <form onSubmit={(event)=>{event.preventDefault();onSubmit(form);}}><div className="grid gap-3 sm:grid-cols-2"><Field title="Company Name *" required value={form.companyName} onChange={set('companyName')}/><Field title="Legal Name" value={form.legalName} onChange={set('legalName')}/><Field title="Trade Name" value={form.tradeName} onChange={set('tradeName')}/><Field title="Registration Type" value={form.registrationType} onChange={set('registrationType')}/><Field title="Business Type" value={form.businessType} onChange={set('businessType')}/><Field title="GSTIN" value={form.gstin} onChange={set('gstin')}/><Field title="PAN" value={form.pan} onChange={set('pan')}/><Field title="CIN / Registration" value={form.cin} onChange={set('cin')}/><Field title="Aadhaar Last 4" maxLength={4} value={form.aadhaarLast4} onChange={set('aadhaarLast4')}/><Field title="Company Email" type="email" value={form.contactEmail} onChange={set('contactEmail')}/><Field title="Company Mobile" value={form.contactMobile} onChange={set('contactMobile')}/><Field title="Alternate Mobile" value={form.alternateMobile} onChange={set('alternateMobile')}/><Field title="Billing Email" type="email" value={form.billingEmail} onChange={set('billingEmail')}/><Field title="Website" value={form.website} onChange={set('website')}/><Field title="Owner Name" value={form.ownerName} onChange={set('ownerName')}/><Field title="Owner Email" type="email" value={form.ownerEmail} onChange={set('ownerEmail')}/><Field title="Owner Mobile" value={form.ownerMobile} onChange={set('ownerMobile')}/><Field title="Address Line 1" value={form.addressLine1} onChange={set('addressLine1')}/><Field title="Address Line 2" value={form.addressLine2} onChange={set('addressLine2')}/><Field title="City" value={form.city} onChange={set('city')}/><Field title="State" value={form.state} onChange={set('state')}/><Field title="Postal Code" value={form.postalCode} onChange={set('postalCode')}/><Field title="Country" value={form.country} onChange={set('country')}/></div><label className={`${label} mt-3`}>Internal Company Notes<textarea rows={4} value={form.notes} onChange={set('notes')} className={`${input} h-auto py-2`}/></label><Submit text="Save Company Profile"/></form>;
+}
+
+function InternalProfileForm({ value, assignees, onSubmit }) {
+  const [form,setForm]=useState({accountManagerUserId:value.account_manager_user_id||'',supportOwnerUserId:value.support_owner_user_id||'',customerSegment:value.customer_segment||'standard',priority:value.priority||'normal',riskLevel:value.risk_level||'low',tags:Array.isArray(value.tags)?value.tags.join(', '):''});
+  const assigneeOptions=[{value:'',label:'Unassigned'},...assignees.map((row)=>({value:row.id,label:row.full_name||row.email||row.id}))];
+  return <form onSubmit={(event)=>{event.preventDefault();onSubmit({...form,tags:form.tags.split(',').map((v)=>v.trim()).filter(Boolean)});}}><div className="grid gap-3 sm:grid-cols-2"><label className={label}>Account Manager<SelectMenu value={form.accountManagerUserId} options={assigneeOptions} onChange={(value)=>setForm({...form,accountManagerUserId:value})}/></label><label className={label}>Support Owner<SelectMenu value={form.supportOwnerUserId} options={assigneeOptions} onChange={(value)=>setForm({...form,supportOwnerUserId:value})}/></label><Field title="Customer Segment" value={form.customerSegment} onChange={(event)=>setForm({...form,customerSegment:event.target.value})}/><Select title="Priority" value={form.priority} onChange={(event)=>setForm({...form,priority:event.target.value})}><option value="low">Low</option><option value="normal">Normal</option><option value="high">High</option><option value="critical">Critical</option></Select><Select title="Risk Level" value={form.riskLevel} onChange={(event)=>setForm({...form,riskLevel:event.target.value})}><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option><option value="critical">Critical</option></Select><Field title="Tags (comma separated)" value={form.tags} onChange={(event)=>setForm({...form,tags:event.target.value})}/></div><Submit text="Save Internal Ownership"/></form>;
+}
+
+function SiteForm({ site, onSubmit }) {
+  const [form,setForm]=useState({code:site?.code||'',name:site?.name||'',siteType:site?.site_type||'Branch Office',address:site?.address||'',city:site?.city||'',state:site?.state||'',pincode:site?.pincode||'',isPrimary:Boolean(site?.is_primary),status:site?.status||'active'});
+  const set=(key)=>(event)=>setForm({...form,[key]:event.target.value});
+  return <form onSubmit={(event)=>{event.preventDefault();onSubmit(form);}}><div className="grid gap-3 sm:grid-cols-2"><Field title="Site Code *" required value={form.code} onChange={set('code')}/><Field title="Site Name *" required value={form.name} onChange={set('name')}/><Select title="Site Type" value={form.siteType} onChange={set('siteType')}><option value="Head Office">Head Office</option><option value="Branch Office">Branch Office</option><option value="Depot">Depot</option><option value="Plant">Plant</option><option value="Warehouse">Warehouse</option><option value="Yard">Yard</option><option value="Other">Other</option></Select><Select title="Status" value={form.status} onChange={set('status')}><option value="active">Active</option><option value="inactive">Inactive</option><option value="archived">Archived</option></Select><Field title="Address" value={form.address} onChange={set('address')}/><Field title="City" value={form.city} onChange={set('city')}/><Field title="State" value={form.state} onChange={set('state')}/><Field title="Pincode" value={form.pincode} onChange={set('pincode')}/></div><label className="mt-3 flex items-center gap-2 text-[12px] font-semibold text-[var(--bf-dev-text)]"><input type="checkbox" checked={form.isPrimary} onChange={(event)=>setForm({...form,isPrimary:event.target.checked})}/>Set as primary site</label><Submit text={site?'Save Site':'Create Site'}/></form>;
+}
+
+function DocumentUploadForm({ onSubmit }) {
+  const [form,setForm]=useState({documentType:'gst_certificate',documentName:'',expiryDate:'',notes:'',file:null}); const [busy,setBusy]=useState(false);
+  async function submit(event){event.preventDefault();if(!form.file)return;setBusy(true);await onSubmit(form);setBusy(false);}
+  return <form onSubmit={submit}><div className="grid gap-3 sm:grid-cols-2"><Select title="Document Type" value={form.documentType} onChange={(event)=>setForm({...form,documentType:event.target.value})}><option value="gst_certificate">GST Certificate</option><option value="pan">PAN</option><option value="incorporation_certificate">Incorporation Certificate</option><option value="agreement">Agreement</option><option value="other">Other</option></Select><Field title="Document Name" value={form.documentName} onChange={(event)=>setForm({...form,documentName:event.target.value})}/><Field title="Expiry Date" type="date" value={form.expiryDate} onChange={(event)=>setForm({...form,expiryDate:event.target.value})}/><label className={label}>File *<input required type="file" accept="application/pdf,image/jpeg,image/png,image/webp" onChange={(event)=>setForm({...form,file:event.target.files?.[0]||null})} className="block w-full rounded-[8px] border border-[var(--bf-dev-border)] bg-[var(--bf-dev-surface)] px-3 py-2 text-[12px] font-medium text-[var(--bf-dev-text)]"/></label></div><label className={`${label} mt-3`}>Notes<textarea rows={4} value={form.notes} onChange={(event)=>setForm({...form,notes:event.target.value})} className={`${input} h-auto py-2`}/></label><div className="mt-2 text-[11px] font-semibold text-[var(--bf-dev-text)]">Private storage · PDF/JPG/PNG/WEBP · maximum 15 MB.</div><Submit text={busy?'Uploading…':'Upload Document'}/></form>;
 }
 
 function EmployeeForm({ onSubmit }) {

@@ -87,6 +87,12 @@ function activityTitle(action = '') {
     payment_record: 'Payment recorded',
     payment_verify: 'Payment verified',
     document_add: 'Document added',
+    verify_document: 'Document verified',
+    reject_document: 'Document rejected',
+    profile_update: 'Company profile updated',
+    internal_profile_update: 'Internal ownership updated',
+    site_create: 'Site created',
+    site_update: 'Site updated',
     announcement_publish: 'Announcement published',
     portal_config_save: 'Portal configuration changed',
     bulk_import_vehicles: 'Vehicle Master bulk import completed',
@@ -560,8 +566,8 @@ async function loadCompany(db, companyId) {
   const [
     profileR, subscriptionR, overrideR, plansR, employeesR, invoicesR, paymentsR,
     documentsR, announcementsR, notesR, modulesR, portalR, policiesR, settingsR,
-    fleetPacksR, companyModuleOverridesR, sitesR, rolesR, portalAccessR, portalProfilesR,
-    subscriptionContextR, vehiclesR, securitySessionsR, securityEventsR, historyR, portalAuditR,
+    fleetPacksR, companyModuleOverridesR, sitesR, rolesR, portalAccessR, portalProfilesR, internalProfileR,
+    teamMembersR, platformAdminsR, subscriptionContextR, vehiclesR, securitySessionsR, securityEventsR, historyR, portalAuditR,
   ] = await Promise.all([
     db.from('developer_company_profiles').select('*').eq('company_id', companyId).maybeSingle(),
     db.from('subscriptions').select('*').eq('company_id', companyId).maybeSingle(),
@@ -579,10 +585,13 @@ async function loadCompany(db, companyId) {
     db.from('company_portal_settings').select('company_id,fleet_pack,enabled_packs,fleet_pack_selection_status,fleet_pack_selected_at,enabled_modules,company_display_name,default_scope,date_format,time_format,terminology,config').eq('company_id', companyId).maybeSingle(),
     db.from('developer_fleet_packs').select('pack_key,slug,name,short_name,status,display_order').order('display_order', { ascending: true }),
     db.from('developer_company_module_overrides').select('company_id,module_key,enabled,access_level,action_overrides,reason,created_at,updated_at').eq('company_id', companyId).order('updated_at', { ascending: false }),
-    db.from('company_portal_sites').select('id,code,name,site_type,is_primary,status,manager_user_id').eq('company_id', companyId).order('is_primary', { ascending: false }),
+    db.from('company_portal_sites').select('id,code,name,site_type,address,city,state,pincode,is_primary,status,manager_user_id,created_at,updated_at').eq('company_id', companyId).order('is_primary', { ascending: false }),
     db.from('company_portal_roles').select('id,role_key,name,is_system').eq('company_id', companyId).order('role_key', { ascending: true }),
     db.from('company_portal_user_access').select('company_id,user_id,role_id,role_name,primary_site_id,site_ids,all_sites,force_password_change').eq('company_id', companyId),
     db.from('company_portal_user_profiles').select('company_id,user_id,employee_code,full_name,designation,department,email,mobile').eq('company_id', companyId),
+    db.from('developer_company_internal_profiles').select('*').eq('company_id', companyId).maybeSingle(),
+    db.from('platform_team_members').select('user_id,status').eq('status','active'),
+    db.from('platform_admins').select('user_id,is_active').eq('is_active',true),
     db.rpc('bf_resolve_subscription_context', { p_company_id: companyId }),
     db.from('company_portal_vehicles').select('id', { count: 'exact', head: true }).eq('company_id', companyId),
     db.from('security_sessions').select('id', { count: 'exact', head: true }).eq('company_id', companyId).eq('status', 'active'),
@@ -590,7 +599,7 @@ async function loadCompany(db, companyId) {
     db.from('developer_saas_history').select('id,domain,entity_id,action,before_payload,after_payload,actor_user_id,created_at').eq('entity_id', companyId).order('created_at', { ascending: false }).limit(80),
     db.from('company_portal_audit').select('id,user_id,module_key,action_type,entity_type,entity_id,description,before_data,after_data,created_at').eq('company_id', companyId).order('created_at', { ascending: false }).limit(80),
   ]);
-  for (const r of [profileR,subscriptionR,overrideR,plansR,employeesR,invoicesR,paymentsR,documentsR,announcementsR,notesR,modulesR,portalR,policiesR,settingsR,fleetPacksR,companyModuleOverridesR,sitesR,rolesR,portalAccessR,portalProfilesR,vehiclesR,securitySessionsR,securityEventsR,historyR,portalAuditR]) {
+  for (const r of [profileR,subscriptionR,overrideR,plansR,employeesR,invoicesR,paymentsR,documentsR,announcementsR,notesR,modulesR,portalR,policiesR,settingsR,fleetPacksR,companyModuleOverridesR,sitesR,rolesR,portalAccessR,portalProfilesR,internalProfileR,teamMembersR,platformAdminsR,vehiclesR,securitySessionsR,securityEventsR,historyR,portalAuditR]) {
     if (r.error) throw r.error;
   }
   if (subscriptionContextR.error) console.warn('Subscription context resolver unavailable in Company 360:', subscriptionContextR.error.message);
@@ -720,9 +729,19 @@ async function loadCompany(db, companyId) {
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, 20);
 
+  const assigneeIds = [...new Set([...(teamMembersR.data || []).map((row) => row.user_id), ...(platformAdminsR.data || []).map((row) => row.user_id)].filter(Boolean))];
+  let developerAssignees = [];
+  if (assigneeIds.length) {
+    const { data: assigneeProfiles, error: assigneeError } = await db.from('profiles').select('id,full_name,email').in('id', assigneeIds);
+    if (assigneeError) throw assigneeError;
+    developerAssignees = assigneeProfiles || [];
+  }
+
   const overview = buildOverviewIntelligence({
     company,
     profile: profileR.data || null,
+    internalProfile: internalProfileR.data || null,
+    developerAssignees,
     subscription,
     subscriptionContext,
     effectiveLimits,
@@ -744,6 +763,8 @@ async function loadCompany(db, companyId) {
   return {
     company,
     profile: profileR.data || null,
+    internalProfile: internalProfileR.data || null,
+    developerAssignees,
     subscription,
     subscriptionContext,
     ownerAccess,
@@ -844,6 +865,79 @@ async function employeeAction(db, actor, companyId, body) {
   return { status:400, payload:{ok:false,code:'INVALID_EMPLOYEE_ACTION'} };
 }
 
+async function updateCompanyProfile360(db, actor, companyId, body, companyData) {
+  const current = companyData.profile || null;
+  const expectedRevision = Number(body.expectedRevision ?? current?.revision ?? 0);
+  if (current && Number(current.revision || 0) !== expectedRevision) return { status:409, payload:{ok:false,code:'REVISION_CONFLICT',message:'Company profile changed in another session. Refresh and try again.'} };
+  const companyName = clean(body.companyName, 180);
+  if (!companyName) return {status:400,payload:{ok:false,code:'COMPANY_NAME_REQUIRED'}};
+  const fields = {
+    legal_name:clean(body.legalName,180), trade_name:clean(body.tradeName,180), registration_type:clean(body.registrationType,80), business_type:clean(body.businessType,120),
+    gstin:clean(body.gstin,20).toUpperCase(), pan:clean(body.pan,20).toUpperCase(), aadhaar_last4:clean(body.aadhaarLast4,4), cin:clean(body.cin,30).toUpperCase(),
+    contact_email:clean(body.contactEmail,254).toLowerCase(), contact_mobile:clean(body.contactMobile,30), alternate_mobile:clean(body.alternateMobile,30), billing_email:clean(body.billingEmail,254).toLowerCase(), website:clean(body.website,500),
+    owner_name:clean(body.ownerName,150), owner_email:clean(body.ownerEmail,254).toLowerCase(), owner_mobile:clean(body.ownerMobile,30), address_line1:clean(body.addressLine1,250), address_line2:clean(body.addressLine2,250),
+    city:clean(body.city,100), state:clean(body.state,100), postal_code:clean(body.postalCode,20), country:clean(body.country,100)||'India', notes:clean(body.notes,5000), revision:expectedRevision+1, updated_by:actor, updated_at:new Date().toISOString(),
+  };
+  for (const key of ['contact_email','billing_email','owner_email']) if (fields[key] && !EMAIL.test(fields[key])) return {status:400,payload:{ok:false,code:'INVALID_EMAIL',field:key}};
+  const companyUpdate = await db.from('companies').update({company_name:companyName}).eq('id',companyId).select('id,company_code,company_name,status,confirmed_at,account_owner_user_id,subdomain_slug').single();
+  if (companyUpdate.error) throw companyUpdate.error;
+  let query = db.from('developer_company_profiles').upsert({company_id:companyId,...fields,created_via:current?.created_via||'developer_cpanel',created_by:current?.created_by||actor},{onConflict:'company_id'});
+  const saved = await query.select('*').single(); if(saved.error) throw saved.error;
+  await history(db,actor,companyId,'profile_update',{before_revision:current?.revision||0,after_revision:saved.data.revision});
+  return {status:200,payload:{ok:true,company:companyUpdate.data,profile:saved.data}};
+}
+
+async function saveInternalProfile(db, actor, companyId, body, companyData) {
+  const current = companyData.internalProfile || null;
+  const expectedRevision = Number(body.expectedRevision ?? current?.revision ?? 0);
+  if (current && Number(current.revision || 0) !== expectedRevision) return {status:409,payload:{ok:false,code:'REVISION_CONFLICT'}};
+  const accountManager = UUID.test(clean(body.accountManagerUserId,80)) ? clean(body.accountManagerUserId,80) : null;
+  const supportOwner = UUID.test(clean(body.supportOwnerUserId,80)) ? clean(body.supportOwnerUserId,80) : null;
+  const priority = clean(body.priority,20)||'normal', risk = clean(body.riskLevel,20)||'low';
+  if(!['low','normal','high','critical'].includes(priority) || !['low','medium','high','critical'].includes(risk)) return {status:400,payload:{ok:false,code:'INVALID_INTERNAL_PROFILE'}};
+  const tags = Array.isArray(body.tags) ? [...new Set(body.tags.map((v)=>clean(v,60)).filter(Boolean))].slice(0,30) : [];
+  const row={company_id:companyId,account_manager_user_id:accountManager,support_owner_user_id:supportOwner,customer_segment:clean(body.customerSegment,80)||'standard',priority,risk_level:risk,tags,revision:expectedRevision+1,updated_by:actor,updated_at:new Date().toISOString(),created_by:current?.created_by||actor};
+  const {data,error}=await db.from('developer_company_internal_profiles').upsert(row,{onConflict:'company_id'}).select('*').single(); if(error)throw error;
+  await history(db,actor,companyId,'internal_profile_update',{revision:data.revision,priority:data.priority,risk_level:data.risk_level,tags:data.tags});
+  return {status:200,payload:{ok:true,internalProfile:data}};
+}
+
+async function saveSite(db, actor, companyId, body) {
+  const siteId = UUID.test(clean(body.siteId,80)) ? clean(body.siteId,80) : null;
+  const {data,error}=await db.rpc('developer_company360_save_site',{p_company_id:companyId,p_site_id:siteId,p_code:clean(body.code,40),p_name:clean(body.name,160),p_site_type:clean(body.siteType,80)||'Branch Office',p_address:clean(body.address,500),p_city:clean(body.city,100),p_state:clean(body.state,100),p_pincode:clean(body.pincode,20),p_is_primary:Boolean(body.isPrimary),p_status:clean(body.status,20)||'active'});
+  if(error){ if(error.code==='23505') return {status:409,payload:{ok:false,code:'SITE_CODE_EXISTS',message:'This site code is already used by the company.'}}; throw error; }
+  await history(db,actor,companyId,siteId?'site_update':'site_create',{site_id:data?.id||siteId,code:data?.code||clean(body.code,40),status:data?.status||body.status});
+  return {status:siteId?200:201,payload:{ok:true,site:data}};
+}
+
+async function documentAction(db, actor, companyId, body, companyData) {
+  const action=clean(body.action,80);
+  if(action==='request_document_upload'){
+    const name=clean(body.fileName,220).replace(/[^a-zA-Z0-9._-]+/g,'_'); const mime=clean(body.mimeType,120); const size=Number(body.fileSize||0);
+    if(!name || !['application/pdf','image/jpeg','image/png','image/webp'].includes(mime) || !Number.isFinite(size) || size<=0 || size>15728640) return {status:400,payload:{ok:false,code:'INVALID_DOCUMENT_FILE',message:'Use PDF/JPG/PNG/WEBP up to 15 MB.'}};
+    const path=`${companyId}/${new Date().getUTCFullYear()}/${crypto.randomUUID()}-${name}`;
+    const {data,error}=await db.storage.from('company-kyc-documents').createSignedUploadUrl(path); if(error)throw error;
+    return {status:200,payload:{ok:true,bucket:'company-kyc-documents',path:data.path||path,token:data.token,signedUrl:data.signedUrl}};
+  }
+  if(action==='add_document'){
+    const bucket=clean(body.storageBucket,120), path=clean(body.storagePath,1000); if(bucket!=='company-kyc-documents'||!path.startsWith(`${companyId}/`)) return {status:400,payload:{ok:false,code:'INVALID_DOCUMENT_STORAGE'}};
+    const expiry=asDate(body.expiryDate); if(expiry===undefined)return {status:400,payload:{ok:false,code:'INVALID_EXPIRY_DATE'}};
+    const {data,error}=await db.from('developer_company_documents').insert({company_id:companyId,document_type:clean(body.documentType,100)||'other',document_name:clean(body.documentName,220)||clean(body.fileName,220),file_url:'',storage_bucket:bucket,storage_path:path,mime_type:clean(body.mimeType,120),file_size:Number(body.fileSize||0)||null,uploaded_by:actor,status:'pending',expiry_date:expiry,notes:clean(body.notes,3000)}).select('*').single();
+    if(error){ await db.storage.from(bucket).remove([path]).catch(()=>{}); throw error; }
+    await history(db,actor,companyId,'document_add',{document_id:data.id,document_type:data.document_type}); return {status:201,payload:{ok:true,document:data}};
+  }
+  const documentId=clean(body.documentId,80); const doc=(companyData.documents||[]).find((row)=>row.id===documentId); if(!doc)return {status:404,payload:{ok:false,code:'DOCUMENT_NOT_FOUND'}};
+  if(action==='get_document_url'){
+    if(doc.storage_bucket&&doc.storage_path){const {data,error}=await db.storage.from(doc.storage_bucket).createSignedUrl(doc.storage_path,300,{download:false});if(error)throw error;return {status:200,payload:{ok:true,url:data.signedUrl}};}
+    if(doc.file_url)return {status:200,payload:{ok:true,url:doc.file_url}}; return {status:404,payload:{ok:false,code:'DOCUMENT_FILE_MISSING'}};
+  }
+  if(action==='verify_document'||action==='reject_document'){
+    const next=action==='verify_document'?'verified':'rejected'; const patch={status:next,verified_by:action==='verify_document'?actor:null,verified_at:action==='verify_document'?new Date().toISOString():null,notes:clean(body.notes,3000)||doc.notes,updated_at:new Date().toISOString()};
+    const {data,error}=await db.from('developer_company_documents').update(patch).eq('id',documentId).eq('company_id',companyId).select('*').single();if(error)throw error;await history(db,actor,companyId,action,{document_id:documentId,status:next});return {status:200,payload:{ok:true,document:data}};
+  }
+  return {status:400,payload:{ok:false,code:'INVALID_DOCUMENT_ACTION'}};
+}
+
 async function createInvoice(db, actor, companyId, body, companyData) {
   const items = Array.isArray(body.items) ? body.items.slice(0,100) : [];
   if (!items.length) return {status:400,payload:{ok:false,code:'INVOICE_ITEMS_REQUIRED'}};
@@ -877,6 +971,11 @@ async function handlePost(db, actor, companyId, body) {
   const action=clean(body.action,80);
   if (action.includes('employee')) return employeeAction(db,actor,companyId,body);
   const companyData=await loadCompany(db,companyId); if(!companyData) return {status:404,payload:{ok:false,code:'COMPANY_NOT_FOUND'}};
+
+  if(action==='update_profile') return updateCompanyProfile360(db,actor,companyId,body,companyData);
+  if(action==='save_internal_profile') return saveInternalProfile(db,actor,companyId,body,companyData);
+  if(action==='save_site') return saveSite(db,actor,companyId,body);
+  if(['request_document_upload','add_document','get_document_url','verify_document','reject_document'].includes(action)) return documentAction(db,actor,companyId,body,companyData);
 
   if(action==='validate_bulk_import' || action==='commit_bulk_import'){
     const importType=clean(body.importType,40);
@@ -950,9 +1049,6 @@ async function handlePost(db, actor, companyId, body) {
     const receiptResult=await db.from('developer_company_receipts').insert({company_id:companyId,payment_id:data.id,receipt_number:receiptNumber,snapshot:{amount:data.amount,payment_date:data.payment_date,payment_mode:data.payment_mode,transaction_reference:data.transaction_reference},created_by:actor});
     if(receiptResult.error) throw receiptResult.error;
     await history(db,actor,companyId,'payment_verify',{payment_id:data.id}); return {status:200,payload:{ok:true,payment:data}};
-  }
-  if(action==='add_document'){
-    const {data,error}=await db.from('developer_company_documents').insert({company_id:companyId,document_type:clean(body.documentType,100)||'other',document_name:clean(body.documentName,200),file_url:clean(body.fileUrl,1000),status:clean(body.status,30)||'pending',expiry_date:asDate(body.expiryDate),notes:clean(body.notes,3000)}).select('*').single(); if(error) throw error; await history(db,actor,companyId,'document_add',{document_id:data.id}); return {status:201,payload:{ok:true,document:data}};
   }
   if(action==='send_announcement'){
     const title=clean(body.title,200), message=clean(body.message,10000); if(!title||!message)return {status:400,payload:{ok:false,code:'INVALID_ANNOUNCEMENT'}};
