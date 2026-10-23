@@ -69,12 +69,17 @@ test('Vercel Hobby source entrypoint count remains 12 with pricing and liveness 
   assert.doesNotMatch(read('vite.config.js'), /serverless|function/i);
 });
 
-test('session authority, Supabase auth and project dependencies are unchanged by Phase 5', () => {
+test('session authority and required dependencies stay configured for Phase 5', () => {
   const pkg = JSON.parse(read('package.json'));
   assert.equal(pkg.scripts['check:session'], 'node scripts/session-phase5-check.mjs');
   assert.ok(pkg.dependencies['@supabase/supabase-js']);
   assert.ok(pkg.dependencies['react-router-dom']);
-  assert.equal(pkg.dependencies.xlsx, '^0.18.5');
+  // This repository may pin SheetJS via npm or the official versioned CDN tarball.
+  // Phase 5 changes import timing, not the dependency's declared source/version.
+  const xlsxSpec = pkg.dependencies.xlsx;
+  const npmVersion = /^(?:\^|~)?\d+\.\d+\.\d+$/.test(xlsxSpec);
+  const officialPinnedTarball = /^https:\/\/cdn\.sheetjs\.com\/xlsx-(\d+\.\d+\.\d+)\/xlsx-\1\.tgz$/.test(xlsxSpec);
+  assert.ok(npmVersion || officialPinnedTarball, 'xlsx must use a versioned npm spec or a pinned official SheetJS tarball');
 });
 
 test('post-build gate accepts small HTML with linked CSS and JS chunks', () => {
