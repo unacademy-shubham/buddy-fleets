@@ -10,9 +10,9 @@ import { getModuleByRoute } from '../config/moduleCatalog';
 import { getFleetPack } from '../config/fleetPacks';
 import { getOperationalSchema } from '../config/operationalSchemas';
 
-function initialForm(schema, selectedSiteId){
+function initialForm(schema, selectedSiteId, fallbackSiteId=null){
   const out={record_type:schema.recordType,status:schema.statusOptions?.[0]||'active',quantity_unit:schema.quantityUnit||''};
-  for(const field of schema.fields||[]) if(out[field.key]===undefined) out[field.key]=field.key==='site_id'&&selectedSiteId!=='all'?selectedSiteId:'';
+  for(const field of schema.fields||[]) if(out[field.key]===undefined) out[field.key]=field.key==='site_id'?(selectedSiteId!=='all'?selectedSiteId:(fallbackSiteId||'')):'';
   return out;
 }
 function nice(value){return String(value??'').replaceAll('_',' ').replace(/\b\w/g,c=>c.toUpperCase());}
@@ -38,10 +38,13 @@ export default function FleetWorkspacePage({ route }) {
   const [open,setOpen]=useState(false);
   const [editing,setEditing]=useState(null);
   const [busy,setBusy]=useState(false);
-  const [form,setForm]=useState(()=>initialForm(schema,selectedSiteId));
+  // Site-restricted users must choose a real authorized site. The blank
+  // option represents a company-wide record, available to all-sites users only.
+  const fallbackSiteId=userAccess?.allSites===true?null:(sites.find(site=>(userAccess?.siteIds||[]).includes(site.id))?.id||null);
+  const [form,setForm]=useState(()=>initialForm(schema,selectedSiteId,fallbackSiteId));
 
-  const beginCreate=()=>{setEditing(null);setForm(initialForm(schema,selectedSiteId));setOpen(true);};
-  const beginEdit=(row)=>{setEditing(row);const next=initialForm(schema,selectedSiteId);for(const key of Object.keys(next)) if(row[key]!==undefined&&row[key]!==null) next[key]=row[key];next.id=row.id;setForm(next);setOpen(true);};
+  const beginCreate=()=>{setEditing(null);setForm(initialForm(schema,selectedSiteId,fallbackSiteId));setOpen(true);};
+  const beginEdit=(row)=>{setEditing(row);const next=initialForm(schema,selectedSiteId,fallbackSiteId);for(const key of Object.keys(next)) if(row[key]!==undefined&&row[key]!==null) next[key]=row[key];next.id=row.id;setForm(next);setOpen(true);};
   const save=async()=>{
     setBusy(true);
     try{
@@ -100,7 +103,7 @@ export default function FleetWorkspacePage({ route }) {
         {(schema.fields||[]).map(field=>{
           const value=form[field.key]??'';
           const set=(next)=>setForm(prev=>({...prev,[field.key]:next}));
-          if(field.type==='site')return <div className="bf-field" key={field.key}><label>{field.label}</label><select className="bf-select" value={value} onChange={e=>set(e.target.value)}><option value="">No specific site</option>{sites.map(site=><option key={site.id} value={site.id}>{site.name}</option>)}</select></div>;
+          if(field.type==='site')return <div className="bf-field" key={field.key}><label>{field.label}</label><select className="bf-select" value={value} onChange={e=>set(e.target.value)}>{userAccess?.allSites===true?<option value="">No specific site</option>:null}{sites.map(site=><option key={site.id} value={site.id}>{site.name}</option>)}</select></div>;
           if(field.type==='select')return <div className="bf-field" key={field.key}><label>{field.label}</label><select className="bf-select" value={value} onChange={e=>set(e.target.value)}>{(field.options||[]).map(option=><option key={option} value={option}>{nice(option)}</option>)}</select></div>;
           if(field.type==='textarea')return <div className={`bf-field ${field.full?'full':''}`} key={field.key}><label>{field.label}</label><textarea className="bf-textarea" value={value} onChange={e=>set(e.target.value)} /></div>;
           return <div className={`bf-field ${field.full?'full':''}`} key={field.key}><label>{field.label}</label><input className="bf-input" type={field.type||'text'} placeholder={field.placeholder||''} value={value} onChange={e=>set(e.target.value)}/></div>;
