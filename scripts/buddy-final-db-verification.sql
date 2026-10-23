@@ -20,10 +20,10 @@ with checks as (
          coalesce((select string_agg(pack_key, ', ' order by display_order) from public.developer_fleet_packs),'')
 
   union all
-  select 'pricing','1_3_6_12_month_keys',
+  select 'pricing','1_6_12_month_keys',
          case when not exists (
            select 1 from public.developer_plans
-           where not (prices ? '1' and prices ? '3' and prices ? '6' and prices ? '12')
+           where not (coalesce(prices, '{}'::jsonb) ?& array['1','6','12'] and not coalesce(prices, '{}'::jsonb) ? '3')
          ) then 'PASS' else 'REVIEW' end,
          (select count(*)::text || ' plans' from public.developer_plans)
 
