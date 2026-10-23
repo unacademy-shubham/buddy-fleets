@@ -8,6 +8,11 @@ import {
 } from '@supabase/supabase-js';
 
 import {
+  isHttpSessionExpired,
+  resolveSupabaseUserClientKey,
+} from './userClientSecurity.js';
+
+import {
   AUTH_REFRESH_SKEW_SECONDS,
   PORTAL_SESSION_COOKIE,
   SESSION_IDLE_TIMEOUT_MINUTES,
@@ -37,40 +42,9 @@ export {
    It never returns raw auth tokens to browser code.
 ============================================================ */
 
-function getJsonEnvironmentKey(name) {
-  const raw = process.env[name];
-
-  if (!raw) {
-    return null;
-  }
-
-  try {
-    const parsed = JSON.parse(raw);
-
-    if (typeof parsed?.default === 'string') {
-      return parsed.default;
-    }
-
-    const firstValue = Object.values(parsed).find(
-      (value) => typeof value === 'string'
-    );
-
-    return typeof firstValue === 'string'
-      ? firstValue
-      : null;
-  } catch {
-    return null;
-  }
-}
-
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const SUPABASE_CLIENT_KEY =
-  process.env.SUPABASE_ANON_KEY ||
-  process.env.SUPABASE_PUBLISHABLE_KEY ||
-  process.env.VITE_SUPABASE_ANON_KEY ||
-  getJsonEnvironmentKey('SUPABASE_PUBLISHABLE_KEYS') ||
-  SUPABASE_SERVICE_ROLE_KEY;
+const SUPABASE_CLIENT_KEY = resolveSupabaseUserClientKey(process.env);
 const AUTH_FLOW_ENCRYPTION_KEY = process.env.AUTH_FLOW_ENCRYPTION_KEY;
 
 if (
@@ -747,14 +721,7 @@ export function isApplicationSessionExpired(
   securitySession,
   now = Date.now()
 ) {
-  const expiresAt = Date.parse(
-    securitySession?.http_session_expires_at || ''
-  );
-
-  return (
-    !Number.isFinite(expiresAt) ||
-    expiresAt <= now
-  );
+  return isHttpSessionExpired(securitySession?.http_session_expires_at, now);
 }
 
 
