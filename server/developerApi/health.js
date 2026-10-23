@@ -4,21 +4,7 @@ import {
   setDeveloperApiHeaders,
 } from '../auth/requireDeveloperSession.js';
 
-function send(res, status, payload) {
-  setDeveloperApiHeaders(res);
-  return res.status(status).json(payload);
-}
-
-async function probe(name, fn) {
-  const started = Date.now();
-  try {
-    const result = await fn();
-    if (result?.error) throw result.error;
-    return { name, ok: true, latencyMs: Date.now() - started, details: result?.details || null };
-  } catch (error) {
-    return { name, ok: false, latencyMs: Date.now() - started, code: error?.code || null, message: error?.message || 'Probe failed' };
-  }
-}
+import { HEALTH_DEPENDENCIES, probeDatabaseDependency } from './healthProbe.js';
 
 export default async function handler(req, res) {
   setDeveloperApiHeaders(res);
@@ -33,47 +19,20 @@ export default async function handler(req, res) {
     return send(res, auth.status || 401, { ok: false, code: auth.code || 'UNAUTHORIZED' });
   }
 
-  const db = auth.supabaseAdmin;
-  const checks = await Promise.all([
-    probe('Companies / tenant registry', async () => {
-      const result = await db.from('companies').select('id', { count: 'exact', head: true });
-      return { ...result, details: { rows: result.count || 0 } };
-    }),
-    probe('Security sessions', async () => {
-      const result = await db.from('security_sessions').select('id', { count: 'exact', head: true });
-      return { ...result, details: { rows: result.count || 0 } };
-    }),
-    probe('Fleet Pack registry', async () => {
-      const result = await db.from('developer_fleet_packs').select('pack_key', { count: 'exact' });
-      return { ...result, details: { rows: result.data?.length || 0, keys: (result.data || []).map((row) => row.pack_key) } };
-    }),
-    probe('Module catalog', async () => {
-      const result = await db.from('developer_module_catalog').select('module_key,status', { count: 'exact' });
-      return { ...result, details: { rows: result.data?.length || 0, beta: (result.data || []).filter((row) => row.status === 'beta').length } };
-    }),
-    probe('Plan × Fleet entitlements', async () => {
-      const result = await db.from('developer_plan_fleet_entitlements').select('plan_key', { count: 'exact', head: true });
-      return { ...result, details: { rows: result.count || 0 } };
-    }),
-    probe('Navigation registry', async () => {
-      const result = await db.from('developer_navigation_nodes').select('id', { count: 'exact', head: true });
-      return { ...result, details: { rows: result.count || 0 } };
-    }),
-    probe('Website CMS', async () => {
-      const result = await db.from('website_pages').select('id', { count: 'exact', head: true });
-      return { ...result, details: { rows: result.count || 0 } };
-    }),
-    probe('Part 05 platform add-ons', async () => {
-      const result = await db.from('bf_developer_platform_addon_health').select('*').maybeSingle();
-      return { ...result, details: result.data || {} };
-    }),
-  ]);
+  const started = Date.now();
+  const checks = await Promise.all(
+    HEALTH_DEPENDENCIES.map((dependency) => probeDatabaseDependency(auth.supabaseAdmin, dependency))
+  );
+  const failed = checks.filter((check) => !check.ok).length;
+  const status = failed === 0 ? 'healthy' : failed === checks.length ? 'down' : 'degraded';
 
-  const failed = checks.filter((check) => !check.ok);
-  return send(res, 200, {
-    ok: true,
-    status: failed.length === 0 ? 'healthy' : (failed.length < checks.length ? 'degraded' : 'down'),
+  // 503 only if every database dependency failed. For partial degradation,
+  // keep the detailed diagnostic response readable by the developer UI.
+  return send(res, failed === checks.length ? 503 : 200, {
+    ok: failed === 0,
+    status,
     checkedAt: new Date().toISOString(),
+    durationMs: Date.now() - started,
     checks,
   });
 }
