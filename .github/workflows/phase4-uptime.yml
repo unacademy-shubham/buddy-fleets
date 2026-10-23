@@ -1,0 +1,36 @@
+name: Buddy Fleets Production Liveness
+
+on:
+  workflow_dispatch:
+  schedule:
+    # GitHub-hosted scheduled runs can be delayed; this is not an SLA monitor.
+    - cron: '11,41 * * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  check-production:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Check production API liveness (no secrets)
+        shell: bash
+        run: |
+          set -euo pipefail
+          status=$(curl --silent --show-error --location \
+            --retry 2 --retry-delay 2 --retry-connrefused \
+            --connect-timeout 5 --max-time 15 \
+            --header 'Accept: application/json' \
+            --output /tmp/buddy-health.json --write-out '%{http_code}' \
+            'https://buddyfleets.in/api/health')
+          test "$status" = '200'
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const body = JSON.parse(fs.readFileSync('/tmp/buddy-health.json', 'utf8'));
+          if (body.ok !== true || body.status !== 'up' || body.service !== 'buddy-fleets') {
+            console.error('Production liveness returned an unexpected response');
+            process.exit(1);
+          }
+          console.log('PASS: Buddy Fleets production API responds');
+          NODE
