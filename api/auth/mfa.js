@@ -1,6 +1,8 @@
 import { createHash, webcrypto } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 import { PORTAL_SESSION_COOKIE } from '../../server/auth/sessionPolicy.js';
+import { decodeSupabaseJwt } from '../../server/auth/portalSessionCore.js';
+import { isHttpSessionExpired, portalTypeForHost, resolveSupabaseUserClientKey } from '../../server/auth/userClientSecurity.js';
 
 const COOKIE_NAME = PORTAL_SESSION_COOKIE;
 const ALLOWED_HOSTS = new Set([
@@ -11,7 +13,7 @@ const ALLOWED_HOSTS = new Set([
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const CLIENT_KEY = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || SERVICE_KEY;
+const CLIENT_KEY = resolveSupabaseUserClientKey(process.env);
 const AUTH_FLOW_ENCRYPTION_KEY = process.env.AUTH_FLOW_ENCRYPTION_KEY;
 
 if (!SUPABASE_URL || !SERVICE_KEY || !CLIENT_KEY || !AUTH_FLOW_ENCRYPTION_KEY) {
@@ -53,13 +55,31 @@ function parseCookies(header) {
   const out = {};
   for (const part of String(header || '').split(';')) {
     const i = part.indexOf('=');
-    if (i > 0) out[part.slice(0, i).trim()] = decodeURIComponent(part.slice(i + 1).trim());
+    if (i > 0) {
+      const name = part.slice(0, i).trim();
+      try { out[name] = decodeURIComponent(part.slice(i + 1).trim()); }
+      catch { out[name] = part.slice(i + 1).trim(); }
+    }
   }
   return out;
 }
 
 function sha256Hex(value) {
   return createHash('sha256').update(value).digest('hex');
+}
+
+function assertSessionTokenBinding(accessToken, applicationSession) {
+  // The signed token is also checked with Supabase Auth in createUserAuthClient.
+  // The decoded claims bind that token to this particular Buddy session.
+  const claims = decodeSupabaseJwt(accessToken);
+  if (
+    !applicationSession.auth_session_id ||
+    claims.sub !== applicationSession.user_id ||
+    claims.session_id !== applicationSession.auth_session_id ||
+    !['aal1', 'aal2'].includes(claims.aal)
+  ) {
+    throw new Error('AUTH_SESSION_CONTEXT_MISMATCH');
+  }
 }
 
 function base64ToBytes(value) {
@@ -102,6 +122,7 @@ async function persistCurrentAuthSession(applicationSession, userClient) {
   if (data.session.user?.id !== applicationSession.user_id) {
     throw new Error('AUTH_SESSION_USER_MISMATCH');
   }
+  assertSessionTokenBinding(data.session.access_token, applicationSession);
 
   const encryptionKey = await getEncryptionKey();
   const [access, refresh] = await Promise.all([
@@ -109,7 +130,7 @@ async function persistCurrentAuthSession(applicationSession, userClient) {
     encryptSecret(data.session.refresh_token, encryptionKey),
   ]);
 
-  const { error: updateError } = await admin
+  const { data: persisted, error: updateError } = await admin
     .from('security_sessions')
     .update({
       encrypted_access_token: access.encrypted,
@@ -118,9 +139,14 @@ async function persistCurrentAuthSession(applicationSession, userClient) {
       refresh_token_iv: refresh.iv,
     })
     .eq('id', applicationSession.id)
-    .eq('status', 'active');
+    .eq('status', 'active')
+    // A session revoked concurrently must not silently pass MFA preflight.
+    .gt('http_session_expires_at', new Date().toISOString())
+    .select('id')
+    .maybeSingle();
 
   if (updateError) throw updateError;
+  if (!persisted?.id) throw new Error('AUTH_SESSION_REVOKED_OR_EXPIRED');
 
   return {
     session: data.session,
@@ -134,22 +160,30 @@ async function loadApplicationSession(req) {
     return { ok: false, status: 403, code: 'ORIGIN_NOT_ALLOWED' };
   }
 
+  const fetchSite = String(req.headers['sec-fetch-site'] || '').trim().toLowerCase();
+  if (fetchSite && !['same-origin', 'none'].includes(fetchSite)) {
+    return { ok: false, status: 403, code: 'CROSS_SITE_REQUEST_BLOCKED' };
+  }
+
   const token = parseCookies(req.headers.cookie)[COOKIE_NAME];
-  if (!token || token.length < 20) return { ok: false, status: 401, code: 'SESSION_REQUIRED' };
+  if (!token || token.length < 20 || token.length > 200) {
+    return { ok: false, status: 401, code: 'SESSION_REQUIRED' };
+  }
 
   const { data: session, error } = await admin
     .from('security_sessions')
     .select(`
-      id,user_id,portal_type,company_id,status,http_session_expires_at,
+      id,user_id,auth_session_id,portal_type,company_id,status,http_session_expires_at,
       encrypted_access_token,access_token_iv,encrypted_refresh_token,refresh_token_iv
     `)
     .eq('portal_session_token_hash', sha256Hex(token))
+    .eq('portal_type', portalTypeForHost(host))
     .eq('status', 'active')
     .maybeSingle();
 
   if (error) throw error;
   if (!session) return { ok: false, status: 401, code: 'SESSION_INVALID' };
-  if (Date.parse(session.http_session_expires_at) <= Date.now()) {
+  if (isHttpSessionExpired(session.http_session_expires_at)) {
     return { ok: false, status: 401, code: 'SESSION_EXPIRED' };
   }
   if (
@@ -181,6 +215,14 @@ async function createUserAuthClient(session) {
   });
 
   if (error || !data?.session || data.user?.id !== session.user_id) {
+    throw new Error('AUTH_SESSION_INVALID');
+  }
+  assertSessionTokenBinding(data.session.access_token, session);
+
+  // getUser() asks Supabase Auth to verify the token; getSession() alone
+  // is only a local session read and cannot replace this server check.
+  const { data: verified, error: verificationError } = await client.auth.getUser();
+  if (verificationError || verified?.user?.id !== session.user_id) {
     throw new Error('AUTH_SESSION_INVALID');
   }
 
