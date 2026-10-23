@@ -27,3 +27,6 @@ dist-ssr
 .env*
 
 supabase/.temp/
+
+# Do not recommit historic local recovery snapshots
+*.bak
