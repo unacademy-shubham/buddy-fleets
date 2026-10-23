@@ -6,6 +6,11 @@ import {
 
 import { HEALTH_DEPENDENCIES, probeDatabaseDependency } from './healthProbe.js';
 
+function send(res, status, payload) {
+  setDeveloperApiHeaders(res);
+  return res.status(status).json(payload);
+}
+
 export default async function handler(req, res) {
   setDeveloperApiHeaders(res);
   if (req.method !== 'GET') {

@@ -1,17 +1,29 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { readFileSync, mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import publicHandler from '../api/health.js';
+import { runInNewContext } from 'node:vm';
 import { HEALTH_DEPENDENCIES, HEALTH_PROBE_TIMEOUT_MS, probeDatabaseDependency } from '../server/developerApi/healthProbe.js';
 import { getDeveloperServiceHealth } from '../src/services/developerHealthApi.js';
 import { collectBuildStats, evaluateBudgets } from '../scripts/phase4-build-budget.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (relative) => readFileSync(path.join(root, relative), 'utf8');
+
+// Keep this security test runnable without dependency installation or credentials.
+// Evaluate the real handler with its Supabase client stubbed to throw if liveness touches it.
+function getPublicHandler() {
+  const source = read('api/public/pricing-plans.js');
+  const script = source
+    .replace("import { createClient } from '@supabase/supabase-js';", "const createClient = () => { throw new Error('LIVENESS_MUST_NOT_CALL_DB'); };")
+    .replace('export default async function handler(req, res)', 'async function handler(req, res)')
+    + '\n handler;';
+  return runInNewContext(script, { process: { env: {} }, console }, { timeout: 1500 });
+}
+const publicHandler = getPublicHandler();
 
 function responseMock() {
   return {
@@ -23,29 +35,49 @@ function responseMock() {
   };
 }
 
-test('public liveness GET exposes no database secrets and disables caching', () => {
+test('public liveness GET is served by an existing function without a DB query and disables caching', async () => {
   const res = responseMock();
-  publicHandler({ method: 'GET', headers: {} }, res);
+  await publicHandler({ method: 'GET', query: { __buddy_health: '1' }, headers: {} }, res);
   assert.equal(res.statusCode, 200);
   assert.deepEqual(Object.keys(res.body).sort(), ['checkedAt', 'ok', 'service', 'status']);
   assert.equal(res.body.ok, true);
   assert.equal(res.body.status, 'up');
   assert.equal(res.headers['cache-control'].includes('no-store'), true);
-  const source = read('api/health.js');
-  for (const risk of ['SUPABASE_SERVICE_ROLE_KEY', 'createClient(', '.from(', 'process.env.']) assert.equal(source.includes(risk), false);
+  assert.equal(res.body.plans, undefined);
+  assert.equal(res.headers['cache-control'].includes('public'), false);
 });
 
-test('public liveness HEAD returns no body; methods other than GET/HEAD are rejected', () => {
+test('public liveness HEAD returns no body; methods other than GET/HEAD are rejected', async () => {
   const head = responseMock();
-  publicHandler({ method: 'HEAD', headers: {} }, head);
+  await publicHandler({ method: 'HEAD', query: { __buddy_health: '1' }, headers: {} }, head);
   assert.equal(head.statusCode, 200);
   assert.equal(head.ended, true);
   assert.equal(head.body, undefined);
   const post = responseMock();
-  publicHandler({ method: 'POST', headers: {} }, post);
+  await publicHandler({ method: 'POST', query: { __buddy_health: '1' }, headers: {} }, post);
   assert.equal(post.statusCode, 405);
   assert.equal(post.body.code, 'METHOD_NOT_ALLOWED');
   assert.equal(post.headers.allow, 'GET, HEAD');
+});
+
+test('Vercel Hobby contains exactly 12 API function files; health rewrites to existing pricing function', () => {
+  const listJs = (folder) => readdirSync(folder, { withFileTypes: true }).flatMap((entry) => {
+    const target = path.join(folder, entry.name);
+    return entry.isDirectory() ? listJs(target) : entry.isFile() && entry.name.endsWith('.js') ? [target] : [];
+  });
+  const apiFiles = listJs(path.join(root, 'api'));
+  assert.equal(apiFiles.length, 12, `Hobby supports 12 API functions; found ${apiFiles.length}`);
+  assert.equal(existsSync(path.join(root, 'api/health.js')), false, 'Never deploy a 13th health function');
+  assert(apiFiles.some((f) => f.endsWith(path.join('api', 'public', 'pricing-plans.js'))));
+  const vercel = JSON.parse(read('vercel.json'));
+  const healthRewrite = vercel.rewrites.find((rule) => rule.source === '/api/health');
+  assert.deepEqual(healthRewrite, {
+    source: '/api/health', destination: '/api/public/pricing-plans?__buddy_health=1'
+  });
+  assert.equal(vercel.rewrites[0].source, '/api/health', 'Health rewrite must be before SPA catchall');
+  assert.match(read('api/public/pricing-plans.js'), /if \(req\.query\?\.__buddy_health === '1'\)/);
+  assert.match(read('api/public/pricing-plans.js'), /from\('developer_plans'\)/);
+  assert.match(read('api/public/pricing-plans.js'), /\.eq\('status', 'active'\)/);
 });
 
 function makeFakeDb(result) {
@@ -100,6 +132,8 @@ test('authenticated developer health retains session protection and returns mean
   const code = read('server/developerApi/health.js');
   assert.match(code, /await requireDeveloperSession\(req\)/);
   assert.match(code, /setDeveloperApiHeaders\(res\)/);
+  assert.match(code, /function send\(res, status, payload\)/);
+  assert.doesNotMatch(read('server/developerApi/healthProbe.js'), /setDeveloperApiHeaders/);
   assert.match(code, /ok: failed === 0/);
   assert.match(code, /status = failed === 0 \? 'healthy'/);
   assert.match(code, /failed === checks.length \? 503 : 200/);
