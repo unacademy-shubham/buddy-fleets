@@ -16,11 +16,6 @@ export const HEALTH_DEPENDENCIES = Object.freeze([
 
 export const HEALTH_PROBE_TIMEOUT_MS = 6000;
 
-function send(res, status, payload) {
-  setDeveloperApiHeaders(res);
-  return res.status(status).json(payload);
-}
-
 export async function probeDatabaseDependency(db, dependency, now = () => Date.now()) {
   const started = now();
   try {

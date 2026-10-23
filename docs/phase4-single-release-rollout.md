@@ -7,11 +7,11 @@ Status: **patch ready, NOT deployed**. No SQL migration, Supabase secrets, datab
 - 2026-10-24 live Supabase: 75 public tables with RLS on; final Phase 3 migration `20261024000001` applied.
 - Performance advisor: 62 missing-FK-index INFO notices, 53 unused-index INFO notices and 9 multiple permissive policy WARN notices. Session-related tables were small (roughly 13 estimated rows in security sessions and auth handoffs); avoid bulk index creation without production workload query plans.
 - Existing developer health endpoint counted entire tables and fetched unbounded fleet packs/module catalog. It returned `ok:true` even when some DB probes failed. Existing developer service page already renders `status`/`checks`.
-- Public pricing endpoint already has CDN cache headers; untouched. Existing Vite route-level code splitting remains untouched.
+- Normal public pricing endpoint retains its CDN cache headers and existing database query; only its dedicated internal liveness branch bypasses pricing. Existing Vite route-level code splitting remains untouched.
 
 ## Changes in one Git PR
 
-1. `/api/health`: PUBLIC liveness endpoint, GET/HEAD only, no credentials, no database query; never infer DB health from a 200 here.
+1. `/api/health`: PUBLIC liveness endpoint, GET/HEAD only, no credentials, no database query; never infer DB health from a 200 here. **Vercel Hobby fix:** no new `api/health.js` file. `vercel.json` rewrites the URL to the existing `api/public/pricing-plans.js` entrypoint using a private routing flag. Liveness short-circuits before pricing auth/environment/database logic; normal `/api/public/pricing-plans` requests still use the original pricing handler. This preserves exactly **12 Vercel API functions**.
 2. `server/developerApi/health.js` and `server/developerApi/healthProbe.js`: retains `requireDeveloperSession` and `no-store` security headers; replaces full-table count/fetch probes with an 11-dependency 1-row reachability check, 6-second abort per query. Empty tables count as healthy; partial failures are marked `degraded` and `ok:false`; all failures yield HTTP 503. Raw database error messages and data are never returned.
 3. `src/services/developerHealthApi.js`: 12-second browser timeout and errors represented as `REQUEST_TIMEOUT` or `NETWORK_ERROR`, sanitized result shape; preserves existing component API.
 4. `.github/workflows/phase4-uptime.yml`: runs every ~30 minutes and manually; checks public liveness with no secret. GitHub scheduled workflows may start late, be disabled on inactive repos, or not emit alerts unless repository notification settings are configured. Check the Actions tab and enable notifications for workflow failures separately. This does not monitor Supabase DB health or authenticate to the developer portal.
@@ -24,7 +24,9 @@ Status: **patch ready, NOT deployed**. No SQL migration, Supabase secrets, datab
 git switch main
 git pull --ff-only origin main
 git switch -c fix/phase4-one-release
-# Extract ZIP: copy only modified/new files using original folder paths.
+# Extract the CORRECTED Hobby ZIP: copy only modified/new files using original folder paths.
+# If you copied the earlier Phase 4 ZIP, remove its extra entrypoint (after confirming it is that file):
+if (Test-Path '.\api\health.js') { Remove-Item '.\api\health.js' }
 node --test tests/phase4-reliability.test.mjs
 node --test tests/phase1-security.test.mjs tests/phase2-auth-hardening.test.mjs tests/phase3-alignment.test.mjs tests/phase3-part2-legacy-functions.test.mjs tests/phase3-part3-schema-contract.test.mjs tests/phase3-final-hardening.test.mjs
 npm run check:session
@@ -37,14 +39,14 @@ git status
 Review EXACTLY the files supplied in the ZIP. If tests or build fail, don't push.
 
 ```powershell
-git add api/health.js server/developerApi/health.js src/services/developerHealthApi.js .github/workflows/phase4-uptime.yml scripts/phase4-build-budget.mjs scripts/phase4-live-readonly-audit.sql tests/phase4-reliability.test.mjs docs/phase4-single-release-rollout.md server/developerApi/healthProbe.js
+git add api/public/pricing-plans.js vercel.json server/developerApi/health.js src/services/developerHealthApi.js .github/workflows/phase4-uptime.yml scripts/phase4-build-budget.mjs scripts/phase4-live-readonly-audit.sql tests/phase4-reliability.test.mjs docs/phase4-single-release-rollout.md server/developerApi/healthProbe.js
 git diff --cached --check
 git diff --cached --stat
 git commit -m "feat: phase4 reliability and production uptime monitoring"
 git push -u origin fix/phase4-one-release
 ```
 
-Open a PR against `main`, review 9 files, checks and GitHub Actions permission. Merge; Vercel deploy should be Ready. There is **no `supabase db push`** in Phase 4. Rollback: revert only this merge/commit and redeploy Vercel; no DB rollback required.
+Open a PR against `main`, review 10 files, checks and GitHub Actions permission. Merge; Vercel deploy should be Ready. There is **no `supabase db push`** in Phase 4. Rollback: revert only this merge/commit and redeploy Vercel; no DB rollback required.
 
 ## Post-deploy smoke tests (no real user data changes)
 
@@ -58,6 +60,17 @@ Invoke-RestMethod -Uri 'https://buddyfleets.in/api/health' -Method Get
 - Check existing fleet/portal dashboards, public pricing, login, refresh, logout.
 - In GitHub Actions: `Buddy Fleets Production Liveness` → `Run workflow`. It must pass. Check repository notification preferences; scheduled execution depends on GitHub runner availability.
 - Run read-only SQL from `scripts/phase4-live-readonly-audit.sql` only if further DBA index review is planned.
+
+## Deployment cap verification (Vercel Hobby)
+
+```powershell
+# Must output 12; any 13th `api/**/*.js` file can break Hobby deployment.
+(Get-ChildItem api -Recurse -Filter '*.js' -File).Count
+# `api/health.js` must be absent. `/api/health` is a rewrite into an existing function.
+Test-Path 'api/health.js'
+```
+
+Expected: **12** and **False**. The Vercel rewrite must precede `/(.*)` in `vercel.json`. This is a plain Vite project, not a Next.js function-bundling app.
 
 ## Known limitations and pending housekeeping
 

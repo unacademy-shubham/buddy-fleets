@@ -26,7 +26,29 @@ function normalizePrices(value) {
   return { prices, priceOptions };
 }
 
+// Public liveness is multiplexed through this *existing* Vercel function.
+// /api/health -> /api/public/pricing-plans?__buddy_health=1 in vercel.json.
+// Keep it independent of pricing queries and of service_role environment variables.
+function handlePublicLiveness(req, res) {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  if (!['GET', 'HEAD'].includes(req.method)) {
+    res.setHeader('Allow', 'GET, HEAD');
+    return res.status(405).json({ ok: false, code: 'METHOD_NOT_ALLOWED' });
+  }
+  if (req.method === 'HEAD') return res.status(200).end();
+  return res.status(200).json({
+    ok: true,
+    status: 'up',
+    service: 'buddy-fleets',
+    checkedAt: new Date().toISOString(),
+  });
+}
+
 export default async function handler(req, res) {
+  if (req.query?.__buddy_health === '1') return handlePublicLiveness(req, res);
+
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET');
     return send(res, 405, { ok: false, code: 'METHOD_NOT_ALLOWED' });
