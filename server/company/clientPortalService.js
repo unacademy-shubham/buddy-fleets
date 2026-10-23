@@ -22,7 +22,12 @@ function allPermissions(enabled=true) { return Object.fromEntries(ACTIONS.map(a=
 function viewPermission() { return {...allPermissions(false),view:true,print:true,export:true}; }
 function normalizePermissionSet(value) { const v=value&&typeof value==='object'?value:{}; return Object.fromEntries(ACTIONS.map(a=>[a,Boolean(v[a])])); }
 function normalizeModulePermissions(value) { const out={}; if(value&&typeof value==='object'&&!Array.isArray(value)) for(const [k,v] of Object.entries(value)) out[clean(k,80)]=normalizePermissionSet(v); return out; }
-function siteAllowed(userAccess, siteId) { if (!siteId) return true; return userAccess?.allSites === true || (userAccess?.siteIds || []).includes(siteId); }
+// siteIds comes from this company's non-archived site list; never accept an
+// arbitrary foreign-company site UUID merely because the user has allSites.
+function siteAllowed(userAccess, siteId) {
+  if (!siteId) return true; // Site-less records are company-wide in the current UI.
+  return Array.isArray(userAccess?.siteIds) && userAccess.siteIds.includes(siteId);
+}
 function safeJsonObject(value, maxBytes=20000) {
   const object = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
   const text = JSON.stringify(object);
@@ -109,6 +114,14 @@ function assertSite(userAccess,siteId) {
   if(siteId && !siteAllowed(userAccess,siteId)){
     const e=new Error('SITE_ACCESS_DENIED'); e.status=403; e.code='SITE_ACCESS_DENIED'; throw e;
   }
+}
+// A site-less operational record is company-wide. Site-restricted users may
+// read such shared records, but cannot create, relocate, edit or archive them.
+function assertOperationalSite(userAccess,siteId) {
+  if(!siteId && userAccess?.allSites !== true){
+    const e=new Error('SITE_ACCESS_DENIED'); e.status=403; e.code='SITE_ACCESS_DENIED'; throw e;
+  }
+  assertSite(userAccess,siteId);
 }
 
 async function signedUrl(db,path) {
@@ -343,7 +356,7 @@ async function action({db,companyId,userId,sessionId,currentUser,userAccess,acti
     const r=await db.from('company_portal_sites').insert(row).select('*').single();if(r.error)throw r.error;await audit(db,{companyId,userId,moduleKey:'sites',actionType:'create',entityType:'site',entityId:r.data.id,description:`Created site ${r.data.name}`,afterData:r.data});return {ok:true,site:r.data};
   }
   if(actionName==='create_vehicle'){
-    assertPermission(userAccess,'vehicles','create'); const row={company_id:companyId,...vehiclePayload(p)}; assertSite(userAccess,row.home_site_id); if(!row.vehicle_number) throw Object.assign(new Error('INVALID_VEHICLE'),{status:400,code:'INVALID_VEHICLE'}); const r=await db.from('company_portal_vehicles').insert(row).select('*').single();if(r.error)throw r.error;await audit(db,{companyId,userId,siteId:row.home_site_id,moduleKey:'vehicles',actionType:'create',entityType:'vehicle',entityId:r.data.id,description:`Added vehicle ${r.data.vehicle_number}`});return {ok:true,vehicle:r.data};
+    assertPermission(userAccess,'vehicles','create'); const row={company_id:companyId,...vehiclePayload(p)}; assertSite(userAccess,row.home_site_id); assertSite(userAccess,row.current_site_id); if(!row.vehicle_number) throw Object.assign(new Error('INVALID_VEHICLE'),{status:400,code:'INVALID_VEHICLE'}); const r=await db.from('company_portal_vehicles').insert(row).select('*').single();if(r.error)throw r.error;await audit(db,{companyId,userId,siteId:row.home_site_id,moduleKey:'vehicles',actionType:'create',entityType:'vehicle',entityId:r.data.id,description:`Added vehicle ${r.data.vehicle_number}`});return {ok:true,vehicle:r.data};
   }
   if(actionName==='create_driver'){
     assertPermission(userAccess,'drivers','create'); const row={company_id:companyId,...driverPayload(p)};assertSite(userAccess,row.primary_site_id);if(!row.full_name||!row.mobile)throw Object.assign(new Error('INVALID_DRIVER'),{status:400,code:'INVALID_DRIVER'});const r=await db.from('company_portal_drivers').insert(row).select('*').single();if(r.error)throw r.error;await audit(db,{companyId,userId,siteId:row.primary_site_id,moduleKey:'drivers',actionType:'create',entityType:'driver',entityId:r.data.id,description:`Added driver ${r.data.full_name}`});return {ok:true,driver:{...r.data,photo_url:await signedUrl(db,r.data.photo_path)}};
@@ -369,7 +382,7 @@ async function action({db,companyId,userId,sessionId,currentUser,userAccess,acti
     assertPermission(userAccess,moduleKey,'create');
     const packKey=await currentSelectedPack(db,companyId); await assertModuleInPack(db,packKey,moduleKey);
     const row={company_id:companyId,pack_key:packKey,module_key:moduleKey,...operationalPayload(p),created_by:userId,updated_by:userId};
-    assertSite(userAccess,row.site_id);
+    assertOperationalSite(userAccess,row.site_id);
     const r=await db.from('company_portal_operational_records').insert(row).select('*').single(); if(r.error) throw r.error;
     await audit(db,{companyId,userId,siteId:row.site_id,moduleKey,actionType:'create',entityType:'operational_record',entityId:r.data.id,description:`Created ${moduleKey} record ${row.reference_no||row.title||r.data.id}`});
     return {ok:true,record:flattenOperationalRow(r.data)};
@@ -378,16 +391,36 @@ async function action({db,companyId,userId,sessionId,currentUser,userAccess,acti
     const moduleKey=clean(p.module_key,80),recordId=clean(p.id,80); if(!moduleKey||!uuidLike(recordId)) throw Object.assign(new Error('INVALID_RECORD'),{status:400,code:'INVALID_RECORD'});
     assertPermission(userAccess,moduleKey,'edit');
     const existing=await db.from('company_portal_operational_records').select('*').eq('company_id',companyId).eq('module_key',moduleKey).eq('id',recordId).eq('is_archived',false).maybeSingle(); if(existing.error) throw existing.error; if(!existing.data) throw Object.assign(new Error('RECORD_NOT_FOUND'),{status:404,code:'RECORD_NOT_FOUND'});
-    const patch={...operationalPayload(p),updated_by:userId}; assertSite(userAccess,patch.site_id||existing.data.site_id);
-    const r=await db.from('company_portal_operational_records').update(patch).eq('company_id',companyId).eq('id',recordId).select('*').single(); if(r.error) throw r.error;
+    // Authorize the original row *before* allowing a site transfer. Checking
+    // only the requested destination lets an operator pull records out of a
+    // site that they do not have permission to edit.
+    assertOperationalSite(userAccess,existing.data.site_id);
+    const patch={...operationalPayload(p),updated_by:userId};
+    // A missing site_id should not silently move a row to the company-wide scope.
+    if(!Object.prototype.hasOwnProperty.call(p,'site_id')) patch.site_id=existing.data.site_id;
+    assertOperationalSite(userAccess,patch.site_id);
+    let updateQuery=db.from('company_portal_operational_records').update(patch)
+      .eq('company_id',companyId).eq('module_key',moduleKey).eq('id',recordId).eq('is_archived',false);
+    // Prevent a concurrent site transfer from bypassing the verified scope.
+    updateQuery=existing.data.site_id
+      ? updateQuery.eq('site_id',existing.data.site_id)
+      : updateQuery.is('site_id',null);
+    const r=await updateQuery.select('*').maybeSingle(); if(r.error) throw r.error;
+    if(!r.data) throw Object.assign(new Error('RECORD_CHANGED_RETRY'),{status:409,code:'RECORD_CHANGED_RETRY'});
     await audit(db,{companyId,userId,siteId:r.data.site_id,moduleKey,actionType:'edit',entityType:'operational_record',entityId:recordId,description:`Updated ${moduleKey} record`,beforeData:existing.data,afterData:r.data});
     return {ok:true,record:flattenOperationalRow(r.data)};
   }
   if(actionName==='archive_operational_record'){
     const moduleKey=clean(p.module_key,80),recordId=clean(p.id,80); if(!moduleKey||!uuidLike(recordId)) throw Object.assign(new Error('INVALID_RECORD'),{status:400,code:'INVALID_RECORD'});
     assertPermission(userAccess,moduleKey,'delete');
-    const existing=await db.from('company_portal_operational_records').select('*').eq('company_id',companyId).eq('module_key',moduleKey).eq('id',recordId).eq('is_archived',false).maybeSingle(); if(existing.error) throw existing.error; if(!existing.data) throw Object.assign(new Error('RECORD_NOT_FOUND'),{status:404,code:'RECORD_NOT_FOUND'}); assertSite(userAccess,existing.data.site_id);
-    const r=await db.from('company_portal_operational_records').update({is_archived:true,status:'archived',updated_by:userId}).eq('company_id',companyId).eq('id',recordId); if(r.error) throw r.error;
+    const existing=await db.from('company_portal_operational_records').select('*').eq('company_id',companyId).eq('module_key',moduleKey).eq('id',recordId).eq('is_archived',false).maybeSingle(); if(existing.error) throw existing.error; if(!existing.data) throw Object.assign(new Error('RECORD_NOT_FOUND'),{status:404,code:'RECORD_NOT_FOUND'}); assertOperationalSite(userAccess,existing.data.site_id);
+    let archiveQuery=db.from('company_portal_operational_records').update({is_archived:true,status:'archived',updated_by:userId})
+      .eq('company_id',companyId).eq('module_key',moduleKey).eq('id',recordId).eq('is_archived',false);
+    archiveQuery=existing.data.site_id
+      ? archiveQuery.eq('site_id',existing.data.site_id)
+      : archiveQuery.is('site_id',null);
+    const r=await archiveQuery.select('id').maybeSingle(); if(r.error) throw r.error;
+    if(!r.data) throw Object.assign(new Error('RECORD_CHANGED_RETRY'),{status:409,code:'RECORD_CHANGED_RETRY'});
     await audit(db,{companyId,userId,siteId:existing.data.site_id,moduleKey,actionType:'delete',entityType:'operational_record',entityId:recordId,description:`Archived ${moduleKey} record`,beforeData:existing.data});
     return {ok:true};
   }
@@ -410,7 +443,9 @@ async function action({db,companyId,userId,sessionId,currentUser,userAccess,acti
       const roleR=await db.from('company_portal_roles').select('id,role_key,name').eq('company_id',companyId).or(`name.ilike.${requestedRole},role_key.eq.${slug(requestedRole)}`).limit(1).maybeSingle(); if(roleR.error) throw roleR.error;
       const emp=await db.from('developer_company_employees').insert({company_id:companyId,user_id:newUserId,full_name:fullName,email,mobile:nullable(p.mobile,30),employee_code:nullable(p.employee_code,50),designation:nullable(p.designation,120),branch:null,role_key:roleR.data?.role_key||slug(requestedRole),status:'active',force_password_change:Boolean(p.force_password_change),created_by:userId,updated_by:userId}).select('*').single();if(emp.error)throw emp.error;
       const siteIds=Array.isArray(p.site_ids)?p.site_ids.filter(uuidLike):[];for(const s of siteIds)assertSite(userAccess,s);
-      const a=await db.from('company_portal_user_access').insert({company_id:companyId,user_id:newUserId,role_id:roleR.data?.id||null,role_name:roleR.data?.name||requestedRole,primary_site_id:uuidLike(p.primary_site_id)?p.primary_site_id:null,site_ids:siteIds,all_sites:false,module_overrides:{},permission_overrides:{},force_password_change:Boolean(p.force_password_change)});if(a.error)throw a.error;
+      const primarySiteId=uuidLike(p.primary_site_id)?p.primary_site_id:null;
+      assertSite(userAccess,primarySiteId);
+      const a=await db.from('company_portal_user_access').insert({company_id:companyId,user_id:newUserId,role_id:roleR.data?.id||null,role_name:roleR.data?.name||requestedRole,primary_site_id:primarySiteId,site_ids:siteIds,all_sites:false,module_overrides:{},permission_overrides:{},force_password_change:Boolean(p.force_password_change)});if(a.error)throw a.error;
       const pr=await db.from('company_portal_user_profiles').insert({company_id:companyId,user_id:newUserId,employee_code:nullable(p.employee_code,50),full_name:fullName,designation:nullable(p.designation,120),department:nullable(p.department,120),mobile:nullable(p.mobile,30),email,photo_path:nullable(p.photo_path,600)});if(pr.error)throw pr.error;
       await audit(db,{companyId,userId,moduleKey:'users_roles',actionType:'create',entityType:'user',entityId:newUserId,description:`Created user ${fullName}`});return {ok:true,user_id:newUserId};
     }catch(e){await db.auth.admin.deleteUser(newUserId).catch(()=>{});throw e;}
@@ -419,11 +454,13 @@ async function action({db,companyId,userId,sessionId,currentUser,userAccess,acti
     assertPermission(userAccess,'users_roles','manage'); if(!userAccess.isAdmin)throw Object.assign(new Error('ADMIN_REQUIRED'),{status:403,code:'ADMIN_REQUIRED'});
     const target=clean(p.user_id,80); await assertTargetIsNotAccountOwner(db,companyId,target);
     const siteIds=Array.isArray(p.site_ids)?p.site_ids.filter(uuidLike):[]; for(const s of siteIds) assertSite(userAccess,s);
+    const primarySiteId=uuidLike(p.primary_site_id)?p.primary_site_id:null;
+    assertSite(userAccess,primarySiteId);
     const roleName=clean(p.role_name,100)||'Viewer';
     const roleR=await db.from('company_portal_roles').select('id,role_key,name').eq('company_id',companyId).or(`name.ilike.${roleName},role_key.eq.${slug(roleName)}`).limit(1).maybeSingle(); if(roleR.error) throw roleR.error;
     const permissions=normalizeModulePermissions(p.module_permissions);
     const moduleOverrides={}; for(const [key,set] of Object.entries(permissions)) moduleOverrides[key]={enabled:Boolean(set.view),access_level:set.create||set.edit||set.delete||set.approve||set.verify||set.manage?'full':set.view?'read_only':'blocked'};
-    const row={company_id:companyId,user_id:target,role_id:roleR.data?.id||null,role_name:roleR.data?.name||roleName,site_ids:siteIds,all_sites:Boolean(p.all_sites),primary_site_id:uuidLike(p.primary_site_id)?p.primary_site_id:null,module_overrides:moduleOverrides,permission_overrides:permissions,updated_at:new Date().toISOString()};
+    const row={company_id:companyId,user_id:target,role_id:roleR.data?.id||null,role_name:roleR.data?.name||roleName,site_ids:siteIds,all_sites:Boolean(p.all_sites),primary_site_id:primarySiteId,module_overrides:moduleOverrides,permission_overrides:permissions,updated_at:new Date().toISOString()};
     const r=await db.from('company_portal_user_access').upsert(row,{onConflict:'company_id,user_id'}).select('*').single();if(r.error)throw r.error;
     await db.from('developer_company_employees').update({role_key:roleR.data?.role_key||slug(roleName),updated_by:userId,updated_at:new Date().toISOString()}).eq('company_id',companyId).eq('user_id',target);
     await audit(db,{companyId,userId,moduleKey:'users_roles',actionType:'manage',entityType:'user_access',entityId:target,description:'Updated user modules, actions and site access'});return {ok:true,access:r.data};
@@ -456,7 +493,21 @@ async function action({db,companyId,userId,sessionId,currentUser,userAccess,acti
     const r=await db.from('security_sessions').update({status:'revoked',revoked_at:new Date().toISOString(),revoke_reason:'USER_REVOKED_OTHER_SESSIONS'}).eq('company_id',companyId).eq('user_id',userId).eq('status','active').neq('id',sessionId);if(r.error)throw r.error;await audit(db,{companyId,userId,moduleKey:'profile',actionType:'session_revoke',entityType:'user',entityId:userId,description:'User revoked other sessions'});return {ok:true};
   }
   if(actionName==='upload_photo'){
-    const ownerType=clean(p.ownerType,20),ownerId=clean(p.ownerId,80);if(!['user','driver'].includes(ownerType))throw Object.assign(new Error('INVALID_PHOTO_TARGET'),{status:400,code:'INVALID_PHOTO_TARGET'});if(ownerType==='user'&&ownerId!==userId){assertPermission(userAccess,'users_roles','edit');if(!userAccess.isAdmin)throw Object.assign(new Error('ADMIN_REQUIRED'),{status:403,code:'ADMIN_REQUIRED'});}if(ownerType==='driver')assertPermission(userAccess,'drivers','edit');const match=String(p.dataUrl||'').match(/^data:image\/(jpeg|jpg|png|webp);base64,([A-Za-z0-9+/=]+)$/);if(!match)throw Object.assign(new Error('INVALID_IMAGE'),{status:400,code:'INVALID_IMAGE'});const bytes=Buffer.from(match[2],'base64');if(bytes.length>1048576)throw Object.assign(new Error('IMAGE_TOO_LARGE'),{status:413,code:'IMAGE_TOO_LARGE'});const ext=match[1]==='jpg'?'jpeg':match[1];const finalOwnerId=uuidLike(ownerId)?ownerId:`pending-${crypto.randomUUID()}`;const path=`company/${companyId}/${ownerType}s/${finalOwnerId}.${ext==='jpeg'?'jpg':ext}`;const up=await db.storage.from(PHOTO_BUCKET).upload(path,bytes,{contentType:`image/${ext}`,upsert:true});if(up.error)throw up.error;if(ownerType==='user'&&uuidLike(ownerId)){const r=await db.from('company_portal_user_profiles').upsert({company_id:companyId,user_id:ownerId,photo_path:path,updated_at:new Date().toISOString()},{onConflict:'company_id,user_id'});if(r.error)throw r.error;}if(ownerType==='driver'&&uuidLike(ownerId)){const r=await db.from('company_portal_drivers').update({photo_path:path,updated_at:new Date().toISOString()}).eq('company_id',companyId).eq('id',ownerId);if(r.error)throw r.error;}return {ok:true,path,photoUrl:await signedUrl(db,path)};
+    const ownerType=clean(p.ownerType,20),ownerId=clean(p.ownerId,80);if(!['user','driver'].includes(ownerType))throw Object.assign(new Error('INVALID_PHOTO_TARGET'),{status:400,code:'INVALID_PHOTO_TARGET'});if(ownerType==='user'&&ownerId!==userId){assertPermission(userAccess,'users_roles','edit');if(!userAccess.isAdmin)throw Object.assign(new Error('ADMIN_REQUIRED'),{status:403,code:'ADMIN_REQUIRED'});}if(ownerType==='driver'){
+      assertPermission(userAccess,'drivers','edit');
+      if(!uuidLike(ownerId))throw Object.assign(new Error('INVALID_PHOTO_TARGET'),{status:400,code:'INVALID_PHOTO_TARGET'});
+      const target=await db.from('company_portal_drivers').select('primary_site_id').eq('company_id',companyId).eq('id',ownerId).maybeSingle();
+      if(target.error)throw target.error;
+      if(!target.data)throw Object.assign(new Error('DRIVER_NOT_FOUND'),{status:404,code:'DRIVER_NOT_FOUND'});
+      assertSite(userAccess,target.data.primary_site_id);
+    }
+    if(ownerType==='user'&&ownerId!==userId){
+      if(!uuidLike(ownerId))throw Object.assign(new Error('INVALID_PHOTO_TARGET'),{status:400,code:'INVALID_PHOTO_TARGET'});
+      const member=await db.from('company_memberships').select('user_id').eq('company_id',companyId).eq('user_id',ownerId).maybeSingle();
+      if(member.error)throw member.error;
+      if(!member.data)throw Object.assign(new Error('USER_NOT_FOUND'),{status:404,code:'USER_NOT_FOUND'});
+    }
+    const match=String(p.dataUrl||'').match(/^data:image\/(jpeg|jpg|png|webp);base64,([A-Za-z0-9+/=]+)$/);if(!match)throw Object.assign(new Error('INVALID_IMAGE'),{status:400,code:'INVALID_IMAGE'});const bytes=Buffer.from(match[2],'base64');if(bytes.length>1048576)throw Object.assign(new Error('IMAGE_TOO_LARGE'),{status:413,code:'IMAGE_TOO_LARGE'});const ext=match[1]==='jpg'?'jpeg':match[1];const finalOwnerId=uuidLike(ownerId)?ownerId:`pending-${crypto.randomUUID()}`;const path=`company/${companyId}/${ownerType}s/${finalOwnerId}.${ext==='jpeg'?'jpg':ext}`;const up=await db.storage.from(PHOTO_BUCKET).upload(path,bytes,{contentType:`image/${ext}`,upsert:true});if(up.error)throw up.error;if(ownerType==='user'&&uuidLike(ownerId)){const r=await db.from('company_portal_user_profiles').upsert({company_id:companyId,user_id:ownerId,photo_path:path,updated_at:new Date().toISOString()},{onConflict:'company_id,user_id'});if(r.error)throw r.error;}if(ownerType==='driver'&&uuidLike(ownerId)){const r=await db.from('company_portal_drivers').update({photo_path:path,updated_at:new Date().toISOString()}).eq('company_id',companyId).eq('id',ownerId);if(r.error)throw r.error;}return {ok:true,path,photoUrl:await signedUrl(db,path)};
   }
   if(actionName==='gst_lookup'){
     const gstin=normalizeGstin(p.gstin);if(!validGstin(gstin))throw Object.assign(new Error('INVALID_GSTIN'),{status:400,code:'INVALID_GSTIN'});const existing=await db.from('company_portal_parties').select('*').eq('company_id',companyId).eq('gstin',gstin).maybeSingle();if(existing.error)throw existing.error;if(existing.data)return {ok:true,source:'existing_party',gst:{gstin,legalName:existing.data.legal_name||'',tradeName:existing.data.trade_name||existing.data.party_name||'',status:existing.data.gst_status||'',address:existing.data.address||'',city:existing.data.city||'',state:existing.data.state||'',stateCode:existing.data.state_code||gstin.slice(0,2),pincode:existing.data.pincode||'',pan:existing.data.pan||gstin.slice(2,12),verified:existing.data.gst_verified===true}};const url=process.env.GST_LOOKUP_URL;if(!url)return {ok:false,code:'GST_PROVIDER_NOT_CONFIGURED',message:'GST lookup provider is not configured.'};const headers={'Content-Type':'application/json','Accept':'application/json'};if(process.env.GST_LOOKUP_BEARER_TOKEN)headers.Authorization=`Bearer ${process.env.GST_LOOKUP_BEARER_TOKEN}`;if(process.env.GST_LOOKUP_API_KEY)headers['X-API-Key']=process.env.GST_LOOKUP_API_KEY;const resp=await fetch(url,{method:'POST',headers,body:JSON.stringify({gstin}),signal:AbortSignal.timeout(8000)});const json=await resp.json().catch(()=>({}));if(!resp.ok)throw Object.assign(new Error('GST_LOOKUP_FAILED'),{status:502,code:'GST_LOOKUP_FAILED'});const d=json.data||json.result||json;return {ok:true,source:'provider',gst:{gstin,legalName:d.legal_name||d.legalName||d.lgnm||'',tradeName:d.trade_name||d.tradeName||d.tradeNam||'',status:d.status||d.gst_status||d.sts||'',address:d.address||d.pradr?.adr||'',city:d.city||'',state:d.state||'',stateCode:d.state_code||gstin.slice(0,2),pincode:d.pincode||d.pin||'',pan:gstin.slice(2,12),verified:true}};
