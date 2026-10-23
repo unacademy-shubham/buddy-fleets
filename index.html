@@ -9,6 +9,23 @@
       content="width=device-width, initial-scale=1.0"
     />
 
+    <!-- Phase 5: tiny first-paint theme fallback before cacheable Vite CSS loads. -->
+    <script>
+      try {
+        const savedTheme = localStorage.getItem('buddy_fleets_theme');
+        if (savedTheme === 'light' || savedTheme === 'dark') {
+          document.documentElement.dataset.theme = savedTheme;
+          document.documentElement.style.colorScheme = savedTheme;
+        }
+      } catch (_) { /* Private browsing or blocked storage: default to dark. */ }
+    </script>
+    <style data-bf-critical-paint>
+      html { background: #070b14; color-scheme: dark; }
+      html[data-theme="light"] { background: #f6fbff; color-scheme: light; }
+      body { margin: 0; min-height: 100vh; background: inherit; }
+      #root { min-height: 100vh; }
+    </style>
+
     <!-- =====================================================
          PRIMARY SEO
     ====================================================== -->

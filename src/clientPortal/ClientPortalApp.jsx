@@ -1,26 +1,26 @@
-import React,{useCallback,useEffect,useMemo,useState} from 'react';
+import React,{lazy,Suspense,useCallback,useEffect,useMemo,useState} from 'react';
 import {useLocation,useNavigate,useParams} from 'react-router-dom';
 import './clientPortal.css';
 import './clientPortalTheme.css';
 import {ClientPortalProvider} from './ClientPortalContext';
 import ClientPortalShell from './components/ClientPortalShell';
-import DashboardPage from './pages/DashboardPage';
-import SitesPage from './pages/SitesPage';
-import UsersPage from './pages/UsersPage';
-import VehiclesPage from './pages/VehiclesPage';
-import DriversPage from './pages/DriversPage';
-import PartiesPage from './pages/PartiesPage';
-import ReportsPage from './pages/ReportsPage';
-import TravelsPage from './pages/TravelsPage';
-import CementPage from './pages/CementPage';
-import FinancePage from './pages/FinancePage';
-import SettingsPage from './pages/SettingsPage';
-import ProfileSecurityPage from './pages/ProfileSecurityPage';
-import SubscriptionPage from './pages/SubscriptionPage';
-import AuditActivityPage from './pages/AuditActivityPage';
-import FleetWorkspacePage from './pages/FleetWorkspacePage';
-import FleetPackSetupPage from './pages/FleetPackSetupPage';
-import ComingSoonPage from './pages/ComingSoonPage';
+const DashboardPage=lazy(()=>import('./pages/DashboardPage'));
+const SitesPage=lazy(()=>import('./pages/SitesPage'));
+const UsersPage=lazy(()=>import('./pages/UsersPage'));
+const VehiclesPage=lazy(()=>import('./pages/VehiclesPage'));
+const DriversPage=lazy(()=>import('./pages/DriversPage'));
+const PartiesPage=lazy(()=>import('./pages/PartiesPage'));
+const ReportsPage=lazy(()=>import('./pages/ReportsPage'));
+const TravelsPage=lazy(()=>import('./pages/TravelsPage'));
+const CementPage=lazy(()=>import('./pages/CementPage'));
+const FinancePage=lazy(()=>import('./pages/FinancePage'));
+const SettingsPage=lazy(()=>import('./pages/SettingsPage'));
+const ProfileSecurityPage=lazy(()=>import('./pages/ProfileSecurityPage'));
+const SubscriptionPage=lazy(()=>import('./pages/SubscriptionPage'));
+const AuditActivityPage=lazy(()=>import('./pages/AuditActivityPage'));
+const FleetWorkspacePage=lazy(()=>import('./pages/FleetWorkspacePage'));
+const FleetPackSetupPage=lazy(()=>import('./pages/FleetPackSetupPage'));
+const ComingSoonPage=lazy(()=>import('./pages/ComingSoonPage'));
 import {clientPortalApi} from './services/clientPortalApi';
 import {getModuleByRoute} from './config/moduleCatalog';
 
@@ -110,7 +110,7 @@ export default function ClientPortalApp({currentUser,onLogout}){
 
   return <ClientPortalProvider value={value}>
     <ClientPortalShell>
-      <PageForRoute route={route} allowedKeys={state.userAccess?.moduleKeys||[]} setupRequired={state.runtime?.fleetPackSetupRequired===true}/>
+      <Suspense fallback={<div className="bf-card bf-card-body" role="status">Loading module…</div>}><PageForRoute route={route} allowedKeys={state.userAccess?.moduleKeys||[]} setupRequired={state.runtime?.fleetPackSetupRequired===true}/></Suspense>
     </ClientPortalShell>
   </ClientPortalProvider>;
 }

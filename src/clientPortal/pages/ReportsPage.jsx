@@ -1,5 +1,4 @@
 import React,{useMemo,useState} from 'react';
-import * as XLSX from 'xlsx';
 import {Download,Printer} from 'lucide-react';
 import PageHeader from '../components/PageHeader';
 import DataTable from '../components/DataTable';
@@ -62,6 +61,8 @@ export default function ReportsPage(){
   const {company,data,sites=[],selectedSiteId}=useClientPortal();
   const pack=getFleetPack(company?.fleetPack);
   const [report,setReport]=useState(pack?.reports?.[0]||'Fleet Summary');
+  const [exporting,setExporting]=useState(false);
+  const [exportError,setExportError]=useState('');
   const siteName=id=>sites.find(s=>s.id===id)?.name||'—';
   const siteOk=r=>selectedSiteId==='all'||(r.site_id||r.home_site_id||r.primary_site_id)===selectedSiteId;
 
@@ -83,10 +84,26 @@ export default function ReportsPage(){
     return [];
   },[report,data,selectedSiteId,company?.fleetPack,sites]);
 
-  const exportExcel=()=>{const ws=XLSX.utils.json_to_sheet(rows);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Report');XLSX.writeFile(wb,`${report.replace(/[^a-z0-9]+/gi,'_')}.xlsx`)};
+  const exportExcel=async()=>{
+    if(exporting||!rows.length)return;
+    setExporting(true);
+    setExportError('');
+    try{
+      const XLSX=await import('xlsx');
+      const ws=XLSX.utils.json_to_sheet(rows);
+      const wb=XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb,ws,'Report');
+      XLSX.writeFile(wb,`${report.replace(/[^a-z0-9]+/gi,'_')}.xlsx`);
+    }catch{
+      setExportError('Excel export could not load. Please try again.');
+    }finally{
+      setExporting(false);
+    }
+  };
   const columns=rows.length?Object.keys(rows[0]).map(k=>({key:k,label:k,render:k==='Status'?(v=><span className={`bf-status ${String(v||'').replaceAll(' ','_')}`}>{v}</span>):undefined})):[{key:'empty',label:'Report'}];
   return <>
-    <PageHeader title="Reports" subtitle="Backend-connected, site-scoped operational reports with consolidated All Authorized Sites view." actions={<><button className="bf-btn bf-btn-secondary" onClick={()=>window.print()}><Printer size={14}/> Print / PDF</button><button className="bf-btn bf-btn-primary" onClick={exportExcel} disabled={!rows.length}><Download size={14}/> Export Excel</button></>}/>
+    <PageHeader title="Reports" subtitle="Backend-connected, site-scoped operational reports with consolidated All Authorized Sites view." actions={<><button className="bf-btn bf-btn-secondary" onClick={()=>window.print()}><Printer size={14}/> Print / PDF</button><button className="bf-btn bf-btn-primary" onClick={exportExcel} disabled={!rows.length||exporting}><Download size={14}/> {exporting?'Preparing Excel…':'Export Excel'}</button></>}/>
+    {exportError&&<p role="alert" className="bf-muted">{exportError}</p>}
     <div className="bf-card" style={{marginBottom:16}}><div className="bf-toolbar"><div className="bf-toolbar-left"><label className="bf-field"><span style={{fontSize:9,fontWeight:800}}>REPORT</span><select className="bf-select" value={report} onChange={e=>setReport(e.target.value)}>{(pack?.reports||['Fleet Summary']).map(r=><option key={r}>{r}</option>)}</select></label></div><div className="bf-muted" style={{fontSize:10}}>Rows: {rows.length}</div></div></div>
     <div className="bf-card"><DataTable columns={columns} rows={rows}/></div>
   </>;
